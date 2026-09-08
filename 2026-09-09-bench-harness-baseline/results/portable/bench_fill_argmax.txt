@@ -1,0 +1,80 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/fill_argmax.rs (target/release/deps/fill_argmax-35d2e1faa91b13b0)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking fill/large_2048x2048-zeros/serial_f64
+Benchmarking fill/large_2048x2048-zeros/serial_f64: Warming up for 700.00 ms
+Benchmarking fill/large_2048x2048-zeros/serial_f64: Collecting 100 samples in estimated 2.0094 s (884k iterations)
+Benchmarking fill/large_2048x2048-zeros/serial_f64: Analyzing
+fill/large_2048x2048-zeros/serial_f64
+                        time:   [2.2547 µs 2.2668 µs 2.2798 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+Benchmarking fill/large_2048x2048-zeros/faer16_f64
+Benchmarking fill/large_2048x2048-zeros/faer16_f64: Warming up for 700.00 ms
+Benchmarking fill/large_2048x2048-zeros/faer16_f64: Collecting 100 samples in estimated 2.0051 s (879k iterations)
+Benchmarking fill/large_2048x2048-zeros/faer16_f64: Analyzing
+fill/large_2048x2048-zeros/faer16_f64
+                        time:   [2.2999 µs 2.3110 µs 2.3221 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) low mild
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking fill/large_2048x2048-full/serial_f64
+Benchmarking fill/large_2048x2048-full/serial_f64: Warming up for 700.00 ms
+Benchmarking fill/large_2048x2048-full/serial_f64: Collecting 100 samples in estimated 2.2593 s (500 iterations)
+Benchmarking fill/large_2048x2048-full/serial_f64: Analyzing
+fill/large_2048x2048-full/serial_f64
+                        time:   [4.4794 ms 4.4874 ms 4.4956 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking fill/large_2048x2048-full/faer16_f64
+Benchmarking fill/large_2048x2048-full/faer16_f64: Warming up for 700.00 ms
+Benchmarking fill/large_2048x2048-full/faer16_f64: Collecting 100 samples in estimated 2.3285 s (500 iterations)
+Benchmarking fill/large_2048x2048-full/faer16_f64: Analyzing
+fill/large_2048x2048-full/faer16_f64
+                        time:   [4.6492 ms 4.6669 ms 4.6842 ms]
+Found 18 outliers among 100 measurements (18.00%)
+  1 (1.00%) low severe
+  14 (14.00%) low mild
+  3 (3.00%) high mild
+
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking argmax/medium_1000000-serial_f64/argmax
+Benchmarking argmax/medium_1000000-serial_f64/argmax: Warming up for 700.00 ms
+Benchmarking argmax/medium_1000000-serial_f64/argmax: Collecting 100 samples in estimated 2.8127 s (300 iterations)
+Benchmarking argmax/medium_1000000-serial_f64/argmax: Analyzing
+argmax/medium_1000000-serial_f64/argmax
+                        time:   [9.3299 ms 9.3320 ms 9.3341 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) low mild
+Benchmarking argmax/medium_1000000-faer16_f64/argmax
+Benchmarking argmax/medium_1000000-faer16_f64/argmax: Warming up for 700.00 ms
+Benchmarking argmax/medium_1000000-faer16_f64/argmax: Collecting 100 samples in estimated 2.0440 s (1700 iterations)
+Benchmarking argmax/medium_1000000-faer16_f64/argmax: Analyzing
+argmax/medium_1000000-faer16_f64/argmax
+                        time:   [1.2064 ms 1.2087 ms 1.2111 ms]
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) high mild
+Benchmarking argmax/large_10000000-serial_f64/argmax
+Benchmarking argmax/large_10000000-serial_f64/argmax: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 9.5s, or reduce sample count to 20.
+Benchmarking argmax/large_10000000-serial_f64/argmax: Collecting 100 samples in estimated 9.4524 s (100 iterations)
+Benchmarking argmax/large_10000000-serial_f64/argmax: Analyzing
+argmax/large_10000000-serial_f64/argmax
+                        time:   [93.474 ms 93.526 ms 93.573 ms]
+Found 13 outliers among 100 measurements (13.00%)
+  4 (4.00%) low severe
+  2 (2.00%) low mild
+  7 (7.00%) high mild
+Benchmarking argmax/large_10000000-faer16_f64/argmax
+Benchmarking argmax/large_10000000-faer16_f64/argmax: Warming up for 700.00 ms
+Benchmarking argmax/large_10000000-faer16_f64/argmax: Collecting 100 samples in estimated 2.1212 s (200 iterations)
+Benchmarking argmax/large_10000000-faer16_f64/argmax: Analyzing
+argmax/large_10000000-faer16_f64/argmax
+                        time:   [10.709 ms 10.755 ms 10.804 ms]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+

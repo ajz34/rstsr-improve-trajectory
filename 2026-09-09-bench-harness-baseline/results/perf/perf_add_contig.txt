@@ -1,0 +1,22 @@
+# started on Wed Sep  9 01:14:37 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops add_contig':
+
+            674.12 msec task-clock                                                            
+     3,839,096,388      cycles                                                                  (62.37%)
+     5,398,275,568      instructions                                                            (62.63%)
+       893,538,781      branches                                                                (62.63%)
+         2,174,073      branch-misses                                                           (62.62%)
+     2,504,243,103      L1-dcache-loads                                                         (62.63%)
+       200,809,288      L1-dcache-load-misses                                                   (62.54%)
+       440,822,031      cache-references                                                        (62.30%)
+        91,845,587      cache-misses                                                            (62.28%)
+           843,963      page-faults                                                           
+
+       0.674593524 seconds time elapsed
+
+       0.267582000 seconds user
+       0.406886000 seconds sys
+
+

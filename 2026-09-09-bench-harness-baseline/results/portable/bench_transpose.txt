@@ -1,0 +1,98 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/transpose.rs (target/release/deps/transpose-95196548e42e48ce)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking transpose_copy/small_64x64-serial_f64/to_contig
+Benchmarking transpose_copy/small_64x64-serial_f64/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/small_64x64-serial_f64/to_contig: Collecting 100 samples in estimated 2.0433 s (152k iterations)
+Benchmarking transpose_copy/small_64x64-serial_f64/to_contig: Analyzing
+transpose_copy/small_64x64-serial_f64/to_contig
+                        time:   [13.530 µs 13.607 µs 13.706 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  1 (1.00%) high mild
+  4 (4.00%) high severe
+Benchmarking transpose_copy/small_64x64-faer16_f64/to_contig
+Benchmarking transpose_copy/small_64x64-faer16_f64/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/small_64x64-faer16_f64/to_contig: Collecting 100 samples in estimated 2.0048 s (146k iterations)
+Benchmarking transpose_copy/small_64x64-faer16_f64/to_contig: Analyzing
+transpose_copy/small_64x64-faer16_f64/to_contig
+                        time:   [13.521 µs 13.526 µs 13.532 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  6 (6.00%) high mild
+Benchmarking transpose_copy/medium_512x512-serial_f64/to_contig
+Benchmarking transpose_copy/medium_512x512-serial_f64/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/medium_512x512-serial_f64/to_contig: Collecting 100 samples in estimated 2.0377 s (2500 iterations)
+Benchmarking transpose_copy/medium_512x512-serial_f64/to_contig: Analyzing
+transpose_copy/medium_512x512-serial_f64/to_contig
+                        time:   [811.21 µs 811.81 µs 812.67 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  4 (4.00%) high mild
+  2 (2.00%) high severe
+Benchmarking transpose_copy/medium_512x512-faer16_f64/to_contig
+Benchmarking transpose_copy/medium_512x512-faer16_f64/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/medium_512x512-faer16_f64/to_contig: Collecting 100 samples in estimated 2.0856 s (10k iterations)
+Benchmarking transpose_copy/medium_512x512-faer16_f64/to_contig: Analyzing
+transpose_copy/medium_512x512-faer16_f64/to_contig
+                        time:   [204.22 µs 205.11 µs 206.10 µs]
+Found 12 outliers among 100 measurements (12.00%)
+  3 (3.00%) low mild
+  7 (7.00%) high mild
+  2 (2.00%) high severe
+Benchmarking transpose_copy/large_2048x2048-serial_f64/to_contig
+Benchmarking transpose_copy/large_2048x2048-serial_f64/to_contig: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.2s, or reduce sample count to 90.
+Benchmarking transpose_copy/large_2048x2048-serial_f64/to_contig: Collecting 100 samples in estimated 2.1874 s (100 iterations)
+Benchmarking transpose_copy/large_2048x2048-serial_f64/to_contig: Analyzing
+transpose_copy/large_2048x2048-serial_f64/to_contig
+                        time:   [21.663 ms 21.731 ms 21.805 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/to_contig
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/to_contig: Collecting 100 samples in estimated 2.2808 s (700 iterations)
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/to_contig: Analyzing
+transpose_copy/large_2048x2048-faer16_f64/to_contig
+                        time:   [3.4695 ms 3.5148 ms 3.5570 ms]
+Found 12 outliers among 100 measurements (12.00%)
+  6 (6.00%) low severe
+  6 (6.00%) low mild
+Benchmarking transpose_copy/odd_1000x777-serial_f64/to_contig
+Benchmarking transpose_copy/odd_1000x777-serial_f64/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-serial_f64/to_contig: Collecting 100 samples in estimated 2.2414 s (900 iterations)
+Benchmarking transpose_copy/odd_1000x777-serial_f64/to_contig: Analyzing
+transpose_copy/odd_1000x777-serial_f64/to_contig
+                        time:   [2.4263 ms 2.4294 ms 2.4332 ms]
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/to_contig
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/to_contig: Collecting 100 samples in estimated 3.6171 s (10k iterations)
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/to_contig: Analyzing
+transpose_copy/odd_1000x777-faer16_f64/to_contig
+                        time:   [360.75 µs 362.52 µs 364.93 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  2 (2.00%) low severe
+  1 (1.00%) low mild
+  6 (6.00%) high mild
+  2 (2.00%) high severe
+Benchmarking transpose_copy/large_2048x2048-serial_f32/to_contig
+Benchmarking transpose_copy/large_2048x2048-serial_f32/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-serial_f32/to_contig: Collecting 100 samples in estimated 3.1344 s (200 iterations)
+Benchmarking transpose_copy/large_2048x2048-serial_f32/to_contig: Analyzing
+transpose_copy/large_2048x2048-serial_f32/to_contig
+                        time:   [15.394 ms 15.425 ms 15.458 ms]
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/to_contig
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/to_contig: Collecting 100 samples in estimated 2.0052 s (1500 iterations)
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/to_contig: Analyzing
+transpose_copy/large_2048x2048-faer16_f32/to_contig
+                        time:   [1.3408 ms 1.3444 ms 1.3483 ms]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+

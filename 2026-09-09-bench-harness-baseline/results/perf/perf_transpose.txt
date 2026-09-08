@@ -1,0 +1,22 @@
+# started on Wed Sep  9 01:14:36 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops transpose':
+
+            919.25 msec task-clock                                                            
+     5,094,335,306      cycles                                                                  (62.47%)
+    20,545,348,244      instructions                                                            (62.37%)
+     4,325,540,403      branches                                                                (62.36%)
+           979,016      branch-misses                                                           (62.37%)
+    11,002,009,556      L1-dcache-loads                                                         (62.55%)
+       309,540,888      L1-dcache-load-misses                                                   (62.66%)
+       686,618,114      cache-references                                                        (62.64%)
+        42,340,572      cache-misses                                                            (62.57%)
+           344,189      page-faults                                                           
+
+       0.919799208 seconds time elapsed
+
+       0.678464000 seconds user
+       0.241164000 seconds sys
+
+

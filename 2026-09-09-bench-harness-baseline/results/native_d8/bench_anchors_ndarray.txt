@@ -1,0 +1,129 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/anchors_ndarray.rs (target/release/deps/anchors_ndarray-f33744eac25fcda5)
+Gnuplot not found, using plotters backend
+Benchmarking anchor_ndarray/large_2048x2048-f64/transpose_copy
+Benchmarking anchor_ndarray/large_2048x2048-f64/transpose_copy: Warming up for 700.00 ms
+Benchmarking anchor_ndarray/large_2048x2048-f64/transpose_copy: Collecting 100 samples in estimated 2.1504 s (400 iterations)
+Benchmarking anchor_ndarray/large_2048x2048-f64/transpose_copy: Analyzing
+anchor_ndarray/large_2048x2048-f64/transpose_copy
+                        time:   [5.3463 ms 5.3645 ms 5.3846 ms]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking anchor_ndarray/large_2048x2048-f64/sum_axis0
+Benchmarking anchor_ndarray/large_2048x2048-f64/sum_axis0: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.0s, enable flat sampling, or reduce sample count to 50.
+Benchmarking anchor_ndarray/large_2048x2048-f64/sum_axis0: Collecting 100 samples in estimated 3.0356 s (5050 iterations)
+Benchmarking anchor_ndarray/large_2048x2048-f64/sum_axis0: Analyzing
+anchor_ndarray/large_2048x2048-f64/sum_axis0
+                        time:   [581.54 µs 587.70 µs 596.16 µs]
+Found 14 outliers among 100 measurements (14.00%)
+  4 (4.00%) low severe
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+Benchmarking anchor_ndarray/large_2048x2048-f64/sum_axislast
+Benchmarking anchor_ndarray/large_2048x2048-f64/sum_axislast: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.3s, enable flat sampling, or reduce sample count to 60.
+Benchmarking anchor_ndarray/large_2048x2048-f64/sum_axislast: Collecting 100 samples in estimated 2.2610 s (5050 iterations)
+Benchmarking anchor_ndarray/large_2048x2048-f64/sum_axislast: Analyzing
+anchor_ndarray/large_2048x2048-f64/sum_axislast
+                        time:   [441.28 µs 443.92 µs 446.57 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+Benchmarking anchor_ndarray/large_2048x2048-f64/sum_all
+Benchmarking anchor_ndarray/large_2048x2048-f64/sum_all: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.2s, enable flat sampling, or reduce sample count to 60.
+Benchmarking anchor_ndarray/large_2048x2048-f64/sum_all: Collecting 100 samples in estimated 2.2440 s (5050 iterations)
+Benchmarking anchor_ndarray/large_2048x2048-f64/sum_all: Analyzing
+anchor_ndarray/large_2048x2048-f64/sum_all
+                        time:   [447.50 µs 451.43 µs 456.22 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) low mild
+  1 (1.00%) high severe
+Benchmarking anchor_ndarray/odd_1000x777-f64/transpose_copy
+Benchmarking anchor_ndarray/odd_1000x777-f64/transpose_copy: Warming up for 700.00 ms
+Benchmarking anchor_ndarray/odd_1000x777-f64/transpose_copy: Collecting 100 samples in estimated 2.2163 s (30k iterations)
+Benchmarking anchor_ndarray/odd_1000x777-f64/transpose_copy: Analyzing
+anchor_ndarray/odd_1000x777-f64/transpose_copy
+                        time:   [73.559 µs 73.799 µs 74.083 µs]
+Benchmarking anchor_ndarray/odd_1000x777-f64/sum_axis0
+Benchmarking anchor_ndarray/odd_1000x777-f64/sum_axis0: Warming up for 700.00 ms
+Benchmarking anchor_ndarray/odd_1000x777-f64/sum_axis0: Collecting 100 samples in estimated 2.1804 s (40k iterations)
+Benchmarking anchor_ndarray/odd_1000x777-f64/sum_axis0: Analyzing
+anchor_ndarray/odd_1000x777-f64/sum_axis0
+                        time:   [53.717 µs 53.780 µs 53.850 µs]
+Found 15 outliers among 100 measurements (15.00%)
+  11 (11.00%) high mild
+  4 (4.00%) high severe
+Benchmarking anchor_ndarray/odd_1000x777-f64/sum_axislast
+Benchmarking anchor_ndarray/odd_1000x777-f64/sum_axislast: Warming up for 700.00 ms
+Benchmarking anchor_ndarray/odd_1000x777-f64/sum_axislast: Collecting 100 samples in estimated 2.0280 s (40k iterations)
+Benchmarking anchor_ndarray/odd_1000x777-f64/sum_axislast: Analyzing
+anchor_ndarray/odd_1000x777-f64/sum_axislast
+                        time:   [49.738 µs 49.753 µs 49.770 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking anchor_ndarray/odd_1000x777-f64/sum_all
+Benchmarking anchor_ndarray/odd_1000x777-f64/sum_all: Warming up for 700.00 ms
+Benchmarking anchor_ndarray/odd_1000x777-f64/sum_all: Collecting 100 samples in estimated 2.1713 s (45k iterations)
+Benchmarking anchor_ndarray/odd_1000x777-f64/sum_all: Analyzing
+anchor_ndarray/odd_1000x777-f64/sum_all
+                        time:   [47.440 µs 47.457 µs 47.477 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+Benchmarking anchor_ndarray/large_2048x2048-contig-f64/add_alloc
+Benchmarking anchor_ndarray/large_2048x2048-contig-f64/add_alloc: Warming up for 700.00 ms
+Benchmarking anchor_ndarray/large_2048x2048-contig-f64/add_alloc: Collecting 100 samples in estimated 2.5728 s (400 iterations)
+Benchmarking anchor_ndarray/large_2048x2048-contig-f64/add_alloc: Analyzing
+anchor_ndarray/large_2048x2048-contig-f64/add_alloc
+                        time:   [6.3351 ms 6.3476 ms 6.3603 ms]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking anchor_ndarray/large_2048x2048-contig-f64/add_zip_prealloc
+Benchmarking anchor_ndarray/large_2048x2048-contig-f64/add_zip_prealloc: Warming up for 700.00 ms
+Benchmarking anchor_ndarray/large_2048x2048-contig-f64/add_zip_prealloc: Collecting 100 samples in estimated 2.1732 s (1000 iterations)
+Benchmarking anchor_ndarray/large_2048x2048-contig-f64/add_zip_prealloc: Analyzing
+anchor_ndarray/large_2048x2048-contig-f64/add_zip_prealloc
+                        time:   [2.1520 ms 2.1577 ms 2.1634 ms]
+Benchmarking anchor_ndarray/dot1d_large_10000000-f64/dot
+Benchmarking anchor_ndarray/dot1d_large_10000000-f64/dot: Warming up for 700.00 ms
+Benchmarking anchor_ndarray/dot1d_large_10000000-f64/dot: Collecting 100 samples in estimated 2.2659 s (800 iterations)
+Benchmarking anchor_ndarray/dot1d_large_10000000-f64/dot: Analyzing
+anchor_ndarray/dot1d_large_10000000-f64/dot
+                        time:   [2.8169 ms 2.8246 ms 2.8324 ms]
+Found 12 outliers among 100 measurements (12.00%)
+  8 (8.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking anchor_ndarray/large_10000000-f64/argmax
+Benchmarking anchor_ndarray/large_10000000-f64/argmax: Warming up for 700.00 ms
+Benchmarking anchor_ndarray/large_10000000-f64/argmax: Collecting 100 samples in estimated 2.2052 s (400 iterations)
+Benchmarking anchor_ndarray/large_10000000-f64/argmax: Analyzing
+anchor_ndarray/large_10000000-f64/argmax
+                        time:   [5.5023 ms 5.5205 ms 5.5436 ms]
+Found 9 outliers among 100 measurements (9.00%)
+  4 (4.00%) high mild
+  5 (5.00%) high severe
+Benchmarking anchor_ndarray/large_2048x2048-f64/zeros
+Benchmarking anchor_ndarray/large_2048x2048-f64/zeros: Warming up for 700.00 ms
+Benchmarking anchor_ndarray/large_2048x2048-f64/zeros: Collecting 100 samples in estimated 2.0026 s (869k iterations)
+Benchmarking anchor_ndarray/large_2048x2048-f64/zeros: Analyzing
+anchor_ndarray/large_2048x2048-f64/zeros
+                        time:   [2.2227 µs 2.2328 µs 2.2427 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking anchor_ndarray/large_2048x2048-f64/full
+Benchmarking anchor_ndarray/large_2048x2048-f64/full: Warming up for 700.00 ms
+Benchmarking anchor_ndarray/large_2048x2048-f64/full: Collecting 100 samples in estimated 2.1941 s (500 iterations)
+Benchmarking anchor_ndarray/large_2048x2048-f64/full: Analyzing
+anchor_ndarray/large_2048x2048-f64/full
+                        time:   [4.4232 ms 4.4370 ms 4.4512 ms]
+

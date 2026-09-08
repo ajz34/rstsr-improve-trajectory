@@ -1,0 +1,94 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/elementwise.rs (target/release/deps/elementwise-0e650377ea33a8c3)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking elementwise_add/large_2048x2048-contig/serial_f64
+Benchmarking elementwise_add/large_2048x2048-contig/serial_f64: Warming up for 700.00 ms
+Benchmarking elementwise_add/large_2048x2048-contig/serial_f64: Collecting 100 samples in estimated 2.5528 s (400 iterations)
+Benchmarking elementwise_add/large_2048x2048-contig/serial_f64: Analyzing
+elementwise_add/large_2048x2048-contig/serial_f64
+                        time:   [6.2757 ms 6.2966 ms 6.3246 ms]
+Found 6 outliers among 100 measurements (6.00%)
+  6 (6.00%) high severe
+Benchmarking elementwise_add/large_2048x2048-broadcast/serial_f64
+Benchmarking elementwise_add/large_2048x2048-broadcast/serial_f64: Warming up for 700.00 ms
+Benchmarking elementwise_add/large_2048x2048-broadcast/serial_f64: Collecting 100 samples in estimated 2.2850 s (400 iterations)
+Benchmarking elementwise_add/large_2048x2048-broadcast/serial_f64: Analyzing
+elementwise_add/large_2048x2048-broadcast/serial_f64
+                        time:   [5.6421 ms 5.6732 ms 5.7143 ms]
+Found 9 outliers among 100 measurements (9.00%)
+  4 (4.00%) low mild
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking elementwise_add/large_2048x2048-strided/serial_f64
+Benchmarking elementwise_add/large_2048x2048-strided/serial_f64: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.8s, or reduce sample count to 70.
+Benchmarking elementwise_add/large_2048x2048-strided/serial_f64: Collecting 100 samples in estimated 2.8258 s (100 iterations)
+Benchmarking elementwise_add/large_2048x2048-strided/serial_f64: Analyzing
+elementwise_add/large_2048x2048-strided/serial_f64
+                        time:   [28.226 ms 28.248 ms 28.273 ms]
+Found 7 outliers among 100 measurements (7.00%)
+  7 (7.00%) high mild
+Benchmarking elementwise_add/large_2048x2048-contig/faer16_f64
+Benchmarking elementwise_add/large_2048x2048-contig/faer16_f64: Warming up for 700.00 ms
+Benchmarking elementwise_add/large_2048x2048-contig/faer16_f64: Collecting 100 samples in estimated 2.0950 s (800 iterations)
+Benchmarking elementwise_add/large_2048x2048-contig/faer16_f64: Analyzing
+elementwise_add/large_2048x2048-contig/faer16_f64
+                        time:   [2.6676 ms 2.7204 ms 2.7740 ms]
+Benchmarking elementwise_add/large_2048x2048-broadcast/faer16_f64
+Benchmarking elementwise_add/large_2048x2048-broadcast/faer16_f64: Warming up for 700.00 ms
+Benchmarking elementwise_add/large_2048x2048-broadcast/faer16_f64: Collecting 100 samples in estimated 2.1654 s (900 iterations)
+Benchmarking elementwise_add/large_2048x2048-broadcast/faer16_f64: Analyzing
+elementwise_add/large_2048x2048-broadcast/faer16_f64
+                        time:   [2.4225 ms 2.4706 ms 2.5141 ms]
+Found 7 outliers among 100 measurements (7.00%)
+  5 (5.00%) low severe
+  2 (2.00%) low mild
+Benchmarking elementwise_add/large_2048x2048-strided/faer16_f64
+Benchmarking elementwise_add/large_2048x2048-strided/faer16_f64: Warming up for 700.00 ms
+Benchmarking elementwise_add/large_2048x2048-strided/faer16_f64: Collecting 100 samples in estimated 2.1586 s (500 iterations)
+Benchmarking elementwise_add/large_2048x2048-strided/faer16_f64: Analyzing
+elementwise_add/large_2048x2048-strided/faer16_f64
+                        time:   [4.3354 ms 4.3891 ms 4.4394 ms]
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) low severe
+  9 (9.00%) low mild
+Benchmarking elementwise_add/medium_512x512-contig/serial_f64
+Benchmarking elementwise_add/medium_512x512-contig/serial_f64: Warming up for 700.00 ms
+Benchmarking elementwise_add/medium_512x512-contig/serial_f64: Collecting 100 samples in estimated 2.1968 s (56k iterations)
+Benchmarking elementwise_add/medium_512x512-contig/serial_f64: Analyzing
+elementwise_add/medium_512x512-contig/serial_f64
+                        time:   [39.163 µs 39.225 µs 39.317 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low severe
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+Benchmarking elementwise_add/medium_512x512-contig/faer16_f64
+Benchmarking elementwise_add/medium_512x512-contig/faer16_f64: Warming up for 700.00 ms
+Benchmarking elementwise_add/medium_512x512-contig/faer16_f64: Collecting 100 samples in estimated 2.2368 s (35k iterations)
+Benchmarking elementwise_add/medium_512x512-contig/faer16_f64: Analyzing
+elementwise_add/medium_512x512-contig/faer16_f64
+                        time:   [63.298 µs 63.385 µs 63.469 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking elementwise_add/large_2048x2048-contig/serial_f32
+Benchmarking elementwise_add/large_2048x2048-contig/serial_f32: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.7s, enable flat sampling, or reduce sample count to 50.
+Benchmarking elementwise_add/large_2048x2048-contig/serial_f32: Collecting 100 samples in estimated 3.7357 s (5050 iterations)
+Benchmarking elementwise_add/large_2048x2048-contig/serial_f32: Analyzing
+elementwise_add/large_2048x2048-contig/serial_f32
+                        time:   [770.08 µs 772.47 µs 774.64 µs]
+Benchmarking elementwise_add/large_2048x2048-contig/faer16_f32
+Benchmarking elementwise_add/large_2048x2048-contig/faer16_f32: Warming up for 700.00 ms
+Benchmarking elementwise_add/large_2048x2048-contig/faer16_f32: Collecting 100 samples in estimated 2.5257 s (10k iterations)
+Benchmarking elementwise_add/large_2048x2048-contig/faer16_f32: Analyzing
+elementwise_add/large_2048x2048-contig/faer16_f32
+                        time:   [254.46 µs 255.77 µs 257.09 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) high mild
+

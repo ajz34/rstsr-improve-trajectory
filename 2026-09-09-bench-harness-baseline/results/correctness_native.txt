@@ -1,0 +1,69 @@
+   Compiling bench-harness-baseline v0.1.0 (/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-bench-harness-baseline)
+    Finished `release` profile [optimized] target(s) in 1.57s
+     Running `target/release/examples/correctness`
+-- device: DeviceCpuSerial
+  [ok]   transpose copy 64x64
+  [ok]   transpose copy 512x512
+  [ok]   transpose copy 256x256
+  [ok]   transpose copy 1000x777
+  [ok]   transpose copy f32 256x383
+  [ok]   sum_axis0 64x64
+  [ok]   sum_axislast 64x64
+  [ok]   sum_all 64x64
+  [ok]   sum_axis0 512x512
+  [ok]   sum_axislast 512x512
+  [ok]   sum_all 512x512
+  [ok]   sum_axis0 1000x777
+  [ok]   sum_axislast 1000x777
+  [ok]   sum_all 1000x777
+  [ok]   vecdot 1-D n=1000
+  [ok]   vecdot 1-D n=100003
+  [ok]   vecdot 1-D n=1000000
+  [ok]   vecdot batched 409x512
+  [ok]   add contig 64x64
+  [ok]   add broadcast row [1,64] 64x64
+  [ok]   add explicit zero-stride broadcast 64x64
+  [ok]   add strided (a + b.t) 64x64
+  [ok]   add contig 1000x777
+  [ok]   add broadcast row [1,777] 1000x777
+  [ok]   add explicit zero-stride broadcast 1000x777
+  [ok]   add strided (a + b.t) 1000x777
+  [ok]   add contig f32 255x769
+  [ok]   zeros 256x383
+  [ok]   full 256x383
+  [ok]   argmax n=1000000
+  [ok]   argmax n=1000003
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+-- device: DeviceFaer (rayon, 16 threads)
+  [ok]   transpose copy 64x64
+  [ok]   transpose copy 512x512
+  [ok]   transpose copy 256x256
+  [ok]   transpose copy 1000x777
+  [ok]   transpose copy f32 256x383
+  [ok]   sum_axis0 64x64
+  [ok]   sum_axislast 64x64
+  [ok]   sum_all 64x64
+  [ok]   sum_axis0 512x512
+  [ok]   sum_axislast 512x512
+  [ok]   sum_all 512x512
+  [ok]   sum_axis0 1000x777
+  [ok]   sum_axislast 1000x777
+  [ok]   sum_all 1000x777
+  [ok]   vecdot 1-D n=1000
+  [ok]   vecdot 1-D n=100003
+  [ok]   vecdot 1-D n=1000000
+  [ok]   vecdot batched 409x512
+  [ok]   add contig 64x64
+  [ok]   add broadcast row [1,64] 64x64
+  [ok]   add explicit zero-stride broadcast 64x64
+  [ok]   add strided (a + b.t) 64x64
+  [ok]   add contig 1000x777
+  [ok]   add broadcast row [1,777] 1000x777
+  [ok]   add explicit zero-stride broadcast 1000x777
+  [ok]   add strided (a + b.t) 1000x777
+  [ok]   add contig f32 255x769
+  [ok]   zeros 256x383
+  [ok]   full 256x383
+  [ok]   argmax n=1000000
+  [ok]   argmax n=1000003
+correctness gate: ALL PASSED

@@ -1,0 +1,41 @@
+numpy 2.5.1 (conda env: torch); single-threaded anchors
+repeat=5, best/median wall time
+
+transpose_copy small_64x64 (a.T.copy())                 best=     0.001 ms  median=     0.001 ms  best_GBs=    55.5
+sum_axis0     small_64x64 (a.sum(0))                    best=     0.001 ms  median=     0.002 ms  best_GBs=    22.4
+sum_axislast  small_64x64 (a.sum(1))                    best=     0.002 ms  median=     0.002 ms  best_GBs=    19.3
+sum_all       small_64x64 (a.sum())                     best=     0.001 ms  median=     0.001 ms  best_GBs=    40.5
+transpose_copy medium_512x512 (a.T.copy())              best=     0.391 ms  median=     0.393 ms  best_GBs=    10.7
+sum_axis0     medium_512x512 (a.sum(0))                 best=     0.029 ms  median=     0.029 ms  best_GBs=    73.5
+sum_axislast  medium_512x512 (a.sum(1))                 best=     0.034 ms  median=     0.034 ms  best_GBs=    62.3
+sum_all       medium_512x512 (a.sum())                  best=     0.028 ms  median=     0.029 ms  best_GBs=    74.0
+transpose_copy large_2048x2048 (a.T.copy())             best=    99.825 ms  median=   100.023 ms  best_GBs=     0.7
+sum_axis0     large_2048x2048 (a.sum(0))                best=     0.460 ms  median=     0.478 ms  best_GBs=    72.9
+sum_axislast  large_2048x2048 (a.sum(1))                best=     0.655 ms  median=     0.715 ms  best_GBs=    51.2
+sum_all       large_2048x2048 (a.sum())                 best=     0.791 ms  median=     0.870 ms  best_GBs=    42.4
+transpose_copy odd_1000x777 (a.T.copy())                best=     0.346 ms  median=     0.347 ms  best_GBs=    35.9
+sum_axis0     odd_1000x777 (a.sum(0))                   best=     0.062 ms  median=     0.062 ms  best_GBs=   100.2
+sum_axislast  odd_1000x777 (a.sum(1))                   best=     0.089 ms  median=     0.089 ms  best_GBs=    70.1
+sum_all       odd_1000x777 (a.sum())                    best=     0.079 ms  median=     0.079 ms  best_GBs=    78.6
+
+vecdot np.dot       small_1000                          best=     0.000 ms  median=     0.000 ms  best_GBs=    40.0
+vecdot np.einsum    small_1000                          best=     0.001 ms  median=     0.001 ms  best_GBs=    15.0
+vecdot np.dot       medium_100000                       best=     0.003 ms  median=     0.003 ms  best_GBs=   613.0
+vecdot np.einsum    medium_100000                       best=     0.019 ms  median=     0.020 ms  best_GBs=    82.9
+vecdot np.dot       large_10000000                      best=     1.187 ms  median=     1.247 ms  best_GBs=   134.8
+vecdot np.einsum    large_10000000                      best=     2.692 ms  median=     2.753 ms  best_GBs=    59.4
+
+add contig     large_2048x2048 (a+b)                    best=     2.772 ms  median=     2.882 ms  best_GBs=    36.3
+add broadcast  large_2048x2048 (a+brow)                 best=     2.485 ms  median=     2.568 ms  best_GBs=    40.5
+add strided    large_2048x2048 (a+bt.T)                 best=    87.385 ms  median=    99.844 ms  best_GBs=     1.2
+
+zeros          large_2048x2048 (np.zeros)               best=     0.003 ms  median=     0.004 ms  best_GBs= 10551.7
+full           large_2048x2048 (np.full)                best=     1.190 ms  median=     1.332 ms  best_GBs=    28.2
+
+argmax         medium_1000000                           best=     0.072 ms  median=     0.072 ms  best_GBs=   111.5
+argmax         large_10000000                           best=     1.321 ms  median=     1.334 ms  best_GBs=    60.6
+
+triad (a+3b->c) large_10000000                          best=    11.676 ms  median=    11.927 ms  best_GBs=    20.6
+memcpy (c[:] = a) large_10000000                        best=     3.567 ms  median=     3.650 ms  best_GBs=    44.9
+triad (a+3b->c) medium_1000000                          best=     0.317 ms  median=     0.326 ms  best_GBs=    75.7
+memcpy (c[:] = a) medium_1000000                        best=     0.090 ms  median=     0.091 ms  best_GBs=   177.0

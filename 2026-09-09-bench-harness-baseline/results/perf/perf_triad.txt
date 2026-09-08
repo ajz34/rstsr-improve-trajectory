@@ -1,0 +1,22 @@
+# started on Wed Sep  9 01:14:34 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops triad':
+
+          1,857.89 msec task-clock                                                            
+    10,584,788,958      cycles                                                                  (62.45%)
+     2,418,286,710      instructions                                                            (62.48%)
+       258,856,408      branches                                                                (62.54%)
+           211,718      branch-misses                                                           (62.54%)
+     2,650,603,781      L1-dcache-loads                                                         (62.55%)
+     1,146,801,532      L1-dcache-load-misses                                                   (62.52%)
+     2,292,212,791      cache-references                                                        (62.48%)
+        55,797,652      cache-misses                                                            (62.44%)
+            58,677      page-faults                                                           
+
+       1.858817812 seconds time elapsed
+
+       1.808414000 seconds user
+       0.050011000 seconds sys
+
+

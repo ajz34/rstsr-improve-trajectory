@@ -1,0 +1,32 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/triad.rs (target/release/deps/triad-ac0ddede098b27c9)
+Gnuplot not found, using plotters backend
+Benchmarking triad/triad_f64/large
+Benchmarking triad/triad_f64/large: Warming up for 700.00 ms
+Benchmarking triad/triad_f64/large: Collecting 100 samples in estimated 2.3880 s (400 iterations)
+Benchmarking triad/triad_f64/large: Analyzing
+triad/triad_f64/large   time:   [6.0090 ms 6.0538 ms 6.1006 ms]
+Benchmarking triad/triad_f64/medium
+Benchmarking triad/triad_f64/medium: Warming up for 700.00 ms
+Benchmarking triad/triad_f64/medium: Collecting 100 samples in estimated 2.9495 s (15k iterations)
+Benchmarking triad/triad_f64/medium: Analyzing
+triad/triad_f64/medium  time:   [188.39 µs 190.21 µs 192.26 µs]
+
+Benchmarking memcpy/copy_f64/large
+Benchmarking memcpy/copy_f64/large: Warming up for 700.00 ms
+Benchmarking memcpy/copy_f64/large: Collecting 100 samples in estimated 2.3453 s (600 iterations)
+Benchmarking memcpy/copy_f64/large: Analyzing
+memcpy/copy_f64/large   time:   [3.6696 ms 3.7334 ms 3.7905 ms]
+Found 15 outliers among 100 measurements (15.00%)
+  12 (12.00%) low severe
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking memcpy/copy_f64/medium
+Benchmarking memcpy/copy_f64/medium: Warming up for 700.00 ms
+Benchmarking memcpy/copy_f64/medium: Collecting 100 samples in estimated 2.3932 s (25k iterations)
+Benchmarking memcpy/copy_f64/medium: Analyzing
+memcpy/copy_f64/medium  time:   [93.474 µs 93.604 µs 93.773 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+

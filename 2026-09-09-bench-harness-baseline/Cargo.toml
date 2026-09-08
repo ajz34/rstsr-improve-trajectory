@@ -1,0 +1,72 @@
+[package]
+name = "bench-harness-baseline"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+publish = false
+
+# T0 of the rstsr CPU-efficiency campaign: reusable benchmark harness pattern
+# + honest baseline at rstsr commit 386948be. NO code changes to rstsr.
+#
+# Standalone crate: NOT a workspace member of anything (the trajectory repo
+# root intentionally has no Cargo.toml). Path-depends on the local rstsr
+# checkout, mirroring rstsr-core's default features EXPLICITLY so the benched
+# configuration is visible in the manifest.
+
+[dependencies]
+rstsr-core = { path = "../../rstsr/rstsr-core", default-features = false, features = [
+    "row_major",
+    "aligned_alloc",
+    "faer",
+    "faer_as_default",
+] }
+# criterion is a regular dependency because the harness lib exposes
+# `configure_group`; this is a bench-only crate, nothing ships from it.
+criterion = { version = "0.5", features = ["cargo_bench_support"] }
+
+[dev-dependencies]
+ndarray = "0.16"
+ndarray-stats = "0.6"
+
+# D8 secondary column: forward rstsr-core's dispatch_dim_layout_iter feature.
+# Off by default; run with `--features dispatch_dim_layout_iter`.
+[features]
+dispatch_dim_layout_iter = ["rstsr-core/dispatch_dim_layout_iter"]
+
+# Criterion suites (release mode via `cargo bench`; profile is stock cargo
+# release: opt-level 3, no LTO — this is what we want to baseline).
+[[bench]]
+name = "triad"
+harness = false
+
+[[bench]]
+name = "transpose"
+harness = false
+
+[[bench]]
+name = "reduce"
+harness = false
+
+[[bench]]
+name = "vecdot"
+harness = false
+
+[[bench]]
+name = "elementwise"
+harness = false
+
+[[bench]]
+name = "fill_argmax"
+harness = false
+
+[[bench]]
+name = "anchors_ndarray"
+harness = false
+
+[profile.release]
+# stock cargo release defaults; stated explicitly for the README
+opt-level = 3
+debug = false
+lto = false
+codegen-units = 16
+panic = "unwind"

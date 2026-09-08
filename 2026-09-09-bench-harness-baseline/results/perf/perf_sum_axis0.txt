@@ -1,0 +1,22 @@
+# started on Wed Sep  9 01:14:37 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops sum_axis0':
+
+            154.90 msec task-clock                                                            
+       875,030,428      cycles                                                                  (61.58%)
+       973,767,262      instructions                                                            (62.22%)
+       176,297,269      branches                                                                (62.87%)
+           111,724      branch-misses                                                           (63.23%)
+       576,367,298      L1-dcache-loads                                                         (63.19%)
+        74,386,003      L1-dcache-load-misses                                                   (62.94%)
+       177,605,767      cache-references                                                        (62.30%)
+        19,087,573      cache-misses                                                            (61.67%)
+             8,290      page-faults                                                           
+
+       0.155278169 seconds time elapsed
+
+       0.148263000 seconds user
+       0.007012000 seconds sys
+
+

@@ -1,0 +1,38 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/vecdot.rs (target/release/deps/vecdot-040e4bcc02113518)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking vecdot/dot1d_large_10000000-serial_f64/vecdot
+Benchmarking vecdot/dot1d_large_10000000-serial_f64/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/dot1d_large_10000000-serial_f64/vecdot: Collecting 100 samples in estimated 2.2614 s (800 iterations)
+Benchmarking vecdot/dot1d_large_10000000-serial_f64/vecdot: Analyzing
+vecdot/dot1d_large_10000000-serial_f64/vecdot
+                        time:   [2.7727 ms 2.7812 ms 2.7898 ms]
+Benchmarking vecdot/dot1d_large_10000000-faer16_f64/vecdot
+Benchmarking vecdot/dot1d_large_10000000-faer16_f64/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/dot1d_large_10000000-faer16_f64/vecdot: Collecting 100 samples in estimated 2.0029 s (700 iterations)
+Benchmarking vecdot/dot1d_large_10000000-faer16_f64/vecdot: Analyzing
+vecdot/dot1d_large_10000000-faer16_f64/vecdot
+                        time:   [2.8522 ms 2.8579 ms 2.8638 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking vecdot/dot1d_large_10000000-serial_f32/vecdot
+Benchmarking vecdot/dot1d_large_10000000-serial_f32/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/dot1d_large_10000000-serial_f32/vecdot: Collecting 100 samples in estimated 2.1342 s (1000 iterations)
+Benchmarking vecdot/dot1d_large_10000000-serial_f32/vecdot: Analyzing
+vecdot/dot1d_large_10000000-serial_f32/vecdot
+                        time:   [2.1435 ms 2.1454 ms 2.1475 ms]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+Benchmarking vecdot/dot1d_large_10000000-faer16_f32/vecdot
+Benchmarking vecdot/dot1d_large_10000000-faer16_f32/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/dot1d_large_10000000-faer16_f32/vecdot: Collecting 100 samples in estimated 2.1534 s (1000 iterations)
+Benchmarking vecdot/dot1d_large_10000000-faer16_f32/vecdot: Analyzing
+vecdot/dot1d_large_10000000-faer16_f32/vecdot
+                        time:   [2.0930 ms 2.1183 ms 2.1402 ms]
+Found 14 outliers among 100 measurements (14.00%)
+  10 (10.00%) low severe
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+

@@ -1,0 +1,50 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/transpose.rs (target/release/deps/transpose-844008133d78ffe0)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking transpose_copy/large_2048x2048-serial_f64/to_contig
+Benchmarking transpose_copy/large_2048x2048-serial_f64/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-serial_f64/to_contig: Collecting 100 samples in estimated 3.8940 s (200 iterations)
+Benchmarking transpose_copy/large_2048x2048-serial_f64/to_contig: Analyzing
+transpose_copy/large_2048x2048-serial_f64/to_contig
+                        time:   [19.488 ms 19.512 ms 19.536 ms]
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/to_contig
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/to_contig: Collecting 100 samples in estimated 2.0922 s (800 iterations)
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/to_contig: Analyzing
+transpose_copy/large_2048x2048-faer16_f64/to_contig
+                        time:   [3.0968 ms 3.1412 ms 3.1828 ms]
+Benchmarking transpose_copy/odd_1000x777-serial_f64/to_contig
+Benchmarking transpose_copy/odd_1000x777-serial_f64/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-serial_f64/to_contig: Collecting 100 samples in estimated 2.1089 s (1700 iterations)
+Benchmarking transpose_copy/odd_1000x777-serial_f64/to_contig: Analyzing
+transpose_copy/odd_1000x777-serial_f64/to_contig
+                        time:   [1.2319 ms 1.2339 ms 1.2360 ms]
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/to_contig
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/to_contig: Collecting 100 samples in estimated 2.9518 s (15k iterations)
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/to_contig: Analyzing
+transpose_copy/odd_1000x777-faer16_f64/to_contig
+                        time:   [196.92 µs 197.32 µs 197.70 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+Benchmarking transpose_copy/large_2048x2048-serial_f32/to_contig
+Benchmarking transpose_copy/large_2048x2048-serial_f32/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-serial_f32/to_contig: Collecting 100 samples in estimated 2.1755 s (200 iterations)
+Benchmarking transpose_copy/large_2048x2048-serial_f32/to_contig: Analyzing
+transpose_copy/large_2048x2048-serial_f32/to_contig
+                        time:   [10.573 ms 10.662 ms 10.746 ms]
+Found 12 outliers among 100 measurements (12.00%)
+  2 (2.00%) low severe
+  10 (10.00%) low mild
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/to_contig
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/to_contig: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/to_contig: Collecting 100 samples in estimated 2.0523 s (2400 iterations)
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/to_contig: Analyzing
+transpose_copy/large_2048x2048-faer16_f32/to_contig
+                        time:   [854.63 µs 856.09 µs 857.64 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+

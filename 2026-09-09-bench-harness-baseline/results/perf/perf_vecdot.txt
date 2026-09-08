@@ -1,0 +1,22 @@
+# started on Wed Sep  9 01:14:37 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops vecdot':
+
+            331.43 msec task-clock                                                            
+     1,881,771,459      cycles                                                                  (62.13%)
+     3,126,253,035      instructions                                                            (62.45%)
+       301,817,645      branches                                                                (62.73%)
+           143,358      branch-misses                                                           (62.90%)
+     1,144,800,913      L1-dcache-loads                                                         (62.89%)
+       257,757,936      L1-dcache-load-misses                                                   (62.60%)
+       522,328,562      cache-references                                                        (62.29%)
+         3,751,644      cache-misses                                                            (62.01%)
+            39,149      page-faults                                                           
+
+       0.331811010 seconds time elapsed
+
+       0.303777000 seconds user
+       0.027979000 seconds sys
+
+

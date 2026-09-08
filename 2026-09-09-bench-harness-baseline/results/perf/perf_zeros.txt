@@ -1,0 +1,26 @@
+# started on Wed Sep  9 01:14:53 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops zeros':
+
+              1.33 msec task-clock                                                            
+         7,337,963      cycles                                                                  (59.90%)
+        13,010,430      instructions                                                          
+         2,415,982      branches                                                              
+            20,872      branch-misses                                                         
+         5,356,428      L1-dcache-loads                                                       
+           135,070      L1-dcache-load-misses                                                   (40.10%)
+     <not counted>      cache-references                                                        (0.00%)
+     <not counted>      cache-misses                                                            (0.00%)
+               482      page-faults                                                           
+
+       0.001557652 seconds time elapsed
+
+       0.000000000 seconds user
+       0.001599000 seconds sys
+
+
+Some events weren't counted. Try disabling the NMI watchdog:
+	echo 0 > /proc/sys/kernel/nmi_watchdog
+	perf stat ...
+	echo 1 > /proc/sys/kernel/nmi_watchdog

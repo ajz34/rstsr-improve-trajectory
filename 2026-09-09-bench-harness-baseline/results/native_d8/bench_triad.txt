@@ -1,0 +1,20 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/triad.rs (target/release/deps/triad-97352c8586c820f0)
+Gnuplot not found, using plotters backend
+Benchmarking triad/triad_f64/large
+Benchmarking triad/triad_f64/large: Warming up for 700.00 ms
+Benchmarking triad/triad_f64/large: Collecting 100 samples in estimated 2.3967 s (400 iterations)
+Benchmarking triad/triad_f64/large: Analyzing
+triad/triad_f64/large   time:   [6.0377 ms 6.0475 ms 6.0582 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+
+Benchmarking memcpy/copy_f64/large
+Benchmarking memcpy/copy_f64/large: Warming up for 700.00 ms
+Benchmarking memcpy/copy_f64/large: Collecting 100 samples in estimated 2.3715 s (600 iterations)
+Benchmarking memcpy/copy_f64/large: Analyzing
+memcpy/copy_f64/large   time:   [3.9144 ms 3.9297 ms 3.9495 ms]
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high severe
+
