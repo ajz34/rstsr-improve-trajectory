@@ -1,0 +1,930 @@
+diff --git a/rstsr-core/src/device_cpu_serial/reduction.rs b/rstsr-core/src/device_cpu_serial/reduction.rs
+index 675d456..882c419 100644
+--- a/rstsr-core/src/device_cpu_serial/reduction.rs
++++ b/rstsr-core/src/device_cpu_serial/reduction.rs
+@@ -333,40 +333,12 @@ where
+         la: &Layout<D>,
+         axes: &[isize],
+     ) -> Result<(Storage<DataOwned<Vec<usize>>, Self::TOut, Self>, Layout<IxD>)> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, layout_out) = reduce_axes_arg_cpu_serial(a, la, axes, f_comp, f_eq, RowMajor)?;
++        let (out, layout_out) = reduce_axes_arg_cpu_serial(a, la, axes, ArgCmp::Min, RowMajor)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn argmin_all(&self, a: &Vec<T>, la: &Layout<D>) -> Result<Self::TOut> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_arg_cpu_serial(a, la, f_comp, f_eq, RowMajor)?;
++        let result = reduce_all_arg_cpu_serial(a, la, ArgCmp::Min, RowMajor)?;
+         Ok(result)
+     }
+ }
+@@ -384,40 +356,12 @@ where
+         la: &Layout<D>,
+         axes: &[isize],
+     ) -> Result<(Storage<DataOwned<Vec<usize>>, Self::TOut, Self>, Layout<IxD>)> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, layout_out) = reduce_axes_arg_cpu_serial(a, la, axes, f_comp, f_eq, RowMajor)?;
++        let (out, layout_out) = reduce_axes_arg_cpu_serial(a, la, axes, ArgCmp::Max, RowMajor)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn argmax_all(&self, a: &Vec<T>, la: &Layout<D>) -> Result<Self::TOut> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_arg_cpu_serial(a, la, f_comp, f_eq, RowMajor)?;
++        let result = reduce_all_arg_cpu_serial(a, la, ArgCmp::Max, RowMajor)?;
+         Ok(result)
+     }
+ }
+@@ -527,40 +471,12 @@ where
+         la: &Layout<D>,
+         axes: &[isize],
+     ) -> Result<(Storage<DataOwned<Vec<IxD>>, IxD, Self>, Layout<IxD>)> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_serial(a, la, axes, f_comp, f_eq)?;
++        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_serial(a, la, axes, ArgCmp::Min)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn unraveled_argmin_all(&self, a: &<Self as DeviceRawAPI<T>>::Raw, la: &Layout<D>) -> Result<D> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_unraveled_arg_cpu_serial(a, la, f_comp, f_eq)?;
++        let result = reduce_all_unraveled_arg_cpu_serial(a, la, ArgCmp::Min)?;
+         Ok(result)
+     }
+ }
+@@ -576,40 +492,12 @@ where
+         la: &Layout<D>,
+         axes: &[isize],
+     ) -> Result<(Storage<DataOwned<Vec<IxD>>, IxD, Self>, Layout<IxD>)> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_serial(a, la, axes, f_comp, f_eq)?;
++        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_serial(a, la, axes, ArgCmp::Max)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn unraveled_argmax_all(&self, a: &<Self as DeviceRawAPI<T>>::Raw, la: &Layout<D>) -> Result<D> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_unraveled_arg_cpu_serial(a, la, f_comp, f_eq)?;
++        let result = reduce_all_unraveled_arg_cpu_serial(a, la, ArgCmp::Max)?;
+         Ok(result)
+     }
+ }
+diff --git a/rstsr-core/src/feature_rayon/auto_impl/reduction.rs b/rstsr-core/src/feature_rayon/auto_impl/reduction.rs
+index 793fcd2..38ed4fc 100644
+--- a/rstsr-core/src/feature_rayon/auto_impl/reduction.rs
++++ b/rstsr-core/src/feature_rayon/auto_impl/reduction.rs
+@@ -368,42 +368,14 @@ where
+     ) -> Result<(Storage<DataOwned<Vec<usize>>, Self::TOut, Self>, Layout<IxD>)> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, layout_out) = reduce_axes_arg_cpu_rayon(a, la, axes, f_comp, f_eq, RowMajor, pool)?;
++        let (out, layout_out) = reduce_axes_arg_cpu_rayon(a, la, axes, ArgCmp::Min, RowMajor, pool)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn argmin_all(&self, a: &Vec<T>, la: &Layout<D>) -> Result<Self::TOut> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_arg_cpu_rayon(a, la, f_comp, f_eq, RowMajor, pool)?;
++        let result = reduce_all_arg_cpu_rayon(a, la, ArgCmp::Min, RowMajor, pool)?;
+         Ok(result)
+     }
+ }
+@@ -423,42 +395,14 @@ where
+     ) -> Result<(Storage<DataOwned<Vec<usize>>, Self::TOut, Self>, Layout<IxD>)> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, layout_out) = reduce_axes_arg_cpu_rayon(a, la, axes, f_comp, f_eq, RowMajor, pool)?;
++        let (out, layout_out) = reduce_axes_arg_cpu_rayon(a, la, axes, ArgCmp::Max, RowMajor, pool)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn argmax_all(&self, a: &Vec<T>, la: &Layout<D>) -> Result<Self::TOut> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_arg_cpu_rayon(a, la, f_comp, f_eq, RowMajor, pool)?;
++        let result = reduce_all_arg_cpu_rayon(a, la, ArgCmp::Max, RowMajor, pool)?;
+         Ok(result)
+     }
+ }
+@@ -582,42 +526,14 @@ where
+     ) -> Result<(Storage<DataOwned<Vec<IxD>>, IxD, Self>, Layout<IxD>)> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_rayon(a, la, axes, f_comp, f_eq, pool)?;
++        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_rayon(a, la, axes, ArgCmp::Min, pool)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn unraveled_argmin_all(&self, a: &<Self as DeviceRawAPI<T>>::Raw, la: &Layout<D>) -> Result<D> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_unraveled_arg_cpu_rayon(a, la, f_comp, f_eq, pool)?;
++        let result = reduce_all_unraveled_arg_cpu_rayon(a, la, ArgCmp::Min, pool)?;
+         Ok(result)
+     }
+ }
+@@ -635,42 +551,14 @@ where
+     ) -> Result<(Storage<DataOwned<Vec<IxD>>, IxD, Self>, Layout<IxD>)> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_rayon(a, la, axes, f_comp, f_eq, pool)?;
++        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_rayon(a, la, axes, ArgCmp::Max, pool)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn unraveled_argmax_all(&self, a: &<Self as DeviceRawAPI<T>>::Raw, la: &Layout<D>) -> Result<D> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_unraveled_arg_cpu_rayon(a, la, f_comp, f_eq, pool)?;
++        let result = reduce_all_unraveled_arg_cpu_rayon(a, la, ArgCmp::Max, pool)?;
+         Ok(result)
+     }
+ }
+diff --git a/rstsr-native-impl/src/cpu_rayon/reduction.rs b/rstsr-native-impl/src/cpu_rayon/reduction.rs
+index 600c25c..f641a07 100644
+--- a/rstsr-native-impl/src/cpu_rayon/reduction.rs
++++ b/rstsr-native-impl/src/cpu_rayon/reduction.rs
+@@ -439,7 +439,11 @@ where
+ 
+ /* #region reduce unraveled axes */
+ 
+-pub fn reduce_all_unraveled_arg_cpu_rayon<T, D, Fcomp, Feq>(
++/// Original closure-based fold over [`IndexedIterLayout`] (row-major),
++/// kept as the strided/non-contiguous fallback of
++/// [`reduce_all_unraveled_arg_cpu_rayon`].
++#[inline]
++fn reduce_all_unraveled_arg_fold_cpu_rayon<T, D, Fcomp, Feq>(
+     a: &[T],
+     la: &Layout<D>,
+     f_comp: Fcomp,
+@@ -454,11 +458,6 @@ where
+ {
+     rstsr_assert!(la.size() > 0, InvalidLayout, "empty sequence is not allowed for reduce_arg.")?;
+ 
+-    let size = la.size();
+-    if size < PARALLEL_SWITCH {
+-        return reduce_all_unraveled_arg_cpu_serial(a, la, f_comp, f_eq);
+-    }
+-
+     let fold_func = |acc: Option<(D, T)>, (cur_idx, cur_offset): (D, usize)| -> Option<(D, T)> {
+         let cur_val = a[cur_offset].clone();
+ 
+@@ -511,24 +510,155 @@ where
+     Ok(acc.unwrap().0)
+ }
+ 
+-pub fn reduce_axes_unraveled_arg_cpu_rayon<T, D, Fcomp, Feq>(
++/// Contiguous fast path of [`reduce_all_unraveled_arg_cpu_rayon`]: split the
++/// buffer into contiguous chunks, run the serial 8-lane scan
++/// ([`arg_contig_cpu_serial`]) per chunk, then combine deterministically
++/// (collect preserves chunk order; greater value wins, ties keep the smaller
++/// index, NaN never wins) — exactly the serial fold's outcome, independent of
++/// thread count and scheduling.
++///
++/// Kept out-of-line so that the strided fallback below compiles exactly like
++/// the pre-existing closure fold (code-layout hygiene: the fallback must not
++/// regress).
++#[inline(never)]
++fn reduce_all_unraveled_arg_contig_cpu_rayon<T, D>(
++    a: &[T],
++    la: &Layout<D>,
++    cmp: ArgCmp,
++    pool: Option<&ThreadPool>,
++) -> Result<D>
++where
++    T: Clone + PartialOrd + Send + Sync,
++    D: DimAPI,
++{
++    let size = la.size();
++    let offset = la.offset();
++    let xs = &a[offset..offset + size];
++
++    // first-element NaN poisoning is decided ONCE for the whole buffer (the
++    // per-chunk scans are seeded with this guaranteed-comparable element, so
++    // a NaN inside a chunk can never block its chunk result)
++    if !(xs[0] == xs[0]) {
++        return Ok(unravel_c_order(0, la.shape()));
++    }
++
++    let nthreads = match pool {
++        Some(pool) => pool.current_num_threads(),
++        None => rayon::current_num_threads(),
++    };
++    let nchunks = (nthreads * 4).clamp(1, size / 8);
++    let chunk_len = size / nchunks;
++    let task = || {
++        let partials: Vec<(T, usize)> = (0..nchunks)
++            .into_par_iter()
++            .map(|ci| {
++                let start = ci * chunk_len;
++                let end = if ci == nchunks - 1 { size } else { start + chunk_len };
++                let sub = &xs[start..end];
++                // seed every chunk with the global first element; a chunk
++                // index of usize::MAX means "nothing beat the global seed",
++                // i.e. the chunk best is the seed itself (global index 0)
++                let (val, li) = arg_contig_seeded_cpu_serial(sub, cmp, &xs[0]);
++                let gidx = if li == usize::MAX { 0 } else { start + li };
++                (val, gidx)
++            })
++            .collect();
++        let (mut best_val, mut best_idx) = (&partials[0].0, partials[0].1);
++        for (val, idx) in partials.iter().skip(1) {
++            let better = match cmp {
++                ArgCmp::Max => val > best_val || (val == best_val && *idx < best_idx),
++                ArgCmp::Min => val < best_val || (val == best_val && *idx < best_idx),
++            };
++            if better {
++                best_val = val;
++                best_idx = *idx;
++            }
++        }
++        best_idx
++    };
++    let flat = match pool {
++        None => task(),
++        Some(pool) => pool.install(task),
++    };
++    Ok(unravel_c_order(flat, la.shape()))
++}
++
++pub fn reduce_all_unraveled_arg_cpu_rayon<T, D>(
++    a: &[T],
++    la: &Layout<D>,
++    cmp: ArgCmp,
++    pool: Option<&ThreadPool>,
++) -> Result<D>
++where
++    T: Clone + PartialOrd + Send + Sync,
++    D: DimAPI,
++{
++    rstsr_assert!(la.size() > 0, InvalidLayout, "empty sequence is not allowed for reduce_arg.")?;
++
++    let size = la.size();
++    if size < PARALLEL_SWITCH {
++        return reduce_all_unraveled_arg_cpu_serial(a, la, cmp);
++    }
++
++    if la.c_contig() {
++        return reduce_all_unraveled_arg_contig_cpu_rayon(a, la, cmp, pool);
++    }
++
++    // strided / broadcast fallback: original closure fold, comparison
++    // direction selected by `cmp`
++    match cmp {
++        ArgCmp::Max => {
++            let f_comp = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y > x)
++                } else {
++                    Some(true)
++                }
++            };
++            let f_eq = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y == x)
++                } else {
++                    Some(false)
++                }
++            };
++            reduce_all_unraveled_arg_fold_cpu_rayon(a, la, f_comp, f_eq, pool)
++        },
++        ArgCmp::Min => {
++            let f_comp = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y < x)
++                } else {
++                    Some(true)
++                }
++            };
++            let f_eq = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y == x)
++                } else {
++                    Some(false)
++                }
++            };
++            reduce_all_unraveled_arg_fold_cpu_rayon(a, la, f_comp, f_eq, pool)
++        },
++    }
++}
++
++pub fn reduce_axes_unraveled_arg_cpu_rayon<T, D>(
+     a: &[T],
+     la: &Layout<D>,
+     axes: &[isize],
+-    f_comp: Fcomp,
+-    f_eq: Feq,
++    cmp: ArgCmp,
+     pool: Option<&ThreadPool>,
+ ) -> Result<(Vec<IxD>, Layout<IxD>, Layout<IxD>)>
+ where
+-    T: Clone + Send + Sync,
++    T: Clone + PartialOrd + Send + Sync,
+     D: DimAPI,
+-    Fcomp: Fn(Option<T>, T) -> Option<bool> + Send + Sync,
+-    Feq: Fn(Option<T>, T) -> Option<bool> + Send + Sync,
+ {
+     // determine whether to use parallel iteration
+     let size = la.size();
+     if size < PARALLEL_SWITCH {
+-        return reduce_axes_unraveled_arg_cpu_serial(a, la, axes, f_comp, f_eq);
++        return reduce_axes_unraveled_arg_cpu_serial(a, la, axes, cmp);
+     }
+ 
+     // split the layout into axes (to be summed) and the rest
+@@ -559,7 +689,7 @@ where
+             // let out_ptr = out_ptr.get();
+             let mut layout_inner = layout_axes.clone();
+             unsafe { layout_inner.set_offset(idx_rest) };
+-            let acc = reduce_all_unraveled_arg_cpu_rayon(a, &layout_inner, &f_comp, &f_eq, pool)?;
++            let acc = reduce_all_unraveled_arg_cpu_rayon(a, &layout_inner, cmp, pool)?;
+             unsafe { *out_ptr.add(idx_out) = MaybeUninit::new(acc) };
+             Ok(())
+         })
+@@ -576,21 +706,18 @@ where
+     Ok((out, layout_axes, layout_out))
+ }
+ 
+-pub fn reduce_all_arg_cpu_rayon<T, D, Fcomp, Feq>(
++pub fn reduce_all_arg_cpu_rayon<T, D>(
+     a: &[T],
+     la: &Layout<D>,
+-    f_comp: Fcomp,
+-    f_eq: Feq,
++    cmp: ArgCmp,
+     order: FlagOrder,
+     pool: Option<&ThreadPool>,
+ ) -> Result<usize>
+ where
+-    T: Clone + Send + Sync,
++    T: Clone + PartialOrd + Send + Sync,
+     D: DimAPI,
+-    Fcomp: Fn(Option<T>, T) -> Option<bool> + Send + Sync,
+-    Feq: Fn(Option<T>, T) -> Option<bool> + Send + Sync,
+ {
+-    let idx = reduce_all_unraveled_arg_cpu_rayon(a, la, f_comp, f_eq, pool)?;
++    let idx = reduce_all_unraveled_arg_cpu_rayon(a, la, cmp, pool)?;
+     let pseudo_shape = la.shape();
+     let pseudo_layout = match order {
+         RowMajor => pseudo_shape.c(),
+@@ -599,22 +726,19 @@ where
+     unsafe { Ok(pseudo_layout.index_uncheck(idx.as_ref()) as usize) }
+ }
+ 
+-pub fn reduce_axes_arg_cpu_rayon<T, D, Fcomp, Feq>(
++pub fn reduce_axes_arg_cpu_rayon<T, D>(
+     a: &[T],
+     la: &Layout<D>,
+     axes: &[isize],
+-    f_comp: Fcomp,
+-    f_eq: Feq,
++    cmp: ArgCmp,
+     order: FlagOrder,
+     pool: Option<&ThreadPool>,
+ ) -> Result<(Vec<usize>, Layout<IxD>)>
+ where
+-    T: Clone + Send + Sync,
++    T: Clone + PartialOrd + Send + Sync,
+     D: DimAPI,
+-    Fcomp: Fn(Option<T>, T) -> Option<bool> + Send + Sync,
+-    Feq: Fn(Option<T>, T) -> Option<bool> + Send + Sync,
+ {
+-    let (idx, layout_axes, layout) = reduce_axes_unraveled_arg_cpu_rayon(a, la, axes, f_comp, f_eq, pool)?;
++    let (idx, layout_axes, layout) = reduce_axes_unraveled_arg_cpu_rayon(a, la, axes, cmp, pool)?;
+     // each index in `idx` is an unraveled position within the reduced-axes space
+     // (`layout_axes`), so the raveling pseudo-layout must use `layout_axes.shape()`,
+     // not the output layout's shape. Using the output shape indexed out of bounds
+diff --git a/rstsr-native-impl/src/cpu_serial/reduction.rs b/rstsr-native-impl/src/cpu_serial/reduction.rs
+index b50f2f3..6f53133 100644
+--- a/rstsr-native-impl/src/cpu_serial/reduction.rs
++++ b/rstsr-native-impl/src/cpu_serial/reduction.rs
+@@ -424,7 +424,132 @@ where
+ 
+ /* #region reduce unraveled axes */
+ 
+-pub fn reduce_all_unraveled_arg_cpu_serial<T, D, Fcomp, Feq>(
++/// Comparison direction for argmin/argmax reduce kernels.
++///
++/// This replaces the former `(Fcomp, Feq)` closure pair of the `reduce_*_arg_*`
++/// functions: every in-tree caller used exactly `y < x`/`y > x` as comparison
++/// and `y == x` as equality, so the direction is carried as a plain enum
++/// instead. The contiguous fast path ([`arg_contig_cpu_serial`]) cannot afford
++/// a per-element closure call.
++///
++/// Note: changing these signatures is a public API change of the
++/// `rstsr-native-impl` crate (`cpu_serial::reduction` and
++/// `cpu_rayon::reduction` are public modules). The tensor-level API in
++/// `rstsr-core` is unchanged.
++#[derive(Clone, Copy, Debug)]
++pub enum ArgCmp {
++    Min,
++    Max,
++}
++
++/// Contiguous argmin/argmax scan with 8-lane unrolled `(value, index)`
++/// accumulators (ndarray `numeric_util`-style); returns the winning index.
++///
++/// Semantics — identical to a left-to-right fold over an ascending index
++/// order with the strict-comparison rule (locked by the T6 correctness gate
++/// of the rstsr efficiency campaign):
++///
++/// - the first element seeds the accumulator unconditionally;
++/// - only a strictly smaller (min) / larger (max) value replaces it;
++/// - ties keep the smaller index;
++/// - NaN never replaces anything (all comparisons are false), so a NaN at
++///   index 0 poisons the result to 0 and an all-NaN input yields 0.
++///
++/// Implementation note: only the *first* element may poison. It is detected
++/// generically via `xs[0] == xs[0]` (false iff NaN; non-float `PartialOrd`
++/// types are reflexive and always take the scan path), after which all eight
++/// lanes are seeded with that guaranteed-comparable first element — seeding
++/// lanes from `xs[0..8]` instead would let a NaN at positions 1..8 block its
++/// whole lane (`x > NaN` is false for every later element of that lane).
++pub fn arg_contig_cpu_serial<T: Clone + PartialOrd>(xs: &[T], cmp: ArgCmp) -> usize {
++    if !(xs[0] == xs[0]) {
++        // NaN first element: nothing can ever strictly beat it -> index 0
++        return 0;
++    }
++    let (val, idx) = arg_contig_seeded_cpu_serial(xs, cmp, &xs[0]);
++    let _ = val;
++    if idx == usize::MAX {
++        // nothing strictly beat the seed: the maximum is the first element
++        0
++    } else {
++        idx
++    }
++}
++
++/// Core of the contiguous scan: all eight lanes are seeded with `seed`, which
++/// must be a comparable (non-NaN) value; the caller owns the first-element
++/// poisoning rule. Returns `(best_value, index)` where `index == usize::MAX`
++/// means "no element strictly beat `seed`". NaN elements of `xs` never enter
++/// the accumulators; equal values keep the earlier (smaller) index.
++pub fn arg_contig_seeded_cpu_serial<T: Clone + PartialOrd>(xs: &[T], cmp: ArgCmp, seed: &T) -> (T, usize) {
++    const NO_POS: usize = usize::MAX;
++
++    // eight independent (value, index) lanes so that the loop can be kept
++    // branch-predictable (LLVM lowers the per-lane updates to cmp+cmov)
++    let mut vs: [T; 8] = core::array::from_fn(|_| seed.clone());
++    let mut idx: [usize; 8] = [NO_POS; 8];
++    let mut chunks = xs.chunks_exact(8);
++    match cmp {
++        ArgCmp::Max => {
++            let mut base = 0;
++            while let Some(ch) = chunks.next() {
++                for l in 0..8 {
++                    if ch[l] > vs[l] {
++                        vs[l] = ch[l].clone();
++                        idx[l] = base + l;
++                    }
++                }
++                base += 8;
++            }
++            for (l, x) in chunks.remainder().iter().enumerate() {
++                if x > &vs[l] {
++                    vs[l] = x.clone();
++                    idx[l] = base + l;
++                }
++            }
++        },
++        ArgCmp::Min => {
++            let mut base = 0;
++            while let Some(ch) = chunks.next() {
++                for l in 0..8 {
++                    if ch[l] < vs[l] {
++                        vs[l] = ch[l].clone();
++                        idx[l] = base + l;
++                    }
++                }
++                base += 8;
++            }
++            for (l, x) in chunks.remainder().iter().enumerate() {
++                if x < &vs[l] {
++                    vs[l] = x.clone();
++                    idx[l] = base + l;
++                }
++            }
++        },
++    }
++
++    // combine lanes: strictly better value wins; on equality the smaller
++    // index wins (lane order is not index order); NaN never wins
++    let mut best_idx = idx[0];
++    let mut best_val = &vs[0];
++    for l in 1..8 {
++        let better = match cmp {
++            ArgCmp::Max => vs[l] > *best_val || (vs[l] == *best_val && idx[l] < best_idx),
++            ArgCmp::Min => vs[l] < *best_val || (vs[l] == *best_val && idx[l] < best_idx),
++        };
++        if better {
++            best_idx = idx[l];
++            best_val = &vs[l];
++        }
++    }
++    (best_val.clone(), best_idx)
++}
++
++/// Original closure-based fold over [`IndexedIterLayout`] (row-major),
++/// kept as the strided/non-contiguous fallback of
++/// [`reduce_all_unraveled_arg_cpu_serial`].
++#[inline]
++fn reduce_all_unraveled_arg_fold_cpu_serial<T, D, Fcomp, Feq>(
+     a: &[T],
+     la: &Layout<D>,
+     f_comp: Fcomp,
+@@ -436,8 +561,6 @@ where
+     Fcomp: Fn(Option<T>, T) -> Option<bool>,
+     Feq: Fn(Option<T>, T) -> Option<bool>,
+ {
+-    rstsr_assert!(la.size() > 0, InvalidLayout, "empty sequence is not allowed for reduce_arg.")?;
+-
+     let fold_func = |acc: Option<(D, T)>, (cur_idx, cur_offset): (D, usize)| {
+         let cur_val = a[cur_offset].clone();
+ 
+@@ -478,18 +601,103 @@ where
+     Ok(acc.unwrap().0)
+ }
+ 
+-pub fn reduce_axes_unraveled_arg_cpu_serial<T, D, Fcomp, Feq>(
++/// Convert a row-major position `p` of a c-contiguous layout into its
++/// unraveled (c-order) index.
++pub fn unravel_c_order<D: DimAPI>(p: usize, shape: &D) -> D {
++    let mut idx_dim = shape.new_shape();
++    let mut rest = p;
++    for i in (0..shape.ndim()).rev() {
++        let d = shape[i];
++        idx_dim[i] = rest % d;
++        rest /= d;
++    }
++    idx_dim
++}
++
++/// Contiguous fast path of [`reduce_all_unraveled_arg_cpu_serial`].
++///
++/// Kept out-of-line so that the strided fallback below compiles exactly like
++/// the pre-existing closure fold (code-layout hygiene: the fallback must not
++/// regress).
++#[inline(never)]
++fn reduce_all_unraveled_arg_contig_cpu_serial<T, D>(a: &[T], la: &Layout<D>, cmp: ArgCmp) -> Result<D>
++where
++    T: Clone + PartialOrd,
++    D: DimAPI,
++{
++    // buffer position == row-major visit position for a c-contig layout, so
++    // the 8-lane scan reproduces the closure fold exactly (see
++    // `arg_contig_cpu_serial` for the semantics contract)
++    let offset = la.offset();
++    let size = la.size();
++    let flat = arg_contig_cpu_serial(&a[offset..offset + size], cmp);
++    Ok(unravel_c_order(flat, la.shape()))
++}
++
++pub fn reduce_all_unraveled_arg_cpu_serial<T, D>(
++    a: &[T],
++    la: &Layout<D>,
++    cmp: ArgCmp,
++) -> Result<D>
++where
++    T: Clone + PartialOrd,
++    D: DimAPI,
++{
++    rstsr_assert!(la.size() > 0, InvalidLayout, "empty sequence is not allowed for reduce_arg.")?;
++
++    if la.c_contig() {
++        return reduce_all_unraveled_arg_contig_cpu_serial(a, la, cmp);
++    }
++
++    // strided / broadcast fallback: original closure fold, comparison
++    // direction selected by `cmp`
++    match cmp {
++        ArgCmp::Max => {
++            let f_comp = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y > x)
++                } else {
++                    Some(true)
++                }
++            };
++            let f_eq = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y == x)
++                } else {
++                    Some(false)
++                }
++            };
++            reduce_all_unraveled_arg_fold_cpu_serial(a, la, f_comp, f_eq)
++        },
++        ArgCmp::Min => {
++            let f_comp = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y < x)
++                } else {
++                    Some(true)
++                }
++            };
++            let f_eq = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y == x)
++                } else {
++                    Some(false)
++                }
++            };
++            reduce_all_unraveled_arg_fold_cpu_serial(a, la, f_comp, f_eq)
++        },
++    }
++}
++
++pub fn reduce_axes_unraveled_arg_cpu_serial<T, D>(
+     a: &[T],
+     la: &Layout<D>,
+     axes: &[isize],
+-    f_comp: Fcomp,
+-    f_eq: Feq,
++    cmp: ArgCmp,
+ ) -> Result<(Vec<IxD>, Layout<IxD>, Layout<IxD>)>
+ where
+-    T: Clone,
++    T: Clone + PartialOrd,
+     D: DimAPI,
+-    Fcomp: Fn(Option<T>, T) -> Option<bool>,
+-    Feq: Fn(Option<T>, T) -> Option<bool>,
+ {
+     rstsr_assert!(la.size() > 0, InvalidLayout, "empty sequence is not allowed for reduce_arg.")?;
+ 
+@@ -518,7 +726,7 @@ where
+     // actual evaluation
+     izip!(iter_out_swapped, iter_rest_swapped).try_for_each(|(idx_out, idx_rest)| -> Result<()> {
+         unsafe { layout_inner.set_offset(idx_rest) };
+-        let acc = reduce_all_unraveled_arg_cpu_serial(a, &layout_inner, &f_comp, &f_eq)?;
++        let acc = reduce_all_unraveled_arg_cpu_serial(a, &layout_inner, cmp)?;
+         out[idx_out] = MaybeUninit::new(acc);
+         Ok(())
+     })?;
+@@ -530,20 +738,12 @@ where
+     Ok((out, layout_axes, layout_out))
+ }
+ 
+-pub fn reduce_all_arg_cpu_serial<T, D, Fcomp, Feq>(
+-    a: &[T],
+-    la: &Layout<D>,
+-    f_comp: Fcomp,
+-    f_eq: Feq,
+-    order: FlagOrder,
+-) -> Result<usize>
++pub fn reduce_all_arg_cpu_serial<T, D>(a: &[T], la: &Layout<D>, cmp: ArgCmp, order: FlagOrder) -> Result<usize>
+ where
+-    T: Clone,
++    T: Clone + PartialOrd,
+     D: DimAPI,
+-    Fcomp: Fn(Option<T>, T) -> Option<bool>,
+-    Feq: Fn(Option<T>, T) -> Option<bool>,
+ {
+-    let idx = reduce_all_unraveled_arg_cpu_serial(a, la, f_comp, f_eq)?;
++    let idx = reduce_all_unraveled_arg_cpu_serial(a, la, cmp)?;
+     let pseudo_shape = la.shape();
+     let pseudo_layout = match order {
+         RowMajor => pseudo_shape.c(),
+@@ -552,21 +752,18 @@ where
+     unsafe { Ok(pseudo_layout.index_uncheck(idx.as_ref()) as usize) }
+ }
+ 
+-pub fn reduce_axes_arg_cpu_serial<T, D, Fcomp, Feq>(
++pub fn reduce_axes_arg_cpu_serial<T, D>(
+     a: &[T],
+     la: &Layout<D>,
+     axes: &[isize],
+-    f_comp: Fcomp,
+-    f_eq: Feq,
++    cmp: ArgCmp,
+     order: FlagOrder,
+ ) -> Result<(Vec<usize>, Layout<IxD>)>
+ where
+-    T: Clone,
++    T: Clone + PartialOrd,
+     D: DimAPI,
+-    Fcomp: Fn(Option<T>, T) -> Option<bool>,
+-    Feq: Fn(Option<T>, T) -> Option<bool>,
+ {
+-    let (idx, layout_axes, layout) = reduce_axes_unraveled_arg_cpu_serial(a, la, axes, f_comp, f_eq)?;
++    let (idx, layout_axes, layout) = reduce_axes_unraveled_arg_cpu_serial(a, la, axes, cmp)?;
+     // each index in `idx` is an unraveled position within the reduced-axes space
+     // (`layout_axes`), so the raveling pseudo-layout must use `layout_axes.shape()`,
+     // not the output layout's shape. Using the output shape here indexed out of

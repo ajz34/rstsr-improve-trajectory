@@ -1,0 +1,22 @@
+# started on Wed Sep  9 02:06:22 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops argmax':
+
+         14,053.61 msec task-clock                                                            
+    77,105,246,948      cycles                                                                  (62.50%)
+   420,467,505,616      instructions                                                            (62.50%)
+    89,173,228,657      branches                                                                (62.50%)
+         1,214,168      branch-misses                                                           (62.50%)
+   186,022,790,075      L1-dcache-loads                                                         (62.50%)
+       198,690,154      L1-dcache-load-misses                                                   (62.50%)
+       405,525,560      cache-references                                                        (62.50%)
+         9,097,682      cache-misses                                                            (62.50%)
+            19,611      page-faults                                                           
+
+      14.055483922 seconds time elapsed
+
+      14.039138000 seconds user
+       0.015002000 seconds sys
+
+

@@ -1,0 +1,54 @@
+[package]
+name = "bench-argmax-argmin"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+publish = false
+
+# T6 of the rstsr CPU-efficiency campaign: argmax/argmin baseline (phase 1)
+# at rstsr commit 386948be, plus the phase-2 candidate plan (PLAN.md).
+#
+# PHASE 1 = no patch: ../rstsr stays untouched at 386948be; this crate measures
+# the baseline and locks down current semantics with a correctness gate.
+#
+# Standalone crate (not a workspace member of anything). Path-depends on the
+# local rstsr checkout, mirroring rstsr-core's default features EXPLICITLY.
+# Crate pattern copied from T0 (../2026-09-09-bench-harness-baseline).
+
+[dependencies]
+rstsr-core = { path = "../../rstsr/rstsr-core", default-features = false, features = [
+    "row_major",
+    "aligned_alloc",
+    "faer",
+    "faer_as_default",
+] }
+# criterion is a regular dependency because the harness lib exposes
+# `configure_group`; this is a bench-only crate, nothing ships from it.
+criterion = { version = "0.5", features = ["cargo_bench_support"] }
+
+[dev-dependencies]
+ndarray = "0.16"
+ndarray-stats = "0.6"
+
+# D8 secondary column hook (kept for symmetry with T0; phase 1 does not run it
+# by default). Forward rstsr-core's dispatch_dim_layout_iter feature.
+[features]
+dispatch_dim_layout_iter = ["rstsr-core/dispatch_dim_layout_iter"]
+
+# Criterion suites (release mode via `cargo bench`; profile is stock cargo
+# release: opt-level 3, no LTO — mirrors the T0 crate's profile block).
+[[bench]]
+name = "arg"
+harness = false
+
+[[bench]]
+name = "anchors_ndarray"
+harness = false
+
+[profile.release]
+# stock cargo release defaults; stated explicitly (mirrors T0)
+opt-level = 3
+debug = false
+lto = false
+codegen-units = 16
+panic = "unwind"

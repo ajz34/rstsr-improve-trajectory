@@ -1,0 +1,4 @@
+numpy argmax/argmin anchors (single-thread context, 9950X3D)
+  n=1000000: argmax 0.084 ms (95.3 GB/s), argmin 0.083 ms (96.5 GB/s)
+  n=10000000: argmax 1.336 ms (59.9 GB/s), argmin 1.246 ms (64.2 GB/s)
+  n=1e7 f32: argmax 0.670 ms (59.7 GB/s)

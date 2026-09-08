@@ -1,0 +1,108 @@
+   Compiling bench-argmax-argmin v0.1.0 (/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-argmax-argmin)
+    Finished `release` profile [optimized] target(s) in 0.85s
+     Running `target/release/examples/correctness`
+=== T6 argmax/argmin correctness gate (rstsr 386948be semantics) ===
+-- device: DeviceCpuSerial
+  [ok]   argmax 1-D contig odd n=999983
+  [ok]   argmin 1-D contig odd n=999983
+  [ok]   argmax 1-D odd n=999983 (ndarray cross-check)
+  [ok]   argmax all-equal n=127 -> 0
+  [ok]   argmin all-equal n=127 -> 0
+  [ok]   argmax all-equal n=4099 -> 0
+  [ok]   argmin all-equal n=4099 -> 0
+  [ok]   argmax duplicated max (first at 0) -> 0
+  [ok]   argmax duplicated max (first at 23) -> 23
+  [ok]   argmin duplicated min (first at 31) -> 31
+  [ok]   argmax NaN middle (real max wins)
+  [ok]   argmax NaN end (real max wins)
+  [ok]   argmax NaN front -> 0 (NaN poisons)
+  [ok]   argmax NaN at 1, max at 9 (same lane) -> 9
+  [ok]   argmax NaN at 2, max at 10 (same lane) -> 10
+  [ok]   argmax NaN at 3, max at 11 (same lane) -> 11
+  [ok]   argmax NaN at 4, max at 12 (same lane) -> 12
+  [ok]   argmax NaN at 5, max at 13 (same lane) -> 13
+  [ok]   argmax NaN at 6, max at 14 (same lane) -> 14
+  [ok]   argmax NaN at 7, max at 15 (same lane) -> 15
+  [ok]   argmax NaN at 3, max mid (other lane) -> mid
+  [ok]   argmax all-NaN -> 0 (no error)
+  [ok]   argmin all-NaN -> 0 (no error)
+  [ok]   argmin NaN middle (real min wins)
+  [ok]   argmin NaN front -> 0 (NaN poisons)
+  [ok]   argmax NaN at chunk-start offsets (real max wins, deterministic)
+  [ok]   argmin NaN at chunk-start offsets (real min wins, deterministic)
+  [ok]   argmax_f empty -> Err
+         [document] argmax_f(empty) error: Error { inner: InvalidLayout("/home/a/rstsr_pack/rstsr/rstsr-native-impl/src/cpu_serial/reduction.rs:646: Error::InvalidLayout : empty sequence is not allowed for reduce_arg. : la.size() > 0"), backtrace: None }
+         [document] argmax(empty) panic message: RSTSR Error (backtrace disabled): InvalidLayout("/home/a/rstsr_pack/rstsr/rstsr-native-impl/src/cpu_serial/reduction.rs:646: Error::InvalidLayout : empty sequence is not allowed for reduce_arg. : la.size() > 0")
+  [ok]   argmax empty -> panics mentioning 'empty sequence'
+  [ok]   argmax 2-D contig 37x53 (flat row-major)
+  [ok]   argmin 2-D contig 37x53 (flat row-major)
+  [ok]   argmax 2-D t-view 53x37 (flat row-major of view)
+  [ok]   argmin 2-D t-view 53x37 (flat row-major of view)
+  [ok]   2-D whole argmax == raveled 1-D argmax
+  [ok]   argmax 2-D all-equal 17x23 -> 0
+  [ok]   argmax broadcast view (max in row 0 at correct col)
+  [ok]   argmax broadcast all-equal (ties -> 0)
+  [ok]   argmin broadcast all-equal (ties -> 0)
+  [ok]   argmax_axes(-1) 37x53
+  [ok]   argmin_axes(-1) 37x53
+  [ok]   argmax_axes(0) 37x53
+  [ok]   argmax_axes(-1) on t-view 53x37
+  [ok]   argmax 1-D contig odd f32 n=999983
+  [ok]   argmin 1-D contig odd f32 n=999983
+  [ok]   argmax/argmin 1-D odd f32 n=999983 (ndarray cross-check)
+  [ok]   argmax f32 NaN front -> 0 (NaN poisons)
+  [ok]   argmax 2-D contig f32 41x67
+  [ok]   argmin 2-D t-view f32 67x41
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+-- device: DeviceFaer (rayon, 16 threads)
+  [ok]   argmax 1-D contig odd n=999983
+  [ok]   argmin 1-D contig odd n=999983
+  [ok]   argmax 1-D odd n=999983 (ndarray cross-check)
+  [ok]   argmax all-equal n=127 -> 0
+  [ok]   argmin all-equal n=127 -> 0
+  [ok]   argmax all-equal n=4099 -> 0
+  [ok]   argmin all-equal n=4099 -> 0
+  [ok]   argmax duplicated max (first at 0) -> 0
+  [ok]   argmax duplicated max (first at 23) -> 23
+  [ok]   argmin duplicated min (first at 31) -> 31
+  [ok]   argmax NaN middle (real max wins)
+  [ok]   argmax NaN end (real max wins)
+  [ok]   argmax NaN front -> 0 (NaN poisons)
+  [ok]   argmax NaN at 1, max at 9 (same lane) -> 9
+  [ok]   argmax NaN at 2, max at 10 (same lane) -> 10
+  [ok]   argmax NaN at 3, max at 11 (same lane) -> 11
+  [ok]   argmax NaN at 4, max at 12 (same lane) -> 12
+  [ok]   argmax NaN at 5, max at 13 (same lane) -> 13
+  [ok]   argmax NaN at 6, max at 14 (same lane) -> 14
+  [ok]   argmax NaN at 7, max at 15 (same lane) -> 15
+  [ok]   argmax NaN at 3, max mid (other lane) -> mid
+  [ok]   argmax all-NaN -> 0 (no error)
+  [ok]   argmin all-NaN -> 0 (no error)
+  [ok]   argmin NaN middle (real min wins)
+  [ok]   argmin NaN front -> 0 (NaN poisons)
+  [ok]   argmax NaN at chunk-start offsets (real max wins, deterministic)
+  [ok]   argmin NaN at chunk-start offsets (real min wins, deterministic)
+  [ok]   argmax_f empty -> Err
+         [document] argmax_f(empty) error: Error { inner: InvalidLayout("/home/a/rstsr_pack/rstsr/rstsr-native-impl/src/cpu_rayon/reduction.rs:596: Error::InvalidLayout : empty sequence is not allowed for reduce_arg. : la.size() > 0"), backtrace: None }
+         [document] argmax(empty) panic message: RSTSR Error (backtrace disabled): InvalidLayout("/home/a/rstsr_pack/rstsr/rstsr-native-impl/src/cpu_rayon/reduction.rs:596: Error::InvalidLayout : empty sequence is not allowed for reduce_arg. : la.size() > 0")
+  [ok]   argmax empty -> panics mentioning 'empty sequence'
+  [ok]   argmax 2-D contig 37x53 (flat row-major)
+  [ok]   argmin 2-D contig 37x53 (flat row-major)
+  [ok]   argmax 2-D t-view 53x37 (flat row-major of view)
+  [ok]   argmin 2-D t-view 53x37 (flat row-major of view)
+  [ok]   2-D whole argmax == raveled 1-D argmax
+  [ok]   argmax 2-D all-equal 17x23 -> 0
+  [ok]   argmax broadcast view (max in row 0 at correct col)
+  [ok]   argmax broadcast all-equal (ties -> 0)
+  [ok]   argmin broadcast all-equal (ties -> 0)
+  [ok]   argmax_axes(-1) 37x53
+  [ok]   argmin_axes(-1) 37x53
+  [ok]   argmax_axes(0) 37x53
+  [ok]   argmax_axes(-1) on t-view 53x37
+  [ok]   argmax 1-D contig odd f32 n=999983
+  [ok]   argmin 1-D contig odd f32 n=999983
+  [ok]   argmax/argmin 1-D odd f32 n=999983 (ndarray cross-check)
+  [ok]   argmax f32 NaN front -> 0 (NaN poisons)
+  [ok]   argmax 2-D contig f32 41x67
+  [ok]   argmin 2-D t-view f32 67x41
+correctness gate: ALL PASSED

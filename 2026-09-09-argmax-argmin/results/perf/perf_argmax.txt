@@ -1,0 +1,22 @@
+# started on Wed Sep  9 02:05:46 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops argmax':
+
+               118      context-switches                 #      8.4 cs/sec  cs_per_second     
+                 9      cpu-migrations                   #      0.6 migrations/sec  migrations_per_second
+            19,610      page-faults                      #   1394.2 faults/sec  page_faults_per_second
+         14,065.59 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+       198,451,422      L1-dcache-load-misses            #      0.1 %  l1d_miss_rate            (42.85%)
+         1,208,634      branch-misses                    #      0.0 %  branch_miss_rate         (42.86%)
+    89,145,743,459      branches                         #   6337.9 M/sec  branch_frequency     (42.87%)
+    77,197,826,358      cpu-cycles                       #      5.5 GHz  cycles_frequency       (42.87%)
+   420,470,394,912      instructions                     #      5.4 instructions  insn_per_cycle  (42.86%)
+     8,912,625,932      stalled-cycles-frontend          #     0.12 frontend_cycles_idle        (42.85%)
+
+      14.067010092 seconds time elapsed
+
+      14.052929000 seconds user
+       0.012999000 seconds sys
+
+
