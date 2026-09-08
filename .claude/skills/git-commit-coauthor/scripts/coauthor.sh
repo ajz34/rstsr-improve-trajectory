@@ -34,6 +34,7 @@ agent_canonical() {
     "claude code") echo "Claude Code" ;;
     "codex")       echo "Codex" ;;
     "opencode")    echo "OpenCode" ;;
+    "zcode")       echo "ZCode" ;;
     *)             echo "$1" ;;
   esac
 }
@@ -45,6 +46,7 @@ agent_email() {
     "claude code") echo "noreply@anthropic.com" ;;
     "codex")       echo "noreply@openai.com" ;;
     "opencode")    echo "support@open-code.ai" ;;
+    "zcode")       echo "service@zhipuai.cn" ;;
     *)             echo "" ;;
   esac
 }
