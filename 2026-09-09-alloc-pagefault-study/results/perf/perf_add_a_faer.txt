@@ -1,0 +1,24 @@
+# started on Wed Sep  9 04:21:45 2026
+
+
+ Performance counter stats for '/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-alloc-pagefault-study/target/release/examples/profile_a_vs_b add_a_faer':
+
+          5,426.08 msec task-clock                                                            
+    29,920,219,081      cycles                                                                  (61.60%)
+    32,308,789,127      instructions                                                            (61.92%)
+     5,412,037,724      branches                                                                (62.63%)
+         9,486,098      branch-misses                                                           (63.26%)
+    16,657,915,038      L1-dcache-loads                                                         (63.55%)
+       491,492,148      L1-dcache-load-misses                                                   (63.07%)
+       937,490,596      cache-references                                                        (62.69%)
+       135,476,496      cache-misses                                                            (61.94%)
+         1,669,532      page-faults                                                           
+             4,186      context-switches                                                      
+               126      cpu-migrations                                                        
+
+       0.594440843 seconds time elapsed
+
+       2.012125000 seconds user
+       3.418580000 seconds sys
+
+

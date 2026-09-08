@@ -1,0 +1,55 @@
+    Finished `release` profile [optimized] target(s) in 0.03s
+     Running `target/release/examples/correctness`
+correctness gate: alloc-pagefault-study
+-- device: DeviceCpuSerial
+  [ok]   add reuse-mutc 64x64
+  [ok]   add reuse-2pass 64x64
+  [ok]   add bound 64x64
+  [ok]   strided add reuse-mutc 64x64
+  [ok]   strided add reuse-2pass 64x64
+  [ok]   strided add bound 64x64
+  [ok]   transpose reuse-assign 64x64
+  [ok]   transpose bound 64x64
+  [ok]   sum_axis0 bound 64x64
+  [ok]   add reuse-mutc 1000x777
+  [ok]   add reuse-2pass 1000x777
+  [ok]   add bound 1000x777
+  [ok]   strided add reuse-mutc 1000x777
+  [ok]   strided add reuse-2pass 1000x777
+  [ok]   strided add bound 1000x777
+  [ok]   transpose reuse-assign 1000x777
+  [ok]   transpose bound 1000x777
+  [ok]   sum_axis0 bound 1000x777
+  [ok]   broadcast add reuse-mutc
+  [ok]   broadcast add reuse-2pass
+  [ok]   batched vecdot bound
+  [ok]   full reuse-fill
+  [ok]   zeros reads as zeros (calloc-lazy, untouched)
+  [ok]   sanity black_box
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+-- device: DeviceFaer(16)
+  [ok]   add reuse-mutc 64x64
+  [ok]   add reuse-2pass 64x64
+  [ok]   add bound 64x64
+  [ok]   strided add reuse-mutc 64x64
+  [ok]   strided add reuse-2pass 64x64
+  [ok]   strided add bound 64x64
+  [ok]   transpose reuse-assign 64x64
+  [ok]   transpose bound 64x64
+  [ok]   sum_axis0 bound 64x64
+  [ok]   add reuse-mutc 1000x777
+  [ok]   add reuse-2pass 1000x777
+  [ok]   add bound 1000x777
+  [ok]   strided add reuse-mutc 1000x777
+  [ok]   strided add reuse-2pass 1000x777
+  [ok]   strided add bound 1000x777
+  [ok]   transpose reuse-assign 1000x777
+  [ok]   transpose bound 1000x777
+  [ok]   sum_axis0 bound 1000x777
+  [ok]   broadcast add reuse-mutc
+  [ok]   broadcast add reuse-2pass
+  [ok]   batched vecdot bound
+  [ok]   full reuse-fill
+  [ok]   zeros reads as zeros (calloc-lazy, untouched)
+  [ok]   sanity black_box
+all correctness checks passed

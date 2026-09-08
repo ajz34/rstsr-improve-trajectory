@@ -1,0 +1,1 @@
+RESULT tag=tr_bound_serial iters=40 wall_s=0.6490 ms_per_iter=16.2261 minflt=3 majflt=0 minflt_per_iter=0.1 user_s=0.6490 sys_s=0.0000

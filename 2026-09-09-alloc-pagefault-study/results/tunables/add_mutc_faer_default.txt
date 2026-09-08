@@ -1,0 +1,1 @@
+RESULT tag=add_mutc_faer iters=200 wall_s=0.1286 ms_per_iter=0.6429 minflt=40 majflt=0 minflt_per_iter=0.2 user_s=2.0327 sys_s=0.0201

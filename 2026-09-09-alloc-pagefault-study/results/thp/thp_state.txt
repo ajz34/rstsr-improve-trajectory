@@ -1,0 +1,2 @@
+THP enabled: always [madvise] never
+THP defrag:  always defer defer+madvise [madvise] never

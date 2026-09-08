@@ -1,0 +1,1 @@
+RESULT tag=tr_a_faer iters=60 wall_s=0.1964 ms_per_iter=3.2740 minflt=492081 majflt=0 minflt_per_iter=8201.4 user_s=1.5187 sys_s=0.7234

@@ -66,3 +66,6 @@ build/
 
 # Catch-all for local-only files (e.g. *.local.toml, *.local.md)
 *.local*
+
+# criterion HTML/SVG report artifacts (bulky; raw JSON + txt outputs are kept)
+**/criterion/**/report/

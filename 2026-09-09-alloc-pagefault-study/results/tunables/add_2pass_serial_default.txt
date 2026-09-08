@@ -1,0 +1,1 @@
+RESULT tag=add_2pass_serial iters=100 wall_s=0.2562 ms_per_iter=2.5624 minflt=3 majflt=0 minflt_per_iter=0.0 user_s=0.2561 sys_s=0.0001

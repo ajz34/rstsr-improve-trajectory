@@ -1,0 +1,1 @@
+RESULT tag=add_a_serial iters=100 wall_s=0.2269 ms_per_iter=2.2688 minflt=8195 majflt=0 minflt_per_iter=82.0 user_s=0.2225 sys_s=0.0043

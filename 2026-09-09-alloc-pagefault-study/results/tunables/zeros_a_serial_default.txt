@@ -1,0 +1,1 @@
+RESULT tag=zeros_a_serial iters=400 wall_s=0.0011 ms_per_iter=0.0028 minflt=403 majflt=0 minflt_per_iter=1.0 user_s=0.0000 sys_s=0.0011

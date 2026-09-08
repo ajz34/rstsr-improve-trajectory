@@ -1,0 +1,1 @@
+RESULT tag=thp_madvise iters=200 wall_s=0.1365 ms_per_iter=0.6825 minflt=3603 majflt=0 minflt_per_iter=18.0 user_s=0.0378 sys_s=0.0986

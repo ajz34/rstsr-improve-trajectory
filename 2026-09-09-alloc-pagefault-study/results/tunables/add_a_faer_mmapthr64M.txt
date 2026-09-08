@@ -1,0 +1,1 @@
+RESULT tag=add_a_faer iters=200 wall_s=0.5279 ms_per_iter=2.6394 minflt=1416225 majflt=0 minflt_per_iter=7081.1 user_s=2.3225 sys_s=2.9209

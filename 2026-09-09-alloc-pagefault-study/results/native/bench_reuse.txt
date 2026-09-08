@@ -1,0 +1,671 @@
+   Compiling alloc-pagefault-study v0.1.0 (/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-alloc-pagefault-study)
+    Finished `bench` profile [optimized] target(s) in 2.11s
+     Running benches/reuse.rs (target/release/deps/reuse-ca212be636b09fdc)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking add_contig/medium_512x512-serial_f64/A_alloc
+Benchmarking add_contig/medium_512x512-serial_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking add_contig/medium_512x512-serial_f64/A_alloc: Collecting 100 samples in estimated 2.0937 s (50k iterations)
+Benchmarking add_contig/medium_512x512-serial_f64/A_alloc: Analyzing
+add_contig/medium_512x512-serial_f64/A_alloc
+                        time:   [40.620 µs 40.643 µs 40.667 µs]
+                        change: [-17.466% -16.421% -14.572%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+Benchmarking add_contig/medium_512x512-serial_f64/B_reuse_mutc
+Benchmarking add_contig/medium_512x512-serial_f64/B_reuse_mutc: Warming up for 700.00 ms
+Benchmarking add_contig/medium_512x512-serial_f64/B_reuse_mutc: Collecting 100 samples in estimated 2.1297 s (50k iterations)
+Benchmarking add_contig/medium_512x512-serial_f64/B_reuse_mutc: Analyzing
+add_contig/medium_512x512-serial_f64/B_reuse_mutc
+                        time:   [42.283 µs 42.373 µs 42.495 µs]
+                        change: [-13.074% -12.794% -12.469%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+Benchmarking add_contig/medium_512x512-serial_f64/B_reuse_2pass
+Benchmarking add_contig/medium_512x512-serial_f64/B_reuse_2pass: Warming up for 700.00 ms
+Benchmarking add_contig/medium_512x512-serial_f64/B_reuse_2pass: Collecting 100 samples in estimated 2.0044 s (30k iterations)
+Benchmarking add_contig/medium_512x512-serial_f64/B_reuse_2pass: Analyzing
+add_contig/medium_512x512-serial_f64/B_reuse_2pass
+                        time:   [63.940 µs 64.055 µs 64.195 µs]
+                        change: [-0.3654% +0.0278% +0.3667%] (p = 0.89 > 0.05)
+                        No change in performance detected.
+Benchmarking add_contig/medium_512x512-serial_f64/B_bound
+Benchmarking add_contig/medium_512x512-serial_f64/B_bound: Warming up for 700.00 ms
+Benchmarking add_contig/medium_512x512-serial_f64/B_bound: Collecting 100 samples in estimated 2.1778 s (50k iterations)
+Benchmarking add_contig/medium_512x512-serial_f64/B_bound: Analyzing
+add_contig/medium_512x512-serial_f64/B_bound
+                        time:   [40.367 µs 40.413 µs 40.473 µs]
+                        change: [-14.594% -14.083% -13.469%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Benchmarking add_contig/large_2048x2048-serial_f64/A_alloc
+Benchmarking add_contig/large_2048x2048-serial_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking add_contig/large_2048x2048-serial_f64/A_alloc: Collecting 100 samples in estimated 2.5872 s (400 iterations)
+Benchmarking add_contig/large_2048x2048-serial_f64/A_alloc: Analyzing
+add_contig/large_2048x2048-serial_f64/A_alloc
+                        time:   [6.2994 ms 6.3183 ms 6.3405 ms]
+                        change: [-1.6344% -0.9721% -0.3593%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 16 outliers among 100 measurements (16.00%)
+  9 (9.00%) high mild
+  7 (7.00%) high severe
+Benchmarking add_contig/large_2048x2048-serial_f64/B_reuse_mutc
+Benchmarking add_contig/large_2048x2048-serial_f64/B_reuse_mutc: Warming up for 700.00 ms
+Benchmarking add_contig/large_2048x2048-serial_f64/B_reuse_mutc: Collecting 100 samples in estimated 2.1770 s (1000 iterations)
+Benchmarking add_contig/large_2048x2048-serial_f64/B_reuse_mutc: Analyzing
+add_contig/large_2048x2048-serial_f64/B_reuse_mutc
+                        time:   [2.1461 ms 2.1539 ms 2.1635 ms]
+                        change: [+1.4430% +1.8668% +2.3649%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+Benchmarking add_contig/large_2048x2048-serial_f64/B_reuse_2pass
+Benchmarking add_contig/large_2048x2048-serial_f64/B_reuse_2pass: Warming up for 700.00 ms
+Benchmarking add_contig/large_2048x2048-serial_f64/B_reuse_2pass: Collecting 100 samples in estimated 2.0324 s (800 iterations)
+Benchmarking add_contig/large_2048x2048-serial_f64/B_reuse_2pass: Analyzing
+add_contig/large_2048x2048-serial_f64/B_reuse_2pass
+                        time:   [2.5075 ms 2.5180 ms 2.5305 ms]
+                        change: [+0.2904% +0.8196% +1.3514%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+Benchmarking add_contig/large_2048x2048-serial_f64/B_bound
+Benchmarking add_contig/large_2048x2048-serial_f64/B_bound: Warming up for 700.00 ms
+Benchmarking add_contig/large_2048x2048-serial_f64/B_bound: Collecting 100 samples in estimated 2.1696 s (1000 iterations)
+Benchmarking add_contig/large_2048x2048-serial_f64/B_bound: Analyzing
+add_contig/large_2048x2048-serial_f64/B_bound
+                        time:   [2.1695 ms 2.1731 ms 2.1766 ms]
+                        change: [-8.0633% -7.7880% -7.5292%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Benchmarking add_contig/odd_1000x777-serial_f64/A_alloc
+Benchmarking add_contig/odd_1000x777-serial_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking add_contig/odd_1000x777-serial_f64/A_alloc: Collecting 100 samples in estimated 2.3659 s (20k iterations)
+Benchmarking add_contig/odd_1000x777-serial_f64/A_alloc: Analyzing
+add_contig/odd_1000x777-serial_f64/A_alloc
+                        time:   [115.90 µs 116.13 µs 116.40 µs]
+                        change: [-2.5630% -2.0393% -1.5686%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 9 outliers among 100 measurements (9.00%)
+  6 (6.00%) high mild
+  3 (3.00%) high severe
+Benchmarking add_contig/odd_1000x777-serial_f64/B_reuse_mutc
+Benchmarking add_contig/odd_1000x777-serial_f64/B_reuse_mutc: Warming up for 700.00 ms
+Benchmarking add_contig/odd_1000x777-serial_f64/B_reuse_mutc: Collecting 100 samples in estimated 2.3143 s (20k iterations)
+Benchmarking add_contig/odd_1000x777-serial_f64/B_reuse_mutc: Analyzing
+add_contig/odd_1000x777-serial_f64/B_reuse_mutc
+                        time:   [115.58 µs 115.98 µs 116.44 µs]
+                        change: [-5.1895% -4.8848% -4.5589%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking add_contig/odd_1000x777-serial_f64/B_reuse_2pass
+Benchmarking add_contig/odd_1000x777-serial_f64/B_reuse_2pass: Warming up for 700.00 ms
+Benchmarking add_contig/odd_1000x777-serial_f64/B_reuse_2pass: Collecting 100 samples in estimated 2.3800 s (15k iterations)
+Benchmarking add_contig/odd_1000x777-serial_f64/B_reuse_2pass: Analyzing
+add_contig/odd_1000x777-serial_f64/B_reuse_2pass
+                        time:   [158.45 µs 159.32 µs 160.27 µs]
+                        change: [-17.891% -17.009% -16.122%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  5 (5.00%) high mild
+  3 (3.00%) high severe
+Benchmarking add_contig/odd_1000x777-serial_f64/B_bound
+Benchmarking add_contig/odd_1000x777-serial_f64/B_bound: Warming up for 700.00 ms
+Benchmarking add_contig/odd_1000x777-serial_f64/B_bound: Collecting 100 samples in estimated 2.2469 s (20k iterations)
+Benchmarking add_contig/odd_1000x777-serial_f64/B_bound: Analyzing
+add_contig/odd_1000x777-serial_f64/B_bound
+                        time:   [111.26 µs 111.81 µs 112.39 µs]
+                        change: [-26.280% -26.057% -25.796%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  1 (1.00%) high mild
+  4 (4.00%) high severe
+Benchmarking add_contig/medium_512x512-faer16_f64/A_alloc
+Benchmarking add_contig/medium_512x512-faer16_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking add_contig/medium_512x512-faer16_f64/A_alloc: Collecting 100 samples in estimated 2.1201 s (30k iterations)
+Benchmarking add_contig/medium_512x512-faer16_f64/A_alloc: Analyzing
+add_contig/medium_512x512-faer16_f64/A_alloc
+                        time:   [70.261 µs 70.384 µs 70.556 µs]
+                        change: [+2.9092% +3.2750% +3.6910%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) low severe
+  3 (3.00%) low mild
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+Benchmarking add_contig/medium_512x512-faer16_f64/B_reuse_mutc
+Benchmarking add_contig/medium_512x512-faer16_f64/B_reuse_mutc: Warming up for 700.00 ms
+Benchmarking add_contig/medium_512x512-faer16_f64/B_reuse_mutc: Collecting 100 samples in estimated 2.1252 s (30k iterations)
+Benchmarking add_contig/medium_512x512-faer16_f64/B_reuse_mutc: Analyzing
+add_contig/medium_512x512-faer16_f64/B_reuse_mutc
+                        time:   [69.557 µs 69.620 µs 69.684 µs]
+                        change: [+1.1715% +1.4625% +1.7686%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) low severe
+  1 (1.00%) low mild
+  1 (1.00%) high severe
+Benchmarking add_contig/medium_512x512-faer16_f64/B_reuse_2pass
+Benchmarking add_contig/medium_512x512-faer16_f64/B_reuse_2pass: Warming up for 700.00 ms
+Benchmarking add_contig/medium_512x512-faer16_f64/B_reuse_2pass: Collecting 100 samples in estimated 2.4839 s (20k iterations)
+Benchmarking add_contig/medium_512x512-faer16_f64/B_reuse_2pass: Analyzing
+add_contig/medium_512x512-faer16_f64/B_reuse_2pass
+                        time:   [125.24 µs 127.69 µs 129.61 µs]
+                        change: [-6.6086% -2.8742% +1.1376%] (p = 0.14 > 0.05)
+                        No change in performance detected.
+Benchmarking add_contig/medium_512x512-faer16_f64/B_bound
+Benchmarking add_contig/medium_512x512-faer16_f64/B_bound: Warming up for 700.00 ms
+Benchmarking add_contig/medium_512x512-faer16_f64/B_bound: Collecting 100 samples in estimated 2.5167 s (15k iterations)
+Benchmarking add_contig/medium_512x512-faer16_f64/B_bound: Analyzing
+add_contig/medium_512x512-faer16_f64/B_bound
+                        time:   [163.30 µs 164.04 µs 164.76 µs]
+                        change: [-0.3291% +0.3059% +0.9247%] (p = 0.33 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+Benchmarking add_contig/large_2048x2048-faer16_f64/A_alloc
+Benchmarking add_contig/large_2048x2048-faer16_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking add_contig/large_2048x2048-faer16_f64/A_alloc: Collecting 100 samples in estimated 2.1247 s (800 iterations)
+Benchmarking add_contig/large_2048x2048-faer16_f64/A_alloc: Analyzing
+add_contig/large_2048x2048-faer16_f64/A_alloc
+                        time:   [2.7053 ms 2.7411 ms 2.7780 ms]
+                        change: [-10.325% -8.8572% -7.2677%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Benchmarking add_contig/large_2048x2048-faer16_f64/B_reuse_mutc
+Benchmarking add_contig/large_2048x2048-faer16_f64/B_reuse_mutc: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.3s, enable flat sampling, or reduce sample count to 50.
+Benchmarking add_contig/large_2048x2048-faer16_f64/B_reuse_mutc: Collecting 100 samples in estimated 3.3132 s (5050 iterations)
+Benchmarking add_contig/large_2048x2048-faer16_f64/B_reuse_mutc: Analyzing
+add_contig/large_2048x2048-faer16_f64/B_reuse_mutc
+                        time:   [620.57 µs 624.78 µs 628.87 µs]
+                        change: [-5.7042% -4.4542% -3.2906%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Benchmarking add_contig/large_2048x2048-faer16_f64/B_reuse_2pass
+Benchmarking add_contig/large_2048x2048-faer16_f64/B_reuse_2pass: Warming up for 700.00 ms
+Benchmarking add_contig/large_2048x2048-faer16_f64/B_reuse_2pass: Collecting 100 samples in estimated 2.1003 s (1000 iterations)
+Benchmarking add_contig/large_2048x2048-faer16_f64/B_reuse_2pass: Analyzing
+add_contig/large_2048x2048-faer16_f64/B_reuse_2pass
+                        time:   [2.0957 ms 2.1205 ms 2.1444 ms]
+                        change: [+0.3115% +3.2149% +6.3799%] (p = 0.04 < 0.05)
+                        Change within noise threshold.
+Benchmarking add_contig/large_2048x2048-faer16_f64/B_bound
+Benchmarking add_contig/large_2048x2048-faer16_f64/B_bound: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.5s, enable flat sampling, or reduce sample count to 50.
+Benchmarking add_contig/large_2048x2048-faer16_f64/B_bound: Collecting 100 samples in estimated 3.5319 s (5050 iterations)
+Benchmarking add_contig/large_2048x2048-faer16_f64/B_bound: Analyzing
+add_contig/large_2048x2048-faer16_f64/B_bound
+                        time:   [692.71 µs 704.85 µs 717.09 µs]
+                        change: [-4.3610% +0.4019% +5.2975%] (p = 0.87 > 0.05)
+                        No change in performance detected.
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) low severe
+  3 (3.00%) low mild
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+Benchmarking add_contig/odd_1000x777-faer16_f64/A_alloc
+Benchmarking add_contig/odd_1000x777-faer16_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking add_contig/odd_1000x777-faer16_f64/A_alloc: Collecting 100 samples in estimated 2.3617 s (20k iterations)
+Benchmarking add_contig/odd_1000x777-faer16_f64/A_alloc: Analyzing
+add_contig/odd_1000x777-faer16_f64/A_alloc
+                        time:   [117.12 µs 117.94 µs 119.24 µs]
+                        change: [+3.2450% +3.6911% +4.2072%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low severe
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking add_contig/odd_1000x777-faer16_f64/B_reuse_mutc
+Benchmarking add_contig/odd_1000x777-faer16_f64/B_reuse_mutc: Warming up for 700.00 ms
+Benchmarking add_contig/odd_1000x777-faer16_f64/B_reuse_mutc: Collecting 100 samples in estimated 2.3586 s (20k iterations)
+Benchmarking add_contig/odd_1000x777-faer16_f64/B_reuse_mutc: Analyzing
+add_contig/odd_1000x777-faer16_f64/B_reuse_mutc
+                        time:   [116.20 µs 116.33 µs 116.45 µs]
+                        change: [+2.6880% +2.9293% +3.1598%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+Benchmarking add_contig/odd_1000x777-faer16_f64/B_reuse_2pass
+Benchmarking add_contig/odd_1000x777-faer16_f64/B_reuse_2pass: Warming up for 700.00 ms
+Benchmarking add_contig/odd_1000x777-faer16_f64/B_reuse_2pass: Collecting 100 samples in estimated 2.4967 s (10k iterations)
+Benchmarking add_contig/odd_1000x777-faer16_f64/B_reuse_2pass: Analyzing
+add_contig/odd_1000x777-faer16_f64/B_reuse_2pass
+                        time:   [205.09 µs 216.36 µs 229.13 µs]
+                        change: [-8.3658% -4.0757% +0.5986%] (p = 0.09 > 0.05)
+                        No change in performance detected.
+Benchmarking add_contig/odd_1000x777-faer16_f64/B_bound
+Benchmarking add_contig/odd_1000x777-faer16_f64/B_bound: Warming up for 700.00 ms
+Benchmarking add_contig/odd_1000x777-faer16_f64/B_bound: Collecting 100 samples in estimated 2.0181 s (10k iterations)
+Benchmarking add_contig/odd_1000x777-faer16_f64/B_bound: Analyzing
+add_contig/odd_1000x777-faer16_f64/B_bound
+                        time:   [199.36 µs 200.23 µs 201.12 µs]
+                        change: [+2.3345% +3.2120% +4.0250%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+
+Benchmarking add_strided/large_2048x2048-serial_f64/A_alloc
+Benchmarking add_strided/large_2048x2048-serial_f64/A_alloc: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.9s, or reduce sample count to 60.
+Benchmarking add_strided/large_2048x2048-serial_f64/A_alloc: Collecting 100 samples in estimated 2.9050 s (100 iterations)
+Benchmarking add_strided/large_2048x2048-serial_f64/A_alloc: Analyzing
+add_strided/large_2048x2048-serial_f64/A_alloc
+                        time:   [28.248 ms 28.298 ms 28.354 ms]
+                        change: [-1.3123% -0.8590% -0.4477%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  10 (10.00%) high severe
+Benchmarking add_strided/large_2048x2048-serial_f64/B_reuse_mutc
+Benchmarking add_strided/large_2048x2048-serial_f64/B_reuse_mutc: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.3s, or reduce sample count to 80.
+Benchmarking add_strided/large_2048x2048-serial_f64/B_reuse_mutc: Collecting 100 samples in estimated 2.3126 s (100 iterations)
+Benchmarking add_strided/large_2048x2048-serial_f64/B_reuse_mutc: Analyzing
+add_strided/large_2048x2048-serial_f64/B_reuse_mutc
+                        time:   [23.014 ms 23.041 ms 23.073 ms]
+                        change: [-0.3927% -0.1857% +0.0134%] (p = 0.08 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking add_strided/large_2048x2048-serial_f64/B_reuse_2pass
+Benchmarking add_strided/large_2048x2048-serial_f64/B_reuse_2pass: Warming up for 700.00 ms
+Benchmarking add_strided/large_2048x2048-serial_f64/B_reuse_2pass: Collecting 100 samples in estimated 3.9432 s (200 iterations)
+Benchmarking add_strided/large_2048x2048-serial_f64/B_reuse_2pass: Analyzing
+add_strided/large_2048x2048-serial_f64/B_reuse_2pass
+                        time:   [19.796 ms 19.878 ms 19.961 ms]
+                        change: [+1.4224% +1.9501% +2.4930%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+Benchmarking add_strided/large_2048x2048-serial_f64/B_bound
+Benchmarking add_strided/large_2048x2048-serial_f64/B_bound: Warming up for 700.00 ms
+Benchmarking add_strided/large_2048x2048-serial_f64/B_bound: Collecting 100 samples in estimated 3.5030 s (200 iterations)
+Benchmarking add_strided/large_2048x2048-serial_f64/B_bound: Analyzing
+add_strided/large_2048x2048-serial_f64/B_bound
+                        time:   [17.237 ms 17.249 ms 17.261 ms]
+                        change: [+0.5403% +0.6753% +0.8041%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking add_strided/large_2048x2048-faer16_f64/A_alloc
+Benchmarking add_strided/large_2048x2048-faer16_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking add_strided/large_2048x2048-faer16_f64/A_alloc: Collecting 100 samples in estimated 2.2933 s (500 iterations)
+Benchmarking add_strided/large_2048x2048-faer16_f64/A_alloc: Analyzing
+add_strided/large_2048x2048-faer16_f64/A_alloc
+                        time:   [4.0951 ms 4.1439 ms 4.1954 ms]
+                        change: [-6.4691% -5.1081% -3.7686%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 13 outliers among 100 measurements (13.00%)
+  2 (2.00%) low mild
+  10 (10.00%) high mild
+  1 (1.00%) high severe
+Benchmarking add_strided/large_2048x2048-faer16_f64/B_reuse_mutc
+Benchmarking add_strided/large_2048x2048-faer16_f64/B_reuse_mutc: Warming up for 700.00 ms
+Benchmarking add_strided/large_2048x2048-faer16_f64/B_reuse_mutc: Collecting 100 samples in estimated 2.2142 s (1000 iterations)
+Benchmarking add_strided/large_2048x2048-faer16_f64/B_reuse_mutc: Analyzing
+add_strided/large_2048x2048-faer16_f64/B_reuse_mutc
+                        time:   [2.1029 ms 2.1219 ms 2.1442 ms]
+                        change: [-1.6472% -0.5965% +0.6197%] (p = 0.31 > 0.05)
+                        No change in performance detected.
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) high severe
+Benchmarking add_strided/large_2048x2048-faer16_f64/B_reuse_2pass
+Benchmarking add_strided/large_2048x2048-faer16_f64/B_reuse_2pass: Warming up for 700.00 ms
+Benchmarking add_strided/large_2048x2048-faer16_f64/B_reuse_2pass: Collecting 100 samples in estimated 2.0400 s (600 iterations)
+Benchmarking add_strided/large_2048x2048-faer16_f64/B_reuse_2pass: Analyzing
+add_strided/large_2048x2048-faer16_f64/B_reuse_2pass
+                        time:   [3.4467 ms 3.5335 ms 3.6240 ms]
+                        change: [+20.202% +24.279% +28.319%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking add_strided/large_2048x2048-faer16_f64/B_bound
+Benchmarking add_strided/large_2048x2048-faer16_f64/B_bound: Warming up for 700.00 ms
+Benchmarking add_strided/large_2048x2048-faer16_f64/B_bound: Collecting 100 samples in estimated 2.0495 s (1600 iterations)
+Benchmarking add_strided/large_2048x2048-faer16_f64/B_bound: Analyzing
+add_strided/large_2048x2048-faer16_f64/B_bound
+                        time:   [1.2923 ms 1.3061 ms 1.3205 ms]
+                        change: [+2.5443% +3.9943% +5.5109%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+
+Benchmarking transpose_copy/large_2048x2048-serial_f64/A_alloc
+Benchmarking transpose_copy/large_2048x2048-serial_f64/A_alloc: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.3s, or reduce sample count to 80.
+Benchmarking transpose_copy/large_2048x2048-serial_f64/A_alloc: Collecting 100 samples in estimated 2.2869 s (100 iterations)
+Benchmarking transpose_copy/large_2048x2048-serial_f64/A_alloc: Analyzing
+transpose_copy/large_2048x2048-serial_f64/A_alloc
+                        time:   [22.705 ms 22.809 ms 22.911 ms]
+                        change: [-3.8246% -3.1817% -2.5911%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Benchmarking transpose_copy/large_2048x2048-serial_f64/B_reuse_assign
+Benchmarking transpose_copy/large_2048x2048-serial_f64/B_reuse_assign: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-serial_f64/B_reuse_assign: Collecting 100 samples in estimated 3.4776 s (200 iterations)
+Benchmarking transpose_copy/large_2048x2048-serial_f64/B_reuse_assign: Analyzing
+transpose_copy/large_2048x2048-serial_f64/B_reuse_assign
+                        time:   [17.268 ms 17.309 ms 17.350 ms]
+                        change: [-3.1671% -2.7777% -2.4257%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Benchmarking transpose_copy/large_2048x2048-serial_f64/B_bound
+Benchmarking transpose_copy/large_2048x2048-serial_f64/B_bound: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-serial_f64/B_bound: Collecting 100 samples in estimated 3.4418 s (200 iterations)
+Benchmarking transpose_copy/large_2048x2048-serial_f64/B_bound: Analyzing
+transpose_copy/large_2048x2048-serial_f64/B_bound
+                        time:   [17.053 ms 17.061 ms 17.070 ms]
+                        change: [-0.0586% +0.0501% +0.1545%] (p = 0.37 > 0.05)
+                        No change in performance detected.
+Benchmarking transpose_copy/odd_1000x777-serial_f64/A_alloc
+Benchmarking transpose_copy/odd_1000x777-serial_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-serial_f64/A_alloc: Collecting 100 samples in estimated 2.2174 s (900 iterations)
+Benchmarking transpose_copy/odd_1000x777-serial_f64/A_alloc: Analyzing
+transpose_copy/odd_1000x777-serial_f64/A_alloc
+                        time:   [2.4254 ms 2.4295 ms 2.4343 ms]
+                        change: [-0.7249% -0.4911% -0.2522%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking transpose_copy/odd_1000x777-serial_f64/B_reuse_assign
+Benchmarking transpose_copy/odd_1000x777-serial_f64/B_reuse_assign: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-serial_f64/B_reuse_assign: Collecting 100 samples in estimated 2.2034 s (900 iterations)
+Benchmarking transpose_copy/odd_1000x777-serial_f64/B_reuse_assign: Analyzing
+transpose_copy/odd_1000x777-serial_f64/B_reuse_assign
+                        time:   [2.4265 ms 2.4427 ms 2.4732 ms]
+                        change: [-0.0816% +0.6188% +2.3493%] (p = 0.37 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+Benchmarking transpose_copy/odd_1000x777-serial_f64/B_bound
+Benchmarking transpose_copy/odd_1000x777-serial_f64/B_bound: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-serial_f64/B_bound: Collecting 100 samples in estimated 3.3608 s (10k iterations)
+Benchmarking transpose_copy/odd_1000x777-serial_f64/B_bound: Analyzing
+transpose_copy/odd_1000x777-serial_f64/B_bound
+                        time:   [327.98 µs 328.53 µs 329.22 µs]
+                        change: [-0.3461% -0.1708% -0.0036%] (p = 0.06 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/A_alloc
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/A_alloc: Collecting 100 samples in estimated 2.1699 s (700 iterations)
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/A_alloc: Analyzing
+transpose_copy/large_2048x2048-faer16_f64/A_alloc
+                        time:   [3.4828 ms 3.5435 ms 3.6083 ms]
+                        change: [+1.1256% +3.5308% +5.7637%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/B_reuse_assign
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/B_reuse_assign: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/B_reuse_assign: Collecting 100 samples in estimated 2.0934 s (1400 iterations)
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/B_reuse_assign: Analyzing
+transpose_copy/large_2048x2048-faer16_f64/B_reuse_assign
+                        time:   [1.4979 ms 1.5072 ms 1.5173 ms]
+                        change: [-3.0968% -2.1445% -1.2051%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 16 outliers among 100 measurements (16.00%)
+  1 (1.00%) low mild
+  9 (9.00%) high mild
+  6 (6.00%) high severe
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/B_bound
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/B_bound: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/B_bound: Collecting 100 samples in estimated 2.0113 s (1300 iterations)
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/B_bound: Analyzing
+transpose_copy/large_2048x2048-faer16_f64/B_bound
+                        time:   [1.4991 ms 1.5121 ms 1.5238 ms]
+                        change: [+24.514% +26.015% +27.168%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  5 (5.00%) low severe
+  3 (3.00%) low mild
+  1 (1.00%) high mild
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/A_alloc
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/A_alloc: Collecting 100 samples in estimated 3.5936 s (10k iterations)
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/A_alloc: Analyzing
+transpose_copy/odd_1000x777-faer16_f64/A_alloc
+                        time:   [356.21 µs 358.02 µs 360.88 µs]
+                        change: [-1.6386% -1.0190% -0.3435%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/B_reuse_assign
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/B_reuse_assign: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/B_reuse_assign: Collecting 100 samples in estimated 3.5935 s (10k iterations)
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/B_reuse_assign: Analyzing
+transpose_copy/odd_1000x777-faer16_f64/B_reuse_assign
+                        time:   [356.60 µs 358.03 µs 360.14 µs]
+                        change: [-2.0639% -1.5989% -1.0798%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/B_bound
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/B_bound: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/B_bound: Collecting 100 samples in estimated 2.1027 s (10k iterations)
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/B_bound: Analyzing
+transpose_copy/odd_1000x777-faer16_f64/B_bound
+                        time:   [206.96 µs 208.18 µs 209.58 µs]
+                        change: [+1.4259% +2.2179% +2.9502%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+
+Benchmarking sum_axis0/large_2048x2048-serial_f64/A_alloc
+Benchmarking sum_axis0/large_2048x2048-serial_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking sum_axis0/large_2048x2048-serial_f64/A_alloc: Collecting 100 samples in estimated 2.0320 s (1100 iterations)
+Benchmarking sum_axis0/large_2048x2048-serial_f64/A_alloc: Analyzing
+sum_axis0/large_2048x2048-serial_f64/A_alloc
+                        time:   [1.8391 ms 1.8439 ms 1.8488 ms]
+                        change: [+29.729% +30.665% +31.379%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Benchmarking sum_axis0/large_2048x2048-serial_f64/B_bound
+Benchmarking sum_axis0/large_2048x2048-serial_f64/B_bound: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.1s, enable flat sampling, or reduce sample count to 50.
+Benchmarking sum_axis0/large_2048x2048-serial_f64/B_bound: Collecting 100 samples in estimated 3.1296 s (5050 iterations)
+Benchmarking sum_axis0/large_2048x2048-serial_f64/B_bound: Analyzing
+sum_axis0/large_2048x2048-serial_f64/B_bound
+                        time:   [614.96 µs 617.52 µs 620.90 µs]
+                        change: [+0.1028% +0.6645% +1.3105%] (p = 0.03 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  8 (8.00%) low mild
+  2 (2.00%) high severe
+Benchmarking sum_axis0/large_2048x2048-faer16_f64/A_alloc
+Benchmarking sum_axis0/large_2048x2048-faer16_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking sum_axis0/large_2048x2048-faer16_f64/A_alloc: Collecting 100 samples in estimated 3.8755 s (10k iterations)
+Benchmarking sum_axis0/large_2048x2048-faer16_f64/A_alloc: Analyzing
+sum_axis0/large_2048x2048-faer16_f64/A_alloc
+                        time:   [372.27 µs 381.78 µs 391.07 µs]
+                        change: [-13.818% -12.157% -10.551%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 9 outliers among 100 measurements (9.00%)
+  8 (8.00%) low mild
+  1 (1.00%) high mild
+Benchmarking sum_axis0/large_2048x2048-faer16_f64/B_bound
+Benchmarking sum_axis0/large_2048x2048-faer16_f64/B_bound: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.6s, enable flat sampling, or reduce sample count to 50.
+Benchmarking sum_axis0/large_2048x2048-faer16_f64/B_bound: Collecting 100 samples in estimated 3.5987 s (5050 iterations)
+Benchmarking sum_axis0/large_2048x2048-faer16_f64/B_bound: Analyzing
+sum_axis0/large_2048x2048-faer16_f64/B_bound
+                        time:   [721.31 µs 723.88 µs 726.51 µs]
+                        change: [+7.4924% +8.2359% +9.0157%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) low mild
+  7 (7.00%) high mild
+  1 (1.00%) high severe
+
+Benchmarking vecdot_batched/batched_4096x512-serial_f64/A_alloc
+Benchmarking vecdot_batched/batched_4096x512-serial_f64/A_alloc: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.3s, enable flat sampling, or reduce sample count to 60.
+Benchmarking vecdot_batched/batched_4096x512-serial_f64/A_alloc: Collecting 100 samples in estimated 2.2938 s (5050 iterations)
+Benchmarking vecdot_batched/batched_4096x512-serial_f64/A_alloc: Analyzing
+vecdot_batched/batched_4096x512-serial_f64/A_alloc
+                        time:   [453.49 µs 454.30 µs 455.18 µs]
+                        change: [-0.8091% -0.4022% +0.0072%] (p = 0.05 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking vecdot_batched/batched_4096x512-serial_f64/B_bound
+Benchmarking vecdot_batched/batched_4096x512-serial_f64/B_bound: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.8s, enable flat sampling, or reduce sample count to 50.
+Benchmarking vecdot_batched/batched_4096x512-serial_f64/B_bound: Collecting 100 samples in estimated 3.7766 s (5050 iterations)
+Benchmarking vecdot_batched/batched_4096x512-serial_f64/B_bound: Analyzing
+vecdot_batched/batched_4096x512-serial_f64/B_bound
+                        time:   [737.24 µs 737.51 µs 737.77 µs]
+                        change: [-0.0075% +0.2340% +0.3914%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) low severe
+  3 (3.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking vecdot_batched/batched_4096x512-faer16_f64/A_alloc
+Benchmarking vecdot_batched/batched_4096x512-faer16_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking vecdot_batched/batched_4096x512-faer16_f64/A_alloc: Collecting 100 samples in estimated 2.1510 s (15k iterations)
+Benchmarking vecdot_batched/batched_4096x512-faer16_f64/A_alloc: Analyzing
+vecdot_batched/batched_4096x512-faer16_f64/A_alloc
+                        time:   [138.53 µs 139.07 µs 139.73 µs]
+                        change: [-6.1519% -5.5682% -4.9505%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 11 outliers among 100 measurements (11.00%)
+  2 (2.00%) low severe
+  2 (2.00%) low mild
+  5 (5.00%) high mild
+  2 (2.00%) high severe
+Benchmarking vecdot_batched/batched_4096x512-faer16_f64/B_bound
+Benchmarking vecdot_batched/batched_4096x512-faer16_f64/B_bound: Warming up for 700.00 ms
+Benchmarking vecdot_batched/batched_4096x512-faer16_f64/B_bound: Collecting 100 samples in estimated 2.2329 s (10k iterations)
+Benchmarking vecdot_batched/batched_4096x512-faer16_f64/B_bound: Analyzing
+vecdot_batched/batched_4096x512-faer16_f64/B_bound
+                        time:   [219.79 µs 220.85 µs 222.04 µs]
+                        change: [-2.4618% -0.9858% +0.1430%] (p = 0.16 > 0.05)
+                        No change in performance detected.
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) low severe
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+
+Benchmarking fill_full/large_2048x2048-serial_f64/A_alloc
+Benchmarking fill_full/large_2048x2048-serial_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking fill_full/large_2048x2048-serial_f64/A_alloc: Collecting 100 samples in estimated 2.2115 s (500 iterations)
+Benchmarking fill_full/large_2048x2048-serial_f64/A_alloc: Analyzing
+fill_full/large_2048x2048-serial_f64/A_alloc
+                        time:   [4.4738 ms 4.4817 ms 4.4895 ms]
+                        change: [+1.2535% +1.5183% +1.7966%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) low mild
+Benchmarking fill_full/large_2048x2048-serial_f64/B_reuse_fill
+Benchmarking fill_full/large_2048x2048-serial_f64/B_reuse_fill: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.7s, enable flat sampling, or reduce sample count to 60.
+Benchmarking fill_full/large_2048x2048-serial_f64/B_reuse_fill: Collecting 100 samples in estimated 2.6716 s (5050 iterations)
+Benchmarking fill_full/large_2048x2048-serial_f64/B_reuse_fill: Analyzing
+fill_full/large_2048x2048-serial_f64/B_reuse_fill
+                        time:   [542.00 µs 544.49 µs 546.83 µs]
+                        change: [-10.046% -8.7500% -7.2638%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 9 outliers among 100 measurements (9.00%)
+  5 (5.00%) low mild
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking fill_full/large_2048x2048-faer16_f64/A_alloc
+Benchmarking fill_full/large_2048x2048-faer16_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking fill_full/large_2048x2048-faer16_f64/A_alloc: Collecting 100 samples in estimated 2.1999 s (500 iterations)
+Benchmarking fill_full/large_2048x2048-faer16_f64/A_alloc: Analyzing
+fill_full/large_2048x2048-faer16_f64/A_alloc
+                        time:   [4.5456 ms 4.5756 ms 4.6056 ms]
+                        change: [+2.8073% +3.5166% +4.0885%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Benchmarking fill_full/large_2048x2048-faer16_f64/B_reuse_fill
+Benchmarking fill_full/large_2048x2048-faer16_f64/B_reuse_fill: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.7s, enable flat sampling, or reduce sample count to 60.
+Benchmarking fill_full/large_2048x2048-faer16_f64/B_reuse_fill: Collecting 100 samples in estimated 2.6783 s (5050 iterations)
+Benchmarking fill_full/large_2048x2048-faer16_f64/B_reuse_fill: Analyzing
+fill_full/large_2048x2048-faer16_f64/B_reuse_fill
+                        time:   [538.34 µs 542.24 µs 548.01 µs]
+                        change: [-11.250% -10.305% -9.3559%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  5 (5.00%) low mild
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+
+Benchmarking zeros/large_2048x2048-serial_f64/A_alloc
+Benchmarking zeros/large_2048x2048-serial_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking zeros/large_2048x2048-serial_f64/A_alloc: Collecting 100 samples in estimated 2.0084 s (858k iterations)
+Benchmarking zeros/large_2048x2048-serial_f64/A_alloc: Analyzing
+zeros/large_2048x2048-serial_f64/A_alloc
+                        time:   [2.3996 µs 2.4147 µs 2.4306 µs]
+                        change: [+3.4874% +4.5117% +5.5004%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+Benchmarking zeros/large_2048x2048-serial_f64/B_reuse_fill
+Benchmarking zeros/large_2048x2048-serial_f64/B_reuse_fill: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.6s, enable flat sampling, or reduce sample count to 60.
+Benchmarking zeros/large_2048x2048-serial_f64/B_reuse_fill: Collecting 100 samples in estimated 2.6457 s (5050 iterations)
+Benchmarking zeros/large_2048x2048-serial_f64/B_reuse_fill: Analyzing
+zeros/large_2048x2048-serial_f64/B_reuse_fill
+                        time:   [521.65 µs 526.45 µs 532.71 µs]
+                        change: [-7.9361% -7.1570% -6.3087%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking zeros/large_2048x2048-faer16_f64/A_alloc
+Benchmarking zeros/large_2048x2048-faer16_f64/A_alloc: Warming up for 700.00 ms
+Benchmarking zeros/large_2048x2048-faer16_f64/A_alloc: Collecting 100 samples in estimated 2.0015 s (828k iterations)
+Benchmarking zeros/large_2048x2048-faer16_f64/A_alloc: Analyzing
+zeros/large_2048x2048-faer16_f64/A_alloc
+                        time:   [2.4024 µs 2.4151 µs 2.4268 µs]
+                        change: [-0.8876% +1.1426% +2.9091%] (p = 0.25 > 0.05)
+                        No change in performance detected.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking zeros/large_2048x2048-faer16_f64/B_reuse_fill
+Benchmarking zeros/large_2048x2048-faer16_f64/B_reuse_fill: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.7s, enable flat sampling, or reduce sample count to 60.
+Benchmarking zeros/large_2048x2048-faer16_f64/B_reuse_fill: Collecting 100 samples in estimated 2.7126 s (5050 iterations)
+Benchmarking zeros/large_2048x2048-faer16_f64/B_reuse_fill: Analyzing
+zeros/large_2048x2048-faer16_f64/B_reuse_fill
+                        time:   [530.60 µs 533.37 µs 535.73 µs]
+                        change: [-9.9203% -8.4549% -6.4446%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+

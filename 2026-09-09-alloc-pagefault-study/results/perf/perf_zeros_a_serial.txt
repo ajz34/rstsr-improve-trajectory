@@ -1,0 +1,28 @@
+# started on Wed Sep  9 04:21:45 2026
+
+
+ Performance counter stats for '/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-alloc-pagefault-study/target/release/examples/profile_a_vs_b zeros_a_serial':
+
+              1.30 msec task-clock                                                            
+         6,338,676      cycles                                                                  (4.13%)
+        10,651,924      instructions                                                            (80.94%)
+         1,876,953      branches                                                              
+            18,273      branch-misses                                                         
+         4,857,175      L1-dcache-loads                                                       
+           118,580      L1-dcache-load-misses                                                   (95.87%)
+           943,624      cache-references                                                        (19.06%)
+     <not counted>      cache-misses                                                            (0.00%)
+               486      page-faults                                                           
+                 0      context-switches                                                      
+                 0      cpu-migrations                                                        
+
+       0.001541814 seconds time elapsed
+
+       0.000000000 seconds user
+       0.001566000 seconds sys
+
+
+Some events weren't counted. Try disabling the NMI watchdog:
+	echo 0 > /proc/sys/kernel/nmi_watchdog
+	perf stat ...
+	echo 1 > /proc/sys/kernel/nmi_watchdog

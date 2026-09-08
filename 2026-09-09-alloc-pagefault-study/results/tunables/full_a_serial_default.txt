@@ -1,0 +1,1 @@
+RESULT tag=full_a_serial iters=60 wall_s=0.2574 ms_per_iter=4.2906 minflt=491583 majflt=0 minflt_per_iter=8193.0 user_s=0.0461 sys_s=0.2112

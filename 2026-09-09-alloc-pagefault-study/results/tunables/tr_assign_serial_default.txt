@@ -1,0 +1,1 @@
+RESULT tag=tr_assign_serial iters=40 wall_s=0.6913 ms_per_iter=17.2813 minflt=3 majflt=0 minflt_per_iter=0.1 user_s=0.6908 sys_s=0.0003

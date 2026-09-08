@@ -1,0 +1,40 @@
+[package]
+name = "alloc-pagefault-study"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+publish = false
+
+# T7 of the rstsr CPU-efficiency campaign: alloc/page-fault rider study at
+# rstsr commit 386948be. MEASUREMENT-ONLY: no code changes to the rstsr tree.
+#
+# Standalone crate (no workspace). Path-depends on the local rstsr checkout,
+# mirroring rstsr-core's default features EXPLICITLY (same as T0's harness).
+#
+# `libc` is a deliberate, study-only dependency: getrusage (per-run page-fault
+# and user/sys time accounting) and madvise(MADV_HUGEPAGE) for the THP probe.
+# It must NOT be read as a proposal to add libc to rstsr.
+
+[dependencies]
+rstsr-core = { path = "../../rstsr/rstsr-core", default-features = false, features = [
+    "row_major",
+    "aligned_alloc",
+    "faer",
+    "faer_as_default",
+] }
+criterion = { version = "0.5", features = ["cargo_bench_support"] }
+libc = "0.2"
+
+# Criterion suite (release mode via `cargo bench`; profile is stock cargo
+# release: opt-level 3, no LTO — matching T0's policy).
+[[bench]]
+name = "reuse"
+harness = false
+
+[profile.release]
+# stock cargo release defaults; stated explicitly for the README
+opt-level = 3
+debug = false
+lto = false
+codegen-units = 16
+panic = "unwind"

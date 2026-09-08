@@ -1,0 +1,1 @@
+RESULT tag=sum_a_serial iters=80 wall_s=0.1496 ms_per_iter=1.8701 minflt=7 majflt=0 minflt_per_iter=0.1 user_s=0.1496 sys_s=0.0000

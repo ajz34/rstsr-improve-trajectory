@@ -1,0 +1,15 @@
+# started on Wed Sep  9 04:22:52 2026
+
+
+ Performance counter stats for '/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-alloc-pagefault-study/target/release/examples/madvise_thp reuse':
+
+             8,271      page-faults                                                           
+             8,271      minor-faults                                                          
+                 0      major-faults                                                          
+
+       0.116106704 seconds time elapsed
+
+       0.109705000 seconds user
+       0.006385000 seconds sys
+
+
