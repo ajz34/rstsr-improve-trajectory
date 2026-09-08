@@ -1,0 +1,51 @@
+    Finished `bench` profile [optimized] target(s) in 0.04s
+     Running benches/anchors_ndarray.rs (target/release/deps/anchors_ndarray-0e8fabffa4c15447)
+Gnuplot not found, using plotters backend
+Benchmarking ndarray_add/medium_512x512/owned
+Benchmarking ndarray_add/medium_512x512/owned: Warming up for 700.00 ms
+Benchmarking ndarray_add/medium_512x512/owned: Collecting 100 samples in estimated 2.1720 s (45k iterations)
+Benchmarking ndarray_add/medium_512x512/owned: Analyzing
+ndarray_add/medium_512x512/owned
+                        time:   [47.375 µs 47.486 µs 47.605 µs]
+                        change: [+18.683% +18.865% +19.044%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 12 outliers among 100 measurements (12.00%)
+  2 (2.00%) low severe
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  7 (7.00%) high severe
+Benchmarking ndarray_add/medium_512x512/zip_prealloc
+Benchmarking ndarray_add/medium_512x512/zip_prealloc: Warming up for 700.00 ms
+Benchmarking ndarray_add/medium_512x512/zip_prealloc: Collecting 100 samples in estimated 2.0891 s (45k iterations)
+Benchmarking ndarray_add/medium_512x512/zip_prealloc: Analyzing
+ndarray_add/medium_512x512/zip_prealloc
+                        time:   [45.531 µs 45.560 µs 45.595 µs]
+                        change: [+16.125% +16.360% +16.617%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 15 outliers among 100 measurements (15.00%)
+  3 (3.00%) low severe
+  1 (1.00%) low mild
+  7 (7.00%) high mild
+  4 (4.00%) high severe
+Benchmarking ndarray_add/large_2048x2048/owned
+Benchmarking ndarray_add/large_2048x2048/owned: Warming up for 700.00 ms
+Benchmarking ndarray_add/large_2048x2048/owned: Collecting 100 samples in estimated 2.0201 s (300 iterations)
+Benchmarking ndarray_add/large_2048x2048/owned: Analyzing
+ndarray_add/large_2048x2048/owned
+                        time:   [6.5150 ms 6.5299 ms 6.5452 ms]
+                        change: [+3.1416% +3.5771% +3.9710%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking ndarray_add/large_2048x2048/zip_prealloc
+Benchmarking ndarray_add/large_2048x2048/zip_prealloc: Warming up for 700.00 ms
+Benchmarking ndarray_add/large_2048x2048/zip_prealloc: Collecting 100 samples in estimated 2.1755 s (900 iterations)
+Benchmarking ndarray_add/large_2048x2048/zip_prealloc: Analyzing
+ndarray_add/large_2048x2048/zip_prealloc
+                        time:   [2.3278 ms 2.3334 ms 2.3392 ms]
+                        change: [+8.5375% +8.9249% +9.2931%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+

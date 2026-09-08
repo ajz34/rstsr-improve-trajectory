@@ -1,0 +1,3 @@
+[PASS] add contig 1000x777 vs ndarray faer16 f64
+
+ALL CORRECTNESS CHECKS PASSED

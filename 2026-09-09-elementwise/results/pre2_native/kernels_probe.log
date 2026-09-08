@@ -1,0 +1,209 @@
+   Compiling elementwise v0.1.0 (/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-elementwise)
+    Finished `bench` profile [optimized] target(s) in 0.58s
+     Running benches/kernels_probe.rs (target/release/deps/kernels_probe-9bc820621b7d4052)
+Gnuplot not found, using plotters backend
+Benchmarking probe_contig/medium_262144/idx_generic_mu_closure
+Benchmarking probe_contig/medium_262144/idx_generic_mu_closure: Warming up for 700.00 ms
+Benchmarking probe_contig/medium_262144/idx_generic_mu_closure: Collecting 100 samples in estimated 2.1654 s (56k iterations)
+Benchmarking probe_contig/medium_262144/idx_generic_mu_closure: Analyzing
+probe_contig/medium_262144/idx_generic_mu_closure
+                        time:   [38.756 µs 38.772 µs 38.790 µs]
+                        change: [-18.895% -18.656% -18.402%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) low severe
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking probe_contig/medium_262144/idx_scalar_bounds
+Benchmarking probe_contig/medium_262144/idx_scalar_bounds: Warming up for 700.00 ms
+Benchmarking probe_contig/medium_262144/idx_scalar_bounds: Collecting 100 samples in estimated 2.0973 s (56k iterations)
+Benchmarking probe_contig/medium_262144/idx_scalar_bounds: Analyzing
+probe_contig/medium_262144/idx_scalar_bounds
+                        time:   [37.596 µs 37.620 µs 37.646 µs]
+                        change: [-21.950% -21.885% -21.814%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) low mild
+  7 (7.00%) high mild
+Benchmarking probe_contig/medium_262144/idx_unchecked
+Benchmarking probe_contig/medium_262144/idx_unchecked: Warming up for 700.00 ms
+Benchmarking probe_contig/medium_262144/idx_unchecked: Collecting 100 samples in estimated 2.1001 s (56k iterations)
+Benchmarking probe_contig/medium_262144/idx_unchecked: Analyzing
+probe_contig/medium_262144/idx_unchecked
+                        time:   [37.617 µs 37.632 µs 37.649 µs]
+                        change: [-22.128% -22.060% -21.989%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) low severe
+  3 (3.00%) low mild
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+Benchmarking probe_contig/medium_262144/zip_direct
+Benchmarking probe_contig/medium_262144/zip_direct: Warming up for 700.00 ms
+Benchmarking probe_contig/medium_262144/zip_direct: Collecting 100 samples in estimated 2.0965 s (56k iterations)
+Benchmarking probe_contig/medium_262144/zip_direct: Analyzing
+probe_contig/medium_262144/zip_direct
+                        time:   [37.548 µs 37.567 µs 37.588 µs]
+                        change: [-22.123% -22.065% -21.998%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking probe_contig/medium_262144/zip_generic_mu_closure
+Benchmarking probe_contig/medium_262144/zip_generic_mu_closure: Warming up for 700.00 ms
+Benchmarking probe_contig/medium_262144/zip_generic_mu_closure: Collecting 100 samples in estimated 2.1683 s (56k iterations)
+Benchmarking probe_contig/medium_262144/zip_generic_mu_closure: Analyzing
+probe_contig/medium_262144/zip_generic_mu_closure
+                        time:   [38.712 µs 38.731 µs 38.751 µs]
+                        change: [-19.375% -19.313% -19.246%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 9 outliers among 100 measurements (9.00%)
+  6 (6.00%) low mild
+  3 (3.00%) high mild
+Benchmarking probe_contig/medium_262144/zip_dyn_mu_closure
+Benchmarking probe_contig/medium_262144/zip_dyn_mu_closure: Warming up for 700.00 ms
+Benchmarking probe_contig/medium_262144/zip_dyn_mu_closure: Collecting 100 samples in estimated 2.1633 s (56k iterations)
+Benchmarking probe_contig/medium_262144/zip_dyn_mu_closure: Analyzing
+probe_contig/medium_262144/zip_dyn_mu_closure
+                        time:   [39.517 µs 39.534 µs 39.550 µs]
+                        change: [-17.962% -17.816% -17.693%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 15 outliers among 100 measurements (15.00%)
+  11 (11.00%) low severe
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+Benchmarking probe_contig/medium_262144/chunks_exact8
+Benchmarking probe_contig/medium_262144/chunks_exact8: Warming up for 700.00 ms
+Benchmarking probe_contig/medium_262144/chunks_exact8: Collecting 100 samples in estimated 2.1911 s (56k iterations)
+Benchmarking probe_contig/medium_262144/chunks_exact8: Analyzing
+probe_contig/medium_262144/chunks_exact8
+                        time:   [38.489 µs 38.527 µs 38.568 µs]
+                        change: [-19.644% -19.457% -19.262%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking probe_contig/large_4194304/idx_generic_mu_closure
+Benchmarking probe_contig/large_4194304/idx_generic_mu_closure: Warming up for 700.00 ms
+Benchmarking probe_contig/large_4194304/idx_generic_mu_closure: Collecting 100 samples in estimated 2.1720 s (1000 iterations)
+Benchmarking probe_contig/large_4194304/idx_generic_mu_closure: Analyzing
+probe_contig/large_4194304/idx_generic_mu_closure
+                        time:   [2.1399 ms 2.1448 ms 2.1501 ms]
+                        change: [-0.3432% +0.3019% +0.8386%] (p = 0.33 > 0.05)
+                        No change in performance detected.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking probe_contig/large_4194304/idx_scalar_bounds
+Benchmarking probe_contig/large_4194304/idx_scalar_bounds: Warming up for 700.00 ms
+Benchmarking probe_contig/large_4194304/idx_scalar_bounds: Collecting 100 samples in estimated 2.0013 s (900 iterations)
+Benchmarking probe_contig/large_4194304/idx_scalar_bounds: Analyzing
+probe_contig/large_4194304/idx_scalar_bounds
+                        time:   [2.1684 ms 2.1850 ms 2.2065 ms]
+                        change: [+3.3390% +4.1567% +5.2811%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 10 outliers among 100 measurements (10.00%)
+  3 (3.00%) high mild
+  7 (7.00%) high severe
+Benchmarking probe_contig/large_4194304/idx_unchecked
+Benchmarking probe_contig/large_4194304/idx_unchecked: Warming up for 700.00 ms
+Benchmarking probe_contig/large_4194304/idx_unchecked: Collecting 100 samples in estimated 2.1841 s (1000 iterations)
+Benchmarking probe_contig/large_4194304/idx_unchecked: Analyzing
+probe_contig/large_4194304/idx_unchecked
+                        time:   [2.1639 ms 2.1698 ms 2.1766 ms]
+                        change: [+1.9236% +2.3067% +2.7054%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+Benchmarking probe_contig/large_4194304/zip_direct
+Benchmarking probe_contig/large_4194304/zip_direct: Warming up for 700.00 ms
+Benchmarking probe_contig/large_4194304/zip_direct: Collecting 100 samples in estimated 2.1765 s (1000 iterations)
+Benchmarking probe_contig/large_4194304/zip_direct: Analyzing
+probe_contig/large_4194304/zip_direct
+                        time:   [2.1761 ms 2.1816 ms 2.1873 ms]
+                        change: [+2.7770% +3.6137% +4.8933%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Benchmarking probe_contig/large_4194304/zip_generic_mu_closure
+Benchmarking probe_contig/large_4194304/zip_generic_mu_closure: Warming up for 700.00 ms
+Benchmarking probe_contig/large_4194304/zip_generic_mu_closure: Collecting 100 samples in estimated 2.1446 s (1000 iterations)
+Benchmarking probe_contig/large_4194304/zip_generic_mu_closure: Analyzing
+probe_contig/large_4194304/zip_generic_mu_closure
+                        time:   [2.1690 ms 2.1793 ms 2.1936 ms]
+                        change: [+1.9446% +2.4908% +3.1619%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+Benchmarking probe_contig/large_4194304/zip_dyn_mu_closure
+Benchmarking probe_contig/large_4194304/zip_dyn_mu_closure: Warming up for 700.00 ms
+Benchmarking probe_contig/large_4194304/zip_dyn_mu_closure: Collecting 100 samples in estimated 2.1508 s (1000 iterations)
+Benchmarking probe_contig/large_4194304/zip_dyn_mu_closure: Analyzing
+probe_contig/large_4194304/zip_dyn_mu_closure
+                        time:   [2.1406 ms 2.1453 ms 2.1505 ms]
+                        change: [+0.4252% +1.0737% +1.6619%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 7 outliers among 100 measurements (7.00%)
+  5 (5.00%) high mild
+  2 (2.00%) high severe
+Benchmarking probe_contig/large_4194304/chunks_exact8
+Benchmarking probe_contig/large_4194304/chunks_exact8: Warming up for 700.00 ms
+Benchmarking probe_contig/large_4194304/chunks_exact8: Collecting 100 samples in estimated 2.1463 s (1000 iterations)
+Benchmarking probe_contig/large_4194304/chunks_exact8: Analyzing
+probe_contig/large_4194304/chunks_exact8
+                        time:   [2.1522 ms 2.1580 ms 2.1640 ms]
+                        change: [+0.6927% +1.0530% +1.3998%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+
+Benchmarking probe_strided/large_2048x2048-bound_rowmajor
+Benchmarking probe_strided/large_2048x2048-bound_rowmajor: Warming up for 700.00 ms
+Benchmarking probe_strided/large_2048x2048-bound_rowmajor: Collecting 100 samples in estimated 3.4943 s (200 iterations)
+Benchmarking probe_strided/large_2048x2048-bound_rowmajor: Analyzing
+probe_strided/large_2048x2048-bound_rowmajor
+                        time:   [17.316 ms 17.326 ms 17.337 ms]
+                        change: [+3.3952% +3.5348% +3.6499%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking probe_strided/large_2048x2048-colmajor_walk
+Benchmarking probe_strided/large_2048x2048-colmajor_walk: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.2s, or reduce sample count to 60.
+Benchmarking probe_strided/large_2048x2048-colmajor_walk: Collecting 100 samples in estimated 3.2054 s (100 iterations)
+Benchmarking probe_strided/large_2048x2048-colmajor_walk: Analyzing
+probe_strided/large_2048x2048-colmajor_walk
+                        time:   [31.874 ms 31.969 ms 32.111 ms]
+                        change: [+3.1867% +3.4999% +3.9635%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  3 (3.00%) high mild
+  6 (6.00%) high severe
+Benchmarking probe_strided/large_2048x2048-blocked64
+Benchmarking probe_strided/large_2048x2048-blocked64: Warming up for 700.00 ms
+Benchmarking probe_strided/large_2048x2048-blocked64: Collecting 100 samples in estimated 2.1024 s (300 iterations)
+Benchmarking probe_strided/large_2048x2048-blocked64: Analyzing
+probe_strided/large_2048x2048-blocked64
+                        time:   [6.9737 ms 7.0096 ms 7.0524 ms]
+                        change: [+2.1491% +2.7049% +3.3279%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 8 outliers among 100 measurements (8.00%)
+  3 (3.00%) low severe
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking probe_strided/large_2048x2048-blocked128
+Benchmarking probe_strided/large_2048x2048-blocked128: Warming up for 700.00 ms
+Benchmarking probe_strided/large_2048x2048-blocked128: Collecting 100 samples in estimated 2.2459 s (300 iterations)
+Benchmarking probe_strided/large_2048x2048-blocked128: Analyzing
+probe_strided/large_2048x2048-blocked128
+                        time:   [7.3993 ms 7.4221 ms 7.4488 ms]
+                        change: [-0.2761% +0.1959% +0.6439%] (p = 0.44 > 0.05)
+                        No change in performance detected.
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+

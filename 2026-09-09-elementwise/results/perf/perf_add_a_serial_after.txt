@@ -1,0 +1,22 @@
+# started on Wed Sep  9 05:57:11 2026
+
+
+ Performance counter stats for 'target/release/examples/profile_ops add_a':
+
+                 7      context-switches                 #     10.5 cs/sec  cs_per_second     
+                 5      cpu-migrations                   #      7.5 migrations/sec  migrations_per_second
+           835,769      page-faults                      # 1255710.4 faults/sec  page_faults_per_second
+            665.57 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+       198,044,097      L1-dcache-load-misses            #      7.9 %  l1d_miss_rate            (42.76%)
+         2,720,391      branch-misses                    #      0.3 %  branch_miss_rate         (42.93%)
+       881,199,737      branches                         #   1324.0 M/sec  branch_frequency     (42.91%)
+     3,778,845,461      cpu-cycles                       #      5.7 GHz  cycles_frequency       (42.95%)
+     5,226,797,193      instructions                     #      1.4 instructions  insn_per_cycle  (42.79%)
+       510,395,346      stalled-cycles-frontend          #     0.14 frontend_cycles_idle        (42.81%)
+
+       0.666217729 seconds time elapsed
+
+       0.274460000 seconds user
+       0.391657000 seconds sys
+
+

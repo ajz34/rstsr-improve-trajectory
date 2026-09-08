@@ -1,0 +1,201 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/kernels_probe.rs (target/release/deps/kernels_probe-4d8d634e337890c6)
+Gnuplot not found, using plotters backend
+Benchmarking probe_contig/medium_262144/idx_generic_mu_closure
+Benchmarking probe_contig/medium_262144/idx_generic_mu_closure: Warming up for 700.00 ms
+Benchmarking probe_contig/medium_262144/idx_generic_mu_closure: Collecting 100 samples in estimated 2.1906 s (45k iterations)
+Benchmarking probe_contig/medium_262144/idx_generic_mu_closure: Analyzing
+probe_contig/medium_262144/idx_generic_mu_closure
+                        time:   [47.068 µs 47.213 µs 47.389 µs]
+                        change: [+18.775% +19.157% +19.500%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Benchmarking probe_contig/medium_262144/idx_scalar_bounds
+Benchmarking probe_contig/medium_262144/idx_scalar_bounds: Warming up for 700.00 ms
+Benchmarking probe_contig/medium_262144/idx_scalar_bounds: Collecting 100 samples in estimated 2.1785 s (45k iterations)
+Benchmarking probe_contig/medium_262144/idx_scalar_bounds: Analyzing
+probe_contig/medium_262144/idx_scalar_bounds
+                        time:   [48.163 µs 48.175 µs 48.188 µs]
+                        change: [+21.455% +21.709% +21.982%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+Benchmarking probe_contig/medium_262144/idx_unchecked
+Benchmarking probe_contig/medium_262144/idx_unchecked: Warming up for 700.00 ms
+Benchmarking probe_contig/medium_262144/idx_unchecked: Collecting 100 samples in estimated 2.2034 s (45k iterations)
+Benchmarking probe_contig/medium_262144/idx_unchecked: Analyzing
+probe_contig/medium_262144/idx_unchecked
+                        time:   [48.287 µs 48.318 µs 48.355 µs]
+                        change: [+19.000% +19.374% +19.732%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 8 outliers among 100 measurements (8.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+Benchmarking probe_contig/medium_262144/zip_direct
+Benchmarking probe_contig/medium_262144/zip_direct: Warming up for 700.00 ms
+Benchmarking probe_contig/medium_262144/zip_direct: Collecting 100 samples in estimated 2.2017 s (45k iterations)
+Benchmarking probe_contig/medium_262144/zip_direct: Analyzing
+probe_contig/medium_262144/zip_direct
+                        time:   [48.146 µs 48.158 µs 48.171 µs]
+                        change: [+19.253% +19.486% +19.735%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  2 (2.00%) high severe
+Benchmarking probe_contig/medium_262144/zip_generic_mu_closure
+Benchmarking probe_contig/medium_262144/zip_generic_mu_closure: Warming up for 700.00 ms
+Benchmarking probe_contig/medium_262144/zip_generic_mu_closure: Collecting 100 samples in estimated 2.1969 s (45k iterations)
+Benchmarking probe_contig/medium_262144/zip_generic_mu_closure: Analyzing
+probe_contig/medium_262144/zip_generic_mu_closure
+                        time:   [47.964 µs 47.976 µs 47.988 µs]
+                        change: [+16.996% +17.169% +17.336%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking probe_contig/medium_262144/zip_dyn_mu_closure
+Benchmarking probe_contig/medium_262144/zip_dyn_mu_closure: Warming up for 700.00 ms
+Benchmarking probe_contig/medium_262144/zip_dyn_mu_closure: Collecting 100 samples in estimated 2.1932 s (45k iterations)
+Benchmarking probe_contig/medium_262144/zip_dyn_mu_closure: Analyzing
+probe_contig/medium_262144/zip_dyn_mu_closure
+                        time:   [47.886 µs 47.907 µs 47.931 µs]
+                        change: [+16.847% +17.164% +17.494%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking probe_contig/medium_262144/chunks_exact8
+Benchmarking probe_contig/medium_262144/chunks_exact8: Warming up for 700.00 ms
+Benchmarking probe_contig/medium_262144/chunks_exact8: Collecting 100 samples in estimated 2.1935 s (45k iterations)
+Benchmarking probe_contig/medium_262144/chunks_exact8: Analyzing
+probe_contig/medium_262144/chunks_exact8
+                        time:   [48.070 µs 48.090 µs 48.109 µs]
+                        change: [+20.023% +20.290% +20.555%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking probe_contig/large_4194304/idx_generic_mu_closure
+Benchmarking probe_contig/large_4194304/idx_generic_mu_closure: Warming up for 700.00 ms
+Benchmarking probe_contig/large_4194304/idx_generic_mu_closure: Collecting 100 samples in estimated 2.0552 s (1000 iterations)
+Benchmarking probe_contig/large_4194304/idx_generic_mu_closure: Analyzing
+probe_contig/large_4194304/idx_generic_mu_closure
+                        time:   [2.1283 ms 2.1383 ms 2.1510 ms]
+                        change: [-1.1256% -0.5811% +0.0058%] (p = 0.05 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking probe_contig/large_4194304/idx_scalar_bounds
+Benchmarking probe_contig/large_4194304/idx_scalar_bounds: Warming up for 700.00 ms
+Benchmarking probe_contig/large_4194304/idx_scalar_bounds: Collecting 100 samples in estimated 2.1102 s (1000 iterations)
+Benchmarking probe_contig/large_4194304/idx_scalar_bounds: Analyzing
+probe_contig/large_4194304/idx_scalar_bounds
+                        time:   [2.0932 ms 2.0978 ms 2.1028 ms]
+                        change: [-3.4702% -3.1784% -2.8709%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking probe_contig/large_4194304/idx_unchecked
+Benchmarking probe_contig/large_4194304/idx_unchecked: Warming up for 700.00 ms
+Benchmarking probe_contig/large_4194304/idx_unchecked: Collecting 100 samples in estimated 2.1106 s (1000 iterations)
+Benchmarking probe_contig/large_4194304/idx_unchecked: Analyzing
+probe_contig/large_4194304/idx_unchecked
+                        time:   [2.1157 ms 2.1209 ms 2.1264 ms]
+                        change: [-0.3258% +2.5012% +5.9248%] (p = 0.11 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking probe_contig/large_4194304/zip_direct
+Benchmarking probe_contig/large_4194304/zip_direct: Warming up for 700.00 ms
+Benchmarking probe_contig/large_4194304/zip_direct: Collecting 100 samples in estimated 2.1487 s (1000 iterations)
+Benchmarking probe_contig/large_4194304/zip_direct: Analyzing
+probe_contig/large_4194304/zip_direct
+                        time:   [2.0805 ms 2.1055 ms 2.1212 ms]
+                        change: [-2.1993% -0.9189% -0.1455%] (p = 0.05 < 0.05)
+                        Change within noise threshold.
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) low severe
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+Benchmarking probe_contig/large_4194304/zip_generic_mu_closure
+Benchmarking probe_contig/large_4194304/zip_generic_mu_closure: Warming up for 700.00 ms
+Benchmarking probe_contig/large_4194304/zip_generic_mu_closure: Collecting 100 samples in estimated 2.1727 s (1000 iterations)
+Benchmarking probe_contig/large_4194304/zip_generic_mu_closure: Analyzing
+probe_contig/large_4194304/zip_generic_mu_closure
+                        time:   [2.1220 ms 2.1264 ms 2.1311 ms]
+                        change: [-0.1756% +0.1135% +0.4294%] (p = 0.44 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
+Benchmarking probe_contig/large_4194304/zip_dyn_mu_closure
+Benchmarking probe_contig/large_4194304/zip_dyn_mu_closure: Warming up for 700.00 ms
+Benchmarking probe_contig/large_4194304/zip_dyn_mu_closure: Collecting 100 samples in estimated 2.0377 s (1000 iterations)
+Benchmarking probe_contig/large_4194304/zip_dyn_mu_closure: Analyzing
+probe_contig/large_4194304/zip_dyn_mu_closure
+                        time:   [2.1115 ms 2.1226 ms 2.1355 ms]
+                        change: [-0.5788% -0.0193% +0.5671%] (p = 0.95 > 0.05)
+                        No change in performance detected.
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+Benchmarking probe_contig/large_4194304/chunks_exact8
+Benchmarking probe_contig/large_4194304/chunks_exact8: Warming up for 700.00 ms
+Benchmarking probe_contig/large_4194304/chunks_exact8: Collecting 100 samples in estimated 2.1052 s (1000 iterations)
+Benchmarking probe_contig/large_4194304/chunks_exact8: Analyzing
+probe_contig/large_4194304/chunks_exact8
+                        time:   [2.1309 ms 2.1356 ms 2.1404 ms]
+                        change: [-0.5048% -0.1646% +0.1536%] (p = 0.35 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+
+Benchmarking probe_strided/large_2048x2048-bound_rowmajor
+Benchmarking probe_strided/large_2048x2048-bound_rowmajor: Warming up for 700.00 ms
+Benchmarking probe_strided/large_2048x2048-bound_rowmajor: Collecting 100 samples in estimated 3.3756 s (200 iterations)
+Benchmarking probe_strided/large_2048x2048-bound_rowmajor: Analyzing
+probe_strided/large_2048x2048-bound_rowmajor
+                        time:   [16.719 ms 16.735 ms 16.754 ms]
+                        change: [+0.4054% +0.5575% +0.7099%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking probe_strided/large_2048x2048-colmajor_walk
+Benchmarking probe_strided/large_2048x2048-colmajor_walk: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.1s, or reduce sample count to 60.
+Benchmarking probe_strided/large_2048x2048-colmajor_walk: Collecting 100 samples in estimated 3.1075 s (100 iterations)
+Benchmarking probe_strided/large_2048x2048-colmajor_walk: Analyzing
+probe_strided/large_2048x2048-colmajor_walk
+                        time:   [30.872 ms 30.888 ms 30.904 ms]
+                        change: [+0.1954% +0.2725% +0.3496%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking probe_strided/large_2048x2048-blocked64
+Benchmarking probe_strided/large_2048x2048-blocked64: Warming up for 700.00 ms
+Benchmarking probe_strided/large_2048x2048-blocked64: Collecting 100 samples in estimated 2.0526 s (300 iterations)
+Benchmarking probe_strided/large_2048x2048-blocked64: Analyzing
+probe_strided/large_2048x2048-blocked64
+                        time:   [6.8151 ms 6.8250 ms 6.8354 ms]
+                        change: [-0.0512% +0.1418% +0.3482%] (p = 0.15 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
+Benchmarking probe_strided/large_2048x2048-blocked128
+Benchmarking probe_strided/large_2048x2048-blocked128: Warming up for 700.00 ms
+Benchmarking probe_strided/large_2048x2048-blocked128: Collecting 100 samples in estimated 2.2151 s (300 iterations)
+Benchmarking probe_strided/large_2048x2048-blocked128: Analyzing
+probe_strided/large_2048x2048-blocked128
+                        time:   [7.3853 ms 7.4076 ms 7.4353 ms]
+                        change: [+0.7456% +1.1411% +1.6094%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  4 (4.00%) high mild
+  2 (2.00%) high severe
+

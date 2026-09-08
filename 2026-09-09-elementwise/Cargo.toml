@@ -1,0 +1,65 @@
+[package]
+name = "elementwise"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+publish = false
+
+# T4' of the rstsr CPU-efficiency campaign: elementwise kernel family
+# (add/sub/mul/div/scale/map) at rstsr commit 386948be.
+#
+# PHASE 1 (this crate as committed): baseline on the CLEAN rstsr tree,
+# kernel-structure probes, perf evidence, and a phase-2 edit plan (PLAN.md).
+# No code changes to ../rstsr in phase 1.
+#
+# Standalone crate (no workspace); path-depends on the local rstsr checkout,
+# mirroring rstsr-core's default features EXPLICITLY so the benched
+# configuration is visible in the manifest (T0 harness pattern).
+
+[dependencies]
+rstsr-core = { path = "../../rstsr/rstsr-core", default-features = false, features = [
+    "row_major",
+    "aligned_alloc",
+    "faer",
+    "faer_as_default",
+] }
+# criterion is a regular dependency because the harness lib exposes
+# `configure_group`; this is a bench-only crate, nothing ships from it.
+criterion = { version = "0.5", features = ["cargo_bench_support"] }
+
+[dev-dependencies]
+ndarray = "0.16"
+# Complex<f64> correctness spots; same major as rstsr's workspace num so
+# cargo resolves one copy.
+num = { version = "0.4", default-features = false, features = ["alloc"] }
+
+# D8 secondary column: forward rstsr-core's dispatch_dim_layout_iter feature.
+# Off by default; run with `--features dispatch_dim_layout_iter`.
+[features]
+dispatch_dim_layout_iter = ["rstsr-core/dispatch_dim_layout_iter"]
+
+[[bench]]
+name = "elementwise"
+harness = false
+
+[[bench]]
+name = "anchors_ndarray"
+harness = false
+
+[[bench]]
+name = "kernels_probe"
+harness = false
+
+[[example]]
+name = "correctness"
+
+[[example]]
+name = "profile_ops"
+
+[profile.release]
+# stock cargo release defaults; stated explicitly for the README
+opt-level = 3
+debug = false
+lto = false
+codegen-units = 16
+panic = "unwind"

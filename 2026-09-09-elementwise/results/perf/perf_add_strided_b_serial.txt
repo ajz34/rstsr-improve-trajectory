@@ -1,0 +1,22 @@
+# started on Wed Sep  9 05:08:59 2026
+
+
+ Performance counter stats for 'target/release/examples/profile_ops add_strided_b':
+
+                38      context-switches                 #     15.7 cs/sec  cs_per_second     
+                16      cpu-migrations                   #      6.6 migrations/sec  migrations_per_second
+            24,663      page-faults                      #  10181.7 faults/sec  page_faults_per_second
+          2,422.28 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+       773,214,499      L1-dcache-load-misses            #      2.1 %  l1d_miss_rate            (42.83%)
+           371,813      branch-misses                    #      0.0 %  branch_miss_rate         (42.83%)
+    14,317,761,801      branches                         #   5910.9 M/sec  branch_frequency     (42.83%)
+    13,100,151,481      cpu-cycles                       #      5.4 GHz  cycles_frequency       (42.88%)
+    67,765,775,664      instructions                     #      5.2 instructions  insn_per_cycle  (42.89%)
+       101,215,970      stalled-cycles-frontend          #     0.01 frontend_cycles_idle        (42.89%)
+
+       2.423105787 seconds time elapsed
+
+       2.406677000 seconds user
+       0.016004000 seconds sys
+
+

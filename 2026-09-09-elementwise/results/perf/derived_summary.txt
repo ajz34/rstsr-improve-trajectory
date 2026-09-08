@@ -1,0 +1,37 @@
+Derived perf stat metrics (native, DeviceCpuSerial, rstsr 386948be clean tree)
+==============================================================================
+
+Element counts: 2048x2048 = 4,194,304 elem/iter.
+add_b: 300 iters (1,258,291,200 elem) | add_strided_b: 100 iters (419,430,400 elem)
+| add_a: 100 iters (419,430,400 elem).
+Traffic convention: c=a+b nominal 24 B/elem (2R+1W f64); wall ms from the
+example's own Instant timing; GB/s uses perf task-clock.
+
+| metric            | add contig B (reuse) | add strided B (reuse) | add contig A (alloc) |
+|-------------------|----------------------|-----------------------|----------------------|
+| ms/iter (wall)    | 2.214                | 23.95                 | 6.47                 |
+| GB/s (task-clock) | 43.7                 | 4.2                   | 15.1                 |
+| ins/elem          | 0.83                 | 161.6                 | 12.79                |
+| branches/elem     | 0.09                 | 34.1                  | 2.10                 |
+| cyc/elem          | 3.09 (@5.62 GHz)     | 31.2 (@5.40 GHz)      | 9.04 (@5.72 GHz)     |
+| IPC               | 0.27                 | 5.17                  | 1.42                 |
+| L1d miss rate     | 40.3%                | 2.1%                  | 8.1%                 |
+| minor faults/iter | 82 (startup only)    | 247 (startup only)    | 8358                 |
+
+Readings
+--------
+- add contig B: 0.83 ins/elem is SUB-SCALAR — the loop is AVX-512
+  auto-vectorized end to end (vaddpd %zmm confirmed by objdump of the bench
+  binary). IPC 0.27 with 40% L1d misses = purely memory-stalled. The
+  contiguous kernel has NO codegen headroom left; it is at the memory-system
+  bound (43.7 GB/s vs 39.6 GB/s DRAM triad; the 96 MiB working set is partly
+  X3D-L3-resident, hence slightly above DRAM).
+- add strided B: 161.6 ins/elem at IPC 5.17 = an instruction mountain
+  (three IterLayoutColMajor::next per element + closure + try_into unwrap),
+  running a 16 KiB-hop access pattern (a and c stride-2048 on the inner
+  axis). Instruction-bound AND pattern-bound; both are fixable by a 2-D
+  blocked kernel (probe: 6.8 ms vs 23.2 ms, see kernels_probe).
+- add contig A: reproduces T0/T7 exactly (12.79 ins/elem, 8358 faults/iter,
+  sys-time-heavy). T0's "12.9 ins/elem = no autovectorization" was an
+  artifact of measuring the ALLOCATING variant: the fault/allocator
+  instruction stream dominates A, while the kernel itself (B) is vectorized.

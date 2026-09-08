@@ -1,0 +1,102 @@
+   Compiling rstsr-native-impl v0.8.0 (/home/a/rstsr_pack/rstsr/rstsr-native-impl)
+   Compiling rstsr-core v0.8.0 (/home/a/rstsr_pack/rstsr/rstsr-core)
+   Compiling elementwise v0.1.0 (/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-elementwise)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.05s
+     Running `target/debug/examples/correctness`
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+[PASS] add contig 37x53 alloc serial f64
+[PASS] add contig 37x53 reuse serial f64
+[PASS] mul contig 37x53 alloc serial f64
+[PASS] mul contig 37x53 reuse serial f64
+[PASS] scale contig 37x53 alloc serial f64
+[PASS] scale contig 37x53 reuse serial f64
+[PASS] add bcast auto [1,53] 37x53 alloc serial f64
+[PASS] add bcast explicit zero-stride view 37x53 alloc serial f64
+[PASS] add bcast zero-stride 37x53 reuse serial f64
+[PASS] add strided 37x53 alloc serial f64
+[PASS] add strided 37x53 reuse serial f64
+[PASS] add flip(0) operand 37x53 alloc serial f64
+[PASS] add flip(0)+flip(1) 37x53 alloc serial f64
+[PASS] add flip(0)+t() 37x53 reuse serial f64
+[PASS] add contig 37x53 alloc serial i32
+[PASS] add contig 37x53 reuse serial i32
+[PASS] mul contig 37x53 alloc serial i32
+[PASS] add contig 37x53 alloc serial complex64
+[PASS] add contig 37x53 reuse serial complex64
+[PASS] mul contig 37x53 alloc serial complex64
+[PASS] add contig 37x53 alloc serial f32
+[PASS] add contig 37x53 reuse serial f32
+[PASS] mul contig 37x53 alloc serial f32
+[PASS] add contig 1000x777 alloc serial f64
+[PASS] add contig 1000x777 reuse serial f64
+[PASS] mul contig 1000x777 alloc serial f64
+[PASS] mul contig 1000x777 reuse serial f64
+[PASS] scale contig 1000x777 alloc serial f64
+[PASS] scale contig 1000x777 reuse serial f64
+[PASS] add bcast auto [1,777] 1000x777 alloc serial f64
+[PASS] add bcast explicit zero-stride view 1000x777 alloc serial f64
+[PASS] add bcast zero-stride 1000x777 reuse serial f64
+[PASS] add strided 1000x777 alloc serial f64
+[PASS] add strided 1000x777 reuse serial f64
+[PASS] add flip(0) operand 1000x777 alloc serial f64
+[PASS] add flip(0)+flip(1) 1000x777 alloc serial f64
+[PASS] add flip(0)+t() 1000x777 reuse serial f64
+[PASS] add contig 1000x777 alloc serial i32
+[PASS] add contig 1000x777 reuse serial i32
+[PASS] mul contig 1000x777 alloc serial i32
+[PASS] add contig 1000x777 alloc serial complex64
+[PASS] add contig 1000x777 reuse serial complex64
+[PASS] mul contig 1000x777 alloc serial complex64
+[PASS] add contig 1000x777 alloc serial f32
+[PASS] add contig 1000x777 reuse serial f32
+[PASS] mul contig 1000x777 alloc serial f32
+[PASS] add contig 1000x777 vs ndarray serial f64
+[PASS] add contig 37x53 alloc faer16 f64
+[PASS] add contig 37x53 reuse faer16 f64
+[PASS] mul contig 37x53 alloc faer16 f64
+[PASS] mul contig 37x53 reuse faer16 f64
+[PASS] scale contig 37x53 alloc faer16 f64
+[PASS] scale contig 37x53 reuse faer16 f64
+[PASS] add bcast auto [1,53] 37x53 alloc faer16 f64
+[PASS] add bcast explicit zero-stride view 37x53 alloc faer16 f64
+[PASS] add bcast zero-stride 37x53 reuse faer16 f64
+[PASS] add strided 37x53 alloc faer16 f64
+[PASS] add strided 37x53 reuse faer16 f64
+[PASS] add flip(0) operand 37x53 alloc faer16 f64
+[PASS] add flip(0)+flip(1) 37x53 alloc faer16 f64
+[PASS] add flip(0)+t() 37x53 reuse faer16 f64
+[PASS] add contig 37x53 alloc faer16 i32
+[PASS] add contig 37x53 reuse faer16 i32
+[PASS] mul contig 37x53 alloc faer16 i32
+[PASS] add contig 37x53 alloc faer16 complex64
+[PASS] add contig 37x53 reuse faer16 complex64
+[PASS] mul contig 37x53 alloc faer16 complex64
+[PASS] add contig 37x53 alloc faer16 f32
+[PASS] add contig 37x53 reuse faer16 f32
+[PASS] mul contig 37x53 alloc faer16 f32
+[PASS] add contig 1000x777 alloc faer16 f64
+[PASS] add contig 1000x777 reuse faer16 f64
+[PASS] mul contig 1000x777 alloc faer16 f64
+[PASS] mul contig 1000x777 reuse faer16 f64
+[PASS] scale contig 1000x777 alloc faer16 f64
+[PASS] scale contig 1000x777 reuse faer16 f64
+[PASS] add bcast auto [1,777] 1000x777 alloc faer16 f64
+[PASS] add bcast explicit zero-stride view 1000x777 alloc faer16 f64
+[PASS] add bcast zero-stride 1000x777 reuse faer16 f64
+[PASS] add strided 1000x777 alloc faer16 f64
+[PASS] add strided 1000x777 reuse faer16 f64
+[PASS] add flip(0) operand 1000x777 alloc faer16 f64
+[PASS] add flip(0)+flip(1) 1000x777 alloc faer16 f64
+[PASS] add flip(0)+t() 1000x777 reuse faer16 f64
+[PASS] add contig 1000x777 alloc faer16 i32
+[PASS] add contig 1000x777 reuse faer16 i32
+[PASS] mul contig 1000x777 alloc faer16 i32
+[PASS] add contig 1000x777 alloc faer16 complex64
+[PASS] add contig 1000x777 reuse faer16 complex64
+[PASS] mul contig 1000x777 alloc faer16 complex64
+[PASS] add contig 1000x777 alloc faer16 f32
+[PASS] add contig 1000x777 reuse faer16 f32
+[PASS] mul contig 1000x777 alloc faer16 f32
+[PASS] add contig 1000x777 vs ndarray faer16 f64
+
+ALL CORRECTNESS CHECKS PASSED

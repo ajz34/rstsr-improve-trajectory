@@ -1,0 +1,396 @@
+diff --git a/rstsr-native-impl/src/cpu_rayon/op_with_func.rs b/rstsr-native-impl/src/cpu_rayon/op_with_func.rs
+index 10c0da0..c12a964 100644
+--- a/rstsr-native-impl/src/cpu_rayon/op_with_func.rs
++++ b/rstsr-native-impl/src/cpu_rayon/op_with_func.rs
+@@ -7,6 +7,195 @@ const CONTIG_SWITCH: usize = 16;
+ // Since current task is not intensive to each element, this value is large.
+ const PARALLEL_SWITCH: usize = 4096;
+ 
++// Minimum problem size for the blocked 2-D iteration path (mirrors the
++// serial file); smaller problems fall through to the serial kernel.
++const TILE_SWITCH: usize = 4096;
++// Tile edge (elements); within a [TILE, TILE] tile each layout's inner-axis
++// hop stays within TILE cache lines for the whole tile pass.
++const TILE: usize = 64;
++
++/// Guard for the blocked 2-D path: 2-D, large enough, and **no layout has a
++/// broadcast axis (shape > 1 with stride 0)** on any axis — broadcast
++/// operands keep the generic iterator path. All participating layouts are
++/// guard-checked.
++#[inline]
++fn blocked_2d_applicable_rayon<D>(layouts: &[Layout<D>], size: usize) -> bool
++where
++    D: DimAPI,
++{
++    size >= TILE_SWITCH
++        && layouts[0].ndim() == 2
++        && layouts
++            .iter()
++            .all(|l| l.shape().as_ref().iter().zip(l.stride().as_ref()).all(|(&d, &s)| !(d > 1 && s == 0)))
++}
++
++/// Read-only view of the blocked-2D iteration geometry (axis roles, tile
++/// grid, stride sums) shared by the rayon tile kernels. Offsets are isize;
++/// usize casts happen only at the addressing site.
++struct Blocked2DGeom {
++    dim_fast: usize,
++    dim_slow: usize,
++    sc_fast: isize,
++    sc_slow: isize,
++    sa_fast: isize,
++    sa_slow: isize,
++    sb_fast: isize,
++    sb_slow: isize,
++    oc: isize,
++    oa: isize,
++    ob: isize,
++    n_tiles_fast: usize,
++    n_tiles_slow: usize,
++}
++
++#[inline]
++fn blocked_2d_geom<D>(lc: &Layout<D>, la: &Layout<D>, lb: &Layout<D>) -> Blocked2DGeom
++where
++    D: DimAPI,
++{
++    let shape = lc.shape().as_ref();
++    let (dim0, dim1) = (shape[0], shape[1]);
++    let sc = lc.stride().as_ref();
++    let sa = la.stride().as_ref();
++    let sb = lb.stride().as_ref();
++    // choose c's fastest axis as the element-innermost loop
++    let (fast, slow) = if sc[0].abs() <= sc[1].abs() { (0usize, 1usize) } else { (1, 0) };
++    let (dim_fast, dim_slow) = if fast == 0 { (dim0, dim1) } else { (dim1, dim0) };
++    Blocked2DGeom {
++        dim_fast,
++        dim_slow,
++        sc_fast: sc[fast],
++        sc_slow: sc[slow],
++        sa_fast: sa[fast],
++        sa_slow: sa[slow],
++        sb_fast: sb[fast],
++        sb_slow: sb[slow],
++        oc: lc.offset() as isize,
++        oa: la.offset() as isize,
++        ob: lb.offset() as isize,
++        n_tiles_fast: dim_fast.div_ceil(TILE),
++        n_tiles_slow: dim_slow.div_ceil(TILE),
++    }
++}
++
++/// Blocked 2-D elementwise iteration, parallel over tile-row bands (each
++/// rayon task covers a [TILE, dim_fast] band of the output).
++///
++/// Visit-order note: elements are visited in tiled order; bit-identical for
++/// stateless per-element ops, and this path (like the whole rayon kernel)
++/// was already order-free. Aliasing/bounds contract matches the other
++/// raw-pointer paths in this file: disjoint buffers, layouts consistent with
++/// shapes (offsets are debug-asserted).
++#[allow(clippy::too_many_arguments)]
++fn blocked_2d_3layouts_cpu_rayon<TA, TB, TC, D, F>(
++    c: &mut [MaybeUninit<TC>],
++    lc: &Layout<D>,
++    a: &[TA],
++    la: &Layout<D>,
++    b: &[TB],
++    lb: &Layout<D>,
++    f: &F,
++    pool: Option<&ThreadPool>,
++) -> Result<()>
++where
++    D: DimAPI,
++    TA: Send + Sync,
++    TB: Send + Sync,
++    TC: Send + Sync,
++    F: Fn(&mut MaybeUninit<TC>, &TA, &TB) + ?Sized + Send + Sync,
++{
++    let g = blocked_2d_geom(lc, la, lb);
++    let task = || {
++        (0..g.n_tiles_slow).into_par_iter().for_each(|t_slow| {
++            let slow_begin = t_slow * TILE;
++            let slow_end = (slow_begin + TILE).min(g.dim_slow);
++            // pointers are materialized inside the task, mirroring the file's
++            // established raw-pointer pattern (shared captures stay Sync via
++            // TA/TB/TC: Send + Sync)
++            let c_ptr = c.as_ptr() as *mut MaybeUninit<TC>;
++            let a_ptr = a.as_ptr();
++            let b_ptr = b.as_ptr();
++            for t_fast in 0..g.n_tiles_fast {
++                let fast_begin = t_fast * TILE;
++                let fast_end = (fast_begin + TILE).min(g.dim_fast);
++                for s in slow_begin..slow_end {
++                    let mut off_c = g.oc + (s as isize) * g.sc_slow + (fast_begin as isize) * g.sc_fast;
++                    let mut off_a = g.oa + (s as isize) * g.sa_slow + (fast_begin as isize) * g.sa_fast;
++                    let mut off_b = g.ob + (s as isize) * g.sb_slow + (fast_begin as isize) * g.sb_fast;
++                    for _ in fast_begin..fast_end {
++                        debug_assert!(off_c >= 0 && (off_c as usize) < c.len(), "blocked 2-D iter: c offset out of bounds");
++                        debug_assert!(off_a >= 0 && (off_a as usize) < a.len(), "blocked 2-D iter: a offset out of bounds");
++                        debug_assert!(off_b >= 0 && (off_b as usize) < b.len(), "blocked 2-D iter: b offset out of bounds");
++                        unsafe {
++                            f(&mut *c_ptr.add(off_c as usize), &*a_ptr.add(off_a as usize), &*b_ptr.add(off_b as usize))
++                        };
++                        off_c += g.sc_fast;
++                        off_a += g.sa_fast;
++                        off_b += g.sb_fast;
++                    }
++                }
++            }
++        });
++    };
++    pool.map_or_else(task, |pool| pool.install(task));
++    Ok(())
++}
++
++/// 2-layout (in-place) variant of [`blocked_2d_3layouts_cpu_rayon`]; same
++/// contract and visit-order note.
++#[allow(clippy::too_many_arguments)]
++fn blocked_2d_2layouts_cpu_rayon<TA, TB, D, F>(
++    a: &mut [MaybeUninit<TA>],
++    la: &Layout<D>,
++    b: &[TB],
++    lb: &Layout<D>,
++    f: &F,
++    pool: Option<&ThreadPool>,
++) -> Result<()>
++where
++    D: DimAPI,
++    TA: Send + Sync,
++    TB: Send + Sync,
++    F: Fn(&mut MaybeUninit<TA>, &TB) + ?Sized + Send + Sync,
++{
++    let shape = la.shape().as_ref();
++    let (dim0, dim1) = (shape[0], shape[1]);
++    let sa = la.stride().as_ref();
++    let sb = lb.stride().as_ref();
++    let (fast, slow) = if sa[0].abs() <= sa[1].abs() { (0usize, 1usize) } else { (1, 0) };
++    let (dim_fast, dim_slow) = if fast == 0 { (dim0, dim1) } else { (dim1, dim0) };
++    let (sa_fast, sa_slow) = (sa[fast], sa[slow]);
++    let (sb_fast, sb_slow) = (sb[fast], sb[slow]);
++    let (oa, ob) = (la.offset() as isize, lb.offset() as isize);
++    let n_tiles_fast = dim_fast.div_ceil(TILE);
++    let task = || {
++        (0..dim_slow.div_ceil(TILE)).into_par_iter().for_each(|t_slow| {
++            let slow_begin = t_slow * TILE;
++            let slow_end = (slow_begin + TILE).min(dim_slow);
++            let a_ptr = a.as_ptr() as *mut MaybeUninit<TA>;
++            let b_ptr = b.as_ptr();
++            for t_fast in 0..n_tiles_fast {
++                let fast_begin = t_fast * TILE;
++                let fast_end = (fast_begin + TILE).min(dim_fast);
++                for s in slow_begin..slow_end {
++                    let mut off_a = oa + (s as isize) * sa_slow + (fast_begin as isize) * sa_fast;
++                    let mut off_b = ob + (s as isize) * sb_slow + (fast_begin as isize) * sb_fast;
++                    for _ in fast_begin..fast_end {
++                        debug_assert!(off_a >= 0 && (off_a as usize) < a.len(), "blocked 2-D iter: a offset out of bounds");
++                        debug_assert!(off_b >= 0 && (off_b as usize) < b.len(), "blocked 2-D iter: b offset out of bounds");
++                        unsafe { f(&mut *a_ptr.add(off_a as usize), &*b_ptr.add(off_b as usize)) };
++                        off_a += sa_fast;
++                        off_b += sb_fast;
++                    }
++                }
++            }
++        });
++    };
++    pool.map_or_else(task, |pool| pool.install(task));
++    Ok(())
++}
++
+ /* #region op_func definition */
+ 
+ #[allow(clippy::too_many_arguments)]
+@@ -65,6 +254,12 @@ where
+             let task = || layout_col_major_dim_dispatch_par_3(lc, la, lb, func);
+             pool.map_or_else(task, |pool| pool.install(task))
+         }
++    } else if blocked_2d_applicable_rayon(&layouts_full, size) {
++        // blocked 2-D iteration for fully strided problems (e.g. a + b.t())
++        let lc = &layouts_full[0];
++        let la = &layouts_full[1];
++        let lb = &layouts_full[2];
++        blocked_2d_3layouts_cpu_rayon(c, lc, a, la, b, lb, f, pool)
+     } else {
+         // not possible for contiguous assign
+         let lc = &layouts_full[0];
+@@ -262,6 +457,12 @@ where
+             let task = || layout_col_major_dim_dispatch_par_2(la, lb, func);
+             pool.map_or_else(task, |pool| pool.install(task))
+         }
++    } else if blocked_2d_applicable_rayon(&layouts_full, la.size()) {
++        // blocked 2-D iteration for fully strided in-place problems
++        // (e.g. c += b.t())
++        let la = &layouts_full[0];
++        let lb = &layouts_full[1];
++        blocked_2d_2layouts_cpu_rayon(a, la, b, lb, f, pool)
+     } else {
+         // not possible for contiguous assign
+         let la = &layouts_full[0];
+diff --git a/rstsr-native-impl/src/cpu_serial/op_with_func.rs b/rstsr-native-impl/src/cpu_serial/op_with_func.rs
+index 84b5a74..3c09e58 100644
+--- a/rstsr-native-impl/src/cpu_serial/op_with_func.rs
++++ b/rstsr-native-impl/src/cpu_serial/op_with_func.rs
+@@ -7,6 +7,136 @@ use crate::prelude_dev::*;
+ // this value is used to determine whether to use contiguous inner iteration
+ const CONTIG_SWITCH: usize = 16;
+ 
++// Minimum problem size for the blocked 2-D iteration path; smaller problems
++// keep the generic layout-iterator path.
++const TILE_SWITCH: usize = 4096;
++// Tile edge (elements). Within a [TILE, TILE] tile, each layout's inner-axis
++// hop stays within TILE cache lines (L1-resident) for the whole tile pass,
++// instead of paging through the entire operand with a ~16 KiB stride.
++const TILE: usize = 64;
++
++/// Whether the blocked 2-D path applies: no common f-contiguous prefix was
++/// found (caller checks `size_contig < CONTIG_SWITCH`), the problem is 2-D
++/// and large enough, and **no layout has a broadcast axis (shape > 1 with
++/// stride 0) on any axis** — broadcast operands keep the generic iterator
++/// path. This guard checks *all* participating layouts (c, a and b).
++#[inline]
++fn blocked_2d_applicable<D>(layouts: &[Layout<D>], size: usize) -> bool
++where
++    D: DimAPI,
++{
++    size >= TILE_SWITCH
++        && layouts[0].ndim() == 2
++        && layouts
++            .iter()
++            .all(|l| l.shape().as_ref().iter().zip(l.stride().as_ref()).all(|(&d, &s)| !(d > 1 && s == 0)))
++}
++
++/// Blocked 2-D elementwise iteration (kernel body shared by the mutc/muta
++/// drivers; the closure sees `(output_elem, input_elems...)` per element).
++///
++/// # Offsets and negative strides
++///
++/// All offsets are accumulated in `isize` (flipped views contribute negative
++/// strides here) and cast to `usize` only after the full offset sum; a
++/// `debug_assert` validates every element offset against the buffer length
++/// in debug builds.
++///
++/// # Visit order
++///
++/// Elements are visited in tiled order rather than strict layout order.
++/// Results are bit-identical for stateless per-element ops (all operators
++/// rstsr ships): each output element is written exactly once from exactly
++/// one input tuple, with no cross-element dependency. A *stateful* user
++/// closure would observe the reordered visit sequence (the parallel path was
++/// already order-free).
++macro_rules! blocked_2d_iter {
++    // emits the tile loops; $f is invoked as $f(&mut c[off_c], &a[off_a], ...)
++    // inside the element loop; `c`, `a`, `b` are expressions evaluating to
++    // the buffers; all offsets are isize, cast at the indexing site.
++    ($c:expr, $lc:expr, $a:expr, $la:expr, $b:expr, $lb:expr, $f:expr) => {{
++        let shape = $lc.shape().as_ref();
++        let (dim0, dim1) = (shape[0], shape[1]);
++        let sc = $lc.stride().as_ref();
++        let sa = $la.stride().as_ref();
++        let sb = $lb.stride().as_ref();
++        // choose c's fastest axis as the element-innermost loop
++        let (fast, slow) = if sc[0].abs() <= sc[1].abs() { (0usize, 1usize) } else { (1, 0) };
++        let (dim_fast, dim_slow) = if fast == 0 { (dim0, dim1) } else { (dim1, dim0) };
++        let (sc_fast, sc_slow) = (sc[fast], sc[slow]);
++        let (sa_fast, sa_slow) = (sa[fast], sa[slow]);
++        let (sb_fast, sb_slow) = (sb[fast], sb[slow]);
++        // offset bases in isize; usize casts happen only at the indexing site
++        let (oc, oa, ob) = ($lc.offset() as isize, $la.offset() as isize, $lb.offset() as isize);
++        // tile grid: row-major in (slow, fast) so consecutive tiles are
++        // adjacent along the output's fast axis
++        for t_slow in (0..dim_slow).step_by(TILE) {
++            let slow_end = (t_slow + TILE).min(dim_slow);
++            for t_fast in (0..dim_fast).step_by(TILE) {
++                let fast_end = (t_fast + TILE).min(dim_fast);
++                for s in t_slow..slow_end {
++                    let mut off_c = oc + (s as isize) * sc_slow + (t_fast as isize) * sc_fast;
++                    let mut off_a = oa + (s as isize) * sa_slow + (t_fast as isize) * sa_fast;
++                    let mut off_b = ob + (s as isize) * sb_slow + (t_fast as isize) * sb_fast;
++                    for _ in t_fast..fast_end {
++                        debug_assert!(off_c >= 0 && (off_c as usize) < $c.len(), "blocked 2-D iter: c offset out of bounds");
++                        debug_assert!(off_a >= 0 && (off_a as usize) < $a.len(), "blocked 2-D iter: a offset out of bounds");
++                        debug_assert!(off_b >= 0 && (off_b as usize) < $b.len(), "blocked 2-D iter: b offset out of bounds");
++                        $f(&mut $c[off_c as usize], &$a[off_a as usize], &$b[off_b as usize]);
++                        off_c += sc_fast;
++                        off_a += sa_fast;
++                        off_b += sb_fast;
++                    }
++                }
++            }
++        }
++    }};
++}
++
++/// Whether the blocked 2-D path applies for a 2-operand (in-place) kernel:
++/// same contract as [`blocked_2d_applicable`] (the slice holds the output
++/// and input layouts; all of them are guard-checked).
++#[inline]
++fn blocked_2d_applicable_2<D>(layouts: &[Layout<D>], size: usize) -> bool
++where
++    D: DimAPI,
++{
++    blocked_2d_applicable(layouts, size)
++}
++
++macro_rules! blocked_2d_iter_2 {
++    // 2-layout variant: output and one input (in-place ops). $f is invoked as
++    // $f(&mut a[off_a], &b[off_b]).
++    ($a:expr, $la:expr, $b:expr, $lb:expr, $f:expr) => {{
++        let shape = $la.shape().as_ref();
++        let (dim0, dim1) = (shape[0], shape[1]);
++        let sa = $la.stride().as_ref();
++        let sb = $lb.stride().as_ref();
++        let (fast, slow) = if sa[0].abs() <= sa[1].abs() { (0usize, 1usize) } else { (1, 0) };
++        let (dim_fast, dim_slow) = if fast == 0 { (dim0, dim1) } else { (dim1, dim0) };
++        let (sa_fast, sa_slow) = (sa[fast], sa[slow]);
++        let (sb_fast, sb_slow) = (sb[fast], sb[slow]);
++        let (oa, ob) = ($la.offset() as isize, $lb.offset() as isize);
++        for t_slow in (0..dim_slow).step_by(TILE) {
++            let slow_end = (t_slow + TILE).min(dim_slow);
++            for t_fast in (0..dim_fast).step_by(TILE) {
++                let fast_end = (t_fast + TILE).min(dim_fast);
++                for s in t_slow..slow_end {
++                    let mut off_a = oa + (s as isize) * sa_slow + (t_fast as isize) * sa_fast;
++                    let mut off_b = ob + (s as isize) * sb_slow + (t_fast as isize) * sb_fast;
++                    for _ in t_fast..fast_end {
++                        debug_assert!(off_a >= 0 && (off_a as usize) < $a.len(), "blocked 2-D iter: a offset out of bounds");
++                        debug_assert!(off_b >= 0 && (off_b as usize) < $b.len(), "blocked 2-D iter: b offset out of bounds");
++                        $f(&mut $a[off_a as usize], &$b[off_b as usize]);
++                        off_a += sa_fast;
++                        off_b += sb_fast;
++                    }
++                }
++            }
++        }
++    }};
++}
++
+ pub fn op_mutc_refa_refb_func_cpu_serial<TA, TB, TC, D>(
+     c: &mut [MaybeUninit<TC>],
+     lc: &Layout<D>,
+@@ -34,6 +164,14 @@ where
+                 f(&mut c[idx_c + i], &a[idx_a + i], &b[idx_b + i]);
+             }
+         })
++    } else if blocked_2d_applicable(&layouts_full, layouts_full[0].size()) {
++        // blocked 2-D iteration for fully strided problems (e.g. a + b.t()):
++        // see `blocked_2d_iter!` for the visit-order and offset contracts
++        let lc = &layouts_full[0];
++        let la = &layouts_full[1];
++        let lb = &layouts_full[2];
++        blocked_2d_iter!(c, lc, a, la, b, lb, f);
++        Ok(())
+     } else {
+         let lc = &layouts_full[0];
+         let la = &layouts_full[1];
+@@ -136,6 +274,13 @@ where
+                 f(&mut a[idx_a + i], &b[idx_b + i]);
+             }
+         })
++    } else if blocked_2d_applicable_2(&layouts_full, layouts_full[0].size()) {
++        // blocked 2-D iteration for fully strided in-place problems
++        // (e.g. c += b.t()): see `blocked_2d_iter_2!` for the contracts
++        let la = &layouts_full[0];
++        let lb = &layouts_full[1];
++        blocked_2d_iter_2!(a, la, b, lb, f);
++        Ok(())
+     } else {
+         let la = &layouts_full[0];
+         let lb = &layouts_full[1];
