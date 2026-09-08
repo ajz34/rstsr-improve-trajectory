@@ -7,7 +7,7 @@ in the CPU serial / rayon paths.
 
 Companion files: [machine-and-tools.md](./machine-and-tools.md),
 [initial-prompt.md](./initial-prompt.md). The plan itself:
-[../260908-plan-cpu-serial-efficiency.md](../260908-plan-cpu-serial-efficiency.md).
+[./260908-plan-cpu-serial-efficiency.md](./260908-plan-cpu-serial-efficiency.md).
 
 ## 1. Commit & workspace
 

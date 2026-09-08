@@ -9,10 +9,10 @@
 
 **Companion documents** (read them first):
 
-- [2026-09-08-plan-prompt/initial-prompt.md](2026-09-08-plan-prompt/initial-prompt.md) — the task owner's original prompt (authoritative intent).
-- [2026-09-08-plan-prompt/rstsr-386948b-code-map.md](2026-09-08-plan-prompt/rstsr-386948b-code-map.md) — where every hot op lives at this commit, dispatch machinery, ranked targets. **Read before assigning any task.**
-- [2026-09-08-plan-prompt/machine-and-tools.md](2026-09-08-plan-prompt/machine-and-tools.md) — CPU/cache/SIMD facts, conda `torch` env for numpy references, `~/Git-Others` sources, tool availability.
-- Repo [AGENTS.md](AGENTS.md) (rules for this repo) and [CONTEXT.md](CONTEXT.md) (glossary; extend it as terms crystallize).
+- [./initial-prompt.md](./initial-prompt.md) — the task owner's original prompt (authoritative intent).
+- [./rstsr-386948b-code-map.md](./rstsr-386948b-code-map.md) — where every hot op lives at this commit, dispatch machinery, ranked targets. **Read before assigning any task.**
+- [./machine-and-tools.md](./machine-and-tools.md) — CPU/cache/SIMD facts, conda `torch` env for numpy references, `~/Git-Others` sources, tool availability.
+- Repo [../AGENTS.md](../AGENTS.md) (rules for this repo) and [../CONTEXT.md](../CONTEXT.md) (glossary; extend it as terms crystallize).
 
 ## 1. Mission, scope, non-goals
 
