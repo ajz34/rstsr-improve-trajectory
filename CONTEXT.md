@@ -74,6 +74,21 @@ either over the whole tensor or over selected axes.
 A fixed-width group of elements processed as one unit by fixed-array (SIMD-style)
 kernels; lane count is fixed at compile time regardless of target CPU.
 
+**Fault rider**:
+The glibc page-fault overhead (~4 ms at ≥32 MiB fresh outputs, sys-time-bound)
+that dominates alloc-inclusive timings of allocating ops; measured by T7,
+remedied at environment/API level, not by kernels.
+
+**Reuse variant (B-variant)**:
+A benchmark variant writing into preallocated output (existing reuse APIs or an
+emulated kernel bound), isolating kernel time from allocation; the primary
+denominator for judging large-output kernel wins.
+
+**Paired A/B**:
+Back-to-back clean-vs-candidate runs in the same session used to refute
+apparent gate regressions; the campaign's standard against build-layout
+lottery (±5% on small cells).
+
 **dispatch_simd**:
 The (proposed) cargo feature gating dtype-dispatched fixed-array kernels built
 on the lightweight-simd crate; off by default.
