@@ -178,7 +178,8 @@ Before -> after, reuse variant B (primary judge; full tables in
   contig faer16-portable +5.5% — interleaved clean/candidate runs overlap,
   mean +1.4%, and the guard provably never runs on that path). ndarray
   anchors unchanged (their tree-independent session spread was ±8%).
-- **Correctness**: 149/149 checks PASS under BOTH RUSTFLAGS configs — both
+- **Correctness**: ALL checks PASS under BOTH RUSTFLAGS configs (154 after
+  the post-G2 reshape fixture; 149 before) — both
   orientations (incl. new r2c tensor-level cases), flip views, zero-stride
   broadcast plain + transposed, sliced fall-through, 3-D fall-through,
   degenerate 1×7/7×1, negative slow-axis direct-kernel check, i32/f32,
@@ -194,6 +195,53 @@ Before -> after, reuse variant B (primary judge; full tables in
   enter the assign kernels. The patches compose in either order.
 - **Tree state**: patch captured, `git apply --check` OK on clean 386948be,
   tree restored (status empty, HEAD 386948b).
+
+## Post-G2 amendment (defect found by compose-smoke) — FIXED
+
+**Defect**: the compose union failed rstsr's `entry_row_cpu` 3/290 —
+order-changing reshapes panicked in the blocked kernel. Root cause: the
+router guarded the stride pattern (Ix2 + fast-axis stride +1) but NOT shape
+identity; reshape (`change_shape_f`, `rstsr-core/src/tensor/manipulation/reshape.rs:147-162`)
+calls `assign_arbitary_uninit` with shape-CHANGING layouts, and an
+order-changing one (e.g. a [4,3] f-contig source into a [3,4] c-contig
+target) matched the stride guard. The orderchange kernels assert shape
+identity, so the router returned `InvalidLayout` where the generic path
+would have served the assign — a panic at the tensor-API level.
+
+**Fix**: shape-identity guard `lc2.shape() == la2.shape() &&` added at all 4
+router sites (both families x serial/rayon), inside the `to_dim::<Ix2>()`
+block. Anything shape-changing now falls through unchanged.
+
+**Gate gap**: our phase-1/2 gate never exercised reshape (transpose and
+same-shape assigns only). Closed with an explicit fixture:
+`order-changing reshape 4x3f->3x4c` ([4,3] f-contig -> [3,4] c-contig via
+`to_layout`, the exact bug geometry, 5 sizes x both devices) asserting the
+legacy fall-through mapping (verified identical on a clean 386948be tree
+before the patch: storage-verbatim for this layout pair).
+
+**Re-verification (patched tree with the fix)**:
+- `examples/correctness.rs`: ALL PASS both RUSTFLAGS configs (154 checks,
+  incl. the new reshape fixture).
+- `cargo test -p rstsr-core --test entry_row_cpu --no-default-features
+  --features "backtrace row_major"`: **290/290 PASS** (the 3 reshape tests
+  now pass).
+- Headline bench re-check (B reuse 2048x2048 f64, serial native, shape
+  guard in place, 3 runs): **6.00 / 5.93 / 5.43 ms** vs 6.03 ms
+  pre-amendment — the extra `to_dim::<Ix2>()` + shape compare costs nothing
+  measurable (a length check + 4-element array compare against a ~6 ms
+  kernel).
+
+**Amended patch**: `proposed.patch` (+297 lines, 4 files, git apply --stat
+wording below); `git apply --check` verified on a fresh 386948be checkout;
+tree restored clean (status empty, HEAD 386948b).
+
+```
+ rstsr-native-impl/src/cpu_rayon/assignment.rs  |   43 +++++++++
+ rstsr-native-impl/src/cpu_rayon/transpose.rs   |  110 ++++++++++++++++++++++++
+ rstsr-native-impl/src/cpu_serial/assignment.rs |   50 +++++++++++
+ rstsr-native-impl/src/cpu_serial/transpose.rs  |   94 +++++++++++++++++++++
+ 4 files changed, 297 insertions(+)
+```
 
 ## Deviations from the brief (phase 2)
 

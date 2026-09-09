@@ -25,6 +25,7 @@ rstsr-core = { path = "../../rstsr/rstsr-core", default-features = false, featur
     "aligned_alloc",
     "faer",
     "faer_as_default",
+    "std",
 ] }
 rstsr-native-impl = { path = "../../rstsr/rstsr-native-impl", default-features = false, features = [
     "rayon",

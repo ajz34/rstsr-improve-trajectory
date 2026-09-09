@@ -105,6 +105,19 @@ macro_rules! run_device {
             cf.assign(&a);
             check(cf.raw().as_slice() == want_r2c, &format!("assign into f-contig r2c {m}x{n} {devtag} f64"));
 
+            // ---- order-changing reshape (2-D -> 2-D, shapes DIFFER) --------
+            // Regression fixture for the post-G2 compose-smoke defect: [4,3]
+            // f-contig -> [3,4] c-contig matches the 2-D stride guard
+            // (sa[0] == 1, sc[1] == 1) but changes shape; it MUST fall
+            // through to the generic path via the shape-identity check
+            // (pre-fix this panicked inside the blocked kernel). Expected =
+            // the legacy (clean 386948be) fall-through mapping, verified
+            // identical before the patch: storage-verbatim for this pair.
+            let v43 = transpose_assign::gen_vec_f64(12, 6);
+            let a43 = rt::asarray((v43.clone(), [4usize, 3], dev)).to_contig(ColMajor).into_owned();
+            let r43 = a43.to_layout([3, 4].c()).into_owned();
+            check(r43.raw().as_slice() == v43, &format!("order-changing reshape 4x3f->3x4c {devtag} f64"));
+
             // ---- contig assign sanity (slice-copy path) --------------------
             let mut cc: Tensor<f64, _> = rt::zeros(([m, n], dev));
             cc.fill(0.0);

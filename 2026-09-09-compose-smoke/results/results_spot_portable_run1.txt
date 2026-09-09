@@ -1,0 +1,10 @@
+=== T8 compose-smoke spot benches (combined tree) ===
+(times are medians of fixed iterations; black_box on inputs+outputs)
+RESULT argmax_1e7_serial             1.467 ms
+RESULT add_strided_b_2048_serial      8.419 ms
+RESULT transpose_b_2048_serial       5.965 ms
+RESULT sum_axis0_2048_serial         1.225 ms
+RESULT vecdot_axis0_512x4096_ser     0.5489 ms
+RESULT vecdot_am1_4096x512_ser      0.3394 ms
+RESULT innerdot_1e4_faer16           5.710 us
+done

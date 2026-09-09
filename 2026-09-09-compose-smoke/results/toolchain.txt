@@ -1,0 +1,15 @@
+== toolchain evidence (T8 compose-smoke hygiene fix, 2026-09-09) ==
+
+--- rstsr rust-toolchain.toml (if any):
+[toolchain]
+channel = "nightly"
+--- resolved from cwd=/home/a/rstsr_pack/rstsr (rstsr's own test-suite runs):
+cargo 1.99.0-nightly (c79e8f894 2026-08-04)
+rustc 1.99.0-nightly (1a98b1e13 2026-08-07)
+
+--- resolved from cwd=<smoke crate> (gate/spot builds via path dep):
+cargo 1.97.1 (c980f4866 2026-06-30)
+rustc 1.97.1 (8bab26f4f 2026-07-14)
+
+--- rustup default (no toolchain file either dir):
+stable-x86_64-unknown-linux-gnu (default)

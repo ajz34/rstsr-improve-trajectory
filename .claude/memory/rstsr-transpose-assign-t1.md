@@ -70,3 +70,15 @@ restored clean at 386948b; `git apply --check` verified.
   a[i][j], i.e. want[p] = av[(p%m)*n + p/m] (NOT av).
 - criterion filter substring gotcha: "contig_large" also matches
   "to_fcontig_large" ids (regex contains-match).
+
+POST-G2 AMENDMENT (compose-smoke defect, FIXED): the router guarded strides
+but not SHAPE IDENTITY — order-changing reshape ([4,3]f -> [3,4]c via
+to_layout/reshape) matched the stride guard, kernels asserted, tensor API
+panicked (entry_row_cpu 3/290 fail). Fix: `lc2.shape() == la2.shape()` at
+all 4 sites inside the to_dim block. entry_row_cpu now 290/290; gate gained
+an order-changing-reshape fixture (legacy fall-through mapping for
+[4,3]f->[3,4]c is storage-verbatim — verified on clean tree); bench spot
+6.00/5.93/5.43 ms (no guard cost). Patch +297 lines/4 files, apply-check OK,
+tree clean. LESSON: routers into shape-assuming kernels need explicit shape
+guards; gate must include shape-changing assigns through the SAME entry
+points (assign_arbitary_uninit serves reshape).

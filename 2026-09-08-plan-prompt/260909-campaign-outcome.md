@@ -16,11 +16,35 @@ file- or hunk-disjoint so they compose in any order):
 |---|----------------|---------|------------------------------|
 | 1 | `2026-09-09-argmax-argmin` | patch, G2 PASS | argmax/argmin 1e7: 92.6→1.82 ms **50.8×** portable, 93.7→1.55 **60.3×** native; faer16 12→0.31 ms; perf 280→3.7 ins/elem. Also fixes a latent rayon wrong-answer when NaN sits at a chunk start |
 | 2 | `2026-09-09-elementwise` | patch, G2 PASS | strided add 2048²: 23.1→7.5 ms **3.1×** (blocked 64×64 tile path, guarded); strided odd 8.7×; A+MALLOC composed 4.0× |
-| 3 | `2026-09-09-transpose-assign` | patch, G2 PASS | transpose copy 2048²: 17.2→6.0 ms **2.9×** (dormant blocked orderchange kernels routed into both assign families); odd 1000×777 ~**9.7×** |
+| 3 | `2026-09-09-transpose-assign` | patch, G2 PASS **+ post-G2 reshape-guard amendment (compose-smoke)** | transpose copy 2048²: 17.2→6.0 ms **2.9×** (dormant blocked orderchange kernels routed into both assign families); odd 1000×777 ~**9.7×** |
 | 4 | `2026-09-09-reductions` | patch, G2 PASS | sum_axis0 native −**32–38%** (native≤portable regression eliminated); min/max_all 1e7 native 10.4→1.23 ms **−88%** |
 | 5 | `2026-09-09-vecdot` | patch, G2 PASS | batched vecdot axis-0 **−64%** (RMW eliminated), axis-1 −22%; `%` 1e7 serial −29%; `%` small-n faer16 −73…−96% |
 
-Measurement-only: `2026-09-09-alloc-pagefault-study` (T7), and `2026-09-09-fill-misc-structural` (T5, honest-skip + campaign consolidation).
+Measurement-only: `2026-09-09-alloc-pagefault-study` (T7), `2026-09-09-fill-misc-structural` (T5, honest-skip + campaign consolidation), and `2026-09-09-compose-smoke` (T8, union verification).
+
+## Composeability (T8)
+
+The five patches applied together in campaign order (1→5, first attempt, no
+conflicts): union = 15 files, +1462/−397; rstsr's own suites pass on the
+union (entry_row_cpu 290/290, rstsr-core --lib 110/110, both RUSTFLAGS
+configs); a 332-check combined correctness gate passes on both devices and
+configs; all six headline wins hold in the combined build (argmax 1.49 ms,
+strided add 7.50 ms, transpose 5.89 ms, sum_axis0 1.16–1.23 ms, vecdot
+axis0 473–544 µs / axis1 334–348 µs, `%` 1e4 faer16 6.3–6.9 µs).
+**Verdict: COMPOSE: YES.** `2026-09-09-compose-smoke/combined_all_five.patch`
+is the convenience union (generated, not independently reviewed).
+
+The union test **caught a real latent defect in the transpose patch** that its
+own gate and G2 had missed: order-changing reshape diverts shape-mismatched
+layouts into the shape-asserting blocked kernel (panic; entry_row_cpu 3/290
+failed on the unamended union). Fix: a shape-identity guard
+(`lc2.shape() == la2.shape()`) at all 4 router sites, now **folded into the
+transpose-assign patch itself** (+297 total, gate count 148→149 with a
+reshape fall-through fixture); transpose wins unchanged (5.885 ms re-check).
+Process lesson recorded: every patch task must run rstsr's own lib+entry test
+suites on the patched tree as part of its gate, and G1 must enumerate all
+callers of a modified kernel family against the new guards — not just the
+motivating benchmark shape.
 
 ## Honest negatives and skipped levers (all evidence-backed)
 

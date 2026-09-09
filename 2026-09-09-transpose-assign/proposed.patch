@@ -1,5 +1,5 @@
 diff --git a/rstsr-native-impl/src/cpu_rayon/assignment.rs b/rstsr-native-impl/src/cpu_rayon/assignment.rs
-index c6d0b8e..0ebe3b6 100644
+index c6d0b8e..3015479 100644
 --- a/rstsr-native-impl/src/cpu_rayon/assignment.rs
 +++ b/rstsr-native-impl/src/cpu_rayon/assignment.rs
 @@ -16,26 +16,31 @@ const PARALLEL_SWITCH: usize = 16384;
@@ -34,26 +34,31 @@ index c6d0b8e..0ebe3b6 100644
      ;
  )]
  pub fn func_name<Types, DC, DA>(
-@@ -72,6 +77,18 @@ where
+@@ -72,6 +77,23 @@ where
          });
          Ok(())
      } else {
 +        // 2-D order-change fast path: blocked kernels with block-level rayon
 +        // parallelism (see assign_arbitary_cpu_serial for the guard rationale;
 +        // the kernels keep their own size < 16*BLOCK_SIZE^2 serial fallback).
++        // shape identity is required: shape-changing assigns (e.g. a reshape
++        // that re-lays out data) pass through the same kernels with different
++        // shapes, which the orderchange kernels cannot serve
 +        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
-+            let sc = *lc2.stride();
-+            let sa = *la2.stride();
-+            if sa[1] == 1 && sc[0] == 1 {
-+                return oc_r2c(c, &lc2, a, &la2, pool);
-+            } else if sa[0] == 1 && sc[1] == 1 {
-+                return oc_c2r(c, &lc2, a, &la2, pool);
++            if lc2.shape() == la2.shape() {
++                let sc = *lc2.stride();
++                let sa = *la2.stride();
++                if sa[1] == 1 && sc[0] == 1 {
++                    return oc_r2c(c, &lc2, a, &la2, pool);
++                } else if sa[0] == 1 && sc[1] == 1 {
++                    return oc_c2r(c, &lc2, a, &la2, pool);
++                }
 +            }
 +        }
          // determine order by layout preference
          let order = match default_order {
              RowMajor => TensorIterOrder::C,
-@@ -97,26 +114,31 @@ where
+@@ -97,26 +119,31 @@ where
          func_name_serial
          TypeC TypeA Types
          func_clone
@@ -85,19 +90,24 @@ index c6d0b8e..0ebe3b6 100644
      ;
  )]
  pub fn func_name<Types, D>(
-@@ -142,6 +164,17 @@ where
+@@ -142,6 +169,22 @@ where
  
      // actual parallel iteration
      if size_contig < CONTIG_SWITCH {
 +        // 2-D order-change fast path (see assign_arbitary_cpu_rayon); a
 +        // contiguous pair never reaches this branch (contig branch above).
++        // shape identity is required: shape-changing assigns (e.g. a reshape
++        // that re-lays out data) pass through the same kernels with different
++        // shapes, which the orderchange kernels cannot serve
 +        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
-+            let sc = *lc2.stride();
-+            let sa = *la2.stride();
-+            if sa[1] == 1 && sc[0] == 1 {
-+                return oc_r2c(c, &lc2, a, &la2, pool);
-+            } else if sa[0] == 1 && sc[1] == 1 {
-+                return oc_c2r(c, &lc2, a, &la2, pool);
++            if lc2.shape() == la2.shape() {
++                let sc = *lc2.stride();
++                let sa = *la2.stride();
++                if sa[1] == 1 && sc[0] == 1 {
++                    return oc_r2c(c, &lc2, a, &la2, pool);
++                } else if sa[0] == 1 && sc[1] == 1 {
++                    return oc_c2r(c, &lc2, a, &la2, pool);
++                }
 +            }
 +        }
          // not possible for contiguous assign
@@ -225,7 +235,7 @@ index de5afc5..6061661 100644
  ///
  /// Transpose from `a` (col-major) to `c` (row-major).
 diff --git a/rstsr-native-impl/src/cpu_serial/assignment.rs b/rstsr-native-impl/src/cpu_serial/assignment.rs
-index a6f7e22..dc69cb1 100644
+index a6f7e22..0e684d1 100644
 --- a/rstsr-native-impl/src/cpu_serial/assignment.rs
 +++ b/rstsr-native-impl/src/cpu_serial/assignment.rs
 @@ -7,22 +7,27 @@ const CONTIG_SWITCH: usize = 16;
@@ -256,7 +266,7 @@ index a6f7e22..dc69cb1 100644
      ;
  )]
  pub fn func_name<Types, DC, DA>(
-@@ -49,6 +54,23 @@ where
+@@ -49,6 +54,28 @@ where
              func_clone;
          });
      } else {
@@ -268,19 +278,24 @@ index a6f7e22..dc69cb1 100644
 +        // which fall through to the generic iterator path unchanged. A copy
 +        // writes every output element exactly once from one input element,
 +        // so the tiled visit order is bit-identical to the iterator order.
++        // shape identity is required: shape-changing assigns (e.g. a reshape
++        // that re-lays out data) pass through the same kernels with different
++        // shapes, which the orderchange kernels cannot serve
 +        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
-+            let sc = *lc2.stride();
-+            let sa = *la2.stride();
-+            if sa[1] == 1 && sc[0] == 1 {
-+                return oc_r2c(c, &lc2, a, &la2);
-+            } else if sa[0] == 1 && sc[1] == 1 {
-+                return oc_c2r(c, &lc2, a, &la2);
++            if lc2.shape() == la2.shape() {
++                let sc = *lc2.stride();
++                let sa = *la2.stride();
++                if sa[1] == 1 && sc[0] == 1 {
++                    return oc_r2c(c, &lc2, a, &la2);
++                } else if sa[0] == 1 && sc[1] == 1 {
++                    return oc_c2r(c, &lc2, a, &la2);
++                }
 +            }
 +        }
          // determine order by layout preference
          let order = match order {
              RowMajor => TensorIterOrder::C,
-@@ -70,22 +92,27 @@ where
+@@ -70,22 +97,27 @@ where
      func_name
          TypeC TypeA Types
          func_clone
@@ -308,7 +323,7 @@ index a6f7e22..dc69cb1 100644
      ;
  )]
  pub fn func_name<Types, D>(c: &mut [TypeC], lc: &Layout<D>, a: &[TypeA], la: &Layout<D>) -> Result<()>
-@@ -107,6 +134,19 @@ where
+@@ -107,6 +139,24 @@ where
              );
          })?;
      } else {
@@ -316,13 +331,18 @@ index a6f7e22..dc69cb1 100644
 +        // layouts 2-D, transpose stride pattern, fast axes exactly +1; a
 +        // fully/partially contiguous pair never reaches here (the contig
 +        // branch above takes it), so this never shadows the memcpy path.
++        // shape identity is required: shape-changing assigns (e.g. a reshape
++        // that re-lays out data) pass through the same kernels with different
++        // shapes, which the orderchange kernels cannot serve
 +        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
-+            let sc = *lc2.stride();
-+            let sa = *la2.stride();
-+            if sa[1] == 1 && sc[0] == 1 {
-+                return oc_r2c(c, &lc2, a, &la2);
-+            } else if sa[0] == 1 && sc[1] == 1 {
-+                return oc_c2r(c, &lc2, a, &la2);
++            if lc2.shape() == la2.shape() {
++                let sc = *lc2.stride();
++                let sa = *la2.stride();
++                if sa[1] == 1 && sc[0] == 1 {
++                    return oc_r2c(c, &lc2, a, &la2);
++                } else if sa[0] == 1 && sc[1] == 1 {
++                    return oc_c2r(c, &lc2, a, &la2);
++                }
 +            }
 +        }
          let lc = &layouts_full[0];

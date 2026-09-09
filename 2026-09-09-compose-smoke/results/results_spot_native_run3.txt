@@ -1,0 +1,7 @@
+RESULT argmax_1e7_serial             1.488 ms
+RESULT add_strided_b_2048_serial      7.968 ms
+RESULT transpose_b_2048_serial       5.911 ms
+RESULT sum_axis0_2048_serial         1.165 ms
+RESULT vecdot_axis0_512x4096_ser     0.4733 ms
+RESULT vecdot_am1_4096x512_ser      0.3342 ms
+RESULT innerdot_1e4_faer16           5.410 us

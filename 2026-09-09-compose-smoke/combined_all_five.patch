@@ -1,0 +1,2529 @@
+diff --git a/rstsr-core/src/device_cpu_serial/linalg/matmul.rs b/rstsr-core/src/device_cpu_serial/linalg/matmul.rs
+index 40e4e0a..bd508ea 100644
+--- a/rstsr-core/src/device_cpu_serial/linalg/matmul.rs
++++ b/rstsr-core/src/device_cpu_serial/linalg/matmul.rs
+@@ -17,6 +17,11 @@ where
+     TA: Mul<TB, Output = TC>,
+     TB: Mul<TA, Output = TC>,
+     TC: Mul<TC, Output = TC> + Add<TC, Output = TC>,
++    // propagated from `inner_dot_naive_cpu_serial`'s contiguous fast-path
++    // guard (alpha == one, beta == zero). NOTE for the PR: impl-level bound
++    // widening on the published device API (same category as the T6 `ArgCmp`
++    // change); all in-tree instantiations satisfy these bounds.
++    TC: num::Zero + num::One + PartialEq,
+     Self: DeviceAPI<TA, Raw = Vec<TA>> + DeviceAPI<TB, Raw = Vec<TB>> + DeviceAPI<TC, Raw = Vec<TC>>,
+ {
+     fn matmul(
+diff --git a/rstsr-core/src/device_cpu_serial/reduction.rs b/rstsr-core/src/device_cpu_serial/reduction.rs
+index 675d456..5384e72 100644
+--- a/rstsr-core/src/device_cpu_serial/reduction.rs
++++ b/rstsr-core/src/device_cpu_serial/reduction.rs
+@@ -38,7 +38,7 @@ where
+ 
+ impl<T, D> OpMinAPI<T, D> for DeviceCpuSerial
+ where
+-    T: ExtReal,
++    T: ExtReal + PartialOrd,
+     D: DimAPI,
+ {
+     type TOut = T;
+@@ -49,8 +49,15 @@ where
+         }
+ 
+         let f_init = T::ext_max_value;
+-        let f = |acc: T, x: T| acc.ext_min(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_min(acc2);
++        // strict-compare accumulate (instead of `acc.ext_min(x)`): identical
++        // values for all inputs on the ±ext_max_value seed (NaN candidates
++        // never pass the strict comparison, all-NaN keeps the seed), but the
++        // form auto-vectorizes (vminpd) where the `minnum` intrinsic shape
++        // does not — see the T2' reduction study. Known nuance: on ±0.0 ties
++        // the incumbent is kept (value-equal; the old `f64::min` form could
++        // return either operand's zero).
++        let f = |acc: T, x: T| if x < acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 < acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+         reduce_all_cpu_serial(a, la, f_init, f, f_sum, f_out)
+     }
+@@ -66,8 +73,8 @@ where
+         }
+ 
+         let f_init = T::ext_max_value;
+-        let f = |acc: T, x: T| acc.ext_min(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_min(acc2);
++        let f = |acc: T, x: T| if x < acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 < acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+ 
+         let (out, layout_out) = reduce_axes_cpu_serial(a, &la.to_dim()?, axes, f_init, f, f_sum, f_out)?;
+@@ -77,7 +84,7 @@ where
+ 
+ impl<T, D> OpMaxAPI<T, D> for DeviceCpuSerial
+ where
+-    T: ExtReal,
++    T: ExtReal + PartialOrd,
+     D: DimAPI,
+ {
+     type TOut = T;
+@@ -88,8 +95,9 @@ where
+         }
+ 
+         let f_init = T::ext_min_value;
+-        let f = |acc: T, x: T| acc.ext_max(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_max(acc2);
++        // strict-compare accumulate: see the OpMinAPI note above (max symmetric).
++        let f = |acc: T, x: T| if x > acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 > acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+ 
+         reduce_all_cpu_serial(a, la, f_init, f, f_sum, f_out)
+@@ -106,8 +114,8 @@ where
+         }
+ 
+         let f_init = T::ext_min_value;
+-        let f = |acc: T, x: T| acc.ext_max(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_max(acc2);
++        let f = |acc: T, x: T| if x > acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 > acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+ 
+         let (out, layout_out) = reduce_axes_cpu_serial(a, &la.to_dim()?, axes, f_init, f, f_sum, f_out)?;
+@@ -333,40 +341,12 @@ where
+         la: &Layout<D>,
+         axes: &[isize],
+     ) -> Result<(Storage<DataOwned<Vec<usize>>, Self::TOut, Self>, Layout<IxD>)> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, layout_out) = reduce_axes_arg_cpu_serial(a, la, axes, f_comp, f_eq, RowMajor)?;
++        let (out, layout_out) = reduce_axes_arg_cpu_serial(a, la, axes, ArgCmp::Min, RowMajor)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn argmin_all(&self, a: &Vec<T>, la: &Layout<D>) -> Result<Self::TOut> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_arg_cpu_serial(a, la, f_comp, f_eq, RowMajor)?;
++        let result = reduce_all_arg_cpu_serial(a, la, ArgCmp::Min, RowMajor)?;
+         Ok(result)
+     }
+ }
+@@ -384,40 +364,12 @@ where
+         la: &Layout<D>,
+         axes: &[isize],
+     ) -> Result<(Storage<DataOwned<Vec<usize>>, Self::TOut, Self>, Layout<IxD>)> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, layout_out) = reduce_axes_arg_cpu_serial(a, la, axes, f_comp, f_eq, RowMajor)?;
++        let (out, layout_out) = reduce_axes_arg_cpu_serial(a, la, axes, ArgCmp::Max, RowMajor)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn argmax_all(&self, a: &Vec<T>, la: &Layout<D>) -> Result<Self::TOut> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_arg_cpu_serial(a, la, f_comp, f_eq, RowMajor)?;
++        let result = reduce_all_arg_cpu_serial(a, la, ArgCmp::Max, RowMajor)?;
+         Ok(result)
+     }
+ }
+@@ -527,40 +479,12 @@ where
+         la: &Layout<D>,
+         axes: &[isize],
+     ) -> Result<(Storage<DataOwned<Vec<IxD>>, IxD, Self>, Layout<IxD>)> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_serial(a, la, axes, f_comp, f_eq)?;
++        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_serial(a, la, axes, ArgCmp::Min)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn unraveled_argmin_all(&self, a: &<Self as DeviceRawAPI<T>>::Raw, la: &Layout<D>) -> Result<D> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_unraveled_arg_cpu_serial(a, la, f_comp, f_eq)?;
++        let result = reduce_all_unraveled_arg_cpu_serial(a, la, ArgCmp::Min)?;
+         Ok(result)
+     }
+ }
+@@ -576,40 +500,12 @@ where
+         la: &Layout<D>,
+         axes: &[isize],
+     ) -> Result<(Storage<DataOwned<Vec<IxD>>, IxD, Self>, Layout<IxD>)> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_serial(a, la, axes, f_comp, f_eq)?;
++        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_serial(a, la, axes, ArgCmp::Max)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn unraveled_argmax_all(&self, a: &<Self as DeviceRawAPI<T>>::Raw, la: &Layout<D>) -> Result<D> {
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_unraveled_arg_cpu_serial(a, la, f_comp, f_eq)?;
++        let result = reduce_all_unraveled_arg_cpu_serial(a, la, ArgCmp::Max)?;
+         Ok(result)
+     }
+ }
+diff --git a/rstsr-core/src/feature_rayon/auto_impl/reduction.rs b/rstsr-core/src/feature_rayon/auto_impl/reduction.rs
+index 793fcd2..1362541 100644
+--- a/rstsr-core/src/feature_rayon/auto_impl/reduction.rs
++++ b/rstsr-core/src/feature_rayon/auto_impl/reduction.rs
+@@ -42,7 +42,7 @@ where
+ 
+ impl<T, D> OpMinAPI<T, D> for DeviceRayonAutoImpl
+ where
+-    T: ExtReal + Send + Sync,
++    T: ExtReal + PartialOrd + Send + Sync,
+     D: DimAPI,
+ {
+     type TOut = T;
+@@ -55,8 +55,15 @@ where
+         let pool = self.get_current_pool();
+ 
+         let f_init = T::ext_max_value;
+-        let f = |acc: T, x: T| acc.ext_min(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_min(acc2);
++        // strict-compare accumulate (instead of `acc.ext_min(x)`): identical
++        // values for all inputs on the ±ext_max_value seed (NaN candidates
++        // never pass the strict comparison, all-NaN keeps the seed), but the
++        // form auto-vectorizes (vminpd) where the `minnum` intrinsic shape
++        // does not — see the T2' reduction study. Known nuance: on ±0.0 ties
++        // the incumbent is kept (value-equal; the old `f64::min` form could
++        // return either operand's zero).
++        let f = |acc: T, x: T| if x < acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 < acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+ 
+         reduce_all_cpu_rayon(a, la, f_init, f, f_sum, f_out, pool)
+@@ -75,8 +82,8 @@ where
+         let pool = self.get_current_pool();
+ 
+         let f_init = T::ext_max_value;
+-        let f = |acc: T, x: T| acc.ext_min(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_min(acc2);
++        let f = |acc: T, x: T| if x < acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 < acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+ 
+         let (out, layout_out) = reduce_axes_cpu_rayon(a, &la.to_dim()?, axes, f_init, f, f_sum, f_out, pool)?;
+@@ -86,7 +93,7 @@ where
+ 
+ impl<T, D> OpMaxAPI<T, D> for DeviceRayonAutoImpl
+ where
+-    T: ExtReal + Send + Sync,
++    T: ExtReal + PartialOrd + Send + Sync,
+     D: DimAPI,
+ {
+     type TOut = T;
+@@ -99,8 +106,9 @@ where
+         let pool = self.get_current_pool();
+ 
+         let f_init = T::ext_min_value;
+-        let f = |acc: T, x: T| acc.ext_max(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_max(acc2);
++        // strict-compare accumulate: see the OpMinAPI note above (max symmetric).
++        let f = |acc: T, x: T| if x > acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 > acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+ 
+         reduce_all_cpu_rayon(a, la, f_init, f, f_sum, f_out, pool)
+@@ -119,8 +127,8 @@ where
+         let pool = self.get_current_pool();
+ 
+         let f_init = T::ext_min_value;
+-        let f = |acc: T, x: T| acc.ext_max(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_max(acc2);
++        let f = |acc: T, x: T| if x > acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 > acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+ 
+         let (out, layout_out) = reduce_axes_cpu_rayon(a, &la.to_dim()?, axes, f_init, f, f_sum, f_out, pool)?;
+@@ -368,42 +376,14 @@ where
+     ) -> Result<(Storage<DataOwned<Vec<usize>>, Self::TOut, Self>, Layout<IxD>)> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, layout_out) = reduce_axes_arg_cpu_rayon(a, la, axes, f_comp, f_eq, RowMajor, pool)?;
++        let (out, layout_out) = reduce_axes_arg_cpu_rayon(a, la, axes, ArgCmp::Min, RowMajor, pool)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn argmin_all(&self, a: &Vec<T>, la: &Layout<D>) -> Result<Self::TOut> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_arg_cpu_rayon(a, la, f_comp, f_eq, RowMajor, pool)?;
++        let result = reduce_all_arg_cpu_rayon(a, la, ArgCmp::Min, RowMajor, pool)?;
+         Ok(result)
+     }
+ }
+@@ -423,42 +403,14 @@ where
+     ) -> Result<(Storage<DataOwned<Vec<usize>>, Self::TOut, Self>, Layout<IxD>)> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, layout_out) = reduce_axes_arg_cpu_rayon(a, la, axes, f_comp, f_eq, RowMajor, pool)?;
++        let (out, layout_out) = reduce_axes_arg_cpu_rayon(a, la, axes, ArgCmp::Max, RowMajor, pool)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn argmax_all(&self, a: &Vec<T>, la: &Layout<D>) -> Result<Self::TOut> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_arg_cpu_rayon(a, la, f_comp, f_eq, RowMajor, pool)?;
++        let result = reduce_all_arg_cpu_rayon(a, la, ArgCmp::Max, RowMajor, pool)?;
+         Ok(result)
+     }
+ }
+@@ -582,42 +534,14 @@ where
+     ) -> Result<(Storage<DataOwned<Vec<IxD>>, IxD, Self>, Layout<IxD>)> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_rayon(a, la, axes, f_comp, f_eq, pool)?;
++        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_rayon(a, la, axes, ArgCmp::Min, pool)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn unraveled_argmin_all(&self, a: &<Self as DeviceRawAPI<T>>::Raw, la: &Layout<D>) -> Result<D> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y < x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_unraveled_arg_cpu_rayon(a, la, f_comp, f_eq, pool)?;
++        let result = reduce_all_unraveled_arg_cpu_rayon(a, la, ArgCmp::Min, pool)?;
+         Ok(result)
+     }
+ }
+@@ -635,42 +559,14 @@ where
+     ) -> Result<(Storage<DataOwned<Vec<IxD>>, IxD, Self>, Layout<IxD>)> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_rayon(a, la, axes, f_comp, f_eq, pool)?;
++        let (out, _layout_axes, layout_out) = reduce_axes_unraveled_arg_cpu_rayon(a, la, axes, ArgCmp::Max, pool)?;
+         Ok((Storage::new(out.into(), self.clone()), layout_out))
+     }
+ 
+     fn unraveled_argmax_all(&self, a: &<Self as DeviceRawAPI<T>>::Raw, la: &Layout<D>) -> Result<D> {
+         let pool = self.get_current_pool();
+ 
+-        let f_comp = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y > x)
+-            } else {
+-                Some(true)
+-            }
+-        };
+-        let f_eq = |x: Option<T>, y: T| -> Option<bool> {
+-            if let Some(x) = x {
+-                Some(y == x)
+-            } else {
+-                Some(false)
+-            }
+-        };
+-        let result = reduce_all_unraveled_arg_cpu_rayon(a, la, f_comp, f_eq, pool)?;
++        let result = reduce_all_unraveled_arg_cpu_rayon(a, la, ArgCmp::Max, pool)?;
+         Ok(result)
+     }
+ }
+diff --git a/rstsr-native-impl/src/cpu_rayon/assignment.rs b/rstsr-native-impl/src/cpu_rayon/assignment.rs
+index c6d0b8e..3015479 100644
+--- a/rstsr-native-impl/src/cpu_rayon/assignment.rs
++++ b/rstsr-native-impl/src/cpu_rayon/assignment.rs
+@@ -16,26 +16,31 @@ const PARALLEL_SWITCH: usize = 16384;
+         func_name_serial
+         TypeC TypeA Types
+         func_clone
++        oc_r2c oc_c2r
+     ;
+     [assign_arbitary_cpu_rayon]
+         [assign_arbitary_cpu_serial]
+         [T] [T] [T: Clone + Send + Sync]
+         [*ci = ai.clone()]
++        [orderchange_out_r2c_ix2_promote_cpu_rayon] [orderchange_out_c2r_ix2_promote_cpu_rayon]
+     ;
+     [assign_arbitary_uninit_cpu_rayon]
+         [assign_arbitary_uninit_cpu_serial]
+         [MaybeUninit<T>] [T] [T: Clone + Send + Sync]
+         [ci.write(ai.clone())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon] [orderchange_out_c2r_ix2_uninit_promote_cpu_rayon]
+     ;
+     [assign_arbitary_promote_cpu_rayon]
+         [assign_arbitary_promote_cpu_serial]
+         [TC] [TA] [TC: Clone + Send + Sync, TA: Clone + Send + Sync + DTypeCastAPI<TC>]
+         [*ci = ai.clone().into_cast()]
++        [orderchange_out_r2c_ix2_promote_cpu_rayon] [orderchange_out_c2r_ix2_promote_cpu_rayon]
+     ;
+     [assign_arbitary_uninit_promote_cpu_rayon]
+         [assign_arbitary_uninit_promote_cpu_serial]
+         [MaybeUninit<TC>] [TA] [TC: Clone + Send + Sync, TA: Clone + Send + Sync + DTypeCastAPI<TC>]
+         [ci.write(ai.clone().into_cast())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon] [orderchange_out_c2r_ix2_uninit_promote_cpu_rayon]
+     ;
+ )]
+ pub fn func_name<Types, DC, DA>(
+@@ -72,6 +77,23 @@ where
+         });
+         Ok(())
+     } else {
++        // 2-D order-change fast path: blocked kernels with block-level rayon
++        // parallelism (see assign_arbitary_cpu_serial for the guard rationale;
++        // the kernels keep their own size < 16*BLOCK_SIZE^2 serial fallback).
++        // shape identity is required: shape-changing assigns (e.g. a reshape
++        // that re-lays out data) pass through the same kernels with different
++        // shapes, which the orderchange kernels cannot serve
++        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
++            if lc2.shape() == la2.shape() {
++                let sc = *lc2.stride();
++                let sa = *la2.stride();
++                if sa[1] == 1 && sc[0] == 1 {
++                    return oc_r2c(c, &lc2, a, &la2, pool);
++                } else if sa[0] == 1 && sc[1] == 1 {
++                    return oc_c2r(c, &lc2, a, &la2, pool);
++                }
++            }
++        }
+         // determine order by layout preference
+         let order = match default_order {
+             RowMajor => TensorIterOrder::C,
+@@ -97,26 +119,31 @@ where
+         func_name_serial
+         TypeC TypeA Types
+         func_clone
++        oc_r2c oc_c2r
+     ;
+     [assign_cpu_rayon]
+         [assign_cpu_serial]
+         [T] [T] [T: Clone + Send + Sync]
+         [*ci = ai.clone()]
++        [orderchange_out_r2c_ix2_promote_cpu_rayon] [orderchange_out_c2r_ix2_promote_cpu_rayon]
+     ;
+     [assign_uninit_cpu_rayon]
+         [assign_uninit_cpu_serial]
+         [MaybeUninit<T>] [T] [T: Clone + Send + Sync]
+         [ci.write(ai.clone())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon] [orderchange_out_c2r_ix2_uninit_promote_cpu_rayon]
+     ;
+     [assign_promote_cpu_rayon]
+         [assign_promote_cpu_serial]
+         [TC] [TA] [TC: Clone + Send + Sync, TA: Clone + Send + Sync + DTypeCastAPI<TC>]
+         [*ci = ai.clone().into_cast()]
++        [orderchange_out_r2c_ix2_promote_cpu_rayon] [orderchange_out_c2r_ix2_promote_cpu_rayon]
+     ;
+     [assign_uninit_promote_cpu_rayon]
+         [assign_uninit_promote_cpu_serial]
+         [MaybeUninit<TC>] [TA] [TC: Clone + Send + Sync, TA: Clone + Send + Sync + DTypeCastAPI<TC>]
+         [ci.write(ai.clone().into_cast())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon] [orderchange_out_c2r_ix2_uninit_promote_cpu_rayon]
+     ;
+ )]
+ pub fn func_name<Types, D>(
+@@ -142,6 +169,22 @@ where
+ 
+     // actual parallel iteration
+     if size_contig < CONTIG_SWITCH {
++        // 2-D order-change fast path (see assign_arbitary_cpu_rayon); a
++        // contiguous pair never reaches this branch (contig branch above).
++        // shape identity is required: shape-changing assigns (e.g. a reshape
++        // that re-lays out data) pass through the same kernels with different
++        // shapes, which the orderchange kernels cannot serve
++        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
++            if lc2.shape() == la2.shape() {
++                let sc = *lc2.stride();
++                let sa = *la2.stride();
++                if sa[1] == 1 && sc[0] == 1 {
++                    return oc_r2c(c, &lc2, a, &la2, pool);
++                } else if sa[0] == 1 && sc[1] == 1 {
++                    return oc_c2r(c, &lc2, a, &la2, pool);
++                }
++            }
++        }
+         // not possible for contiguous assign
+         let lc = &layouts_full[0];
+         let la = &layouts_full[1];
+diff --git a/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs b/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs
+index 828661a..ccf4308 100644
+--- a/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs
++++ b/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs
+@@ -9,6 +9,14 @@ use core::ops::{Add, Mul};
+ use num::Zero;
+ use rayon::prelude::*;
+ 
++/// elements per parallel chunk for the contiguous fast path in
++/// `inner_dot_naive_cpu_rayon`; small enough for load balancing across
++/// threads, large enough that each chunk's unrolled fold amortizes.
++const PAR_CHUNK_ELEMS: usize = 8192;
++
++/// below this n, fold sequentially (a rayon dispatch would dominate).
++const PARALLEL_SWITCH: usize = 512;
++
+ #[allow(clippy::too_many_arguments)]
+ pub fn gemm_ix2_naive_cpu_rayon<TA, TB, TC>(
+     c: &mut [TC],
+@@ -75,6 +83,52 @@ where
+     rstsr_assert_eq!(sa[0], sb[0], InvalidLayout)?;
+     let n = sa[0];
+ 
++    // Small n: a rayon dispatch would dominate the actual work (measured
++    // 10-30 µs of overhead at n = 64..1e4 vs ~µs of fold), so fold
++    // sequentially in-place instead (mirrors `vecdot_naive_cpu_rayon`'s
++    // PARALLEL_SWITCH serial fallback).
++    if n < PARALLEL_SWITCH {
++        let (off_a, st_a) = (la.offset() as isize, la.stride()[0]);
++        let (off_b, st_b) = (lb.offset() as isize, lb.stride()[0]);
++        let mut sum = TC::zero();
++        for i in 0..n {
++            let xa = &a[(off_a + i as isize * st_a) as usize];
++            let xb = &b[(off_b + i as isize * st_b) as usize];
++            sum = sum + xa.clone() * xb.clone();
++        }
++        *c = sum * alpha + c.clone() * beta;
++        return Ok(());
++    }
++
++    // Contiguous large n: fold over contiguous chunk pairs (each chunk uses
++    // the 8-lane `unrolled_binary_reduce`) instead of one rayon task per
++    // element with `index_uncheck` address arithmetic per element.
++    if la.stride()[0] == 1 && lb.stride()[0] == 1 {
++        let ca = &a[la.offset()..la.offset() + n];
++        let cb = &b[lb.offset()..lb.offset() + n];
++        let task = || {
++            ca.par_chunks(PAR_CHUNK_ELEMS)
++                .zip(cb.par_chunks(PAR_CHUNK_ELEMS))
++                .fold(
++                    || TC::zero(),
++                    |acc, (xa, xb)| {
++                        acc + unrolled_binary_reduce(
++                            xa,
++                            xb,
++                            || TC::zero(),
++                            |acc, (x, y)| acc + x.clone() * y.clone(),
++                            |acc, v| acc + v,
++                        )
++                    },
++                )
++                .reduce_with(|a, b| a + b)
++                .unwrap_or(TC::zero())
++        };
++        let c_innerdot = pool.map_or_else(task, |pool| pool.install(task));
++        *c = c_innerdot * alpha + c.clone() * beta;
++        return Ok(());
++    }
++
+     let task = || {
+         (0..n)
+             .into_par_iter()
+diff --git a/rstsr-native-impl/src/cpu_rayon/op_with_func.rs b/rstsr-native-impl/src/cpu_rayon/op_with_func.rs
+index 10c0da0..c12a964 100644
+--- a/rstsr-native-impl/src/cpu_rayon/op_with_func.rs
++++ b/rstsr-native-impl/src/cpu_rayon/op_with_func.rs
+@@ -7,6 +7,195 @@ const CONTIG_SWITCH: usize = 16;
+ // Since current task is not intensive to each element, this value is large.
+ const PARALLEL_SWITCH: usize = 4096;
+ 
++// Minimum problem size for the blocked 2-D iteration path (mirrors the
++// serial file); smaller problems fall through to the serial kernel.
++const TILE_SWITCH: usize = 4096;
++// Tile edge (elements); within a [TILE, TILE] tile each layout's inner-axis
++// hop stays within TILE cache lines for the whole tile pass.
++const TILE: usize = 64;
++
++/// Guard for the blocked 2-D path: 2-D, large enough, and **no layout has a
++/// broadcast axis (shape > 1 with stride 0)** on any axis — broadcast
++/// operands keep the generic iterator path. All participating layouts are
++/// guard-checked.
++#[inline]
++fn blocked_2d_applicable_rayon<D>(layouts: &[Layout<D>], size: usize) -> bool
++where
++    D: DimAPI,
++{
++    size >= TILE_SWITCH
++        && layouts[0].ndim() == 2
++        && layouts
++            .iter()
++            .all(|l| l.shape().as_ref().iter().zip(l.stride().as_ref()).all(|(&d, &s)| !(d > 1 && s == 0)))
++}
++
++/// Read-only view of the blocked-2D iteration geometry (axis roles, tile
++/// grid, stride sums) shared by the rayon tile kernels. Offsets are isize;
++/// usize casts happen only at the addressing site.
++struct Blocked2DGeom {
++    dim_fast: usize,
++    dim_slow: usize,
++    sc_fast: isize,
++    sc_slow: isize,
++    sa_fast: isize,
++    sa_slow: isize,
++    sb_fast: isize,
++    sb_slow: isize,
++    oc: isize,
++    oa: isize,
++    ob: isize,
++    n_tiles_fast: usize,
++    n_tiles_slow: usize,
++}
++
++#[inline]
++fn blocked_2d_geom<D>(lc: &Layout<D>, la: &Layout<D>, lb: &Layout<D>) -> Blocked2DGeom
++where
++    D: DimAPI,
++{
++    let shape = lc.shape().as_ref();
++    let (dim0, dim1) = (shape[0], shape[1]);
++    let sc = lc.stride().as_ref();
++    let sa = la.stride().as_ref();
++    let sb = lb.stride().as_ref();
++    // choose c's fastest axis as the element-innermost loop
++    let (fast, slow) = if sc[0].abs() <= sc[1].abs() { (0usize, 1usize) } else { (1, 0) };
++    let (dim_fast, dim_slow) = if fast == 0 { (dim0, dim1) } else { (dim1, dim0) };
++    Blocked2DGeom {
++        dim_fast,
++        dim_slow,
++        sc_fast: sc[fast],
++        sc_slow: sc[slow],
++        sa_fast: sa[fast],
++        sa_slow: sa[slow],
++        sb_fast: sb[fast],
++        sb_slow: sb[slow],
++        oc: lc.offset() as isize,
++        oa: la.offset() as isize,
++        ob: lb.offset() as isize,
++        n_tiles_fast: dim_fast.div_ceil(TILE),
++        n_tiles_slow: dim_slow.div_ceil(TILE),
++    }
++}
++
++/// Blocked 2-D elementwise iteration, parallel over tile-row bands (each
++/// rayon task covers a [TILE, dim_fast] band of the output).
++///
++/// Visit-order note: elements are visited in tiled order; bit-identical for
++/// stateless per-element ops, and this path (like the whole rayon kernel)
++/// was already order-free. Aliasing/bounds contract matches the other
++/// raw-pointer paths in this file: disjoint buffers, layouts consistent with
++/// shapes (offsets are debug-asserted).
++#[allow(clippy::too_many_arguments)]
++fn blocked_2d_3layouts_cpu_rayon<TA, TB, TC, D, F>(
++    c: &mut [MaybeUninit<TC>],
++    lc: &Layout<D>,
++    a: &[TA],
++    la: &Layout<D>,
++    b: &[TB],
++    lb: &Layout<D>,
++    f: &F,
++    pool: Option<&ThreadPool>,
++) -> Result<()>
++where
++    D: DimAPI,
++    TA: Send + Sync,
++    TB: Send + Sync,
++    TC: Send + Sync,
++    F: Fn(&mut MaybeUninit<TC>, &TA, &TB) + ?Sized + Send + Sync,
++{
++    let g = blocked_2d_geom(lc, la, lb);
++    let task = || {
++        (0..g.n_tiles_slow).into_par_iter().for_each(|t_slow| {
++            let slow_begin = t_slow * TILE;
++            let slow_end = (slow_begin + TILE).min(g.dim_slow);
++            // pointers are materialized inside the task, mirroring the file's
++            // established raw-pointer pattern (shared captures stay Sync via
++            // TA/TB/TC: Send + Sync)
++            let c_ptr = c.as_ptr() as *mut MaybeUninit<TC>;
++            let a_ptr = a.as_ptr();
++            let b_ptr = b.as_ptr();
++            for t_fast in 0..g.n_tiles_fast {
++                let fast_begin = t_fast * TILE;
++                let fast_end = (fast_begin + TILE).min(g.dim_fast);
++                for s in slow_begin..slow_end {
++                    let mut off_c = g.oc + (s as isize) * g.sc_slow + (fast_begin as isize) * g.sc_fast;
++                    let mut off_a = g.oa + (s as isize) * g.sa_slow + (fast_begin as isize) * g.sa_fast;
++                    let mut off_b = g.ob + (s as isize) * g.sb_slow + (fast_begin as isize) * g.sb_fast;
++                    for _ in fast_begin..fast_end {
++                        debug_assert!(off_c >= 0 && (off_c as usize) < c.len(), "blocked 2-D iter: c offset out of bounds");
++                        debug_assert!(off_a >= 0 && (off_a as usize) < a.len(), "blocked 2-D iter: a offset out of bounds");
++                        debug_assert!(off_b >= 0 && (off_b as usize) < b.len(), "blocked 2-D iter: b offset out of bounds");
++                        unsafe {
++                            f(&mut *c_ptr.add(off_c as usize), &*a_ptr.add(off_a as usize), &*b_ptr.add(off_b as usize))
++                        };
++                        off_c += g.sc_fast;
++                        off_a += g.sa_fast;
++                        off_b += g.sb_fast;
++                    }
++                }
++            }
++        });
++    };
++    pool.map_or_else(task, |pool| pool.install(task));
++    Ok(())
++}
++
++/// 2-layout (in-place) variant of [`blocked_2d_3layouts_cpu_rayon`]; same
++/// contract and visit-order note.
++#[allow(clippy::too_many_arguments)]
++fn blocked_2d_2layouts_cpu_rayon<TA, TB, D, F>(
++    a: &mut [MaybeUninit<TA>],
++    la: &Layout<D>,
++    b: &[TB],
++    lb: &Layout<D>,
++    f: &F,
++    pool: Option<&ThreadPool>,
++) -> Result<()>
++where
++    D: DimAPI,
++    TA: Send + Sync,
++    TB: Send + Sync,
++    F: Fn(&mut MaybeUninit<TA>, &TB) + ?Sized + Send + Sync,
++{
++    let shape = la.shape().as_ref();
++    let (dim0, dim1) = (shape[0], shape[1]);
++    let sa = la.stride().as_ref();
++    let sb = lb.stride().as_ref();
++    let (fast, slow) = if sa[0].abs() <= sa[1].abs() { (0usize, 1usize) } else { (1, 0) };
++    let (dim_fast, dim_slow) = if fast == 0 { (dim0, dim1) } else { (dim1, dim0) };
++    let (sa_fast, sa_slow) = (sa[fast], sa[slow]);
++    let (sb_fast, sb_slow) = (sb[fast], sb[slow]);
++    let (oa, ob) = (la.offset() as isize, lb.offset() as isize);
++    let n_tiles_fast = dim_fast.div_ceil(TILE);
++    let task = || {
++        (0..dim_slow.div_ceil(TILE)).into_par_iter().for_each(|t_slow| {
++            let slow_begin = t_slow * TILE;
++            let slow_end = (slow_begin + TILE).min(dim_slow);
++            let a_ptr = a.as_ptr() as *mut MaybeUninit<TA>;
++            let b_ptr = b.as_ptr();
++            for t_fast in 0..n_tiles_fast {
++                let fast_begin = t_fast * TILE;
++                let fast_end = (fast_begin + TILE).min(dim_fast);
++                for s in slow_begin..slow_end {
++                    let mut off_a = oa + (s as isize) * sa_slow + (fast_begin as isize) * sa_fast;
++                    let mut off_b = ob + (s as isize) * sb_slow + (fast_begin as isize) * sb_fast;
++                    for _ in fast_begin..fast_end {
++                        debug_assert!(off_a >= 0 && (off_a as usize) < a.len(), "blocked 2-D iter: a offset out of bounds");
++                        debug_assert!(off_b >= 0 && (off_b as usize) < b.len(), "blocked 2-D iter: b offset out of bounds");
++                        unsafe { f(&mut *a_ptr.add(off_a as usize), &*b_ptr.add(off_b as usize)) };
++                        off_a += sa_fast;
++                        off_b += sb_fast;
++                    }
++                }
++            }
++        });
++    };
++    pool.map_or_else(task, |pool| pool.install(task));
++    Ok(())
++}
++
+ /* #region op_func definition */
+ 
+ #[allow(clippy::too_many_arguments)]
+@@ -65,6 +254,12 @@ where
+             let task = || layout_col_major_dim_dispatch_par_3(lc, la, lb, func);
+             pool.map_or_else(task, |pool| pool.install(task))
+         }
++    } else if blocked_2d_applicable_rayon(&layouts_full, size) {
++        // blocked 2-D iteration for fully strided problems (e.g. a + b.t())
++        let lc = &layouts_full[0];
++        let la = &layouts_full[1];
++        let lb = &layouts_full[2];
++        blocked_2d_3layouts_cpu_rayon(c, lc, a, la, b, lb, f, pool)
+     } else {
+         // not possible for contiguous assign
+         let lc = &layouts_full[0];
+@@ -262,6 +457,12 @@ where
+             let task = || layout_col_major_dim_dispatch_par_2(la, lb, func);
+             pool.map_or_else(task, |pool| pool.install(task))
+         }
++    } else if blocked_2d_applicable_rayon(&layouts_full, la.size()) {
++        // blocked 2-D iteration for fully strided in-place problems
++        // (e.g. c += b.t())
++        let la = &layouts_full[0];
++        let lb = &layouts_full[1];
++        blocked_2d_2layouts_cpu_rayon(a, la, b, lb, f, pool)
+     } else {
+         // not possible for contiguous assign
+         let la = &layouts_full[0];
+diff --git a/rstsr-native-impl/src/cpu_rayon/reduction.rs b/rstsr-native-impl/src/cpu_rayon/reduction.rs
+index 600c25c..f641a07 100644
+--- a/rstsr-native-impl/src/cpu_rayon/reduction.rs
++++ b/rstsr-native-impl/src/cpu_rayon/reduction.rs
+@@ -439,7 +439,11 @@ where
+ 
+ /* #region reduce unraveled axes */
+ 
+-pub fn reduce_all_unraveled_arg_cpu_rayon<T, D, Fcomp, Feq>(
++/// Original closure-based fold over [`IndexedIterLayout`] (row-major),
++/// kept as the strided/non-contiguous fallback of
++/// [`reduce_all_unraveled_arg_cpu_rayon`].
++#[inline]
++fn reduce_all_unraveled_arg_fold_cpu_rayon<T, D, Fcomp, Feq>(
+     a: &[T],
+     la: &Layout<D>,
+     f_comp: Fcomp,
+@@ -454,11 +458,6 @@ where
+ {
+     rstsr_assert!(la.size() > 0, InvalidLayout, "empty sequence is not allowed for reduce_arg.")?;
+ 
+-    let size = la.size();
+-    if size < PARALLEL_SWITCH {
+-        return reduce_all_unraveled_arg_cpu_serial(a, la, f_comp, f_eq);
+-    }
+-
+     let fold_func = |acc: Option<(D, T)>, (cur_idx, cur_offset): (D, usize)| -> Option<(D, T)> {
+         let cur_val = a[cur_offset].clone();
+ 
+@@ -511,24 +510,155 @@ where
+     Ok(acc.unwrap().0)
+ }
+ 
+-pub fn reduce_axes_unraveled_arg_cpu_rayon<T, D, Fcomp, Feq>(
++/// Contiguous fast path of [`reduce_all_unraveled_arg_cpu_rayon`]: split the
++/// buffer into contiguous chunks, run the serial 8-lane scan
++/// ([`arg_contig_cpu_serial`]) per chunk, then combine deterministically
++/// (collect preserves chunk order; greater value wins, ties keep the smaller
++/// index, NaN never wins) — exactly the serial fold's outcome, independent of
++/// thread count and scheduling.
++///
++/// Kept out-of-line so that the strided fallback below compiles exactly like
++/// the pre-existing closure fold (code-layout hygiene: the fallback must not
++/// regress).
++#[inline(never)]
++fn reduce_all_unraveled_arg_contig_cpu_rayon<T, D>(
++    a: &[T],
++    la: &Layout<D>,
++    cmp: ArgCmp,
++    pool: Option<&ThreadPool>,
++) -> Result<D>
++where
++    T: Clone + PartialOrd + Send + Sync,
++    D: DimAPI,
++{
++    let size = la.size();
++    let offset = la.offset();
++    let xs = &a[offset..offset + size];
++
++    // first-element NaN poisoning is decided ONCE for the whole buffer (the
++    // per-chunk scans are seeded with this guaranteed-comparable element, so
++    // a NaN inside a chunk can never block its chunk result)
++    if !(xs[0] == xs[0]) {
++        return Ok(unravel_c_order(0, la.shape()));
++    }
++
++    let nthreads = match pool {
++        Some(pool) => pool.current_num_threads(),
++        None => rayon::current_num_threads(),
++    };
++    let nchunks = (nthreads * 4).clamp(1, size / 8);
++    let chunk_len = size / nchunks;
++    let task = || {
++        let partials: Vec<(T, usize)> = (0..nchunks)
++            .into_par_iter()
++            .map(|ci| {
++                let start = ci * chunk_len;
++                let end = if ci == nchunks - 1 { size } else { start + chunk_len };
++                let sub = &xs[start..end];
++                // seed every chunk with the global first element; a chunk
++                // index of usize::MAX means "nothing beat the global seed",
++                // i.e. the chunk best is the seed itself (global index 0)
++                let (val, li) = arg_contig_seeded_cpu_serial(sub, cmp, &xs[0]);
++                let gidx = if li == usize::MAX { 0 } else { start + li };
++                (val, gidx)
++            })
++            .collect();
++        let (mut best_val, mut best_idx) = (&partials[0].0, partials[0].1);
++        for (val, idx) in partials.iter().skip(1) {
++            let better = match cmp {
++                ArgCmp::Max => val > best_val || (val == best_val && *idx < best_idx),
++                ArgCmp::Min => val < best_val || (val == best_val && *idx < best_idx),
++            };
++            if better {
++                best_val = val;
++                best_idx = *idx;
++            }
++        }
++        best_idx
++    };
++    let flat = match pool {
++        None => task(),
++        Some(pool) => pool.install(task),
++    };
++    Ok(unravel_c_order(flat, la.shape()))
++}
++
++pub fn reduce_all_unraveled_arg_cpu_rayon<T, D>(
++    a: &[T],
++    la: &Layout<D>,
++    cmp: ArgCmp,
++    pool: Option<&ThreadPool>,
++) -> Result<D>
++where
++    T: Clone + PartialOrd + Send + Sync,
++    D: DimAPI,
++{
++    rstsr_assert!(la.size() > 0, InvalidLayout, "empty sequence is not allowed for reduce_arg.")?;
++
++    let size = la.size();
++    if size < PARALLEL_SWITCH {
++        return reduce_all_unraveled_arg_cpu_serial(a, la, cmp);
++    }
++
++    if la.c_contig() {
++        return reduce_all_unraveled_arg_contig_cpu_rayon(a, la, cmp, pool);
++    }
++
++    // strided / broadcast fallback: original closure fold, comparison
++    // direction selected by `cmp`
++    match cmp {
++        ArgCmp::Max => {
++            let f_comp = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y > x)
++                } else {
++                    Some(true)
++                }
++            };
++            let f_eq = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y == x)
++                } else {
++                    Some(false)
++                }
++            };
++            reduce_all_unraveled_arg_fold_cpu_rayon(a, la, f_comp, f_eq, pool)
++        },
++        ArgCmp::Min => {
++            let f_comp = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y < x)
++                } else {
++                    Some(true)
++                }
++            };
++            let f_eq = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y == x)
++                } else {
++                    Some(false)
++                }
++            };
++            reduce_all_unraveled_arg_fold_cpu_rayon(a, la, f_comp, f_eq, pool)
++        },
++    }
++}
++
++pub fn reduce_axes_unraveled_arg_cpu_rayon<T, D>(
+     a: &[T],
+     la: &Layout<D>,
+     axes: &[isize],
+-    f_comp: Fcomp,
+-    f_eq: Feq,
++    cmp: ArgCmp,
+     pool: Option<&ThreadPool>,
+ ) -> Result<(Vec<IxD>, Layout<IxD>, Layout<IxD>)>
+ where
+-    T: Clone + Send + Sync,
++    T: Clone + PartialOrd + Send + Sync,
+     D: DimAPI,
+-    Fcomp: Fn(Option<T>, T) -> Option<bool> + Send + Sync,
+-    Feq: Fn(Option<T>, T) -> Option<bool> + Send + Sync,
+ {
+     // determine whether to use parallel iteration
+     let size = la.size();
+     if size < PARALLEL_SWITCH {
+-        return reduce_axes_unraveled_arg_cpu_serial(a, la, axes, f_comp, f_eq);
++        return reduce_axes_unraveled_arg_cpu_serial(a, la, axes, cmp);
+     }
+ 
+     // split the layout into axes (to be summed) and the rest
+@@ -559,7 +689,7 @@ where
+             // let out_ptr = out_ptr.get();
+             let mut layout_inner = layout_axes.clone();
+             unsafe { layout_inner.set_offset(idx_rest) };
+-            let acc = reduce_all_unraveled_arg_cpu_rayon(a, &layout_inner, &f_comp, &f_eq, pool)?;
++            let acc = reduce_all_unraveled_arg_cpu_rayon(a, &layout_inner, cmp, pool)?;
+             unsafe { *out_ptr.add(idx_out) = MaybeUninit::new(acc) };
+             Ok(())
+         })
+@@ -576,21 +706,18 @@ where
+     Ok((out, layout_axes, layout_out))
+ }
+ 
+-pub fn reduce_all_arg_cpu_rayon<T, D, Fcomp, Feq>(
++pub fn reduce_all_arg_cpu_rayon<T, D>(
+     a: &[T],
+     la: &Layout<D>,
+-    f_comp: Fcomp,
+-    f_eq: Feq,
++    cmp: ArgCmp,
+     order: FlagOrder,
+     pool: Option<&ThreadPool>,
+ ) -> Result<usize>
+ where
+-    T: Clone + Send + Sync,
++    T: Clone + PartialOrd + Send + Sync,
+     D: DimAPI,
+-    Fcomp: Fn(Option<T>, T) -> Option<bool> + Send + Sync,
+-    Feq: Fn(Option<T>, T) -> Option<bool> + Send + Sync,
+ {
+-    let idx = reduce_all_unraveled_arg_cpu_rayon(a, la, f_comp, f_eq, pool)?;
++    let idx = reduce_all_unraveled_arg_cpu_rayon(a, la, cmp, pool)?;
+     let pseudo_shape = la.shape();
+     let pseudo_layout = match order {
+         RowMajor => pseudo_shape.c(),
+@@ -599,22 +726,19 @@ where
+     unsafe { Ok(pseudo_layout.index_uncheck(idx.as_ref()) as usize) }
+ }
+ 
+-pub fn reduce_axes_arg_cpu_rayon<T, D, Fcomp, Feq>(
++pub fn reduce_axes_arg_cpu_rayon<T, D>(
+     a: &[T],
+     la: &Layout<D>,
+     axes: &[isize],
+-    f_comp: Fcomp,
+-    f_eq: Feq,
++    cmp: ArgCmp,
+     order: FlagOrder,
+     pool: Option<&ThreadPool>,
+ ) -> Result<(Vec<usize>, Layout<IxD>)>
+ where
+-    T: Clone + Send + Sync,
++    T: Clone + PartialOrd + Send + Sync,
+     D: DimAPI,
+-    Fcomp: Fn(Option<T>, T) -> Option<bool> + Send + Sync,
+-    Feq: Fn(Option<T>, T) -> Option<bool> + Send + Sync,
+ {
+-    let (idx, layout_axes, layout) = reduce_axes_unraveled_arg_cpu_rayon(a, la, axes, f_comp, f_eq, pool)?;
++    let (idx, layout_axes, layout) = reduce_axes_unraveled_arg_cpu_rayon(a, la, axes, cmp, pool)?;
+     // each index in `idx` is an unraveled position within the reduced-axes space
+     // (`layout_axes`), so the raveling pseudo-layout must use `layout_axes.shape()`,
+     // not the output layout's shape. Using the output shape indexed out of bounds
+diff --git a/rstsr-native-impl/src/cpu_rayon/transpose.rs b/rstsr-native-impl/src/cpu_rayon/transpose.rs
+index de5afc5..6061661 100644
+--- a/rstsr-native-impl/src/cpu_rayon/transpose.rs
++++ b/rstsr-native-impl/src/cpu_rayon/transpose.rs
+@@ -89,6 +89,116 @@ where
+     pool.unwrap().install(|| orderchange_out_r2c_ix2_cpu_rayon_no_pool(c, lc, a, la))
+ }
+ 
++/// Change order (row/col-major) a matrix out-place, promote/uninit variants
++/// (rayon twins of the `*_promote_cpu_serial` kernels in `cpu_serial`).
++///
++/// Same blocked traversal and stride guards as the serial kernels; writes go
++/// through raw pointers guarded by `debug_assert!` bounds contracts (the
++/// per-element bounds check is redundant here: the layout guard plus the
++/// full (i, j) write-once coverage guarantee in-bounds access). The uninit
++/// variant is sound because every output element is written exactly once.
++#[duplicate_item(
++    func_name
++        func_serial TypeC TypeA func_write
++    ;
++    [orderchange_out_r2c_ix2_promote_cpu_rayon]
++        [orderchange_out_r2c_ix2_promote_cpu_serial]
++        [TC] [TA]
++        [(*c_ptr.add(dst_idx)) = a[src_idx].clone().into_cast()]
++    ;
++    [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial]
++        [MaybeUninit<TC>] [TA]
++        [(*c_ptr.add(dst_idx)).write(a[src_idx].clone().into_cast())]
++    ;
++)]
++pub fn func_name<TC, TA>(
++    c: &mut [TypeC],
++    lc: &Layout<Ix2>,
++    a: &[TypeA],
++    la: &Layout<Ix2>,
++    pool: Option<&ThreadPool>,
++) -> Result<()>
++where
++    TC: Clone + Send + Sync,
++    TA: Clone + Send + Sync + DTypeCastAPI<TC>,
++{
++    // determine whether to use parallel iteration
++    let size = lc.size();
++    if size < 16 * BLOCK_SIZE * BLOCK_SIZE || pool.is_none() {
++        return func_serial(c, lc, a, la);
++    }
++
++    // shape check
++    let sc = lc.shape();
++    let sa = la.shape();
++    rstsr_assert_eq!(sc[0], sa[0], InvalidLayout, "This function requires shape identity")?;
++    rstsr_assert_eq!(sc[1], sa[1], InvalidLayout, "This function requires shape identity")?;
++    let [nrow, ncol] = *sa;
++
++    // stride check
++    rstsr_assert_eq!(lc.stride()[0], 1, InvalidLayout, "This function requires col-major output")?;
++    rstsr_assert_eq!(la.stride()[1], 1, InvalidLayout, "This function requires row-major input")?;
++
++    let offset_a = la.offset() as isize;
++    let offset_c = lc.offset() as isize;
++    let lda = la.stride()[0];
++    let ldc = lc.stride()[1];
++
++    (0..ncol).into_par_iter().step_by(BLOCK_SIZE).for_each(|j_start| {
++        let j_end = (j_start + BLOCK_SIZE).min(ncol);
++        let (j_start, j_end) = (j_start as isize, j_end as isize);
++        (0..nrow).into_par_iter().step_by(BLOCK_SIZE).for_each(|i_start| {
++            let i_end = (i_start + BLOCK_SIZE).min(nrow);
++            let (i_start, i_end) = (i_start as isize, i_end as isize);
++            for j in j_start..j_end {
++                for i in i_start..i_end {
++                    let src_idx = (offset_a + i * lda + j) as usize;
++                    let dst_idx = (offset_c + j * ldc + i) as usize;
++                    debug_assert!(src_idx < a.len() && dst_idx < c.len());
++                    unsafe {
++                        let c_ptr = c.as_ptr() as *mut TypeC;
++                        func_write;
++                    }
++                }
++            }
++        });
++    });
++
++    Ok(())
++}
++
++/// Change order (row/col-major) a matrix out-place, promote/uninit c2r
++/// wrappers with pool management (see the r2c rayon kernels above).
++#[duplicate_item(
++    func_name
++        TypeC TypeA func_r2c
++    ;
++    [orderchange_out_c2r_ix2_promote_cpu_rayon]
++        [TC] [TA]
++        [orderchange_out_r2c_ix2_promote_cpu_rayon]
++    ;
++    [orderchange_out_c2r_ix2_uninit_promote_cpu_rayon]
++        [MaybeUninit<TC>] [TA]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon]
++    ;
++)]
++pub fn func_name<TC, TA>(
++    c: &mut [TypeC],
++    lc: &Layout<Ix2>,
++    a: &[TypeA],
++    la: &Layout<Ix2>,
++    pool: Option<&ThreadPool>,
++) -> Result<()>
++where
++    TC: Clone + Send + Sync,
++    TA: Clone + Send + Sync + DTypeCastAPI<TC>,
++{
++    let lc = lc.reverse_axes();
++    let la = la.reverse_axes();
++    func_r2c(c, &lc, a, &la, pool)
++}
++
+ /// Change order (row/col-major) a matrix out-place using a naive algorithm.
+ ///
+ /// Transpose from `a` (col-major) to `c` (row-major).
+diff --git a/rstsr-native-impl/src/cpu_rayon/vecdot.rs b/rstsr-native-impl/src/cpu_rayon/vecdot.rs
+index b158a00..d9ed1da 100644
+--- a/rstsr-native-impl/src/cpu_rayon/vecdot.rs
++++ b/rstsr-native-impl/src/cpu_rayon/vecdot.rs
+@@ -93,10 +93,15 @@ where
+             // translate layouts for remaining
+             let layouts = translate_to_col_major(&[&lc, &lam, &lbm], TensorIterOrder::K)?;
+             let (lc, lam, lbm) = (&layouts[0], &layouts[1], &layouts[2]);
+-            // perform computation
+-            layout_col_major_dim_dispatch_par_3(lc, lam, lbm, |(idx_c, idx_m_a, idx_m_b)| {
+-                let mut val_c: TC = Zero::zero();
+-                let stat = layout_col_major_dim_dispatch_2(lasd, lbsd, |(idx_s_a, idx_s_b)| {
++            // Fast path: every summed axis is contiguous (the discontiguous-
++            // summed layouts are 0-dim, yielding exactly one dispatch
++            // iteration with idx == their offset). Hoist that single
++            // iteration out of the parallel row loop instead of running the
++            // `layout_col_major_dim_dispatch_2` machinery once per row.
++            if lasd.ndim() == 0 && lbsd.ndim() == 0 {
++                let (idx_s_a, idx_s_b) = (lasd.offset(), lbsd.offset());
++                // perform computation
++                layout_col_major_dim_dispatch_par_3(lc, lam, lbm, |(idx_c, idx_m_a, idx_m_b)| {
+                     let idx_a = idx_m_a + idx_s_a - offset_a; // double count offset
+                     let idx_b = idx_m_b + idx_s_b - offset_b; // double count offset
+                     let val = unrolled_binary_reduce(
+@@ -106,14 +111,37 @@ where
+                         |acc, (x, y)| acc + x.ext_conj() * y,
+                         |acc, v| acc + v,
+                     );
+-                    val_c = val_c.clone() + val;
+-                });
+-                stat.rstsr_unwrap();
+-                unsafe {
+-                    let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
+-                    (*c_ptr).write(val_c);
+-                }
+-            })
++                    // Skipping the serial twin's `0 + val` is bit-exact:
++                    // zero-seeded lanes never produce -0.0 (see
++                    // cpu_serial/vecdot.rs), NaN passes through unchanged.
++                    unsafe {
++                        let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
++                        (*c_ptr).write(val);
++                    }
++                })
++            } else {
++                // perform computation
++                layout_col_major_dim_dispatch_par_3(lc, lam, lbm, |(idx_c, idx_m_a, idx_m_b)| {
++                    let mut val_c: TC = Zero::zero();
++                    let stat = layout_col_major_dim_dispatch_2(lasd, lbsd, |(idx_s_a, idx_s_b)| {
++                        let idx_a = idx_m_a + idx_s_a - offset_a; // double count offset
++                        let idx_b = idx_m_b + idx_s_b - offset_b; // double count offset
++                        let val = unrolled_binary_reduce(
++                            &a[idx_a..idx_a + n_contig],
++                            &b[idx_b..idx_b + n_contig],
++                            || Zero::zero(),
++                            |acc, (x, y)| acc + x.ext_conj() * y,
++                            |acc, v| acc + v,
++                        );
++                        val_c = val_c.clone() + val;
++                    });
++                    stat.rstsr_unwrap();
++                    unsafe {
++                        let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
++                        (*c_ptr).write(val_c);
++                    }
++                })
++            }
+         } else if flag_contig_m {
+             let n_contig = amc.iter().map(|&i| lam.shape()[i]).product::<usize>();
+             // translate layouts for summed
+@@ -126,32 +154,74 @@ where
+             let (_, lcd) = lc.dim_split_axes(&amc)?;
+             let layouts = translate_to_col_major(&[&lcd, &lamd, &lbmd], TensorIterOrder::K)?;
+             let (lcd, lamd, lbmd) = (&layouts[0], &layouts[1], &layouts[2]);
++            // Materialize the summed-layout walk ONCE (instead of one
++            // `layout_col_major_dim_dispatch_2` re-walk per 64-element band),
++            // then let every band task accumulate into a band-local buffer
++            // (no MaybeUninit read-modify-write on `c` per element per step).
++            // Per-output accumulation order is unchanged (summed positions
++            // `0..K` in order within each band task), so results are
++            // bit-exact. Falls through to the band re-walk if the walk is
++            // too large to materialize (scratch cap ~1 MiB, T2' precedent).
++            const SCRATCH_CAP: usize = 65536; // (usize, usize) entries ≈ 1 MiB
++            let mut scd: Vec<(usize, usize)> = Vec::new();
++            let stat_sc = layout_col_major_dim_dispatch_2(las, lbs, |(idx_s_a, idx_s_b)| {
++                scd.push((idx_s_a, idx_s_b));
++            });
++            stat_sc.rstsr_unwrap();
+             // perform computation
+-            const CHUNK: usize = 64;
+-            layout_col_major_dim_dispatch_par_3(lcd, lamd, lbmd, |(idx_c, idx_m_a, idx_m_b)| {
+-                let slc_c = unsafe {
+-                    let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
+-                    core::slice::from_raw_parts_mut(c_ptr, n_contig)
+-                };
+-                // currently c has not been initialized, init here
+-                slc_c.iter_mut().for_each(|c| *c = MaybeUninit::new(Zero::zero()));
+-                slc_c.par_chunks_mut(CHUNK).enumerate().for_each(|(ichunk, chunk_c)| {
+-                    let n_chunk = chunk_c.len();
+-                    let idx_a_chunk = idx_m_a + ichunk * CHUNK;
+-                    let idx_b_chunk = idx_m_b + ichunk * CHUNK;
+-                    let stat = layout_col_major_dim_dispatch_2(las, lbs, |(idx_s_a, idx_s_b)| {
+-                        let idx_a = idx_a_chunk + idx_s_a - offset_a; // double count offset
+-                        let idx_b = idx_b_chunk + idx_s_b - offset_b; // double count offset
+-                        let chunk_a = &a[idx_a..idx_a + n_chunk];
+-                        let chunk_b = &b[idx_b..idx_b + n_chunk];
+-                        chunk_c.iter_mut().zip(chunk_a.iter().zip(chunk_b.iter())).for_each(|(c, (x, y))| unsafe {
+-                            let val = x.clone().ext_conj() * y.clone();
+-                            c.write(c.assume_init_read() + val);
++            if scd.len() <= SCRATCH_CAP {
++                const CHUNK: usize = 64;
++                layout_col_major_dim_dispatch_par_3(lcd, lamd, lbmd, |(idx_c, idx_m_a, idx_m_b)| {
++                    let slc_c = unsafe {
++                        let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
++                        core::slice::from_raw_parts_mut(c_ptr, n_contig)
++                    };
++                    slc_c.par_chunks_mut(CHUNK).enumerate().for_each(|(ichunk, chunk_c)| {
++                        let n_chunk = chunk_c.len();
++                        let mut acc = vec![TC::zero(); n_chunk];
++                        for &(idx_s_a, idx_s_b) in &scd {
++                            let idx_a = idx_m_a + ichunk * CHUNK + idx_s_a - offset_a;
++                            let idx_b = idx_m_b + ichunk * CHUNK + idx_s_b - offset_b;
++                            let chunk_a = &a[idx_a..idx_a + n_chunk];
++                            let chunk_b = &b[idx_b..idx_b + n_chunk];
++                            acc.iter_mut()
++                                .zip(chunk_a.iter().zip(chunk_b.iter()))
++                                .for_each(|(v, (x, y))| {
++                                    *v = v.clone() + x.clone().ext_conj() * y.clone();
++                                });
++                        }
++                        chunk_c.iter_mut().zip(acc).for_each(|(dst, v)| {
++                            dst.write(v);
+                         });
+                     });
+-                    stat.rstsr_unwrap();
+-                });
+-            })
++                })
++            } else {
++                const CHUNK: usize = 64;
++                layout_col_major_dim_dispatch_par_3(lcd, lamd, lbmd, |(idx_c, idx_m_a, idx_m_b)| {
++                    let slc_c = unsafe {
++                        let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
++                        core::slice::from_raw_parts_mut(c_ptr, n_contig)
++                    };
++                    // currently c has not been initialized, init here
++                    slc_c.iter_mut().for_each(|c| *c = MaybeUninit::new(Zero::zero()));
++                    slc_c.par_chunks_mut(CHUNK).enumerate().for_each(|(ichunk, chunk_c)| {
++                        let n_chunk = chunk_c.len();
++                        let idx_a_chunk = idx_m_a + ichunk * CHUNK;
++                        let idx_b_chunk = idx_m_b + ichunk * CHUNK;
++                        let stat = layout_col_major_dim_dispatch_2(las, lbs, |(idx_s_a, idx_s_b)| {
++                            let idx_a = idx_a_chunk + idx_s_a - offset_a; // double count offset
++                            let idx_b = idx_b_chunk + idx_s_b - offset_b; // double count offset
++                            let chunk_a = &a[idx_a..idx_a + n_chunk];
++                            let chunk_b = &b[idx_b..idx_b + n_chunk];
++                            chunk_c.iter_mut().zip(chunk_a.iter().zip(chunk_b.iter())).for_each(|(c, (x, y))| unsafe {
++                                let val = x.clone().ext_conj() * y.clone();
++                                c.write(c.assume_init_read() + val);
++                            });
++                        });
++                        stat.rstsr_unwrap();
++                    });
++                })
++            }
+         } else {
+             // general case
+             layout_col_major_dim_dispatch_par_3(&lc, &lam, &lbm, |(idx_c, idx_m_a, idx_m_b)| {
+diff --git a/rstsr-native-impl/src/cpu_serial/assignment.rs b/rstsr-native-impl/src/cpu_serial/assignment.rs
+index a6f7e22..0e684d1 100644
+--- a/rstsr-native-impl/src/cpu_serial/assignment.rs
++++ b/rstsr-native-impl/src/cpu_serial/assignment.rs
+@@ -7,22 +7,27 @@ const CONTIG_SWITCH: usize = 16;
+     func_name
+         TypeC TypeA Types
+         func_clone
++        oc_r2c oc_c2r
+     ;
+     [assign_arbitary_cpu_serial]
+         [T] [T] [T: Clone]
+         [*ci = ai.clone()]
++        [orderchange_out_r2c_ix2_promote_cpu_serial] [orderchange_out_c2r_ix2_promote_cpu_serial]
+     ;
+     [assign_arbitary_uninit_cpu_serial]
+         [MaybeUninit<T>] [T] [T: Clone]
+         [ci.write(ai.clone())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial] [orderchange_out_c2r_ix2_uninit_promote_cpu_serial]
+     ;
+     [assign_arbitary_promote_cpu_serial]
+         [TC] [TA] [TC: Clone, TA: Clone + DTypeCastAPI<TC>]
+         [*ci = ai.clone().into_cast()]
++        [orderchange_out_r2c_ix2_promote_cpu_serial] [orderchange_out_c2r_ix2_promote_cpu_serial]
+     ;
+     [assign_arbitary_uninit_promote_cpu_serial]
+         [MaybeUninit<TC>] [TA] [TC: Clone, TA: Clone + DTypeCastAPI<TC>]
+         [ci.write(ai.clone().into_cast())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial] [orderchange_out_c2r_ix2_uninit_promote_cpu_serial]
+     ;
+ )]
+ pub fn func_name<Types, DC, DA>(
+@@ -49,6 +54,28 @@ where
+             func_clone;
+         });
+     } else {
++        // 2-D order-change fast path: when both layouts are 2-D and match the
++        // transpose pattern (one fast on axis 0, the other on axis 1, fast
++        // strides exactly +1), use the blocked orderchange kernels
++        // (BLOCK_SIZE = 64). Guards reject everything else — zero/negative
++        // fast-axis strides (broadcast / flip), sliced fast axes, ndim != 2 —
++        // which fall through to the generic iterator path unchanged. A copy
++        // writes every output element exactly once from one input element,
++        // so the tiled visit order is bit-identical to the iterator order.
++        // shape identity is required: shape-changing assigns (e.g. a reshape
++        // that re-lays out data) pass through the same kernels with different
++        // shapes, which the orderchange kernels cannot serve
++        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
++            if lc2.shape() == la2.shape() {
++                let sc = *lc2.stride();
++                let sa = *la2.stride();
++                if sa[1] == 1 && sc[0] == 1 {
++                    return oc_r2c(c, &lc2, a, &la2);
++                } else if sa[0] == 1 && sc[1] == 1 {
++                    return oc_c2r(c, &lc2, a, &la2);
++                }
++            }
++        }
+         // determine order by layout preference
+         let order = match order {
+             RowMajor => TensorIterOrder::C,
+@@ -70,22 +97,27 @@ where
+     func_name
+         TypeC TypeA Types
+         func_clone
++        oc_r2c oc_c2r
+     ;
+     [assign_cpu_serial]
+         [T] [T] [T: Clone]
+         [*ci = ai.clone()]
++        [orderchange_out_r2c_ix2_promote_cpu_serial] [orderchange_out_c2r_ix2_promote_cpu_serial]
+     ;
+     [assign_uninit_cpu_serial]
+         [MaybeUninit<T>] [T] [T: Clone]
+         [ci.write(ai.clone())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial] [orderchange_out_c2r_ix2_uninit_promote_cpu_serial]
+     ;
+     [assign_promote_cpu_serial]
+         [TC] [TA] [TC: Clone, TA: Clone + DTypeCastAPI<TC>]
+         [*ci = ai.clone().into_cast()]
++        [orderchange_out_r2c_ix2_promote_cpu_serial] [orderchange_out_c2r_ix2_promote_cpu_serial]
+     ;
+     [assign_uninit_promote_cpu_serial]
+         [MaybeUninit<TC>] [TA] [TC: Clone, TA: Clone + DTypeCastAPI<TC>]
+         [ci.write(ai.clone().into_cast())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial] [orderchange_out_c2r_ix2_uninit_promote_cpu_serial]
+     ;
+ )]
+ pub fn func_name<Types, D>(c: &mut [TypeC], lc: &Layout<D>, a: &[TypeA], la: &Layout<D>) -> Result<()>
+@@ -107,6 +139,24 @@ where
+             );
+         })?;
+     } else {
++        // 2-D order-change fast path (see assign_arbitary_cpu_serial): both
++        // layouts 2-D, transpose stride pattern, fast axes exactly +1; a
++        // fully/partially contiguous pair never reaches here (the contig
++        // branch above takes it), so this never shadows the memcpy path.
++        // shape identity is required: shape-changing assigns (e.g. a reshape
++        // that re-lays out data) pass through the same kernels with different
++        // shapes, which the orderchange kernels cannot serve
++        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
++            if lc2.shape() == la2.shape() {
++                let sc = *lc2.stride();
++                let sa = *la2.stride();
++                if sa[1] == 1 && sc[0] == 1 {
++                    return oc_r2c(c, &lc2, a, &la2);
++                } else if sa[0] == 1 && sc[1] == 1 {
++                    return oc_c2r(c, &lc2, a, &la2);
++                }
++            }
++        }
+         let lc = &layouts_full[0];
+         let la = &layouts_full[1];
+         layout_col_major_dim_dispatch_2(lc, la, |(idx_c, idx_a)| {
+diff --git a/rstsr-native-impl/src/cpu_serial/matmul_naive.rs b/rstsr-native-impl/src/cpu_serial/matmul_naive.rs
+index 95e805c..38be19f 100644
+--- a/rstsr-native-impl/src/cpu_serial/matmul_naive.rs
++++ b/rstsr-native-impl/src/cpu_serial/matmul_naive.rs
+@@ -4,6 +4,7 @@
+ 
+ use crate::prelude_dev::*;
+ use core::ops::{Add, Mul};
++use num::{One, Zero};
+ 
+ #[allow(clippy::too_many_arguments)]
+ pub fn matmul_naive_cpu_serial<TA, TB, TC, DA, DB, DC>(
+@@ -25,6 +26,9 @@ where
+     DC: DimAPI,
+     TA: Mul<TB, Output = TC>,
+     TC: Mul<TC, Output = TC> + Add<TC, Output = TC>,
++    // propagated from `inner_dot_naive_cpu_serial`'s fast-path guard (see the
++    // API-break note there)
++    TC: Zero + One + PartialEq,
+ {
+     // NOTE: this only works for row-major layout
+     // for column-major layout, we need to transpose the input:
+@@ -220,6 +224,12 @@ where
+     TC: Clone,
+     TA: Mul<TB, Output = TC>,
+     TC: Mul<TC, Output = TC> + Add<TC, Output = TC>,
++    // bound widening for the contiguous fast-path guard (alpha == one, beta
++    // == zero, comparability). NOTE for the PR: this is an API break on a
++    // `pub fn` of the published crate, same category as the T6 `ArgCmp`
++    // change — every in-tree instantiation (f32/f64/Complex/ints) already
++    // satisfies these bounds.
++    TC: Zero + One + PartialEq,
+ {
+     // shape check
+     let sa = la.shape();
+@@ -227,6 +237,27 @@ where
+     rstsr_assert_eq!(sa[0], sb[0], InvalidLayout)?;
+     let n = sa[0];
+ 
++    // Fast path: contiguous operands forming a plain dot (alpha == 1, beta
++    // == 0) — this is the entire `%` surface (the tensor-level matmul always
++    // passes alpha = 1, beta = 0 with a fresh output). The 8-lane unrolled
++    // fold re-associates the summation relative to the sequential loop below;
++    // `%` has no cross-device bit-exact contract (the rayon twin already
++    // re-associates through its parallel fold/reduce). Note this path also
++    // no longer reads `c` (the old loop's `beta * c[idx]` on a fresh uninit
++    // output was a latent NaN hazard when beta == 0).
++    if la.stride()[0] == 1 && lb.stride()[0] == 1 && alpha == TC::one() && beta == TC::zero() {
++        let idx_c = unsafe { lc.index_uncheck(&[]) } as usize;
++        let sum = unrolled_binary_reduce(
++            &a[la.offset()..la.offset() + n],
++            &b[lb.offset()..lb.offset() + n],
++            || TC::zero(),
++            |acc, (x, y)| acc + x.clone() * y.clone(),
++            |acc, v| acc + v,
++        );
++        c[idx_c] = sum;
++        return Ok(());
++    }
++
+     // naive iteration
+     unsafe {
+         let idx_c = lc.index_uncheck(&[]) as usize;
+diff --git a/rstsr-native-impl/src/cpu_serial/op_with_func.rs b/rstsr-native-impl/src/cpu_serial/op_with_func.rs
+index 84b5a74..3c09e58 100644
+--- a/rstsr-native-impl/src/cpu_serial/op_with_func.rs
++++ b/rstsr-native-impl/src/cpu_serial/op_with_func.rs
+@@ -7,6 +7,136 @@ use crate::prelude_dev::*;
+ // this value is used to determine whether to use contiguous inner iteration
+ const CONTIG_SWITCH: usize = 16;
+ 
++// Minimum problem size for the blocked 2-D iteration path; smaller problems
++// keep the generic layout-iterator path.
++const TILE_SWITCH: usize = 4096;
++// Tile edge (elements). Within a [TILE, TILE] tile, each layout's inner-axis
++// hop stays within TILE cache lines (L1-resident) for the whole tile pass,
++// instead of paging through the entire operand with a ~16 KiB stride.
++const TILE: usize = 64;
++
++/// Whether the blocked 2-D path applies: no common f-contiguous prefix was
++/// found (caller checks `size_contig < CONTIG_SWITCH`), the problem is 2-D
++/// and large enough, and **no layout has a broadcast axis (shape > 1 with
++/// stride 0) on any axis** — broadcast operands keep the generic iterator
++/// path. This guard checks *all* participating layouts (c, a and b).
++#[inline]
++fn blocked_2d_applicable<D>(layouts: &[Layout<D>], size: usize) -> bool
++where
++    D: DimAPI,
++{
++    size >= TILE_SWITCH
++        && layouts[0].ndim() == 2
++        && layouts
++            .iter()
++            .all(|l| l.shape().as_ref().iter().zip(l.stride().as_ref()).all(|(&d, &s)| !(d > 1 && s == 0)))
++}
++
++/// Blocked 2-D elementwise iteration (kernel body shared by the mutc/muta
++/// drivers; the closure sees `(output_elem, input_elems...)` per element).
++///
++/// # Offsets and negative strides
++///
++/// All offsets are accumulated in `isize` (flipped views contribute negative
++/// strides here) and cast to `usize` only after the full offset sum; a
++/// `debug_assert` validates every element offset against the buffer length
++/// in debug builds.
++///
++/// # Visit order
++///
++/// Elements are visited in tiled order rather than strict layout order.
++/// Results are bit-identical for stateless per-element ops (all operators
++/// rstsr ships): each output element is written exactly once from exactly
++/// one input tuple, with no cross-element dependency. A *stateful* user
++/// closure would observe the reordered visit sequence (the parallel path was
++/// already order-free).
++macro_rules! blocked_2d_iter {
++    // emits the tile loops; $f is invoked as $f(&mut c[off_c], &a[off_a], ...)
++    // inside the element loop; `c`, `a`, `b` are expressions evaluating to
++    // the buffers; all offsets are isize, cast at the indexing site.
++    ($c:expr, $lc:expr, $a:expr, $la:expr, $b:expr, $lb:expr, $f:expr) => {{
++        let shape = $lc.shape().as_ref();
++        let (dim0, dim1) = (shape[0], shape[1]);
++        let sc = $lc.stride().as_ref();
++        let sa = $la.stride().as_ref();
++        let sb = $lb.stride().as_ref();
++        // choose c's fastest axis as the element-innermost loop
++        let (fast, slow) = if sc[0].abs() <= sc[1].abs() { (0usize, 1usize) } else { (1, 0) };
++        let (dim_fast, dim_slow) = if fast == 0 { (dim0, dim1) } else { (dim1, dim0) };
++        let (sc_fast, sc_slow) = (sc[fast], sc[slow]);
++        let (sa_fast, sa_slow) = (sa[fast], sa[slow]);
++        let (sb_fast, sb_slow) = (sb[fast], sb[slow]);
++        // offset bases in isize; usize casts happen only at the indexing site
++        let (oc, oa, ob) = ($lc.offset() as isize, $la.offset() as isize, $lb.offset() as isize);
++        // tile grid: row-major in (slow, fast) so consecutive tiles are
++        // adjacent along the output's fast axis
++        for t_slow in (0..dim_slow).step_by(TILE) {
++            let slow_end = (t_slow + TILE).min(dim_slow);
++            for t_fast in (0..dim_fast).step_by(TILE) {
++                let fast_end = (t_fast + TILE).min(dim_fast);
++                for s in t_slow..slow_end {
++                    let mut off_c = oc + (s as isize) * sc_slow + (t_fast as isize) * sc_fast;
++                    let mut off_a = oa + (s as isize) * sa_slow + (t_fast as isize) * sa_fast;
++                    let mut off_b = ob + (s as isize) * sb_slow + (t_fast as isize) * sb_fast;
++                    for _ in t_fast..fast_end {
++                        debug_assert!(off_c >= 0 && (off_c as usize) < $c.len(), "blocked 2-D iter: c offset out of bounds");
++                        debug_assert!(off_a >= 0 && (off_a as usize) < $a.len(), "blocked 2-D iter: a offset out of bounds");
++                        debug_assert!(off_b >= 0 && (off_b as usize) < $b.len(), "blocked 2-D iter: b offset out of bounds");
++                        $f(&mut $c[off_c as usize], &$a[off_a as usize], &$b[off_b as usize]);
++                        off_c += sc_fast;
++                        off_a += sa_fast;
++                        off_b += sb_fast;
++                    }
++                }
++            }
++        }
++    }};
++}
++
++/// Whether the blocked 2-D path applies for a 2-operand (in-place) kernel:
++/// same contract as [`blocked_2d_applicable`] (the slice holds the output
++/// and input layouts; all of them are guard-checked).
++#[inline]
++fn blocked_2d_applicable_2<D>(layouts: &[Layout<D>], size: usize) -> bool
++where
++    D: DimAPI,
++{
++    blocked_2d_applicable(layouts, size)
++}
++
++macro_rules! blocked_2d_iter_2 {
++    // 2-layout variant: output and one input (in-place ops). $f is invoked as
++    // $f(&mut a[off_a], &b[off_b]).
++    ($a:expr, $la:expr, $b:expr, $lb:expr, $f:expr) => {{
++        let shape = $la.shape().as_ref();
++        let (dim0, dim1) = (shape[0], shape[1]);
++        let sa = $la.stride().as_ref();
++        let sb = $lb.stride().as_ref();
++        let (fast, slow) = if sa[0].abs() <= sa[1].abs() { (0usize, 1usize) } else { (1, 0) };
++        let (dim_fast, dim_slow) = if fast == 0 { (dim0, dim1) } else { (dim1, dim0) };
++        let (sa_fast, sa_slow) = (sa[fast], sa[slow]);
++        let (sb_fast, sb_slow) = (sb[fast], sb[slow]);
++        let (oa, ob) = ($la.offset() as isize, $lb.offset() as isize);
++        for t_slow in (0..dim_slow).step_by(TILE) {
++            let slow_end = (t_slow + TILE).min(dim_slow);
++            for t_fast in (0..dim_fast).step_by(TILE) {
++                let fast_end = (t_fast + TILE).min(dim_fast);
++                for s in t_slow..slow_end {
++                    let mut off_a = oa + (s as isize) * sa_slow + (t_fast as isize) * sa_fast;
++                    let mut off_b = ob + (s as isize) * sb_slow + (t_fast as isize) * sb_fast;
++                    for _ in t_fast..fast_end {
++                        debug_assert!(off_a >= 0 && (off_a as usize) < $a.len(), "blocked 2-D iter: a offset out of bounds");
++                        debug_assert!(off_b >= 0 && (off_b as usize) < $b.len(), "blocked 2-D iter: b offset out of bounds");
++                        $f(&mut $a[off_a as usize], &$b[off_b as usize]);
++                        off_a += sa_fast;
++                        off_b += sb_fast;
++                    }
++                }
++            }
++        }
++    }};
++}
++
+ pub fn op_mutc_refa_refb_func_cpu_serial<TA, TB, TC, D>(
+     c: &mut [MaybeUninit<TC>],
+     lc: &Layout<D>,
+@@ -34,6 +164,14 @@ where
+                 f(&mut c[idx_c + i], &a[idx_a + i], &b[idx_b + i]);
+             }
+         })
++    } else if blocked_2d_applicable(&layouts_full, layouts_full[0].size()) {
++        // blocked 2-D iteration for fully strided problems (e.g. a + b.t()):
++        // see `blocked_2d_iter!` for the visit-order and offset contracts
++        let lc = &layouts_full[0];
++        let la = &layouts_full[1];
++        let lb = &layouts_full[2];
++        blocked_2d_iter!(c, lc, a, la, b, lb, f);
++        Ok(())
+     } else {
+         let lc = &layouts_full[0];
+         let la = &layouts_full[1];
+@@ -136,6 +274,13 @@ where
+                 f(&mut a[idx_a + i], &b[idx_b + i]);
+             }
+         })
++    } else if blocked_2d_applicable_2(&layouts_full, layouts_full[0].size()) {
++        // blocked 2-D iteration for fully strided in-place problems
++        // (e.g. c += b.t()): see `blocked_2d_iter_2!` for the contracts
++        let la = &layouts_full[0];
++        let lb = &layouts_full[1];
++        blocked_2d_iter_2!(a, la, b, lb, f);
++        Ok(())
+     } else {
+         let la = &layouts_full[0];
+         let lb = &layouts_full[1];
+diff --git a/rstsr-native-impl/src/cpu_serial/reduction.rs b/rstsr-native-impl/src/cpu_serial/reduction.rs
+index b50f2f3..5b90332 100644
+--- a/rstsr-native-impl/src/cpu_serial/reduction.rs
++++ b/rstsr-native-impl/src/cpu_serial/reduction.rs
+@@ -177,8 +177,74 @@ where
+     }
+ }
+ 
+-pub fn reduce_axes_cpu_serial<TI, TS, TO, I, F, FSum, FOut>(
++/// Original iterator-walk band accumulation (the pre-rewrite code path of
++/// [`reduce_axes_cpu_serial`]'s `size_mc > 1` branch), kept as the fallback
++/// for summed spaces outside the offsets guards. Out-of-line for code-layout
++/// hygiene, mirroring [`reduce_axes_band_walk_cpu_serial`].
++#[inline(never)]
++fn reduce_axes_band_walk_iter_cpu_serial<TI, TS, F>(
+     a: &[TI],
++    vacc: &mut [TS],
++    it_scd: &IterLayoutColMajor<Vec<usize>>,
++    idx_md: usize,
++    offset: usize,
++    f: &F,
++) where
++    TI: Clone,
++    TS: Clone,
++    F: Fn(TS, TI) -> TS,
++{
++    const CHUNK: usize = 48;
++    vacc.chunks_mut(CHUNK).enumerate().for_each(|(i_chunk, vacc_chunk)| {
++        let start = i_chunk * CHUNK;
++        let nchunk = vacc_chunk.len();
++        it_scd.clone().for_each(|i_scd| {
++            let idx_in = idx_md + i_scd - offset; // double-counted offset
++            let slc = &a[idx_in + start..idx_in + start + nchunk];
++            vacc_chunk.iter_mut().zip(slc).for_each(|(acc, x)| {
++                *acc = f(acc.clone(), x.clone());
++            });
++        });
++    });
++}
++
++/// Contiguous-chunk band accumulation for the `size_mc > 1` branch of
++/// [`reduce_axes_cpu_serial`]: for every chunk of the accumulator vector,
++/// add (via `f`) the summed-axes slabs addressed by the pre-materialized
++/// `scd_offsets` (each entry is one summed-axes position offset; the slab
++/// `[idx + start .. idx + start + len]` covers the contiguous output band).
++///
++/// Kept out-of-line so the remaining branches of `reduce_axes_cpu_serial`
++/// (and the rest of the crate) compile exactly like the pre-rewrite code
++/// (code-layout hygiene; same reasoning as the arg* contiguous fast path).
++#[inline(never)]
++fn reduce_axes_band_walk_cpu_serial<TI, TS, F>(
++    a: &[TI],
++    vacc: &mut [TS],
++    scd_offsets: &[usize],
++    idx_md: usize,
++    offset: usize,
++    f: &F,
++) where
++    TI: Clone,
++    TS: Clone,
++    F: Fn(TS, TI) -> TS,
++{
++    const CHUNK: usize = 48;
++    vacc.chunks_mut(CHUNK).enumerate().for_each(|(i_chunk, vacc_chunk)| {
++        let start = i_chunk * CHUNK;
++        let nchunk = vacc_chunk.len();
++        scd_offsets.iter().for_each(|&i_scd| {
++            let idx_in = idx_md + i_scd - offset; // double-counted offset
++            let slc = &a[idx_in + start..idx_in + start + nchunk];
++            vacc_chunk.iter_mut().zip(slc).for_each(|(acc, x)| {
++                *acc = f(acc.clone(), x.clone());
++            });
++        });
++    });
++}
++
++pub fn reduce_axes_cpu_serial<TI, TS, TO, I, F, FSum, FOut>(    a: &[TI],
+     la: &Layout<IxD>,
+     axes: &[isize],
+     init: I,
+@@ -275,25 +341,42 @@ where
+             "probably internal bug: the contiguous part of input must be the same applied to output"
+         )?;
+ 
++        // The summed-axes offsets do not depend on the remaining-axes position,
++        // so they are materialized once here instead of re-walking the layout
++        // iterator (`it_scd.clone()`; one `IterLayoutColMajor::next` per row
++        // per output chunk) for every contiguous chunk band. That per-chunk
++        // iterator walk was the dominant cost of this branch (measured in the
++        // T2' reduction study, dir 2026-09-09-reductions). Visit order (and
++        // thus accumulation order) is unchanged: `scd_offsets` lists exactly
++        // the positions `it_scd` would yield, in the same order.
++        // Guards, above which the ORIGINAL iterator walk is kept
++        // (byte-identical fallback; neither case is covered by this study's
++        // bench matrix): (a) gigantic summed spaces, where the offsets buffer
++        // could outsize the streamed input; (b) tiny total work, where the
++        // one-off offsets allocation is not worth it.
++        const SCD_OFFSETS_CAP: usize = 1 << 17; // 128k offsets = 1 MiB of usize
++        const SCD_OFFSETS_FLOOR: usize = 1 << 14; // 16k accumulated elements
++        let size_scd = asc.iter().chain(asd.iter()).map(|&i| ls.shape()[i]).product::<usize>();
++        let scd_offsets = if size_scd <= SCD_OFFSETS_CAP && size_scd * size_mc >= SCD_OFFSETS_FLOOR {
++            Some(it_scd.clone().collect_vec())
++        } else {
++            None
++        };
++
+         // iterate the discontiguous remain parts
+         it_md.zip(it_od).for_each(|(i_md, i_od)| {
+             // initialize sequential parts
+             let mut vacc = vec![init(); size_mc];
+-            // iterate the reduction parts
+-            // - chunk to contiguous output (current chunk size is small, but applicable to most
+-            //   situations)
+-            const CHUNK: usize = 48;
+-            vacc.chunks_mut(CHUNK).enumerate().for_each(|(i_chunk, vacc_chunk)| {
+-                let start = i_chunk * CHUNK;
+-                let nchunk = vacc_chunk.len();
+-                it_scd.clone().for_each(|i_scd| {
+-                    let idx_in = i_md + i_scd - offset; // double-counted offset
+-                    let slc = &a[idx_in + start..idx_in + start + nchunk];
+-                    vacc_chunk.iter_mut().zip(slc).for_each(|(acc, x)| {
+-                        *acc = f(acc.clone(), x.clone());
+-                    });
+-                });
+-            });
++            match &scd_offsets {
++                Some(scd_offsets) => {
++                    reduce_axes_band_walk_cpu_serial(a, &mut vacc, scd_offsets, i_md, offset, &f);
++                },
++                None => {
++                    // fallback (guards above): the original iterator walk,
++                    // unchanged from before the rewrite
++                    reduce_axes_band_walk_iter_cpu_serial(a, &mut vacc, &it_scd, i_md, offset, &f);
++                },
++            }
+             // apply broadcast duplication and finalization function and write to output
+             out[i_od..i_od + size_mc].iter_mut().zip(vacc).for_each(|(val, mut acc)| {
+                 let acc_before = acc.clone();
+@@ -424,7 +507,132 @@ where
+ 
+ /* #region reduce unraveled axes */
+ 
+-pub fn reduce_all_unraveled_arg_cpu_serial<T, D, Fcomp, Feq>(
++/// Comparison direction for argmin/argmax reduce kernels.
++///
++/// This replaces the former `(Fcomp, Feq)` closure pair of the `reduce_*_arg_*`
++/// functions: every in-tree caller used exactly `y < x`/`y > x` as comparison
++/// and `y == x` as equality, so the direction is carried as a plain enum
++/// instead. The contiguous fast path ([`arg_contig_cpu_serial`]) cannot afford
++/// a per-element closure call.
++///
++/// Note: changing these signatures is a public API change of the
++/// `rstsr-native-impl` crate (`cpu_serial::reduction` and
++/// `cpu_rayon::reduction` are public modules). The tensor-level API in
++/// `rstsr-core` is unchanged.
++#[derive(Clone, Copy, Debug)]
++pub enum ArgCmp {
++    Min,
++    Max,
++}
++
++/// Contiguous argmin/argmax scan with 8-lane unrolled `(value, index)`
++/// accumulators (ndarray `numeric_util`-style); returns the winning index.
++///
++/// Semantics — identical to a left-to-right fold over an ascending index
++/// order with the strict-comparison rule (locked by the T6 correctness gate
++/// of the rstsr efficiency campaign):
++///
++/// - the first element seeds the accumulator unconditionally;
++/// - only a strictly smaller (min) / larger (max) value replaces it;
++/// - ties keep the smaller index;
++/// - NaN never replaces anything (all comparisons are false), so a NaN at
++///   index 0 poisons the result to 0 and an all-NaN input yields 0.
++///
++/// Implementation note: only the *first* element may poison. It is detected
++/// generically via `xs[0] == xs[0]` (false iff NaN; non-float `PartialOrd`
++/// types are reflexive and always take the scan path), after which all eight
++/// lanes are seeded with that guaranteed-comparable first element — seeding
++/// lanes from `xs[0..8]` instead would let a NaN at positions 1..8 block its
++/// whole lane (`x > NaN` is false for every later element of that lane).
++pub fn arg_contig_cpu_serial<T: Clone + PartialOrd>(xs: &[T], cmp: ArgCmp) -> usize {
++    if !(xs[0] == xs[0]) {
++        // NaN first element: nothing can ever strictly beat it -> index 0
++        return 0;
++    }
++    let (val, idx) = arg_contig_seeded_cpu_serial(xs, cmp, &xs[0]);
++    let _ = val;
++    if idx == usize::MAX {
++        // nothing strictly beat the seed: the maximum is the first element
++        0
++    } else {
++        idx
++    }
++}
++
++/// Core of the contiguous scan: all eight lanes are seeded with `seed`, which
++/// must be a comparable (non-NaN) value; the caller owns the first-element
++/// poisoning rule. Returns `(best_value, index)` where `index == usize::MAX`
++/// means "no element strictly beat `seed`". NaN elements of `xs` never enter
++/// the accumulators; equal values keep the earlier (smaller) index.
++pub fn arg_contig_seeded_cpu_serial<T: Clone + PartialOrd>(xs: &[T], cmp: ArgCmp, seed: &T) -> (T, usize) {
++    const NO_POS: usize = usize::MAX;
++
++    // eight independent (value, index) lanes so that the loop can be kept
++    // branch-predictable (LLVM lowers the per-lane updates to cmp+cmov)
++    let mut vs: [T; 8] = core::array::from_fn(|_| seed.clone());
++    let mut idx: [usize; 8] = [NO_POS; 8];
++    let mut chunks = xs.chunks_exact(8);
++    match cmp {
++        ArgCmp::Max => {
++            let mut base = 0;
++            while let Some(ch) = chunks.next() {
++                for l in 0..8 {
++                    if ch[l] > vs[l] {
++                        vs[l] = ch[l].clone();
++                        idx[l] = base + l;
++                    }
++                }
++                base += 8;
++            }
++            for (l, x) in chunks.remainder().iter().enumerate() {
++                if x > &vs[l] {
++                    vs[l] = x.clone();
++                    idx[l] = base + l;
++                }
++            }
++        },
++        ArgCmp::Min => {
++            let mut base = 0;
++            while let Some(ch) = chunks.next() {
++                for l in 0..8 {
++                    if ch[l] < vs[l] {
++                        vs[l] = ch[l].clone();
++                        idx[l] = base + l;
++                    }
++                }
++                base += 8;
++            }
++            for (l, x) in chunks.remainder().iter().enumerate() {
++                if x < &vs[l] {
++                    vs[l] = x.clone();
++                    idx[l] = base + l;
++                }
++            }
++        },
++    }
++
++    // combine lanes: strictly better value wins; on equality the smaller
++    // index wins (lane order is not index order); NaN never wins
++    let mut best_idx = idx[0];
++    let mut best_val = &vs[0];
++    for l in 1..8 {
++        let better = match cmp {
++            ArgCmp::Max => vs[l] > *best_val || (vs[l] == *best_val && idx[l] < best_idx),
++            ArgCmp::Min => vs[l] < *best_val || (vs[l] == *best_val && idx[l] < best_idx),
++        };
++        if better {
++            best_idx = idx[l];
++            best_val = &vs[l];
++        }
++    }
++    (best_val.clone(), best_idx)
++}
++
++/// Original closure-based fold over [`IndexedIterLayout`] (row-major),
++/// kept as the strided/non-contiguous fallback of
++/// [`reduce_all_unraveled_arg_cpu_serial`].
++#[inline]
++fn reduce_all_unraveled_arg_fold_cpu_serial<T, D, Fcomp, Feq>(
+     a: &[T],
+     la: &Layout<D>,
+     f_comp: Fcomp,
+@@ -436,8 +644,6 @@ where
+     Fcomp: Fn(Option<T>, T) -> Option<bool>,
+     Feq: Fn(Option<T>, T) -> Option<bool>,
+ {
+-    rstsr_assert!(la.size() > 0, InvalidLayout, "empty sequence is not allowed for reduce_arg.")?;
+-
+     let fold_func = |acc: Option<(D, T)>, (cur_idx, cur_offset): (D, usize)| {
+         let cur_val = a[cur_offset].clone();
+ 
+@@ -478,18 +684,103 @@ where
+     Ok(acc.unwrap().0)
+ }
+ 
+-pub fn reduce_axes_unraveled_arg_cpu_serial<T, D, Fcomp, Feq>(
++/// Convert a row-major position `p` of a c-contiguous layout into its
++/// unraveled (c-order) index.
++pub fn unravel_c_order<D: DimAPI>(p: usize, shape: &D) -> D {
++    let mut idx_dim = shape.new_shape();
++    let mut rest = p;
++    for i in (0..shape.ndim()).rev() {
++        let d = shape[i];
++        idx_dim[i] = rest % d;
++        rest /= d;
++    }
++    idx_dim
++}
++
++/// Contiguous fast path of [`reduce_all_unraveled_arg_cpu_serial`].
++///
++/// Kept out-of-line so that the strided fallback below compiles exactly like
++/// the pre-existing closure fold (code-layout hygiene: the fallback must not
++/// regress).
++#[inline(never)]
++fn reduce_all_unraveled_arg_contig_cpu_serial<T, D>(a: &[T], la: &Layout<D>, cmp: ArgCmp) -> Result<D>
++where
++    T: Clone + PartialOrd,
++    D: DimAPI,
++{
++    // buffer position == row-major visit position for a c-contig layout, so
++    // the 8-lane scan reproduces the closure fold exactly (see
++    // `arg_contig_cpu_serial` for the semantics contract)
++    let offset = la.offset();
++    let size = la.size();
++    let flat = arg_contig_cpu_serial(&a[offset..offset + size], cmp);
++    Ok(unravel_c_order(flat, la.shape()))
++}
++
++pub fn reduce_all_unraveled_arg_cpu_serial<T, D>(
++    a: &[T],
++    la: &Layout<D>,
++    cmp: ArgCmp,
++) -> Result<D>
++where
++    T: Clone + PartialOrd,
++    D: DimAPI,
++{
++    rstsr_assert!(la.size() > 0, InvalidLayout, "empty sequence is not allowed for reduce_arg.")?;
++
++    if la.c_contig() {
++        return reduce_all_unraveled_arg_contig_cpu_serial(a, la, cmp);
++    }
++
++    // strided / broadcast fallback: original closure fold, comparison
++    // direction selected by `cmp`
++    match cmp {
++        ArgCmp::Max => {
++            let f_comp = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y > x)
++                } else {
++                    Some(true)
++                }
++            };
++            let f_eq = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y == x)
++                } else {
++                    Some(false)
++                }
++            };
++            reduce_all_unraveled_arg_fold_cpu_serial(a, la, f_comp, f_eq)
++        },
++        ArgCmp::Min => {
++            let f_comp = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y < x)
++                } else {
++                    Some(true)
++                }
++            };
++            let f_eq = |x: Option<T>, y: T| -> Option<bool> {
++                if let Some(x) = x {
++                    Some(y == x)
++                } else {
++                    Some(false)
++                }
++            };
++            reduce_all_unraveled_arg_fold_cpu_serial(a, la, f_comp, f_eq)
++        },
++    }
++}
++
++pub fn reduce_axes_unraveled_arg_cpu_serial<T, D>(
+     a: &[T],
+     la: &Layout<D>,
+     axes: &[isize],
+-    f_comp: Fcomp,
+-    f_eq: Feq,
++    cmp: ArgCmp,
+ ) -> Result<(Vec<IxD>, Layout<IxD>, Layout<IxD>)>
+ where
+-    T: Clone,
++    T: Clone + PartialOrd,
+     D: DimAPI,
+-    Fcomp: Fn(Option<T>, T) -> Option<bool>,
+-    Feq: Fn(Option<T>, T) -> Option<bool>,
+ {
+     rstsr_assert!(la.size() > 0, InvalidLayout, "empty sequence is not allowed for reduce_arg.")?;
+ 
+@@ -518,7 +809,7 @@ where
+     // actual evaluation
+     izip!(iter_out_swapped, iter_rest_swapped).try_for_each(|(idx_out, idx_rest)| -> Result<()> {
+         unsafe { layout_inner.set_offset(idx_rest) };
+-        let acc = reduce_all_unraveled_arg_cpu_serial(a, &layout_inner, &f_comp, &f_eq)?;
++        let acc = reduce_all_unraveled_arg_cpu_serial(a, &layout_inner, cmp)?;
+         out[idx_out] = MaybeUninit::new(acc);
+         Ok(())
+     })?;
+@@ -530,20 +821,12 @@ where
+     Ok((out, layout_axes, layout_out))
+ }
+ 
+-pub fn reduce_all_arg_cpu_serial<T, D, Fcomp, Feq>(
+-    a: &[T],
+-    la: &Layout<D>,
+-    f_comp: Fcomp,
+-    f_eq: Feq,
+-    order: FlagOrder,
+-) -> Result<usize>
++pub fn reduce_all_arg_cpu_serial<T, D>(a: &[T], la: &Layout<D>, cmp: ArgCmp, order: FlagOrder) -> Result<usize>
+ where
+-    T: Clone,
++    T: Clone + PartialOrd,
+     D: DimAPI,
+-    Fcomp: Fn(Option<T>, T) -> Option<bool>,
+-    Feq: Fn(Option<T>, T) -> Option<bool>,
+ {
+-    let idx = reduce_all_unraveled_arg_cpu_serial(a, la, f_comp, f_eq)?;
++    let idx = reduce_all_unraveled_arg_cpu_serial(a, la, cmp)?;
+     let pseudo_shape = la.shape();
+     let pseudo_layout = match order {
+         RowMajor => pseudo_shape.c(),
+@@ -552,21 +835,18 @@ where
+     unsafe { Ok(pseudo_layout.index_uncheck(idx.as_ref()) as usize) }
+ }
+ 
+-pub fn reduce_axes_arg_cpu_serial<T, D, Fcomp, Feq>(
++pub fn reduce_axes_arg_cpu_serial<T, D>(
+     a: &[T],
+     la: &Layout<D>,
+     axes: &[isize],
+-    f_comp: Fcomp,
+-    f_eq: Feq,
++    cmp: ArgCmp,
+     order: FlagOrder,
+ ) -> Result<(Vec<usize>, Layout<IxD>)>
+ where
+-    T: Clone,
++    T: Clone + PartialOrd,
+     D: DimAPI,
+-    Fcomp: Fn(Option<T>, T) -> Option<bool>,
+-    Feq: Fn(Option<T>, T) -> Option<bool>,
+ {
+-    let (idx, layout_axes, layout) = reduce_axes_unraveled_arg_cpu_serial(a, la, axes, f_comp, f_eq)?;
++    let (idx, layout_axes, layout) = reduce_axes_unraveled_arg_cpu_serial(a, la, axes, cmp)?;
+     // each index in `idx` is an unraveled position within the reduced-axes space
+     // (`layout_axes`), so the raveling pseudo-layout must use `layout_axes.shape()`,
+     // not the output layout's shape. Using the output shape here indexed out of
+diff --git a/rstsr-native-impl/src/cpu_serial/transpose.rs b/rstsr-native-impl/src/cpu_serial/transpose.rs
+index 00e4356..37aa16f 100644
+--- a/rstsr-native-impl/src/cpu_serial/transpose.rs
++++ b/rstsr-native-impl/src/cpu_serial/transpose.rs
+@@ -47,6 +47,100 @@ where
+     Ok(())
+ }
+ 
++/// Promote-general variants of [`orderchange_out_r2c_ix2_cpu_serial`]: same
++/// blocked traversal, but the inner write is `clone().into_cast()` (identity
++/// inlined when `TC == TA`, so same-dtype callers pay nothing — the same
++/// contract as the promote assign families). The uninit variant writes
++/// `MaybeUninit<TC>` slots; this is sound **because the blocked loop covers
++/// every output element (i, j) exactly once** (full-coverage by loop
++/// construction: `i in 0..nrow`, `j in 0..ncol`, one write per pair).
++///
++/// All index arithmetic is `isize` (negative slow-axis strides are valid,
++/// e.g. flip views); the `usize` cast happens only after the full offset sum,
++/// and slice indexing keeps per-access bounds checks.
++#[duplicate_item(
++    func_name
++        TypeC TypeA func_write
++    ;
++    [orderchange_out_r2c_ix2_promote_cpu_serial]
++        [TC] [TA]
++        [*ci = ai.clone().into_cast()]
++    ;
++    [orderchange_out_r2c_ix2_uninit_promote_cpu_serial]
++        [MaybeUninit<TC>] [TA]
++        [ci.write(ai.clone().into_cast())]
++    ;
++)]
++pub fn func_name<TC, TA>(c: &mut [TypeC], lc: &Layout<Ix2>, a: &[TypeA], la: &Layout<Ix2>) -> Result<()>
++where
++    TC: Clone,
++    TA: Clone + DTypeCastAPI<TC>,
++{
++    // shape check
++    let sc = lc.shape();
++    let sa = la.shape();
++    rstsr_assert_eq!(sc[0], sa[0], InvalidLayout, "This function requires shape identity")?;
++    rstsr_assert_eq!(sc[1], sa[1], InvalidLayout, "This function requires shape identity")?;
++    let [nrow, ncol] = *sa;
++
++    // stride check
++    rstsr_assert_eq!(lc.stride()[0], 1, InvalidLayout, "This function requires col-major output")?;
++    rstsr_assert_eq!(la.stride()[1], 1, InvalidLayout, "This function requires row-major input")?;
++
++    let offset_a = la.offset() as isize;
++    let offset_c = lc.offset() as isize;
++    let lda = la.stride()[0];
++    let ldc = lc.stride()[1];
++
++    (0..ncol).step_by(BLOCK_SIZE).for_each(|j_start| {
++        let j_end = (j_start + BLOCK_SIZE).min(ncol);
++        let (j_start, j_end) = (j_start as isize, j_end as isize);
++        (0..nrow).step_by(BLOCK_SIZE).for_each(|i_start| {
++            let i_end = (i_start + BLOCK_SIZE).min(nrow);
++            let (i_start, i_end) = (i_start as isize, i_end as isize);
++            for j in j_start..j_end {
++                for i in i_start..i_end {
++                    let src_idx = (offset_a + i * lda + j) as usize;
++                    let dst_idx = (offset_c + j * ldc + i) as usize;
++                    let ai = &a[src_idx];
++                    let ci = &mut c[dst_idx];
++                    func_write;
++                }
++            }
++        });
++    });
++
++    Ok(())
++}
++
++/// Change order (row/col-major) a matrix out-place, promote/uninit variants.
++///
++/// Col-major-to-row-major wrappers of the `r2c` kernels above: reverse both
++/// layouts' axes and delegate. See the r2c functions for the write-once /
++/// isize-offset contract.
++#[duplicate_item(
++    func_name
++        TypeC TypeA func_r2c
++    ;
++    [orderchange_out_c2r_ix2_promote_cpu_serial]
++        [TC] [TA]
++        [orderchange_out_r2c_ix2_promote_cpu_serial]
++    ;
++    [orderchange_out_c2r_ix2_uninit_promote_cpu_serial]
++        [MaybeUninit<TC>] [TA]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial]
++    ;
++)]
++pub fn func_name<TC, TA>(c: &mut [TypeC], lc: &Layout<Ix2>, a: &[TypeA], la: &Layout<Ix2>) -> Result<()>
++where
++    TC: Clone,
++    TA: Clone + DTypeCastAPI<TC>,
++{
++    let lc = lc.reverse_axes();
++    let la = la.reverse_axes();
++    func_r2c(c, &lc, a, &la)
++}
++
+ /// Change order (row/col-major) a matrix out-place using a naive algorithm.
+ ///
+ /// Transpose from `a` (col-major) to `c` (row-major).
+diff --git a/rstsr-native-impl/src/cpu_serial/vecdot.rs b/rstsr-native-impl/src/cpu_serial/vecdot.rs
+index c5b8a34..910f10a 100644
+--- a/rstsr-native-impl/src/cpu_serial/vecdot.rs
++++ b/rstsr-native-impl/src/cpu_serial/vecdot.rs
+@@ -83,12 +83,25 @@ where
+         // translate layouts for remaining
+         let layouts = translate_to_col_major(&[&lc, &lam, &lbm], TensorIterOrder::K)?;
+         let (lc, lam, lbm) = (&layouts[0], &layouts[1], &layouts[2]);
+-        // perform computation
+-        layout_col_major_dim_dispatch_3(lc, lam, lbm, |(idx_c, idx_m_a, idx_m_b)| {
+-            let mut val_c: TC = Zero::zero();
+-            let stat = layout_col_major_dim_dispatch_2(lasd, lbsd, |(idx_s_a, idx_s_b)| {
+-                let idx_a = idx_m_a + idx_s_a - offset_a; // double count offset
+-                let idx_b = idx_m_b + idx_s_b - offset_b; // double count offset
++        // Fast path: every summed axis is contiguous (the discontiguous-summed
++        // layouts are 0-dim) and the remaining layouts are all 1-D — the
++        // batched row-dot shape. Walk the rows with plain index arithmetic
++        // instead of the nested per-position dispatch machinery
++        // (`layout_col_major_dim_dispatch_3` + `_2`), whose per-row cost
++        // dominates the contraction itself at typical row lengths.
++        if lasd.ndim() == 0 && lbsd.ndim() == 0 && lc.ndim() == 1 && lam.ndim() == 1 && lbm.ndim() == 1 {
++            // A 0-dim translated layout yields exactly one dispatch iteration
++            // with idx == its offset; hoist it out of the row loop.
++            let (idx_s_a, idx_s_b) = (lasd.offset(), lbsd.offset());
++            let (off_c, off_a, off_b) = (lc.offset(), lam.offset(), lbm.offset());
++            let (st_c, st_a, st_b) = (lc.stride()[0], lam.stride()[0], lbm.stride()[0]);
++            let n_rem = lc.shape()[0];
++            for i in 0..n_rem {
++                let idx_c = (off_c as isize + i as isize * st_c) as usize;
++                let idx_a =
++                    (idx_s_a as isize + off_a as isize + i as isize * st_a - offset_a as isize) as usize;
++                let idx_b =
++                    (idx_s_b as isize + off_b as isize + i as isize * st_b - offset_b as isize) as usize;
+                 let val = unrolled_binary_reduce(
+                     &a[idx_a..idx_a + n_contig],
+                     &b[idx_b..idx_b + n_contig],
+@@ -96,11 +109,35 @@ where
+                     |acc, (x, y)| acc + x.ext_conj() * y,
+                     |acc, v| acc + v,
+                 );
+-                val_c = val_c.clone() + val;
+-            });
+-            stat.rstsr_unwrap();
+-            c[idx_c].write(val_c);
+-        })
++                // The dispatch path below accumulates `val_c = 0 + val` (the
++                // 0-dim summed walk iterates exactly once). Skipping the
++                // `0 +` is bit-exact: IEEE `x + (+0.0)` returns `x` for every
++                // value the zero-seeded lanes can produce — the lane seeds
++                // are +0.0 and `(+0.0) + (-0.0) = +0.0`, so `val` is never
++                // -0.0; NaN payloads pass through unchanged (as before).
++                c[idx_c].write(val);
++            }
++            Ok(())
++        } else {
++            // perform computation
++            layout_col_major_dim_dispatch_3(lc, lam, lbm, |(idx_c, idx_m_a, idx_m_b)| {
++                let mut val_c: TC = Zero::zero();
++                let stat = layout_col_major_dim_dispatch_2(lasd, lbsd, |(idx_s_a, idx_s_b)| {
++                    let idx_a = idx_m_a + idx_s_a - offset_a; // double count offset
++                    let idx_b = idx_m_b + idx_s_b - offset_b; // double count offset
++                    let val = unrolled_binary_reduce(
++                        &a[idx_a..idx_a + n_contig],
++                        &b[idx_b..idx_b + n_contig],
++                        || Zero::zero(),
++                        |acc, (x, y)| acc + x.ext_conj() * y,
++                        |acc, v| acc + v,
++                    );
++                    val_c = val_c.clone() + val;
++                });
++                stat.rstsr_unwrap();
++                c[idx_c].write(val_c);
++            })
++        }
+     } else if flag_contig_m {
+         let n_contig = amc.iter().map(|&i| lam.shape()[i]).product::<usize>();
+         // translate layouts for summed
+@@ -113,29 +150,58 @@ where
+         let (_, lcd) = lc.dim_split_axes(&amc)?;
+         let layouts = translate_to_col_major(&[&lcd, &lamd, &lbmd], TensorIterOrder::K)?;
+         let (lcd, lamd, lbmd) = (&layouts[0], &layouts[1], &layouts[2]);
+-        // perform computation
+-        const CHUNK: usize = 64;
+-        layout_col_major_dim_dispatch_3(lcd, lamd, lbmd, |(idx_c, idx_m_a, idx_m_b)| {
+-            let slc_c = &mut c[idx_c..idx_c + n_contig];
+-            // currently c has not been initialized, init here
+-            slc_c.iter_mut().for_each(|c| *c = MaybeUninit::new(Zero::zero()));
+-            for (ichunk, chunk_c) in slc_c.chunks_mut(CHUNK).enumerate() {
+-                let n_chunk = chunk_c.len();
+-                let idx_a_chunk = idx_m_a + ichunk * CHUNK;
+-                let idx_b_chunk = idx_m_b + ichunk * CHUNK;
++        // Fast path: when the contiguous remaining run fits the L1 budget,
++        // accumulate into ONE local buffer (the summed layouts are walked
++        // exactly once) and write back at the end, instead of initializing
++        // `c` and read-modify-writing it per element per summed step with a
++        // `dispatch_2` re-walk per 64-element band. Accumulation order per
++        // output element is unchanged (summed positions `0..K` in order),
++        // so results are bit-exact.
++        const L1_VACC_BUDGET_BYTES: usize = 32768;
++        if n_contig * core::mem::size_of::<TC>() <= L1_VACC_BUDGET_BYTES {
++            // perform computation
++            layout_col_major_dim_dispatch_3(lcd, lamd, lbmd, |(idx_c, idx_m_a, idx_m_b)| {
++                let mut vacc = vec![TC::zero(); n_contig];
+                 let stat = layout_col_major_dim_dispatch_2(las, lbs, |(idx_s_a, idx_s_b)| {
+-                    let idx_a = idx_a_chunk + idx_s_a - offset_a; // double count offset
+-                    let idx_b = idx_b_chunk + idx_s_b - offset_b; // double count offset
+-                    let chunk_a = &a[idx_a..idx_a + n_chunk];
+-                    let chunk_b = &b[idx_b..idx_b + n_chunk];
+-                    chunk_c.iter_mut().zip(chunk_a.iter().zip(chunk_b.iter())).for_each(|(c, (x, y))| unsafe {
+-                        let val = x.clone().ext_conj() * y.clone();
+-                        c.write(c.assume_init_read() + val);
++                    let idx_a = idx_m_a + idx_s_a - offset_a; // double count offset
++                    let idx_b = idx_m_b + idx_s_b - offset_b; // double count offset
++                    let ra = &a[idx_a..idx_a + n_contig];
++                    let rb = &b[idx_b..idx_b + n_contig];
++                    vacc.iter_mut().zip(ra.iter().zip(rb.iter())).for_each(|(acc, (x, y))| {
++                        *acc = acc.clone() + x.clone().ext_conj() * y.clone();
+                     });
+                 });
+                 stat.rstsr_unwrap();
+-            }
+-        })
++                let slc_c = &mut c[idx_c..idx_c + n_contig];
++                slc_c.iter_mut().zip(vacc.into_iter()).for_each(|(dst, v)| {
++                    dst.write(v);
++                });
++            })
++        } else {
++            // perform computation
++            const CHUNK: usize = 64;
++            layout_col_major_dim_dispatch_3(lcd, lamd, lbmd, |(idx_c, idx_m_a, idx_m_b)| {
++                let slc_c = &mut c[idx_c..idx_c + n_contig];
++                // currently c has not been initialized, init here
++                slc_c.iter_mut().for_each(|c| *c = MaybeUninit::new(Zero::zero()));
++                for (ichunk, chunk_c) in slc_c.chunks_mut(CHUNK).enumerate() {
++                    let n_chunk = chunk_c.len();
++                    let idx_a_chunk = idx_m_a + ichunk * CHUNK;
++                    let idx_b_chunk = idx_m_b + ichunk * CHUNK;
++                    let stat = layout_col_major_dim_dispatch_2(las, lbs, |(idx_s_a, idx_s_b)| {
++                        let idx_a = idx_a_chunk + idx_s_a - offset_a; // double count offset
++                        let idx_b = idx_b_chunk + idx_s_b - offset_b; // double count offset
++                        let chunk_a = &a[idx_a..idx_a + n_chunk];
++                        let chunk_b = &b[idx_b..idx_b + n_chunk];
++                        chunk_c.iter_mut().zip(chunk_a.iter().zip(chunk_b.iter())).for_each(|(c, (x, y))| unsafe {
++                            let val = x.clone().ext_conj() * y.clone();
++                            c.write(c.assume_init_read() + val);
++                        });
++                    });
++                    stat.rstsr_unwrap();
++                }
++            })
++        }
+     } else {
+         // general case
+         layout_col_major_dim_dispatch_3(&lc, &lam, &lbm, |(idx_c, idx_m_a, idx_m_b)| {

@@ -1,0 +1,229 @@
+# SUPERSEDED (2026-09-09, later the same day as discovery): patch 3 in its own
+# directory (2026-09-09-transpose-assign/proposed.patch) has been AMENDED to
+# include this shape-identity guard at all 4 router sites plus a reshape
+# fixture. This file is KEPT AS THE DISCOVERY RECORD of the union failure
+# (entry_row_cpu 3 reshape-test failures) and the minimal fix that unblocked
+# the compose verification. DO NOT APPLY — use the amended patch 3 instead.
+# The amended union (combined_all_five.patch in this directory) supersedes
+# everything below.
+diff --git a/rstsr-native-impl/src/cpu_rayon/assignment.rs b/rstsr-native-impl/src/cpu_rayon/assignment.rs
+index c6d0b8e..d4393cc 100644
+--- a/rstsr-native-impl/src/cpu_rayon/assignment.rs
++++ b/rstsr-native-impl/src/cpu_rayon/assignment.rs
+@@ -16,26 +16,31 @@ const PARALLEL_SWITCH: usize = 16384;
+         func_name_serial
+         TypeC TypeA Types
+         func_clone
++        oc_r2c oc_c2r
+     ;
+     [assign_arbitary_cpu_rayon]
+         [assign_arbitary_cpu_serial]
+         [T] [T] [T: Clone + Send + Sync]
+         [*ci = ai.clone()]
++        [orderchange_out_r2c_ix2_promote_cpu_rayon] [orderchange_out_c2r_ix2_promote_cpu_rayon]
+     ;
+     [assign_arbitary_uninit_cpu_rayon]
+         [assign_arbitary_uninit_cpu_serial]
+         [MaybeUninit<T>] [T] [T: Clone + Send + Sync]
+         [ci.write(ai.clone())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon] [orderchange_out_c2r_ix2_uninit_promote_cpu_rayon]
+     ;
+     [assign_arbitary_promote_cpu_rayon]
+         [assign_arbitary_promote_cpu_serial]
+         [TC] [TA] [TC: Clone + Send + Sync, TA: Clone + Send + Sync + DTypeCastAPI<TC>]
+         [*ci = ai.clone().into_cast()]
++        [orderchange_out_r2c_ix2_promote_cpu_rayon] [orderchange_out_c2r_ix2_promote_cpu_rayon]
+     ;
+     [assign_arbitary_uninit_promote_cpu_rayon]
+         [assign_arbitary_uninit_promote_cpu_serial]
+         [MaybeUninit<TC>] [TA] [TC: Clone + Send + Sync, TA: Clone + Send + Sync + DTypeCastAPI<TC>]
+         [ci.write(ai.clone().into_cast())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon] [orderchange_out_c2r_ix2_uninit_promote_cpu_rayon]
+     ;
+ )]
+ pub fn func_name<Types, DC, DA>(
+@@ -72,6 +77,21 @@ where
+         });
+         Ok(())
+     } else {
++        // 2-D order-change fast path: blocked kernels with block-level rayon
++        // parallelism (see assign_arbitary_cpu_serial for the guard rationale;
++        // the kernels keep their own size < 16*BLOCK_SIZE^2 serial fallback).
++        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
++            let sc = *lc2.stride();
++            let sa = *la2.stride();
++            // shape identity is required by the blocked kernels: reshape
++            // calls assign with shape-changing layouts (e.g. [2, 3] ->
++            // [3, 2]) whose stride patterns still match the transpose form.
++            if lc2.shape() == la2.shape() && sa[1] == 1 && sc[0] == 1 {
++                return oc_r2c(c, &lc2, a, &la2, pool);
++            } else if lc2.shape() == la2.shape() && sa[0] == 1 && sc[1] == 1 {
++                return oc_c2r(c, &lc2, a, &la2, pool);
++            }
++        }
+         // determine order by layout preference
+         let order = match default_order {
+             RowMajor => TensorIterOrder::C,
+@@ -97,26 +117,31 @@ where
+         func_name_serial
+         TypeC TypeA Types
+         func_clone
++        oc_r2c oc_c2r
+     ;
+     [assign_cpu_rayon]
+         [assign_cpu_serial]
+         [T] [T] [T: Clone + Send + Sync]
+         [*ci = ai.clone()]
++        [orderchange_out_r2c_ix2_promote_cpu_rayon] [orderchange_out_c2r_ix2_promote_cpu_rayon]
+     ;
+     [assign_uninit_cpu_rayon]
+         [assign_uninit_cpu_serial]
+         [MaybeUninit<T>] [T] [T: Clone + Send + Sync]
+         [ci.write(ai.clone())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon] [orderchange_out_c2r_ix2_uninit_promote_cpu_rayon]
+     ;
+     [assign_promote_cpu_rayon]
+         [assign_promote_cpu_serial]
+         [TC] [TA] [TC: Clone + Send + Sync, TA: Clone + Send + Sync + DTypeCastAPI<TC>]
+         [*ci = ai.clone().into_cast()]
++        [orderchange_out_r2c_ix2_promote_cpu_rayon] [orderchange_out_c2r_ix2_promote_cpu_rayon]
+     ;
+     [assign_uninit_promote_cpu_rayon]
+         [assign_uninit_promote_cpu_serial]
+         [MaybeUninit<TC>] [TA] [TC: Clone + Send + Sync, TA: Clone + Send + Sync + DTypeCastAPI<TC>]
+         [ci.write(ai.clone().into_cast())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon] [orderchange_out_c2r_ix2_uninit_promote_cpu_rayon]
+     ;
+ )]
+ pub fn func_name<Types, D>(
+@@ -142,6 +167,20 @@ where
+ 
+     // actual parallel iteration
+     if size_contig < CONTIG_SWITCH {
++        // 2-D order-change fast path (see assign_arbitary_cpu_rayon); a
++        // contiguous pair never reaches this branch (contig branch above).
++        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
++            let sc = *lc2.stride();
++            let sa = *la2.stride();
++            // shape identity is required by the blocked kernels: reshape
++            // calls assign with shape-changing layouts (e.g. [2, 3] ->
++            // [3, 2]) whose stride patterns still match the transpose form.
++            if lc2.shape() == la2.shape() && sa[1] == 1 && sc[0] == 1 {
++                return oc_r2c(c, &lc2, a, &la2, pool);
++            } else if lc2.shape() == la2.shape() && sa[0] == 1 && sc[1] == 1 {
++                return oc_c2r(c, &lc2, a, &la2, pool);
++            }
++        }
+         // not possible for contiguous assign
+         let lc = &layouts_full[0];
+         let la = &layouts_full[1];
+diff --git a/rstsr-native-impl/src/cpu_serial/assignment.rs b/rstsr-native-impl/src/cpu_serial/assignment.rs
+index a6f7e22..ba9da65 100644
+--- a/rstsr-native-impl/src/cpu_serial/assignment.rs
++++ b/rstsr-native-impl/src/cpu_serial/assignment.rs
+@@ -7,22 +7,27 @@ const CONTIG_SWITCH: usize = 16;
+     func_name
+         TypeC TypeA Types
+         func_clone
++        oc_r2c oc_c2r
+     ;
+     [assign_arbitary_cpu_serial]
+         [T] [T] [T: Clone]
+         [*ci = ai.clone()]
++        [orderchange_out_r2c_ix2_promote_cpu_serial] [orderchange_out_c2r_ix2_promote_cpu_serial]
+     ;
+     [assign_arbitary_uninit_cpu_serial]
+         [MaybeUninit<T>] [T] [T: Clone]
+         [ci.write(ai.clone())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial] [orderchange_out_c2r_ix2_uninit_promote_cpu_serial]
+     ;
+     [assign_arbitary_promote_cpu_serial]
+         [TC] [TA] [TC: Clone, TA: Clone + DTypeCastAPI<TC>]
+         [*ci = ai.clone().into_cast()]
++        [orderchange_out_r2c_ix2_promote_cpu_serial] [orderchange_out_c2r_ix2_promote_cpu_serial]
+     ;
+     [assign_arbitary_uninit_promote_cpu_serial]
+         [MaybeUninit<TC>] [TA] [TC: Clone, TA: Clone + DTypeCastAPI<TC>]
+         [ci.write(ai.clone().into_cast())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial] [orderchange_out_c2r_ix2_uninit_promote_cpu_serial]
+     ;
+ )]
+ pub fn func_name<Types, DC, DA>(
+@@ -49,6 +54,26 @@ where
+             func_clone;
+         });
+     } else {
++        // 2-D order-change fast path: when both layouts are 2-D and match the
++        // transpose pattern (one fast on axis 0, the other on axis 1, fast
++        // strides exactly +1), use the blocked orderchange kernels
++        // (BLOCK_SIZE = 64). Guards reject everything else — zero/negative
++        // fast-axis strides (broadcast / flip), sliced fast axes, ndim != 2 —
++        // which fall through to the generic iterator path unchanged. A copy
++        // writes every output element exactly once from one input element,
++        // so the tiled visit order is bit-identical to the iterator order.
++        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
++            let sc = *lc2.stride();
++            let sa = *la2.stride();
++            // shape identity is required by the blocked kernels: reshape
++            // calls assign with shape-changing layouts (e.g. [2, 3] ->
++            // [3, 2]) whose stride patterns still match the transpose form.
++            if lc2.shape() == la2.shape() && sa[1] == 1 && sc[0] == 1 {
++                return oc_r2c(c, &lc2, a, &la2);
++            } else if lc2.shape() == la2.shape() && sa[0] == 1 && sc[1] == 1 {
++                return oc_c2r(c, &lc2, a, &la2);
++            }
++        }
+         // determine order by layout preference
+         let order = match order {
+             RowMajor => TensorIterOrder::C,
+@@ -70,22 +95,27 @@ where
+     func_name
+         TypeC TypeA Types
+         func_clone
++        oc_r2c oc_c2r
+     ;
+     [assign_cpu_serial]
+         [T] [T] [T: Clone]
+         [*ci = ai.clone()]
++        [orderchange_out_r2c_ix2_promote_cpu_serial] [orderchange_out_c2r_ix2_promote_cpu_serial]
+     ;
+     [assign_uninit_cpu_serial]
+         [MaybeUninit<T>] [T] [T: Clone]
+         [ci.write(ai.clone())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial] [orderchange_out_c2r_ix2_uninit_promote_cpu_serial]
+     ;
+     [assign_promote_cpu_serial]
+         [TC] [TA] [TC: Clone, TA: Clone + DTypeCastAPI<TC>]
+         [*ci = ai.clone().into_cast()]
++        [orderchange_out_r2c_ix2_promote_cpu_serial] [orderchange_out_c2r_ix2_promote_cpu_serial]
+     ;
+     [assign_uninit_promote_cpu_serial]
+         [MaybeUninit<TC>] [TA] [TC: Clone, TA: Clone + DTypeCastAPI<TC>]
+         [ci.write(ai.clone().into_cast())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial] [orderchange_out_c2r_ix2_uninit_promote_cpu_serial]
+     ;
+ )]
+ pub fn func_name<Types, D>(c: &mut [TypeC], lc: &Layout<D>, a: &[TypeA], la: &Layout<D>) -> Result<()>
+@@ -107,6 +137,22 @@ where
+             );
+         })?;
+     } else {
++        // 2-D order-change fast path (see assign_arbitary_cpu_serial): both
++        // layouts 2-D, transpose stride pattern, fast axes exactly +1; a
++        // fully/partially contiguous pair never reaches here (the contig
++        // branch above takes it), so this never shadows the memcpy path.
++        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
++            let sc = *lc2.stride();
++            let sa = *la2.stride();
++            // shape identity is required by the blocked kernels: reshape
++            // calls assign with shape-changing layouts (e.g. [2, 3] ->
++            // [3, 2]) whose stride patterns still match the transpose form.
++            if lc2.shape() == la2.shape() && sa[1] == 1 && sc[0] == 1 {
++                return oc_r2c(c, &lc2, a, &la2);
++            } else if lc2.shape() == la2.shape() && sa[0] == 1 && sc[1] == 1 {
++                return oc_c2r(c, &lc2, a, &la2);
++            }
++        }
+         let lc = &layouts_full[0];
+         let la = &layouts_full[1];
+         layout_col_major_dim_dispatch_2(lc, la, |(idx_c, idx_a)| {

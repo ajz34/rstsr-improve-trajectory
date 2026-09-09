@@ -337,3 +337,19 @@ captured from the working tree, `git apply --check` verified on the clean
 `386948be` checkout, and the tree restored (`git checkout -- .`, status
 empty, HEAD 386948b). The `candidate` stage of reproduce.sh re-runs
 everything end-to-end on a patched tree.
+
+### 7.7 Post-G2 amendment (compose-smoke defect, FIXED)
+
+The compose union failed `entry_row_cpu` 3/290: order-changing reshapes
+panicked in the blocked kernel. The router guarded the stride pattern but
+not shape identity; reshape passes shape-CHANGING layouts through
+`assign_arbitary_uninit`, and an order-changing one matched the stride
+guard, after which the kernels' shape-identity assert turned a servable
+assign into an error. Fix: `lc2.shape() == la2.shape() &&` added at all 4
+router sites inside the `to_dim::<Ix2>()` block. Gate gap closed with an
+explicit `order-changing reshape 4x3f->3x4c` fixture (exact bug geometry,
+5 sizes, both devices, legacy fall-through mapping as expectation — verified
+identical on a clean tree). Re-verification: gate ALL PASS both configs;
+`entry_row_cpu` **290/290**; headline B bench 3 runs 6.00/5.93/5.43 ms vs
+6.03 ms pre-amendment (no measurable guard cost). Patch regenerated,
+apply-check verified, tree restored clean.

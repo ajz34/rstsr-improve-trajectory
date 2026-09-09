@@ -1,0 +1,6 @@
+RESULT add_strided_b_2048_serial      7.499 ms
+RESULT transpose_b_2048_serial       5.885 ms
+RESULT add_strided_b_2048_serial      7.787 ms
+RESULT transpose_b_2048_serial       5.897 ms
+RESULT add_strided_b_2048_serial      7.407 ms
+RESULT transpose_b_2048_serial       5.867 ms

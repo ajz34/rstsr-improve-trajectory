@@ -1,0 +1,337 @@
+=== T8 compose-smoke correctness gate (combined 5-patch tree) ===
+-- device: DeviceCpuSerial
+  [ok   1] argmax 1-D contig odd n=999983
+  [ok   2] argmin 1-D contig odd n=999983
+  [ok   3] argmax all-equal n=127 -> 0
+  [ok   4] argmin all-equal n=127 -> 0
+  [ok   5] argmax all-equal n=4099 -> 0
+  [ok   6] argmin all-equal n=4099 -> 0
+  [ok   7] argmax duplicated max (first at 0) -> 0
+  [ok   8] argmax duplicated max (first at 23) -> 23
+  [ok   9] argmin duplicated min (first at 31) -> 31
+  [ok  10] argmax NaN middle (real max wins)
+  [ok  11] argmax NaN end (real max wins)
+  [ok  12] argmax NaN front -> 0 (NaN poisons)
+  [ok  13] argmax NaN at 1, max at 9 (same lane) -> 9
+  [ok  14] argmax NaN at 2, max at 10 (same lane) -> 10
+  [ok  15] argmax NaN at 3, max at 11 (same lane) -> 11
+  [ok  16] argmax NaN at 4, max at 12 (same lane) -> 12
+  [ok  17] argmax NaN at 5, max at 13 (same lane) -> 13
+  [ok  18] argmax NaN at 6, max at 14 (same lane) -> 14
+  [ok  19] argmax NaN at 7, max at 15 (same lane) -> 15
+  [ok  20] argmax NaN at chunk-start offsets (real max wins)
+  [ok  21] argmin NaN at chunk-start offsets (real min wins)
+  [ok  22] argmax all-NaN -> 0 (no error)
+  [ok  23] argmin all-NaN -> 0 (no error)
+  [ok  24] argmin NaN front -> 0 (NaN poisons)
+  [ok  25] argmax_f/argmin_f empty -> Err
+  [ok  26] argmax empty -> panics mentioning 'empty sequence'
+  [ok  27] argmax 2-D contig 37x53 (flat row-major)
+  [ok  28] argmax 2-D t-view 53x37 (flat of view)
+  [ok  29] argmin 2-D t-view 53x37 (flat of view)
+  [ok  30] argmax broadcast view (max in row 0)
+  [ok  31] argmax broadcast all-equal -> 0
+  [ok  32] argmin broadcast all-equal -> 0
+  [ok  33] argmax_axes(-1) 37x53
+  [ok  34] argmax_axes(0) 37x53
+  [ok  35] argmax_axes(-1) on t-view 53x37
+  [ok  36] argmax 1-D contig odd f32
+  [ok  37] argmax f32 NaN front -> 0 (NaN poisons)
+  [ok  38] add contig 37x53 alloc f64
+  [ok  39] add contig 37x53 reuse f64
+  [ok  40] mul contig 37x53 alloc f64
+  [ok  41] mul contig 37x53 reuse f64
+  [ok  42] add bcast auto [1,53] 37x53 alloc
+  [ok  43] add bcast zero-stride view 37x53 alloc
+  [ok  44] add bcast zero-stride 37x53 reuse
+  [ok  45] add strided 37x53 alloc
+  [ok  46] add strided 37x53 reuse (tile path)
+  [ok  47] add flip(0) operand 37x53
+  [ok  48] add flip(0)+flip(1) 37x53
+  [ok  49] add flip(0)+t() 37x53 reuse
+  [ok  50] add contig 37x53 alloc i32
+  [ok  51] add contig 37x53 reuse i32
+  [ok  52] mul contig 37x53 alloc c64
+  [ok  53] add contig 37x53 reuse c64
+  [ok  54] add contig 37x53 alloc f32
+  [ok  55] add contig 37x53 reuse f32
+  [ok  56] A idiom t().to_contig 37x53 f64
+  [ok  57] A idiom to_contig(ColMajor) 37x53 (r2c)
+  [ok  58] B reuse c.assign(&a.t()) 37x53
+  [ok  59] assign into f-contig r2c 37x53
+  [ok  60] contig assign 37x53
+  [ok  61] add contig 1000x777 alloc f64
+  [ok  62] add contig 1000x777 reuse f64
+  [ok  63] mul contig 1000x777 alloc f64
+  [ok  64] mul contig 1000x777 reuse f64
+  [ok  65] add bcast auto [1,777] 1000x777 alloc
+  [ok  66] add bcast zero-stride view 1000x777 alloc
+  [ok  67] add bcast zero-stride 1000x777 reuse
+  [ok  68] add strided 1000x777 alloc
+  [ok  69] add strided 1000x777 reuse (tile path)
+  [ok  70] add flip(0) operand 1000x777
+  [ok  71] add flip(0)+flip(1) 1000x777
+  [ok  72] add flip(0)+t() 1000x777 reuse
+  [ok  73] add contig 1000x777 alloc i32
+  [ok  74] add contig 1000x777 reuse i32
+  [ok  75] mul contig 1000x777 alloc c64
+  [ok  76] add contig 1000x777 reuse c64
+  [ok  77] add contig 1000x777 alloc f32
+  [ok  78] add contig 1000x777 reuse f32
+  [ok  79] A idiom t().to_contig 1000x777 f64
+  [ok  80] A idiom to_contig(ColMajor) 1000x777 (r2c)
+  [ok  81] B reuse c.assign(&a.t()) 1000x777
+  [ok  82] assign into f-contig r2c 1000x777
+  [ok  83] contig assign 1000x777
+  [ok  84] A idiom 37x53 (degenerate set)
+  [ok  85] flip(0).t() A 37x53
+  [ok  86] flip(0).t() B reuse 37x53
+  [ok  87] flip(1).t() A 37x53
+  [ok  88] sliced view to_contig 37x27
+  [ok  89] sliced.t() assign 27x37
+  [ok  90] A idiom 777x1000 (degenerate set)
+  [ok  91] flip(0).t() A 777x1000
+  [ok  92] flip(0).t() B reuse 777x1000
+  [ok  93] flip(1).t() A 777x1000
+  [ok  94] sliced view to_contig 777x500
+  [ok  95] sliced.t() assign 500x777
+  [ok  96] A idiom 1x7 (degenerate set)
+  [ok  97] A idiom 7x1 (degenerate set)
+  [ok  98] bcast assign [1,n]->[m,n]
+  [ok  99] bcast.t() to_contig
+  [ok 100] bcast.t() assign
+  [ok 101] 3-D t().to_contig 2x3x4
+  [ok 102] A idiom 37x53 i32
+  [ok 103] A idiom 1000x777 f32
+  [ok 104] B reuse 1000x777 f32
+  [ok 105] shape sum_axes(0) 8x6 == [6]
+  [ok 106] shape sum_axes(-1) 8x6 == [8]
+  [ok 107] sum_axis0 8x6
+  [ok 108] sum_axis1 8x6
+  [ok 109] min_axis0 8x6
+  [ok 110] max_axis1 8x6
+  [ok 111] sum_all 8x6
+  [ok 112] min_all 8x6
+  [ok 113] max_all 8x6
+  [ok 114] shape sum_axes(0) 1000x777 == [777]
+  [ok 115] shape sum_axes(-1) 1000x777 == [1000]
+  [ok 116] sum_axis0 1000x777
+  [ok 117] sum_axis1 1000x777
+  [ok 118] min_axis0 1000x777
+  [ok 119] max_axis1 1000x777
+  [ok 120] sum_all 1000x777
+  [ok 121] min_all 1000x777
+  [ok 122] max_all 1000x777
+  [ok 123] sum_axis0 3-D 4x5x7
+  [ok 124] shape sum_axes(0) 3-D == [q, r_]
+  [ok 125] min_axis0 3-D 4x5x7
+  [ok 126] broadcast-row add+sum_axis0
+  [ok 127] zero-stride sum_axis0 (CURRENT-BEHAVIOR lock, upstream bug)
+  [ok 128] zero-stride min_axis0
+  [ok 129] zero-stride sum_axis1
+  [ok 130] sum_axis0 of t-view
+  [ok 131] sum_axis1 of t-view
+  [ok 132] NaN poisons sum of its row
+  [ok 133] NaN poisons sum of its column
+  [ok 134] NaN skipped by min_axis1
+  [ok 135] NaN skipped by max_axis1
+  [ok 136] all-NaN axis0: min -> +MAX seed, max -> -MIN seed
+  [ok 137] signbit: min_all([-0,+0]) keeps incumbent -0.0
+  [ok 138] signbit: max_all([+0,-0]) keeps incumbent +0.0
+  [ok 139] signbit: min_axes(-1) [[-0,+0],[+0,-0]] -> [-0,+0]
+  [ok 140] signbit: min_axes(0) [[-0,+0],[+0,-0]] -> [-0,+0]
+  [ok 141] i32 min_axis0
+  [ok 142] i32 max_axis1
+  [ok 143] i32 min_all
+  [ok 144] min_axis0 f32 255x769
+  [ok 145] dot1d f64 odd
+  [ok 146] dot1d f32 odd
+  [ok 147] dot1d c64 odd (conj)
+  [ok 148] dot1d NaN in a -> NaN
+  [ok 149] innerdot NaN -> NaN
+  [ok 150] batched am1 f64 1000x777
+  [ok 151] batched axis0 f64 1000x777
+  [ok 152] batched axis0 large fall-through 8x20000
+  [ok 153] batched 3-D ax1 fall-through
+  [ok 154] batched strided b (t-view)
+  [ok 155] batched am1 f-contig a
+  [ok 156] batched am1 broadcast 1-D b
+  [ok 157] batched am1 broadcast remaining-axis
+  [ok 158] batched am1 broadcast summed-axis
+  [ok 159] innerdot % contig
+  [ok 160] innerdot % n=300 seq fallback
+  [ok 161] innerdot % strided row views
+  [ok 162] innerdot % c64 no-conj
+  [ok 163] innerdot % n=1
+  [ok 164] dot1d n=1
+  [ok 165] alpha/beta fallback (a=2.0, b=0)
+  [ok 166] alpha/beta fallback (a=2.0, b=0.5 accumulates)
+-- device: DeviceFaer (default, RAYON_NUM_THREADS=16)
+  [ok 167] argmax 1-D contig odd n=999983
+  [ok 168] argmin 1-D contig odd n=999983
+  [ok 169] argmax all-equal n=127 -> 0
+  [ok 170] argmin all-equal n=127 -> 0
+  [ok 171] argmax all-equal n=4099 -> 0
+  [ok 172] argmin all-equal n=4099 -> 0
+  [ok 173] argmax duplicated max (first at 0) -> 0
+  [ok 174] argmax duplicated max (first at 23) -> 23
+  [ok 175] argmin duplicated min (first at 31) -> 31
+  [ok 176] argmax NaN middle (real max wins)
+  [ok 177] argmax NaN end (real max wins)
+  [ok 178] argmax NaN front -> 0 (NaN poisons)
+  [ok 179] argmax NaN at 1, max at 9 (same lane) -> 9
+  [ok 180] argmax NaN at 2, max at 10 (same lane) -> 10
+  [ok 181] argmax NaN at 3, max at 11 (same lane) -> 11
+  [ok 182] argmax NaN at 4, max at 12 (same lane) -> 12
+  [ok 183] argmax NaN at 5, max at 13 (same lane) -> 13
+  [ok 184] argmax NaN at 6, max at 14 (same lane) -> 14
+  [ok 185] argmax NaN at 7, max at 15 (same lane) -> 15
+  [ok 186] argmax NaN at chunk-start offsets (real max wins)
+  [ok 187] argmin NaN at chunk-start offsets (real min wins)
+  [ok 188] argmax all-NaN -> 0 (no error)
+  [ok 189] argmin all-NaN -> 0 (no error)
+  [ok 190] argmin NaN front -> 0 (NaN poisons)
+  [ok 191] argmax_f/argmin_f empty -> Err
+  [ok 192] argmax empty -> panics mentioning 'empty sequence'
+  [ok 193] argmax 2-D contig 37x53 (flat row-major)
+  [ok 194] argmax 2-D t-view 53x37 (flat of view)
+  [ok 195] argmin 2-D t-view 53x37 (flat of view)
+  [ok 196] argmax broadcast view (max in row 0)
+  [ok 197] argmax broadcast all-equal -> 0
+  [ok 198] argmin broadcast all-equal -> 0
+  [ok 199] argmax_axes(-1) 37x53
+  [ok 200] argmax_axes(0) 37x53
+  [ok 201] argmax_axes(-1) on t-view 53x37
+  [ok 202] argmax 1-D contig odd f32
+  [ok 203] argmax f32 NaN front -> 0 (NaN poisons)
+  [ok 204] add contig 37x53 alloc f64
+  [ok 205] add contig 37x53 reuse f64
+  [ok 206] mul contig 37x53 alloc f64
+  [ok 207] mul contig 37x53 reuse f64
+  [ok 208] add bcast auto [1,53] 37x53 alloc
+  [ok 209] add bcast zero-stride view 37x53 alloc
+  [ok 210] add bcast zero-stride 37x53 reuse
+  [ok 211] add strided 37x53 alloc
+  [ok 212] add strided 37x53 reuse (tile path)
+  [ok 213] add flip(0) operand 37x53
+  [ok 214] add flip(0)+flip(1) 37x53
+  [ok 215] add flip(0)+t() 37x53 reuse
+  [ok 216] add contig 37x53 alloc i32
+  [ok 217] add contig 37x53 reuse i32
+  [ok 218] mul contig 37x53 alloc c64
+  [ok 219] add contig 37x53 reuse c64
+  [ok 220] add contig 37x53 alloc f32
+  [ok 221] add contig 37x53 reuse f32
+  [ok 222] A idiom t().to_contig 37x53 f64
+  [ok 223] A idiom to_contig(ColMajor) 37x53 (r2c)
+  [ok 224] B reuse c.assign(&a.t()) 37x53
+  [ok 225] assign into f-contig r2c 37x53
+  [ok 226] contig assign 37x53
+  [ok 227] add contig 1000x777 alloc f64
+  [ok 228] add contig 1000x777 reuse f64
+  [ok 229] mul contig 1000x777 alloc f64
+  [ok 230] mul contig 1000x777 reuse f64
+  [ok 231] add bcast auto [1,777] 1000x777 alloc
+  [ok 232] add bcast zero-stride view 1000x777 alloc
+  [ok 233] add bcast zero-stride 1000x777 reuse
+  [ok 234] add strided 1000x777 alloc
+  [ok 235] add strided 1000x777 reuse (tile path)
+  [ok 236] add flip(0) operand 1000x777
+  [ok 237] add flip(0)+flip(1) 1000x777
+  [ok 238] add flip(0)+t() 1000x777 reuse
+  [ok 239] add contig 1000x777 alloc i32
+  [ok 240] add contig 1000x777 reuse i32
+  [ok 241] mul contig 1000x777 alloc c64
+  [ok 242] add contig 1000x777 reuse c64
+  [ok 243] add contig 1000x777 alloc f32
+  [ok 244] add contig 1000x777 reuse f32
+  [ok 245] A idiom t().to_contig 1000x777 f64
+  [ok 246] A idiom to_contig(ColMajor) 1000x777 (r2c)
+  [ok 247] B reuse c.assign(&a.t()) 1000x777
+  [ok 248] assign into f-contig r2c 1000x777
+  [ok 249] contig assign 1000x777
+  [ok 250] A idiom 37x53 (degenerate set)
+  [ok 251] flip(0).t() A 37x53
+  [ok 252] flip(0).t() B reuse 37x53
+  [ok 253] flip(1).t() A 37x53
+  [ok 254] sliced view to_contig 37x27
+  [ok 255] sliced.t() assign 27x37
+  [ok 256] A idiom 777x1000 (degenerate set)
+  [ok 257] flip(0).t() A 777x1000
+  [ok 258] flip(0).t() B reuse 777x1000
+  [ok 259] flip(1).t() A 777x1000
+  [ok 260] sliced view to_contig 777x500
+  [ok 261] sliced.t() assign 500x777
+  [ok 262] A idiom 1x7 (degenerate set)
+  [ok 263] A idiom 7x1 (degenerate set)
+  [ok 264] bcast assign [1,n]->[m,n]
+  [ok 265] bcast.t() to_contig
+  [ok 266] bcast.t() assign
+  [ok 267] 3-D t().to_contig 2x3x4
+  [ok 268] A idiom 37x53 i32
+  [ok 269] A idiom 1000x777 f32
+  [ok 270] B reuse 1000x777 f32
+  [ok 271] shape sum_axes(0) 8x6 == [6]
+  [ok 272] shape sum_axes(-1) 8x6 == [8]
+  [ok 273] sum_axis0 8x6
+  [ok 274] sum_axis1 8x6
+  [ok 275] min_axis0 8x6
+  [ok 276] max_axis1 8x6
+  [ok 277] sum_all 8x6
+  [ok 278] min_all 8x6
+  [ok 279] max_all 8x6
+  [ok 280] shape sum_axes(0) 1000x777 == [777]
+  [ok 281] shape sum_axes(-1) 1000x777 == [1000]
+  [ok 282] sum_axis0 1000x777
+  [ok 283] sum_axis1 1000x777
+  [ok 284] min_axis0 1000x777
+  [ok 285] max_axis1 1000x777
+  [ok 286] sum_all 1000x777
+  [ok 287] min_all 1000x777
+  [ok 288] max_all 1000x777
+  [ok 289] sum_axis0 3-D 4x5x7
+  [ok 290] shape sum_axes(0) 3-D == [q, r_]
+  [ok 291] min_axis0 3-D 4x5x7
+  [ok 292] broadcast-row add+sum_axis0
+  [ok 293] zero-stride sum_axis0 (CURRENT-BEHAVIOR lock, upstream bug)
+  [ok 294] zero-stride min_axis0
+  [ok 295] zero-stride sum_axis1
+  [ok 296] sum_axis0 of t-view
+  [ok 297] sum_axis1 of t-view
+  [ok 298] NaN poisons sum of its row
+  [ok 299] NaN poisons sum of its column
+  [ok 300] NaN skipped by min_axis1
+  [ok 301] NaN skipped by max_axis1
+  [ok 302] all-NaN axis0: min -> +MAX seed, max -> -MIN seed
+  [ok 303] signbit: min_all([-0,+0]) keeps incumbent -0.0
+  [ok 304] signbit: max_all([+0,-0]) keeps incumbent +0.0
+  [ok 305] signbit: min_axes(-1) [[-0,+0],[+0,-0]] -> [-0,+0]
+  [ok 306] signbit: min_axes(0) [[-0,+0],[+0,-0]] -> [-0,+0]
+  [ok 307] i32 min_axis0
+  [ok 308] i32 max_axis1
+  [ok 309] i32 min_all
+  [ok 310] min_axis0 f32 255x769
+  [ok 311] dot1d f64 odd
+  [ok 312] dot1d f32 odd
+  [ok 313] dot1d c64 odd (conj)
+  [ok 314] dot1d NaN in a -> NaN
+  [ok 315] innerdot NaN -> NaN
+  [ok 316] batched am1 f64 1000x777
+  [ok 317] batched axis0 f64 1000x777
+  [ok 318] batched axis0 large fall-through 8x20000
+  [ok 319] batched 3-D ax1 fall-through
+  [ok 320] batched strided b (t-view)
+  [ok 321] batched am1 f-contig a
+  [ok 322] batched am1 broadcast 1-D b
+  [ok 323] batched am1 broadcast remaining-axis
+  [ok 324] batched am1 broadcast summed-axis
+  [ok 325] innerdot % contig
+  [ok 326] innerdot % n=300 seq fallback
+  [ok 327] innerdot % strided row views
+  [ok 328] innerdot % c64 no-conj
+  [ok 329] innerdot % n=1
+  [ok 330] dot1d n=1
+  [ok 331] alpha/beta fallback (a=2.0, b=0)
+  [ok 332] alpha/beta fallback (a=2.0, b=0.5 accumulates)
+
+correctness gate: ALL PASSED (332 checks)

@@ -1,0 +1,33 @@
+[package]
+name = "compose-smoke"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+publish = false
+
+# T8 compose-smoke of the rstsr CPU-efficiency campaign: verify that the five
+# proposed patches (argmax-argmin, elementwise, transpose-assign, reductions,
+# vecdot) apply together, pass rstsr's own test suites as a union, keep their
+# headline wins, and produce correct results on a fresh union gate.
+#
+# Standalone crate (NOT a workspace member); path-depends on the local rstsr
+# checkout at 386948be + the union patch. Cargo.toml shape mirrors the T0
+# harness pattern (../2026-09-09-bench-harness-baseline/): rstsr-core default
+# features stated explicitly.
+
+[dependencies]
+rstsr-core = { path = "../../rstsr/rstsr-core", default-features = false, features = [
+    "row_major",
+    "aligned_alloc",
+    "faer",
+    "faer_as_default",
+] }
+num = "0.4"
+
+[profile.release]
+# stock cargo release defaults; stated explicitly for the README
+opt-level = 3
+debug = false
+lto = false
+codegen-units = 16
+panic = "unwind"
