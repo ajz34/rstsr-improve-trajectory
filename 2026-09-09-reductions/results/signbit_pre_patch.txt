@@ -1,0 +1,5 @@
+min_all([-0,+0])  = +0 signbit=false
+max_all([+0,-0])  = -0 signbit=true
+min_axes(-1) [[-0,+0],[+0,-0]] = [0.0, -0.0] signbits [false, true]
+max_axes(-1) [[-0,+0],[+0,-0]] = [0.0, -0.0] signbits [false, true]
+min_axes(0)  = [0.0, -0.0] signbits [false, true]

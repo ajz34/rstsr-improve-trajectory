@@ -1,0 +1,70 @@
+== portable sum_axis0 ==
+[profile_ops] done: iters=600 elapsed=0.7723 s, bytes_moved=2.013e10, nominal GB/s=26.1
+             8,292      page-faults                      #  10581.4 faults/sec  page_faults_per_second
+            783.64 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+     4,395,358,878      cpu-cycles                       #      5.6 GHz  cycles_frequency       (42.85%)
+     8,181,742,080      instructions                     #      1.9 instructions  insn_per_cycle  (42.84%)
+       0.784512538 seconds time elapsed
+== portable sum_axis1 ==
+[profile_ops] done: iters=1500 elapsed=0.7529 s, bytes_moved=5.033e10, nominal GB/s=66.9
+             8,283      page-faults                      #  10849.4 faults/sec  page_faults_per_second
+            763.45 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+     4,314,891,969      cpu-cycles                       #      5.7 GHz  cycles_frequency       (42.87%)
+     9,531,301,227      instructions                     #      2.2 instructions  insn_per_cycle  (42.83%)
+       0.764085051 seconds time elapsed
+== portable sum_all ==
+[profile_ops] done: iters=1500 elapsed=0.7149 s, bytes_moved=5.033e10, nominal GB/s=70.4
+             8,275      page-faults                      #  11396.9 faults/sec  page_faults_per_second
+            726.07 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+     4,101,019,135      cpu-cycles                       #      5.6 GHz  cycles_frequency       (42.97%)
+     8,429,916,340      instructions                     #      2.1 instructions  insn_per_cycle  (42.96%)
+       0.726504226 seconds time elapsed
+== portable min_axis0 ==
+[profile_ops] done: iters=600 elapsed=0.7280 s, bytes_moved=2.013e10, nominal GB/s=27.7
+             8,291      page-faults                      #  11206.4 faults/sec  page_faults_per_second
+            739.85 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+     4,147,292,606      cpu-cycles                       #      5.6 GHz  cycles_frequency       (42.98%)
+     8,175,709,385      instructions                     #      2.0 instructions  insn_per_cycle  (42.98%)
+       0.740275300 seconds time elapsed
+== portable min_all_1e7 ==
+[profile_ops] done: iters=300 elapsed=0.3937 s, bytes_moved=2.400e10, nominal GB/s=61.0
+            19,613      page-faults                      #  46821.3 faults/sec  page_faults_per_second
+            418.89 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+     2,366,984,837      cpu-cycles                       #      5.7 GHz  cycles_frequency       (43.19%)
+     6,374,582,083      instructions                     #      2.7 instructions  insn_per_cycle  (43.19%)
+       0.419235599 seconds time elapsed
+== native sum_axis0 ==
+[profile_ops] done: iters=600 elapsed=0.7392 s, bytes_moved=2.013e10, nominal GB/s=27.2
+             8,291      page-faults                      #  11035.3 faults/sec  page_faults_per_second
+            751.32 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+     4,252,408,526      cpu-cycles                       #      5.7 GHz  cycles_frequency       (42.93%)
+     3,474,421,880      instructions                     #      0.8 instructions  insn_per_cycle  (42.84%)
+       0.751955636 seconds time elapsed
+== native sum_axis1 ==
+[profile_ops] done: iters=1500 elapsed=0.7047 s, bytes_moved=5.033e10, nominal GB/s=71.4
+             8,283      page-faults                      #  11572.7 faults/sec  page_faults_per_second
+            715.74 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+     4,041,047,824      cpu-cycles                       #      5.6 GHz  cycles_frequency       (43.00%)
+     4,770,278,294      instructions                     #      1.2 instructions  insn_per_cycle  (42.88%)
+       0.716303970 seconds time elapsed
+== native sum_all ==
+[profile_ops] done: iters=1500 elapsed=0.6776 s, bytes_moved=5.033e10, nominal GB/s=74.3
+             8,276      page-faults                      #  12009.2 faults/sec  page_faults_per_second
+            689.14 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+     3,900,813,758      cpu-cycles                       #      5.7 GHz  cycles_frequency       (43.09%)
+     3,673,713,349      instructions                     #      0.9 instructions  insn_per_cycle  (42.83%)
+       0.689979750 seconds time elapsed
+== native min_axis0 ==
+[profile_ops] done: iters=600 elapsed=0.9273 s, bytes_moved=2.013e10, nominal GB/s=21.7
+             8,292      page-faults                      #   8827.1 faults/sec  page_faults_per_second
+            939.38 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+     5,335,202,675      cpu-cycles                       #      5.7 GHz  cycles_frequency       (42.88%)
+     3,446,933,612      instructions                     #      0.6 instructions  insn_per_cycle  (42.80%)
+       0.939817860 seconds time elapsed
+== native min_all_1e7 ==
+[profile_ops] done: iters=300 elapsed=0.3923 s, bytes_moved=2.400e10, nominal GB/s=61.2
+            19,613      page-faults                      #  46978.5 faults/sec  page_faults_per_second
+            417.49 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+     2,361,693,756      cpu-cycles                       #      5.7 GHz  cycles_frequency       (43.10%)
+     1,298,178,010      instructions                     #      0.5 instructions  insn_per_cycle  (43.11%)
+       0.417952996 seconds time elapsed

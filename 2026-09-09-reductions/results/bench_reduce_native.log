@@ -1,0 +1,564 @@
+   Compiling reductions v0.1.0 (/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-reductions)
+    Finished `bench` profile [optimized] target(s) in 4.27s
+     Running benches/reduce.rs (target/release/deps/reduce-02062648aa20ab36)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking reduce2d/small_64x64-serial_f64/sum_axis0
+Benchmarking reduce2d/small_64x64-serial_f64/sum_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/small_64x64-serial_f64/sum_axis0: Collecting 100 samples in estimated 2.0077 s (1.1M iterations)
+Benchmarking reduce2d/small_64x64-serial_f64/sum_axis0: Analyzing
+reduce2d/small_64x64-serial_f64/sum_axis0
+                        time:   [1.7861 µs 1.7871 µs 1.7882 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking reduce2d/small_64x64-serial_f64/sum_axis1
+Benchmarking reduce2d/small_64x64-serial_f64/sum_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d/small_64x64-serial_f64/sum_axis1: Collecting 100 samples in estimated 2.0071 s (1.0M iterations)
+Benchmarking reduce2d/small_64x64-serial_f64/sum_axis1: Analyzing
+reduce2d/small_64x64-serial_f64/sum_axis1
+                        time:   [1.9422 µs 1.9464 µs 1.9520 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+Benchmarking reduce2d/small_64x64-serial_f64/sum_all
+Benchmarking reduce2d/small_64x64-serial_f64/sum_all: Warming up for 700.00 ms
+Benchmarking reduce2d/small_64x64-serial_f64/sum_all: Collecting 100 samples in estimated 2.0002 s (5.3M iterations)
+Benchmarking reduce2d/small_64x64-serial_f64/sum_all: Analyzing
+reduce2d/small_64x64-serial_f64/sum_all
+                        time:   [370.37 ns 370.71 ns 371.11 ns]
+Found 15 outliers among 100 measurements (15.00%)
+  9 (9.00%) high mild
+  6 (6.00%) high severe
+Benchmarking reduce2d/medium_512x512-serial_f64/sum_axis0
+Benchmarking reduce2d/medium_512x512-serial_f64/sum_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-serial_f64/sum_axis0: Collecting 100 samples in estimated 2.0467 s (45k iterations)
+Benchmarking reduce2d/medium_512x512-serial_f64/sum_axis0: Analyzing
+reduce2d/medium_512x512-serial_f64/sum_axis0
+                        time:   [41.949 µs 41.962 µs 41.974 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+Benchmarking reduce2d/medium_512x512-serial_f64/sum_axis1
+Benchmarking reduce2d/medium_512x512-serial_f64/sum_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-serial_f64/sum_axis1: Collecting 100 samples in estimated 2.0552 s (96k iterations)
+Benchmarking reduce2d/medium_512x512-serial_f64/sum_axis1: Analyzing
+reduce2d/medium_512x512-serial_f64/sum_axis1
+                        time:   [21.375 µs 21.414 µs 21.451 µs]
+Benchmarking reduce2d/medium_512x512-serial_f64/sum_all
+Benchmarking reduce2d/medium_512x512-serial_f64/sum_all: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-serial_f64/sum_all: Collecting 100 samples in estimated 2.0398 s (131k iterations)
+Benchmarking reduce2d/medium_512x512-serial_f64/sum_all: Analyzing
+reduce2d/medium_512x512-serial_f64/sum_all
+                        time:   [15.542 µs 15.591 µs 15.649 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking reduce2d/medium_512x512-serial_f64/mean_axis1
+Benchmarking reduce2d/medium_512x512-serial_f64/mean_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-serial_f64/mean_axis1: Collecting 100 samples in estimated 2.1024 s (96k iterations)
+Benchmarking reduce2d/medium_512x512-serial_f64/mean_axis1: Analyzing
+reduce2d/medium_512x512-serial_f64/mean_axis1
+                        time:   [21.738 µs 21.782 µs 21.822 µs]
+Benchmarking reduce2d/medium_512x512-serial_f64/var_axis1
+Benchmarking reduce2d/medium_512x512-serial_f64/var_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-serial_f64/var_axis1: Collecting 100 samples in estimated 2.1135 s (45k iterations)
+Benchmarking reduce2d/medium_512x512-serial_f64/var_axis1: Analyzing
+reduce2d/medium_512x512-serial_f64/var_axis1
+                        time:   [46.190 µs 46.221 µs 46.251 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+Benchmarking reduce2d/medium_512x512-serial_f64/norm_all
+Benchmarking reduce2d/medium_512x512-serial_f64/norm_all: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-serial_f64/norm_all: Collecting 100 samples in estimated 2.0105 s (121k iterations)
+Benchmarking reduce2d/medium_512x512-serial_f64/norm_all: Analyzing
+reduce2d/medium_512x512-serial_f64/norm_all
+                        time:   [16.649 µs 16.672 µs 16.695 µs]
+Benchmarking reduce2d/medium_512x512-serial_f64/min_axis0
+Benchmarking reduce2d/medium_512x512-serial_f64/min_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-serial_f64/min_axis0: Collecting 100 samples in estimated 2.2275 s (45k iterations)
+Benchmarking reduce2d/medium_512x512-serial_f64/min_axis0: Analyzing
+reduce2d/medium_512x512-serial_f64/min_axis0
+                        time:   [48.399 µs 48.415 µs 48.434 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking reduce2d/medium_512x512-serial_f64/max_axis0
+Benchmarking reduce2d/medium_512x512-serial_f64/max_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-serial_f64/max_axis0: Collecting 100 samples in estimated 2.0780 s (45k iterations)
+Benchmarking reduce2d/medium_512x512-serial_f64/max_axis0: Analyzing
+reduce2d/medium_512x512-serial_f64/max_axis0
+                        time:   [45.802 µs 45.822 µs 45.841 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking reduce2d/large_2048x2048-serial_f64/sum_axis0
+Benchmarking reduce2d/large_2048x2048-serial_f64/sum_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/large_2048x2048-serial_f64/sum_axis0: Collecting 100 samples in estimated 2.0351 s (1000 iterations)
+Benchmarking reduce2d/large_2048x2048-serial_f64/sum_axis0: Analyzing
+reduce2d/large_2048x2048-serial_f64/sum_axis0
+                        time:   [1.9830 ms 1.9943 ms 2.0056 ms]
+Benchmarking reduce2d/large_2048x2048-serial_f64/sum_axis1
+Benchmarking reduce2d/large_2048x2048-serial_f64/sum_axis1: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.4s, enable flat sampling, or reduce sample count to 60.
+Benchmarking reduce2d/large_2048x2048-serial_f64/sum_axis1: Collecting 100 samples in estimated 2.4454 s (5050 iterations)
+Benchmarking reduce2d/large_2048x2048-serial_f64/sum_axis1: Analyzing
+reduce2d/large_2048x2048-serial_f64/sum_axis1
+                        time:   [470.20 µs 472.38 µs 474.80 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) high mild
+  7 (7.00%) high severe
+Benchmarking reduce2d/large_2048x2048-serial_f64/sum_all
+Benchmarking reduce2d/large_2048x2048-serial_f64/sum_all: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.3s, enable flat sampling, or reduce sample count to 60.
+Benchmarking reduce2d/large_2048x2048-serial_f64/sum_all: Collecting 100 samples in estimated 2.2517 s (5050 iterations)
+Benchmarking reduce2d/large_2048x2048-serial_f64/sum_all: Analyzing
+reduce2d/large_2048x2048-serial_f64/sum_all
+                        time:   [436.28 µs 439.89 µs 444.43 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking reduce2d/large_2048x2048-serial_f64/mean_axis1
+Benchmarking reduce2d/large_2048x2048-serial_f64/mean_axis1: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.4s, enable flat sampling, or reduce sample count to 60.
+Benchmarking reduce2d/large_2048x2048-serial_f64/mean_axis1: Collecting 100 samples in estimated 2.3776 s (5050 iterations)
+Benchmarking reduce2d/large_2048x2048-serial_f64/mean_axis1: Analyzing
+reduce2d/large_2048x2048-serial_f64/mean_axis1
+                        time:   [467.92 µs 471.71 µs 476.53 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  5 (5.00%) low mild
+  4 (4.00%) high mild
+  2 (2.00%) high severe
+Benchmarking reduce2d/large_2048x2048-serial_f64/var_axis1
+Benchmarking reduce2d/large_2048x2048-serial_f64/var_axis1: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.8s, enable flat sampling, or reduce sample count to 50.
+Benchmarking reduce2d/large_2048x2048-serial_f64/var_axis1: Collecting 100 samples in estimated 3.8478 s (5050 iterations)
+Benchmarking reduce2d/large_2048x2048-serial_f64/var_axis1: Analyzing
+reduce2d/large_2048x2048-serial_f64/var_axis1
+                        time:   [771.41 µs 772.43 µs 773.56 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) low mild
+  3 (3.00%) high mild
+Benchmarking reduce2d/large_2048x2048-serial_f64/norm_all
+Benchmarking reduce2d/large_2048x2048-serial_f64/norm_all: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.4s, enable flat sampling, or reduce sample count to 60.
+Benchmarking reduce2d/large_2048x2048-serial_f64/norm_all: Collecting 100 samples in estimated 2.4176 s (5050 iterations)
+Benchmarking reduce2d/large_2048x2048-serial_f64/norm_all: Analyzing
+reduce2d/large_2048x2048-serial_f64/norm_all
+                        time:   [481.31 µs 489.60 µs 499.38 µs]
+Found 14 outliers among 100 measurements (14.00%)
+  5 (5.00%) low mild
+  1 (1.00%) high mild
+  8 (8.00%) high severe
+Benchmarking reduce2d/large_2048x2048-serial_f64/min_axis0
+Benchmarking reduce2d/large_2048x2048-serial_f64/min_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/large_2048x2048-serial_f64/min_axis0: Collecting 100 samples in estimated 2.1632 s (1000 iterations)
+Benchmarking reduce2d/large_2048x2048-serial_f64/min_axis0: Analyzing
+reduce2d/large_2048x2048-serial_f64/min_axis0
+                        time:   [2.2270 ms 2.2437 ms 2.2633 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high severe
+Benchmarking reduce2d/large_2048x2048-serial_f64/max_axis0
+Benchmarking reduce2d/large_2048x2048-serial_f64/max_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/large_2048x2048-serial_f64/max_axis0: Collecting 100 samples in estimated 2.0030 s (900 iterations)
+Benchmarking reduce2d/large_2048x2048-serial_f64/max_axis0: Analyzing
+reduce2d/large_2048x2048-serial_f64/max_axis0
+                        time:   [2.0601 ms 2.1408 ms 2.2120 ms]
+Found 10 outliers among 100 measurements (10.00%)
+  8 (8.00%) low severe
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking reduce2d/odd_1000x777-serial_f64/sum_axis0
+Benchmarking reduce2d/odd_1000x777-serial_f64/sum_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/odd_1000x777-serial_f64/sum_axis0: Collecting 100 samples in estimated 2.4363 s (20k iterations)
+Benchmarking reduce2d/odd_1000x777-serial_f64/sum_axis0: Analyzing
+reduce2d/odd_1000x777-serial_f64/sum_axis0
+                        time:   [119.46 µs 119.50 µs 119.56 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+Benchmarking reduce2d/odd_1000x777-serial_f64/sum_axis1
+Benchmarking reduce2d/odd_1000x777-serial_f64/sum_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d/odd_1000x777-serial_f64/sum_axis1: Collecting 100 samples in estimated 2.1182 s (35k iterations)
+Benchmarking reduce2d/odd_1000x777-serial_f64/sum_axis1: Analyzing
+reduce2d/odd_1000x777-serial_f64/sum_axis1
+                        time:   [58.979 µs 59.055 µs 59.150 µs]
+Benchmarking reduce2d/odd_1000x777-serial_f64/sum_all
+Benchmarking reduce2d/odd_1000x777-serial_f64/sum_all: Warming up for 700.00 ms
+Benchmarking reduce2d/odd_1000x777-serial_f64/sum_all: Collecting 100 samples in estimated 2.1972 s (45k iterations)
+Benchmarking reduce2d/odd_1000x777-serial_f64/sum_all: Analyzing
+reduce2d/odd_1000x777-serial_f64/sum_all
+                        time:   [48.098 µs 48.142 µs 48.211 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high severe
+Benchmarking reduce2d/small_64x64-faer16_f64/sum_axis0
+Benchmarking reduce2d/small_64x64-faer16_f64/sum_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/small_64x64-faer16_f64/sum_axis0: Collecting 100 samples in estimated 2.0224 s (157k iterations)
+Benchmarking reduce2d/small_64x64-faer16_f64/sum_axis0: Analyzing
+reduce2d/small_64x64-faer16_f64/sum_axis0
+                        time:   [12.924 µs 12.941 µs 12.957 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high severe
+Benchmarking reduce2d/small_64x64-faer16_f64/sum_axis1
+Benchmarking reduce2d/small_64x64-faer16_f64/sum_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d/small_64x64-faer16_f64/sum_axis1: Collecting 100 samples in estimated 2.0289 s (96k iterations)
+Benchmarking reduce2d/small_64x64-faer16_f64/sum_axis1: Analyzing
+reduce2d/small_64x64-faer16_f64/sum_axis1
+                        time:   [20.957 µs 20.974 µs 20.993 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  1 (1.00%) low severe
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking reduce2d/small_64x64-faer16_f64/sum_all
+Benchmarking reduce2d/small_64x64-faer16_f64/sum_all: Warming up for 700.00 ms
+Benchmarking reduce2d/small_64x64-faer16_f64/sum_all: Collecting 100 samples in estimated 2.0308 s (303k iterations)
+Benchmarking reduce2d/small_64x64-faer16_f64/sum_all: Analyzing
+reduce2d/small_64x64-faer16_f64/sum_all
+                        time:   [6.5929 µs 6.6781 µs 6.7590 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  4 (4.00%) low mild
+  1 (1.00%) high mild
+Benchmarking reduce2d/medium_512x512-faer16_f64/sum_axis0
+Benchmarking reduce2d/medium_512x512-faer16_f64/sum_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-faer16_f64/sum_axis0: Collecting 100 samples in estimated 2.0790 s (35k iterations)
+Benchmarking reduce2d/medium_512x512-faer16_f64/sum_axis0: Analyzing
+reduce2d/medium_512x512-faer16_f64/sum_axis0
+                        time:   [59.801 µs 60.402 µs 61.039 µs]
+Benchmarking reduce2d/medium_512x512-faer16_f64/sum_axis1
+Benchmarking reduce2d/medium_512x512-faer16_f64/sum_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-faer16_f64/sum_axis1: Collecting 100 samples in estimated 2.0226 s (45k iterations)
+Benchmarking reduce2d/medium_512x512-faer16_f64/sum_axis1: Analyzing
+reduce2d/medium_512x512-faer16_f64/sum_axis1
+                        time:   [44.048 µs 44.109 µs 44.176 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) low mild
+  6 (6.00%) high mild
+  3 (3.00%) high severe
+Benchmarking reduce2d/medium_512x512-faer16_f64/sum_all
+Benchmarking reduce2d/medium_512x512-faer16_f64/sum_all: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-faer16_f64/sum_all: Collecting 100 samples in estimated 2.0314 s (126k iterations)
+Benchmarking reduce2d/medium_512x512-faer16_f64/sum_all: Analyzing
+reduce2d/medium_512x512-faer16_f64/sum_all
+                        time:   [16.087 µs 16.100 µs 16.113 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  4 (4.00%) low mild
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking reduce2d/medium_512x512-faer16_f64/mean_axis1
+Benchmarking reduce2d/medium_512x512-faer16_f64/mean_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-faer16_f64/mean_axis1: Collecting 100 samples in estimated 2.0294 s (45k iterations)
+Benchmarking reduce2d/medium_512x512-faer16_f64/mean_axis1: Analyzing
+reduce2d/medium_512x512-faer16_f64/mean_axis1
+                        time:   [44.466 µs 44.534 µs 44.619 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  3 (3.00%) low mild
+  4 (4.00%) high mild
+  6 (6.00%) high severe
+Benchmarking reduce2d/medium_512x512-faer16_f64/var_axis1
+Benchmarking reduce2d/medium_512x512-faer16_f64/var_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-faer16_f64/var_axis1: Collecting 100 samples in estimated 2.0956 s (45k iterations)
+Benchmarking reduce2d/medium_512x512-faer16_f64/var_axis1: Analyzing
+reduce2d/medium_512x512-faer16_f64/var_axis1
+                        time:   [46.051 µs 46.187 µs 46.369 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+Benchmarking reduce2d/medium_512x512-faer16_f64/norm_all
+Benchmarking reduce2d/medium_512x512-faer16_f64/norm_all: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-faer16_f64/norm_all: Collecting 100 samples in estimated 2.0762 s (126k iterations)
+Benchmarking reduce2d/medium_512x512-faer16_f64/norm_all: Analyzing
+reduce2d/medium_512x512-faer16_f64/norm_all
+                        time:   [16.448 µs 16.472 µs 16.506 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+Benchmarking reduce2d/medium_512x512-faer16_f64/min_axis0
+Benchmarking reduce2d/medium_512x512-faer16_f64/min_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-faer16_f64/min_axis0: Collecting 100 samples in estimated 2.1110 s (45k iterations)
+Benchmarking reduce2d/medium_512x512-faer16_f64/min_axis0: Analyzing
+reduce2d/medium_512x512-faer16_f64/min_axis0
+                        time:   [50.561 µs 53.353 µs 55.841 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  8 (8.00%) low mild
+Benchmarking reduce2d/medium_512x512-faer16_f64/max_axis0
+Benchmarking reduce2d/medium_512x512-faer16_f64/max_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/medium_512x512-faer16_f64/max_axis0: Collecting 100 samples in estimated 2.0438 s (56k iterations)
+Benchmarking reduce2d/medium_512x512-faer16_f64/max_axis0: Analyzing
+reduce2d/medium_512x512-faer16_f64/max_axis0
+                        time:   [46.022 µs 47.828 µs 49.352 µs]
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_axis0
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_axis0: Collecting 100 samples in estimated 2.9982 s (10k iterations)
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_axis0: Analyzing
+reduce2d/large_2048x2048-faer16_f64/sum_axis0
+                        time:   [303.15 µs 311.65 µs 319.73 µs]
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_axis1
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_axis1: Collecting 100 samples in estimated 2.3760 s (25k iterations)
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_axis1: Analyzing
+reduce2d/large_2048x2048-faer16_f64/sum_axis1
+                        time:   [92.914 µs 93.262 µs 93.648 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_all
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_all: Warming up for 700.00 ms
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_all: Collecting 100 samples in estimated 2.1831 s (40k iterations)
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_all: Analyzing
+reduce2d/large_2048x2048-faer16_f64/sum_all
+                        time:   [53.455 µs 53.524 µs 53.593 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking reduce2d/large_2048x2048-faer16_f64/mean_axis1
+Benchmarking reduce2d/large_2048x2048-faer16_f64/mean_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d/large_2048x2048-faer16_f64/mean_axis1: Collecting 100 samples in estimated 2.4102 s (25k iterations)
+Benchmarking reduce2d/large_2048x2048-faer16_f64/mean_axis1: Analyzing
+reduce2d/large_2048x2048-faer16_f64/mean_axis1
+                        time:   [93.552 µs 93.946 µs 94.389 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  1 (1.00%) low mild
+  9 (9.00%) high mild
+  3 (3.00%) high severe
+Benchmarking reduce2d/large_2048x2048-faer16_f64/var_axis1
+Benchmarking reduce2d/large_2048x2048-faer16_f64/var_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d/large_2048x2048-faer16_f64/var_axis1: Collecting 100 samples in estimated 2.4275 s (20k iterations)
+Benchmarking reduce2d/large_2048x2048-faer16_f64/var_axis1: Analyzing
+reduce2d/large_2048x2048-faer16_f64/var_axis1
+                        time:   [118.87 µs 119.23 µs 119.60 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+Benchmarking reduce2d/large_2048x2048-faer16_f64/norm_all
+Benchmarking reduce2d/large_2048x2048-faer16_f64/norm_all: Warming up for 700.00 ms
+Benchmarking reduce2d/large_2048x2048-faer16_f64/norm_all: Collecting 100 samples in estimated 2.2562 s (40k iterations)
+Benchmarking reduce2d/large_2048x2048-faer16_f64/norm_all: Analyzing
+reduce2d/large_2048x2048-faer16_f64/norm_all
+                        time:   [55.016 µs 55.062 µs 55.113 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) low mild
+  7 (7.00%) high mild
+  1 (1.00%) high severe
+Benchmarking reduce2d/large_2048x2048-faer16_f64/min_axis0
+Benchmarking reduce2d/large_2048x2048-faer16_f64/min_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/large_2048x2048-faer16_f64/min_axis0: Collecting 100 samples in estimated 2.6525 s (10k iterations)
+Benchmarking reduce2d/large_2048x2048-faer16_f64/min_axis0: Analyzing
+reduce2d/large_2048x2048-faer16_f64/min_axis0
+                        time:   [275.05 µs 279.53 µs 283.87 µs]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking reduce2d/large_2048x2048-faer16_f64/max_axis0
+Benchmarking reduce2d/large_2048x2048-faer16_f64/max_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/large_2048x2048-faer16_f64/max_axis0: Collecting 100 samples in estimated 2.6620 s (10k iterations)
+Benchmarking reduce2d/large_2048x2048-faer16_f64/max_axis0: Analyzing
+reduce2d/large_2048x2048-faer16_f64/max_axis0
+                        time:   [261.92 µs 266.26 µs 271.03 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+Benchmarking reduce2d/odd_1000x777-faer16_f64/sum_axis0
+Benchmarking reduce2d/odd_1000x777-faer16_f64/sum_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/odd_1000x777-faer16_f64/sum_axis0: Collecting 100 samples in estimated 2.1488 s (20k iterations)
+Benchmarking reduce2d/odd_1000x777-faer16_f64/sum_axis0: Analyzing
+reduce2d/odd_1000x777-faer16_f64/sum_axis0
+                        time:   [91.733 µs 97.472 µs 102.92 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  8 (8.00%) low mild
+  1 (1.00%) high mild
+Benchmarking reduce2d/odd_1000x777-faer16_f64/sum_axis1
+Benchmarking reduce2d/odd_1000x777-faer16_f64/sum_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d/odd_1000x777-faer16_f64/sum_axis1: Collecting 100 samples in estimated 2.0235 s (35k iterations)
+Benchmarking reduce2d/odd_1000x777-faer16_f64/sum_axis1: Analyzing
+reduce2d/odd_1000x777-faer16_f64/sum_axis1
+                        time:   [57.662 µs 57.887 µs 58.274 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  5 (5.00%) low mild
+  2 (2.00%) high severe
+Benchmarking reduce2d/odd_1000x777-faer16_f64/sum_all
+Benchmarking reduce2d/odd_1000x777-faer16_f64/sum_all: Warming up for 700.00 ms
+Benchmarking reduce2d/odd_1000x777-faer16_f64/sum_all: Collecting 100 samples in estimated 2.0849 s (86k iterations)
+Benchmarking reduce2d/odd_1000x777-faer16_f64/sum_all: Analyzing
+reduce2d/odd_1000x777-faer16_f64/sum_all
+                        time:   [24.097 µs 24.115 µs 24.133 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+
+Benchmarking reduce1d/large_1e7-serial_f64/sum_all
+Benchmarking reduce1d/large_1e7-serial_f64/sum_all: Warming up for 700.00 ms
+Benchmarking reduce1d/large_1e7-serial_f64/sum_all: Collecting 100 samples in estimated 2.1111 s (1700 iterations)
+Benchmarking reduce1d/large_1e7-serial_f64/sum_all: Analyzing
+reduce1d/large_1e7-serial_f64/sum_all
+                        time:   [1.2325 ms 1.2419 ms 1.2513 ms]
+Benchmarking reduce1d/large_1e7-serial_f64/mean_all
+Benchmarking reduce1d/large_1e7-serial_f64/mean_all: Warming up for 700.00 ms
+Benchmarking reduce1d/large_1e7-serial_f64/mean_all: Collecting 100 samples in estimated 2.0623 s (1700 iterations)
+Benchmarking reduce1d/large_1e7-serial_f64/mean_all: Analyzing
+reduce1d/large_1e7-serial_f64/mean_all
+                        time:   [1.2649 ms 1.2729 ms 1.2808 ms]
+Benchmarking reduce1d/large_1e7-serial_f64/var_all
+Benchmarking reduce1d/large_1e7-serial_f64/var_all: Warming up for 700.00 ms
+Benchmarking reduce1d/large_1e7-serial_f64/var_all: Collecting 100 samples in estimated 2.0612 s (1200 iterations)
+Benchmarking reduce1d/large_1e7-serial_f64/var_all: Analyzing
+reduce1d/large_1e7-serial_f64/var_all
+                        time:   [1.6918 ms 1.6941 ms 1.6965 ms]
+Benchmarking reduce1d/large_1e7-serial_f64/norm_all
+Benchmarking reduce1d/large_1e7-serial_f64/norm_all: Warming up for 700.00 ms
+Benchmarking reduce1d/large_1e7-serial_f64/norm_all: Collecting 100 samples in estimated 2.1057 s (1600 iterations)
+Benchmarking reduce1d/large_1e7-serial_f64/norm_all: Analyzing
+reduce1d/large_1e7-serial_f64/norm_all
+                        time:   [1.3176 ms 1.3250 ms 1.3348 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+Benchmarking reduce1d/large_1e7-serial_f64/min_all
+Benchmarking reduce1d/large_1e7-serial_f64/min_all: Warming up for 700.00 ms
+Benchmarking reduce1d/large_1e7-serial_f64/min_all: Collecting 100 samples in estimated 2.0636 s (200 iterations)
+Benchmarking reduce1d/large_1e7-serial_f64/min_all: Analyzing
+reduce1d/large_1e7-serial_f64/min_all
+                        time:   [10.387 ms 10.421 ms 10.467 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+Benchmarking reduce1d/large_1e7-serial_f64/max_all
+Benchmarking reduce1d/large_1e7-serial_f64/max_all: Warming up for 700.00 ms
+Benchmarking reduce1d/large_1e7-serial_f64/max_all: Collecting 100 samples in estimated 2.0824 s (200 iterations)
+Benchmarking reduce1d/large_1e7-serial_f64/max_all: Analyzing
+reduce1d/large_1e7-serial_f64/max_all
+                        time:   [10.390 ms 10.423 ms 10.471 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+Benchmarking reduce1d/large_1e7-faer16_f64/sum_all
+Benchmarking reduce1d/large_1e7-faer16_f64/sum_all: Warming up for 700.00 ms
+Benchmarking reduce1d/large_1e7-faer16_f64/sum_all: Collecting 100 samples in estimated 2.3373 s (15k iterations)
+Benchmarking reduce1d/large_1e7-faer16_f64/sum_all: Analyzing
+reduce1d/large_1e7-faer16_f64/sum_all
+                        time:   [159.75 µs 168.81 µs 181.61 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) high mild
+  7 (7.00%) high severe
+Benchmarking reduce1d/large_1e7-faer16_f64/mean_all
+Benchmarking reduce1d/large_1e7-faer16_f64/mean_all: Warming up for 700.00 ms
+Benchmarking reduce1d/large_1e7-faer16_f64/mean_all: Collecting 100 samples in estimated 2.4121 s (15k iterations)
+Benchmarking reduce1d/large_1e7-faer16_f64/mean_all: Analyzing
+reduce1d/large_1e7-faer16_f64/mean_all
+                        time:   [152.75 µs 156.38 µs 160.36 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+Benchmarking reduce1d/large_1e7-faer16_f64/var_all
+Benchmarking reduce1d/large_1e7-faer16_f64/var_all: Warming up for 700.00 ms
+Benchmarking reduce1d/large_1e7-faer16_f64/var_all: Collecting 100 samples in estimated 2.3752 s (10k iterations)
+Benchmarking reduce1d/large_1e7-faer16_f64/var_all: Analyzing
+reduce1d/large_1e7-faer16_f64/var_all
+                        time:   [223.24 µs 226.77 µs 230.94 µs]
+Found 12 outliers among 100 measurements (12.00%)
+  1 (1.00%) low mild
+  8 (8.00%) high mild
+  3 (3.00%) high severe
+Benchmarking reduce1d/large_1e7-faer16_f64/norm_all
+Benchmarking reduce1d/large_1e7-faer16_f64/norm_all: Warming up for 700.00 ms
+Benchmarking reduce1d/large_1e7-faer16_f64/norm_all: Collecting 100 samples in estimated 2.5197 s (15k iterations)
+Benchmarking reduce1d/large_1e7-faer16_f64/norm_all: Analyzing
+reduce1d/large_1e7-faer16_f64/norm_all
+                        time:   [161.77 µs 163.93 µs 166.28 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+Benchmarking reduce1d/large_1e7-faer16_f64/min_all
+Benchmarking reduce1d/large_1e7-faer16_f64/min_all: Warming up for 700.00 ms
+Benchmarking reduce1d/large_1e7-faer16_f64/min_all: Collecting 100 samples in estimated 3.8091 s (10k iterations)
+Benchmarking reduce1d/large_1e7-faer16_f64/min_all: Analyzing
+reduce1d/large_1e7-faer16_f64/min_all
+                        time:   [370.62 µs 376.17 µs 382.30 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+Benchmarking reduce1d/large_1e7-faer16_f64/max_all
+Benchmarking reduce1d/large_1e7-faer16_f64/max_all: Warming up for 700.00 ms
+Benchmarking reduce1d/large_1e7-faer16_f64/max_all: Collecting 100 samples in estimated 3.8322 s (10k iterations)
+Benchmarking reduce1d/large_1e7-faer16_f64/max_all: Analyzing
+reduce1d/large_1e7-faer16_f64/max_all
+                        time:   [371.26 µs 377.61 µs 384.34 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) high mild
+
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/sum_axis0
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/sum_axis0: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.2s, enable flat sampling, or reduce sample count to 60.
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/sum_axis0: Collecting 100 samples in estimated 2.1523 s (5050 iterations)
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/sum_axis0: Analyzing
+reduce2d_f32/large_2048x2048-serial_f32/sum_axis0
+                        time:   [479.89 µs 490.03 µs 499.42 µs]
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/sum_axis1
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/sum_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/sum_axis1: Collecting 100 samples in estimated 2.6223 s (10k iterations)
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/sum_axis1: Analyzing
+reduce2d_f32/large_2048x2048-serial_f32/sum_axis1
+                        time:   [257.91 µs 258.29 µs 258.74 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/sum_all
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/sum_all: Warming up for 700.00 ms
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/sum_all: Collecting 100 samples in estimated 2.4814 s (10k iterations)
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/sum_all: Analyzing
+reduce2d_f32/large_2048x2048-serial_f32/sum_all
+                        time:   [244.31 µs 244.53 µs 244.75 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/min_axis0
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/min_axis0: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.4s, enable flat sampling, or reduce sample count to 60.
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/min_axis0: Collecting 100 samples in estimated 2.4356 s (5050 iterations)
+Benchmarking reduce2d_f32/large_2048x2048-serial_f32/min_axis0: Analyzing
+reduce2d_f32/large_2048x2048-serial_f32/min_axis0
+                        time:   [476.90 µs 478.45 µs 479.97 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+Benchmarking reduce2d_f32/large_2048x2048-faer16_f32/sum_axis0
+Benchmarking reduce2d_f32/large_2048x2048-faer16_f32/sum_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d_f32/large_2048x2048-faer16_f32/sum_axis0: Collecting 100 samples in estimated 2.0836 s (20k iterations)
+Benchmarking reduce2d_f32/large_2048x2048-faer16_f32/sum_axis0: Analyzing
+reduce2d_f32/large_2048x2048-faer16_f32/sum_axis0
+                        time:   [101.65 µs 102.81 µs 103.98 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking reduce2d_f32/large_2048x2048-faer16_f32/sum_axis1
+Benchmarking reduce2d_f32/large_2048x2048-faer16_f32/sum_axis1: Warming up for 700.00 ms
+Benchmarking reduce2d_f32/large_2048x2048-faer16_f32/sum_axis1: Collecting 100 samples in estimated 2.1435 s (25k iterations)
+Benchmarking reduce2d_f32/large_2048x2048-faer16_f32/sum_axis1: Analyzing
+reduce2d_f32/large_2048x2048-faer16_f32/sum_axis1
+                        time:   [83.239 µs 83.377 µs 83.540 µs]
+Found 15 outliers among 100 measurements (15.00%)
+  3 (3.00%) high mild
+  12 (12.00%) high severe
+Benchmarking reduce2d_f32/large_1e7-serial_f32/sum_all
+Benchmarking reduce2d_f32/large_1e7-serial_f32/sum_all: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.7s, enable flat sampling, or reduce sample count to 50.
+Benchmarking reduce2d_f32/large_1e7-serial_f32/sum_all: Collecting 100 samples in estimated 3.7033 s (5050 iterations)
+Benchmarking reduce2d_f32/large_1e7-serial_f32/sum_all: Analyzing
+reduce2d_f32/large_1e7-serial_f32/sum_all
+                        time:   [728.99 µs 730.72 µs 732.46 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) low mild
+  4 (4.00%) high mild
+  4 (4.00%) high severe
+

@@ -1,0 +1,146 @@
+FlagOrder::default() = C  TensorIterOrder::default() = K
+
+=== 2048x2048 rm, axes=[0]: input shape [2048, 2048] stride [2048, 1] offset 0
+    ls (summed):    shape [2048] stride [2048]
+    lm (remaining): shape [2048] stride [1]
+    ls comp: singleton(as1)=[] broadcast(as0)=[] contig(asc)=[] discontig(asd)=[0]
+    lm comp: singleton(am1)=[] broadcast(am0)=[] contig(amc)=[0] discontig(amd)=[]
+    size_sc=1 size_mc=2048 size_s0=1 size_m0=1
+    -> BRANCH 2: contiguous-remaining (CHUNK clone-fold)
+    lo (K):       shape [2048] stride [1]
+    lo (default): shape [2048] stride [1]
+    order-fixup copy fires: false (FlagOrder default = C)
+
+=== 2048x2048 rm, axes=[-1]: input shape [2048, 2048] stride [2048, 1] offset 0
+    ls (summed):    shape [2048] stride [1]
+    lm (remaining): shape [2048] stride [2048]
+    ls comp: singleton(as1)=[] broadcast(as0)=[] contig(asc)=[0] discontig(asd)=[]
+    lm comp: singleton(am1)=[] broadcast(am0)=[] contig(amc)=[] discontig(amd)=[0]
+    size_sc=2048 size_mc=1 size_s0=1 size_m0=1
+    -> BRANCH 1: contiguous-summed (unrolled_reduce inner)
+    lo (K):       shape [2048] stride [1]
+    lo (default): shape [2048] stride [1]
+    order-fixup copy fires: false (FlagOrder default = C)
+
+=== 1000x777 rm, axes=[0]: input shape [1000, 777] stride [777, 1] offset 0
+    ls (summed):    shape [1000] stride [777]
+    lm (remaining): shape [777] stride [1]
+    ls comp: singleton(as1)=[] broadcast(as0)=[] contig(asc)=[] discontig(asd)=[0]
+    lm comp: singleton(am1)=[] broadcast(am0)=[] contig(amc)=[0] discontig(amd)=[]
+    size_sc=1 size_mc=777 size_s0=1 size_m0=1
+    -> BRANCH 2: contiguous-remaining (CHUNK clone-fold)
+    lo (K):       shape [777] stride [1]
+    lo (default): shape [777] stride [1]
+    order-fixup copy fires: false (FlagOrder default = C)
+
+=== 1000x777 rm, axes=[-1]: input shape [1000, 777] stride [777, 1] offset 0
+    ls (summed):    shape [777] stride [1]
+    lm (remaining): shape [1000] stride [777]
+    ls comp: singleton(as1)=[] broadcast(as0)=[] contig(asc)=[0] discontig(asd)=[]
+    lm comp: singleton(am1)=[] broadcast(am0)=[] contig(amc)=[] discontig(amd)=[0]
+    size_sc=777 size_mc=1 size_s0=1 size_m0=1
+    -> BRANCH 1: contiguous-summed (unrolled_reduce inner)
+    lo (K):       shape [1000] stride [1]
+    lo (default): shape [1000] stride [1]
+    order-fixup copy fires: false (FlagOrder default = C)
+
+=== 8x9x10 rm, axes=[0]: input shape [8, 9, 10] stride [90, 10, 1] offset 0
+    ls (summed):    shape [8] stride [90]
+    lm (remaining): shape [9, 10] stride [10, 1]
+    ls comp: singleton(as1)=[] broadcast(as0)=[] contig(asc)=[] discontig(asd)=[0]
+    lm comp: singleton(am1)=[] broadcast(am0)=[] contig(amc)=[1, 0] discontig(amd)=[]
+    size_sc=1 size_mc=90 size_s0=1 size_m0=1
+    -> BRANCH 2: contiguous-remaining (CHUNK clone-fold)
+    lo (K):       shape [9, 10] stride [10, 1]
+    lo (default): shape [9, 10] stride [10, 1]
+    order-fixup copy fires: false (FlagOrder default = C)
+
+=== 8x9x10 rm, axes=[-1]: input shape [8, 9, 10] stride [90, 10, 1] offset 0
+    ls (summed):    shape [10] stride [1]
+    lm (remaining): shape [8, 9] stride [90, 10]
+    ls comp: singleton(as1)=[] broadcast(as0)=[] contig(asc)=[0] discontig(asd)=[]
+    lm comp: singleton(am1)=[] broadcast(am0)=[] contig(amc)=[] discontig(amd)=[1, 0]
+    size_sc=10 size_mc=1 size_s0=1 size_m0=1
+    -> BRANCH 1: contiguous-summed (unrolled_reduce inner)
+    lo (K):       shape [8, 9] stride [9, 1]
+    lo (default): shape [8, 9] stride [9, 1]
+    order-fixup copy fires: false (FlagOrder default = C)
+
+=== 8x9x10 rm, axes=[0,1]: input shape [8, 9, 10] stride [90, 10, 1] offset 0
+    ls (summed):    shape [8, 9] stride [90, 10]
+    lm (remaining): shape [10] stride [1]
+    ls comp: singleton(as1)=[] broadcast(as0)=[] contig(asc)=[] discontig(asd)=[1, 0]
+    lm comp: singleton(am1)=[] broadcast(am0)=[] contig(amc)=[0] discontig(amd)=[]
+    size_sc=1 size_mc=10 size_s0=1 size_m0=1
+    -> BRANCH 2: contiguous-remaining (CHUNK clone-fold)
+    lo (K):       shape [10] stride [1]
+    lo (default): shape [10] stride [1]
+    order-fixup copy fires: false (FlagOrder default = C)
+
+=== 2048x2048 t-view, axes=[0]: input shape [2048, 2048] stride [1, 2048] offset 0
+    ls (summed):    shape [2048] stride [1]
+    lm (remaining): shape [2048] stride [2048]
+    ls comp: singleton(as1)=[] broadcast(as0)=[] contig(asc)=[0] discontig(asd)=[]
+    lm comp: singleton(am1)=[] broadcast(am0)=[] contig(amc)=[] discontig(amd)=[0]
+    size_sc=2048 size_mc=1 size_s0=1 size_m0=1
+    -> BRANCH 1: contiguous-summed (unrolled_reduce inner)
+    lo (K):       shape [2048] stride [1]
+    lo (default): shape [2048] stride [1]
+    order-fixup copy fires: false (FlagOrder default = C)
+
+=== 2048x2048 t-view, axes=[-1]: input shape [2048, 2048] stride [1, 2048] offset 0
+    ls (summed):    shape [2048] stride [2048]
+    lm (remaining): shape [2048] stride [1]
+    ls comp: singleton(as1)=[] broadcast(as0)=[] contig(asc)=[] discontig(asd)=[0]
+    lm comp: singleton(am1)=[] broadcast(am0)=[] contig(amc)=[0] discontig(amd)=[]
+    size_sc=1 size_mc=2048 size_s0=1 size_m0=1
+    -> BRANCH 2: contiguous-remaining (CHUNK clone-fold)
+    lo (K):       shape [2048] stride [1]
+    lo (default): shape [2048] stride [1]
+    order-fixup copy fires: false (FlagOrder default = C)
+
+=== 2048x2048 f-contig, axes=[0]: input shape [2048, 2048] stride [1, 2048] offset 0
+    ls (summed):    shape [2048] stride [1]
+    lm (remaining): shape [2048] stride [2048]
+    ls comp: singleton(as1)=[] broadcast(as0)=[] contig(asc)=[0] discontig(asd)=[]
+    lm comp: singleton(am1)=[] broadcast(am0)=[] contig(amc)=[] discontig(amd)=[0]
+    size_sc=2048 size_mc=1 size_s0=1 size_m0=1
+    -> BRANCH 1: contiguous-summed (unrolled_reduce inner)
+    lo (K):       shape [2048] stride [1]
+    lo (default): shape [2048] stride [1]
+    order-fixup copy fires: false (FlagOrder default = C)
+
+=== 2048x2048 f-contig, axes=[-1]: input shape [2048, 2048] stride [1, 2048] offset 0
+    ls (summed):    shape [2048] stride [2048]
+    lm (remaining): shape [2048] stride [1]
+    ls comp: singleton(as1)=[] broadcast(as0)=[] contig(asc)=[] discontig(asd)=[0]
+    lm comp: singleton(am1)=[] broadcast(am0)=[] contig(amc)=[0] discontig(amd)=[]
+    size_sc=1 size_mc=2048 size_s0=1 size_m0=1
+    -> BRANCH 2: contiguous-remaining (CHUNK clone-fold)
+    lo (K):       shape [2048] stride [1]
+    lo (default): shape [2048] stride [1]
+    order-fixup copy fires: false (FlagOrder default = C)
+
+=== broadcast [2048,2048] of [1,2048], axes=[0]: input shape [2048, 2048] stride [0, 1] offset 0
+    ls (summed):    shape [2048] stride [0]
+    lm (remaining): shape [2048] stride [1]
+    ls comp: singleton(as1)=[] broadcast(as0)=[0] contig(asc)=[] discontig(asd)=[]
+    lm comp: singleton(am1)=[] broadcast(am0)=[] contig(amc)=[0] discontig(amd)=[]
+    size_sc=1 size_mc=2048 size_s0=2048 size_m0=1
+    -> BRANCH 2: contiguous-remaining (CHUNK clone-fold)
+    lo (K):       shape [2048] stride [1]
+    lo (default): shape [2048] stride [1]
+    order-fixup copy fires: false (FlagOrder default = C)
+
+=== broadcast [2048,2048] of [1,2048], axes=[-1]: input shape [2048, 2048] stride [0, 1] offset 0
+    ls (summed):    shape [2048] stride [1]
+    lm (remaining): shape [2048] stride [0]
+    ls comp: singleton(as1)=[] broadcast(as0)=[] contig(asc)=[0] discontig(asd)=[]
+    lm comp: singleton(am1)=[] broadcast(am0)=[0] contig(amc)=[] discontig(amd)=[]
+    size_sc=2048 size_mc=1 size_s0=1 size_m0=2048
+    -> BRANCH 1: contiguous-summed (unrolled_reduce inner)
+    lo (K):       shape [2048] stride [1]
+    lo (default): shape [2048] stride [1]
+    order-fixup copy fires: false (FlagOrder default = C)
+
+=== reduce_all 2048x2048 rm: after translate K, size_contig=4194304 (CONTIG_SWITCH=32)

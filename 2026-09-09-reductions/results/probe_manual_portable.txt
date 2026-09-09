@@ -1,0 +1,17 @@
+--- PORTABLE ---
+axis0 current-shape: vacc+CHUNK=48 bands       0.849172 ms/iter     39.5 GB/s
+axis0 candidate: full vacc, row adds           0.628575 ms/iter     53.4 GB/s
+axis0 candidate: full vacc, 8-lane unroll      0.926992 ms/iter     36.2 GB/s
+axis0 candidate: [f64;8] row-lane accum        0.432507 ms/iter     77.6 GB/s
+axis0 naive: column walk (stride-n reads)     17.222653 ms/iter      1.9 GB/s
+
+axis1 current-shape: per-row unrolled fold     0.457158 ms/iter     73.4 GB/s
+axis1 naive: per-row scalar fold               1.485726 ms/iter     22.6 GB/s
+
+sum_all: 8-lane unrolled (current shape)       0.460376 ms/iter     72.9 GB/s
+sum_all: plain scalar fold (reference)         1.523734 ms/iter     22.0 GB/s
+
+min_all: 8-lane unrolled via f64::min (rstsr shape)   0.902314 ms/iter     37.2 GB/s
+min_all: 8-lane unrolled via strict compare    0.468162 ms/iter     71.7 GB/s
+min_all: plain scalar fold (f64::min)          1.649381 ms/iter     20.3 GB/s
+min_all: 16-lane compare unroll                0.432563 ms/iter     77.6 GB/s

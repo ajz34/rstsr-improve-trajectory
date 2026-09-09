@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Index - Criterion.rs</title>
+    <style type="text/css">
+        body {
+            font: 14px Helvetica Neue;
+            text-rendering: optimizelegibility;
+        }
+
+        .body {
+            width: 960px;
+            margin: auto;
+        }
+
+        a:link {
+            color: #1F78B4;
+            text-decoration: none;
+        }
+
+        h2 {
+            font-size: 36px;
+            font-weight: 300;
+        }
+
+        h3 {
+            font-size: 24px;
+            font-weight: 300;
+        }
+
+        #footer {
+            height: 40px;
+            background: #888;
+            color: white;
+            font-size: larger;
+            font-weight: 300;
+        }
+
+        #footer a {
+            color: white;
+            text-decoration: underline;
+        }
+
+        #footer p {
+            text-align: center
+        }
+
+        table {
+            border-collapse: collapse;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #888;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="body">
+        <h2>Criterion.rs Benchmark Index</h2>
+        See individual benchmark pages below for more details.
+        <ul>
+            <li>anchors_ndarray</li>
+            
+            <ul>
+                <li>
+                    <table>
+                        <tr>
+                            <th></th>
+                            <th>large_1e7-serial_f64</th>
+                            <th>large_2048x2048-serial_f64</th>
+                            <th>medium_512x512-serial_f64</th>
+                            <th>odd_1000x777-serial_f64</th>
+                        </tr>
+                        <tr>
+                            <th>mean_all</th>
+                            <td>anchors_ndarray/large_1e7-serial_f64/mean_all</td>
+                        </tr>
+                        <tr>
+                            <th>mean_axis1</th>
+                            <td>anchors_ndarray/large_2048x2048-serial_f64/mean_axis1</td>
+                            <td>anchors_ndarray/medium_512x512-serial_f64/mean_axis1</td>
+                            <td>anchors_ndarray/odd_1000x777-serial_f64/mean_axis1</td>
+                        </tr>
+                        <tr>
+                            <th>sum_all</th>
+                            <td>anchors_ndarray/large_1e7-serial_f64/sum_all</td>
+                            <td>anchors_ndarray/large_2048x2048-serial_f64/sum_all</td>
+                            <td>anchors_ndarray/medium_512x512-serial_f64/sum_all</td>
+                            <td>anchors_ndarray/odd_1000x777-serial_f64/sum_all</td>
+                        </tr>
+                        <tr>
+                            <th>sum_axis0</th>
+                            <td>anchors_ndarray/large_2048x2048-serial_f64/sum_axis0</td>
+                            <td>anchors_ndarray/medium_512x512-serial_f64/sum_axis0</td>
+                            <td>anchors_ndarray/odd_1000x777-serial_f64/sum_axis0</td>
+                        </tr>
+                        <tr>
+                            <th>sum_axis1</th>
+                            <td>anchors_ndarray/large_2048x2048-serial_f64/sum_axis1</td>
+                            <td>anchors_ndarray/medium_512x512-serial_f64/sum_axis1</td>
+                            <td>anchors_ndarray/odd_1000x777-serial_f64/sum_axis1</td>
+                        </tr>
+                        <tr>
+                            <th>var_all</th>
+                            <td>anchors_ndarray/large_1e7-serial_f64/var_all</td>
+                        </tr>
+                        <tr>
+                            <th>var_axis1</th>
+                            <td>anchors_ndarray/large_2048x2048-serial_f64/var_axis1</td>
+                            <td>anchors_ndarray/medium_512x512-serial_f64/var_axis1</td>
+                            <td>anchors_ndarray/odd_1000x777-serial_f64/var_axis1</td>
+                        </tr>
+                    </table>
+                </li>
+            </ul>
+            <li><a href="../reduce1d/report/index.html">reduce1d</a></li>
+            
+            <ul>
+                <li>
+                    <table>
+                        <tr>
+                            <th></th>
+                            <th><a href="../reduce1d/large_1e7-faer16_f64/report/index.html">large_1e7-faer16_f64</a></th>
+                            <th><a href="../reduce1d/large_1e7-serial_f64/report/index.html">large_1e7-serial_f64</a></th>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce1d/max_all/report/index.html">max_all</a></th>
+                            <td><a href="../reduce1d/large_1e7-faer16_f64/max_all/report/index.html">reduce1d/large_1e7-faer16_f64/max_all</a></td>
+                            <td><a href="../reduce1d/large_1e7-serial_f64/max_all/report/index.html">reduce1d/large_1e7-serial_f64/max_all</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce1d/mean_all/report/index.html">mean_all</a></th>
+                            <td><a href="../reduce1d/large_1e7-faer16_f64/mean_all/report/index.html">reduce1d/large_1e7-faer16_f64/mean_all</a></td>
+                            <td><a href="../reduce1d/large_1e7-serial_f64/mean_all/report/index.html">reduce1d/large_1e7-serial_f64/mean_all</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce1d/min_all/report/index.html">min_all</a></th>
+                            <td><a href="../reduce1d/large_1e7-faer16_f64/min_all/report/index.html">reduce1d/large_1e7-faer16_f64/min_all</a></td>
+                            <td><a href="../reduce1d/large_1e7-serial_f64/min_all/report/index.html">reduce1d/large_1e7-serial_f64/min_all</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce1d/norm_all/report/index.html">norm_all</a></th>
+                            <td><a href="../reduce1d/large_1e7-faer16_f64/norm_all/report/index.html">reduce1d/large_1e7-faer16_f64/norm_all</a></td>
+                            <td><a href="../reduce1d/large_1e7-serial_f64/norm_all/report/index.html">reduce1d/large_1e7-serial_f64/norm_all</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce1d/sum_all/report/index.html">sum_all</a></th>
+                            <td><a href="../reduce1d/large_1e7-faer16_f64/sum_all/report/index.html">reduce1d/large_1e7-faer16_f64/sum_all</a></td>
+                            <td><a href="../reduce1d/large_1e7-serial_f64/sum_all/report/index.html">reduce1d/large_1e7-serial_f64/sum_all</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce1d/var_all/report/index.html">var_all</a></th>
+                            <td><a href="../reduce1d/large_1e7-faer16_f64/var_all/report/index.html">reduce1d/large_1e7-faer16_f64/var_all</a></td>
+                            <td><a href="../reduce1d/large_1e7-serial_f64/var_all/report/index.html">reduce1d/large_1e7-serial_f64/var_all</a></td>
+                        </tr>
+                    </table>
+                </li>
+            </ul>
+            <li><a href="../reduce2d/report/index.html">reduce2d</a></li>
+            
+            <ul>
+                <li>
+                    <table>
+                        <tr>
+                            <th></th>
+                            <th><a href="../reduce2d/large_2048x2048-faer16_f64/report/index.html">large_2048x2048-faer16_f64</a></th>
+                            <th><a href="../reduce2d/large_2048x2048-serial_f64/report/index.html">large_2048x2048-serial_f64</a></th>
+                            <th><a href="../reduce2d/medium_512x512-faer16_f64/report/index.html">medium_512x512-faer16_f64</a></th>
+                            <th><a href="../reduce2d/medium_512x512-serial_f64/report/index.html">medium_512x512-serial_f64</a></th>
+                            <th><a href="../reduce2d/odd_1000x777-faer16_f64/report/index.html">odd_1000x777-faer16_f64</a></th>
+                            <th><a href="../reduce2d/odd_1000x777-serial_f64/report/index.html">odd_1000x777-serial_f64</a></th>
+                            <th><a href="../reduce2d/small_64x64-faer16_f64/report/index.html">small_64x64-faer16_f64</a></th>
+                            <th><a href="../reduce2d/small_64x64-serial_f64/report/index.html">small_64x64-serial_f64</a></th>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce2d/max_axis0/report/index.html">max_axis0</a></th>
+                            <td><a href="../reduce2d/large_2048x2048-faer16_f64/max_axis0/report/index.html">reduce2d/large_2048x2048-faer16_f64/max_axis0</a></td>
+                            <td><a href="../reduce2d/large_2048x2048-serial_f64/max_axis0/report/index.html">reduce2d/large_2048x2048-serial_f64/max_axis0</a></td>
+                            <td><a href="../reduce2d/medium_512x512-faer16_f64/max_axis0/report/index.html">reduce2d/medium_512x512-faer16_f64/max_axis0</a></td>
+                            <td><a href="../reduce2d/medium_512x512-serial_f64/max_axis0/report/index.html">reduce2d/medium_512x512-serial_f64/max_axis0</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce2d/mean_axis1/report/index.html">mean_axis1</a></th>
+                            <td><a href="../reduce2d/large_2048x2048-faer16_f64/mean_axis1/report/index.html">reduce2d/large_2048x2048-faer16_f64/mean_axis1</a></td>
+                            <td><a href="../reduce2d/large_2048x2048-serial_f64/mean_axis1/report/index.html">reduce2d/large_2048x2048-serial_f64/mean_axis1</a></td>
+                            <td><a href="../reduce2d/medium_512x512-faer16_f64/mean_axis1/report/index.html">reduce2d/medium_512x512-faer16_f64/mean_axis1</a></td>
+                            <td><a href="../reduce2d/medium_512x512-serial_f64/mean_axis1/report/index.html">reduce2d/medium_512x512-serial_f64/mean_axis1</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce2d/min_axis0/report/index.html">min_axis0</a></th>
+                            <td><a href="../reduce2d/large_2048x2048-faer16_f64/min_axis0/report/index.html">reduce2d/large_2048x2048-faer16_f64/min_axis0</a></td>
+                            <td><a href="../reduce2d/large_2048x2048-serial_f64/min_axis0/report/index.html">reduce2d/large_2048x2048-serial_f64/min_axis0</a></td>
+                            <td><a href="../reduce2d/medium_512x512-faer16_f64/min_axis0/report/index.html">reduce2d/medium_512x512-faer16_f64/min_axis0</a></td>
+                            <td><a href="../reduce2d/medium_512x512-serial_f64/min_axis0/report/index.html">reduce2d/medium_512x512-serial_f64/min_axis0</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce2d/norm_all/report/index.html">norm_all</a></th>
+                            <td><a href="../reduce2d/large_2048x2048-faer16_f64/norm_all/report/index.html">reduce2d/large_2048x2048-faer16_f64/norm_all</a></td>
+                            <td><a href="../reduce2d/large_2048x2048-serial_f64/norm_all/report/index.html">reduce2d/large_2048x2048-serial_f64/norm_all</a></td>
+                            <td><a href="../reduce2d/medium_512x512-faer16_f64/norm_all/report/index.html">reduce2d/medium_512x512-faer16_f64/norm_all</a></td>
+                            <td><a href="../reduce2d/medium_512x512-serial_f64/norm_all/report/index.html">reduce2d/medium_512x512-serial_f64/norm_all</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce2d/sum_all/report/index.html">sum_all</a></th>
+                            <td><a href="../reduce2d/large_2048x2048-faer16_f64/sum_all/report/index.html">reduce2d/large_2048x2048-faer16_f64/sum_all</a></td>
+                            <td><a href="../reduce2d/large_2048x2048-serial_f64/sum_all/report/index.html">reduce2d/large_2048x2048-serial_f64/sum_all</a></td>
+                            <td><a href="../reduce2d/medium_512x512-faer16_f64/sum_all/report/index.html">reduce2d/medium_512x512-faer16_f64/sum_all</a></td>
+                            <td><a href="../reduce2d/medium_512x512-serial_f64/sum_all/report/index.html">reduce2d/medium_512x512-serial_f64/sum_all</a></td>
+                            <td><a href="../reduce2d/odd_1000x777-faer16_f64/sum_all/report/index.html">reduce2d/odd_1000x777-faer16_f64/sum_all</a></td>
+                            <td><a href="../reduce2d/odd_1000x777-serial_f64/sum_all/report/index.html">reduce2d/odd_1000x777-serial_f64/sum_all</a></td>
+                            <td><a href="../reduce2d/small_64x64-faer16_f64/sum_all/report/index.html">reduce2d/small_64x64-faer16_f64/sum_all</a></td>
+                            <td><a href="../reduce2d/small_64x64-serial_f64/sum_all/report/index.html">reduce2d/small_64x64-serial_f64/sum_all</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce2d/sum_axis0/report/index.html">sum_axis0</a></th>
+                            <td><a href="../reduce2d/large_2048x2048-faer16_f64/sum_axis0/report/index.html">reduce2d/large_2048x2048-faer16_f64/sum_axis0</a></td>
+                            <td><a href="../reduce2d/large_2048x2048-serial_f64/sum_axis0/report/index.html">reduce2d/large_2048x2048-serial_f64/sum_axis0</a></td>
+                            <td><a href="../reduce2d/medium_512x512-faer16_f64/sum_axis0/report/index.html">reduce2d/medium_512x512-faer16_f64/sum_axis0</a></td>
+                            <td><a href="../reduce2d/medium_512x512-serial_f64/sum_axis0/report/index.html">reduce2d/medium_512x512-serial_f64/sum_axis0</a></td>
+                            <td><a href="../reduce2d/odd_1000x777-faer16_f64/sum_axis0/report/index.html">reduce2d/odd_1000x777-faer16_f64/sum_axis0</a></td>
+                            <td><a href="../reduce2d/odd_1000x777-serial_f64/sum_axis0/report/index.html">reduce2d/odd_1000x777-serial_f64/sum_axis0</a></td>
+                            <td><a href="../reduce2d/small_64x64-faer16_f64/sum_axis0/report/index.html">reduce2d/small_64x64-faer16_f64/sum_axis0</a></td>
+                            <td><a href="../reduce2d/small_64x64-serial_f64/sum_axis0/report/index.html">reduce2d/small_64x64-serial_f64/sum_axis0</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce2d/sum_axis1/report/index.html">sum_axis1</a></th>
+                            <td><a href="../reduce2d/large_2048x2048-faer16_f64/sum_axis1/report/index.html">reduce2d/large_2048x2048-faer16_f64/sum_axis1</a></td>
+                            <td><a href="../reduce2d/large_2048x2048-serial_f64/sum_axis1/report/index.html">reduce2d/large_2048x2048-serial_f64/sum_axis1</a></td>
+                            <td><a href="../reduce2d/medium_512x512-faer16_f64/sum_axis1/report/index.html">reduce2d/medium_512x512-faer16_f64/sum_axis1</a></td>
+                            <td><a href="../reduce2d/medium_512x512-serial_f64/sum_axis1/report/index.html">reduce2d/medium_512x512-serial_f64/sum_axis1</a></td>
+                            <td><a href="../reduce2d/odd_1000x777-faer16_f64/sum_axis1/report/index.html">reduce2d/odd_1000x777-faer16_f64/sum_axis1</a></td>
+                            <td><a href="../reduce2d/odd_1000x777-serial_f64/sum_axis1/report/index.html">reduce2d/odd_1000x777-serial_f64/sum_axis1</a></td>
+                            <td><a href="../reduce2d/small_64x64-faer16_f64/sum_axis1/report/index.html">reduce2d/small_64x64-faer16_f64/sum_axis1</a></td>
+                            <td><a href="../reduce2d/small_64x64-serial_f64/sum_axis1/report/index.html">reduce2d/small_64x64-serial_f64/sum_axis1</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce2d/var_axis1/report/index.html">var_axis1</a></th>
+                            <td><a href="../reduce2d/large_2048x2048-faer16_f64/var_axis1/report/index.html">reduce2d/large_2048x2048-faer16_f64/var_axis1</a></td>
+                            <td><a href="../reduce2d/large_2048x2048-serial_f64/var_axis1/report/index.html">reduce2d/large_2048x2048-serial_f64/var_axis1</a></td>
+                            <td><a href="../reduce2d/medium_512x512-faer16_f64/var_axis1/report/index.html">reduce2d/medium_512x512-faer16_f64/var_axis1</a></td>
+                            <td><a href="../reduce2d/medium_512x512-serial_f64/var_axis1/report/index.html">reduce2d/medium_512x512-serial_f64/var_axis1</a></td>
+                        </tr>
+                    </table>
+                </li>
+            </ul>
+            <li><a href="../reduce2d_f32/report/index.html">reduce2d_f32</a></li>
+            
+            <ul>
+                <li>
+                    <table>
+                        <tr>
+                            <th></th>
+                            <th>large_1e7-serial_f32</th>
+                            <th><a href="../reduce2d_f32/large_2048x2048-faer16_f32/report/index.html">large_2048x2048-faer16_f32</a></th>
+                            <th><a href="../reduce2d_f32/large_2048x2048-serial_f32/report/index.html">large_2048x2048-serial_f32</a></th>
+                        </tr>
+                        <tr>
+                            <th>min_axis0</th>
+                            <td><a href="../reduce2d_f32/large_2048x2048-serial_f32/min_axis0/report/index.html">reduce2d_f32/large_2048x2048-serial_f32/min_axis0</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce2d_f32/sum_all/report/index.html">sum_all</a></th>
+                            <td><a href="../reduce2d_f32/large_1e7-serial_f32/sum_all/report/index.html">reduce2d_f32/large_1e7-serial_f32/sum_all</a></td>
+                            <td><a href="../reduce2d_f32/large_2048x2048-serial_f32/sum_all/report/index.html">reduce2d_f32/large_2048x2048-serial_f32/sum_all</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce2d_f32/sum_axis0/report/index.html">sum_axis0</a></th>
+                            <td><a href="../reduce2d_f32/large_2048x2048-faer16_f32/sum_axis0/report/index.html">reduce2d_f32/large_2048x2048-faer16_f32/sum_axis0</a></td>
+                            <td><a href="../reduce2d_f32/large_2048x2048-serial_f32/sum_axis0/report/index.html">reduce2d_f32/large_2048x2048-serial_f32/sum_axis0</a></td>
+                        </tr>
+                        <tr>
+                            <th><a href="../reduce2d_f32/sum_axis1/report/index.html">sum_axis1</a></th>
+                            <td><a href="../reduce2d_f32/large_2048x2048-faer16_f32/sum_axis1/report/index.html">reduce2d_f32/large_2048x2048-faer16_f32/sum_axis1</a></td>
+                            <td><a href="../reduce2d_f32/large_2048x2048-serial_f32/sum_axis1/report/index.html">reduce2d_f32/large_2048x2048-serial_f32/sum_axis1</a></td>
+                        </tr>
+                    </table>
+                </li>
+            </ul>
+        </ul>
+    </div>
+    <div id="footer">
+        <p>This report was generated by
+            <a href="https://github.com/bheisler/criterion.rs">Criterion.rs</a>, a statistics-driven benchmarking
+            library in Rust.</p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,33 @@
+numpy 2.5.1 (conda env: torch); single-threaded anchors
+repeat=5, best/median wall time
+
+medium_512x512 f64: sum axis0                           best=     0.029 ms  median=     0.029 ms  best_GBs=    72.8
+medium_512x512 f64: sum axis1                           best=     0.034 ms  median=     0.035 ms  best_GBs=    60.9
+medium_512x512 f64: sum all                             best=     0.029 ms  median=     0.029 ms  best_GBs=    73.4
+medium_512x512 f64: mean axis1                          best=     0.036 ms  median=     0.037 ms  best_GBs=    57.9
+medium_512x512 f64: var axis1                           best=     0.181 ms  median=     0.181 ms  best_GBs=    11.6
+medium_512x512 f64: min axis0                           best=     0.036 ms  median=     0.036 ms  best_GBs=    59.0
+
+large_2048x2048 f64: sum axis0                          best=     0.423 ms  median=     0.426 ms  best_GBs=    79.4
+large_2048x2048 f64: sum axis1                          best=     0.455 ms  median=     0.455 ms  best_GBs=    73.7
+large_2048x2048 f64: sum all                            best=     0.423 ms  median=     0.424 ms  best_GBs=    79.3
+large_2048x2048 f64: mean axis1                         best=     0.459 ms  median=     0.459 ms  best_GBs=    73.1
+large_2048x2048 f64: var axis1                          best=     2.828 ms  median=     2.871 ms  best_GBs=    11.9
+large_2048x2048 f64: min axis0                          best=     0.372 ms  median=     0.381 ms  best_GBs=    90.1
+
+odd_1000x777 f64: sum axis0                             best=     0.065 ms  median=     0.066 ms  best_GBs=    95.3
+odd_1000x777 f64: sum axis1                             best=     0.093 ms  median=     0.093 ms  best_GBs=    66.6
+odd_1000x777 f64: sum all                               best=     0.083 ms  median=     0.083 ms  best_GBs=    75.0
+odd_1000x777 f64: mean axis1                            best=     0.095 ms  median=     0.096 ms  best_GBs=    65.5
+odd_1000x777 f64: var axis1                             best=     0.466 ms  median=     0.469 ms  best_GBs=    13.3
+odd_1000x777 f64: min axis0                             best=     0.086 ms  median=     0.086 ms  best_GBs=    72.6
+
+large_1e7 f64: sum                                      best=     2.112 ms  median=     2.169 ms  best_GBs=    37.9
+large_1e7 f64: mean                                     best=     1.925 ms  median=     1.949 ms  best_GBs=    41.6
+large_1e7 f64: var                                      best=    12.380 ms  median=    12.591 ms  best_GBs=     6.5
+large_1e7 f64: l2 norm                                  best=     0.249 ms  median=     0.270 ms  best_GBs=   321.0
+large_1e7 f64: min                                      best=     1.174 ms  median=     1.198 ms  best_GBs=    68.1
+large_1e7 f64: max                                      best=     1.152 ms  median=     1.162 ms  best_GBs=    69.4
+
+broadcast semantics ref: sum(axis=0) of [5,6] broadcast of [1,6]:
+  numpy: [ 5. 10. 15. 20. 25. 30.]  (rstsr 386948be gives 6x values — see correctness gate)

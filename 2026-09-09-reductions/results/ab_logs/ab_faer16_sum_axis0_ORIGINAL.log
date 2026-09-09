@@ -1,0 +1,18 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/reduce.rs (target/release/deps/reduce-8511a580996c83da)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_axis0
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_axis0: Warming up for 700.00 ms
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_axis0: Collecting 100 samples in estimated 3.0265 s (10k iterations)
+Benchmarking reduce2d/large_2048x2048-faer16_f64/sum_axis0: Analyzing
+reduce2d/large_2048x2048-faer16_f64/sum_axis0
+                        time:   [298.02 µs 302.49 µs 307.89 µs]
+                        change: [-27.046% -25.599% -24.090%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low severe
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+

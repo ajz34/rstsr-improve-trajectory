@@ -1,0 +1,146 @@
+-- device: DeviceCpuSerial
+  [ok   1] shape sum_axes(0) 8x6 == [6]
+  [ok   2] shape sum_axes(-1) 8x6 == [8]
+  [ok   3] sum_axis0 8x6
+  [ok   4] sum_axis1 8x6
+  [ok   5] mean_axis0 8x6
+  [ok   6] mean_axis1 8x6
+  [ok   7] var_axis0 8x6
+  [ok   8] var_axis1 8x6
+  [ok   9] norm_axis0 8x6
+  [ok  10] norm_axis1 8x6
+  [ok  11] min_axis0 8x6
+  [ok  12] min_axis1 8x6
+  [ok  13] max_axis0 8x6
+  [ok  14] max_axis1 8x6
+  [ok  15] sum_all 8x6
+  [ok  16] mean_all 8x6
+  [ok  17] var_all 8x6
+  [ok  18] norm_all 8x6
+  [ok  19] min_all 8x6
+  [ok  20] max_all 8x6
+  [ok  21] shape sum_axes(0) 1000x777 == [777]
+  [ok  22] shape sum_axes(-1) 1000x777 == [1000]
+  [ok  23] sum_axis0 1000x777
+  [ok  24] sum_axis1 1000x777
+  [ok  25] mean_axis0 1000x777
+  [ok  26] mean_axis1 1000x777
+  [ok  27] var_axis0 1000x777
+  [ok  28] var_axis1 1000x777
+  [ok  29] norm_axis0 1000x777
+  [ok  30] norm_axis1 1000x777
+  [ok  31] min_axis0 1000x777
+  [ok  32] min_axis1 1000x777
+  [ok  33] max_axis0 1000x777
+  [ok  34] max_axis1 1000x777
+  [ok  35] sum_all 1000x777
+  [ok  36] mean_all 1000x777
+  [ok  37] var_all 1000x777
+  [ok  38] norm_all 1000x777
+  [ok  39] min_all 1000x777
+  [ok  40] max_all 1000x777
+  [ok  41] sum_axis0 3-D 4x5x7
+  [ok  42] sum_axis2 3-D 4x5x7
+  [ok  43] shape sum_axes(0) 3-D == [q, r_]
+  [ok  44] min_axis0 3-D 4x5x7
+  [ok  45] broadcast-row add+sum_axis0 200x777
+  [ok  46] explicit zero-stride sum_axis0 200x777 (CURRENT-BEHAVIOR lock, upstream bug)
+  [ok  47] explicit zero-stride mean_axis0 200x777 (CURRENT-BEHAVIOR lock, upstream bug)
+  [ok  48] explicit zero-stride min_axis0 200x777
+  [ok  49] explicit zero-stride sum_axis1 200x777
+  [ok  50] sum_axis0 of t-view
+  [ok  51] sum_axis1 of t-view
+  [ok  52] NaN poisons sum of its row (axis1)
+  [ok  53] NaN poisons sum of its column (axis0)
+  [ok  54] NaN poisons var of its row
+  [ok  55] NaN poisons norm of its row
+  [ok  56] NaN skipped by min_axis1
+  [ok  57] NaN skipped by max_axis1
+  [ok  58] all-NaN axis0: min -> +MAX seed, max -> -MIN seed
+  [ok  59] all-NaN sum_all -> NaN
+  [ok  60] signbit lock: min_all([-0,+0]) keeps incumbent -0.0 (value == 0.0)
+  [ok  61] signbit lock: max_all([+0,-0]) keeps incumbent +0.0 (value == 0.0)
+  [ok  62] signbit lock: min_axes(-1) [[-0,+0],[+0,-0]] -> [-0,+0] (incumbent kept: -0.0 == +0.0)
+  [ok  63] signbit lock: max_axes(-1) [[-0,+0],[+0,-0]] -> [-0,+0] (incumbent kept)
+  [ok  64] signbit lock: min_axes(0) [[-0,+0],[+0,-0]] -> [-0,+0] (incumbent kept)
+  [ok  65] i32 min_axis0 64x97
+  [ok  66] i32 max_axis1 64x97
+  [ok  67] i32 min_all
+  [ok  68] i32 max_all
+  [ok  69] sum_axis0 f32 255x769
+  [ok  70] sum_axis1 f32 255x769
+  [ok  71] min_axis0 f32 255x769
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+-- device: DeviceFaer (rayon, 16 threads)
+  [ok  72] shape sum_axes(0) 8x6 == [6]
+  [ok  73] shape sum_axes(-1) 8x6 == [8]
+  [ok  74] sum_axis0 8x6
+  [ok  75] sum_axis1 8x6
+  [ok  76] mean_axis0 8x6
+  [ok  77] mean_axis1 8x6
+  [ok  78] var_axis0 8x6
+  [ok  79] var_axis1 8x6
+  [ok  80] norm_axis0 8x6
+  [ok  81] norm_axis1 8x6
+  [ok  82] min_axis0 8x6
+  [ok  83] min_axis1 8x6
+  [ok  84] max_axis0 8x6
+  [ok  85] max_axis1 8x6
+  [ok  86] sum_all 8x6
+  [ok  87] mean_all 8x6
+  [ok  88] var_all 8x6
+  [ok  89] norm_all 8x6
+  [ok  90] min_all 8x6
+  [ok  91] max_all 8x6
+  [ok  92] shape sum_axes(0) 1000x777 == [777]
+  [ok  93] shape sum_axes(-1) 1000x777 == [1000]
+  [ok  94] sum_axis0 1000x777
+  [ok  95] sum_axis1 1000x777
+  [ok  96] mean_axis0 1000x777
+  [ok  97] mean_axis1 1000x777
+  [ok  98] var_axis0 1000x777
+  [ok  99] var_axis1 1000x777
+  [ok 100] norm_axis0 1000x777
+  [ok 101] norm_axis1 1000x777
+  [ok 102] min_axis0 1000x777
+  [ok 103] min_axis1 1000x777
+  [ok 104] max_axis0 1000x777
+  [ok 105] max_axis1 1000x777
+  [ok 106] sum_all 1000x777
+  [ok 107] mean_all 1000x777
+  [ok 108] var_all 1000x777
+  [ok 109] norm_all 1000x777
+  [ok 110] min_all 1000x777
+  [ok 111] max_all 1000x777
+  [ok 112] sum_axis0 3-D 4x5x7
+  [ok 113] sum_axis2 3-D 4x5x7
+  [ok 114] shape sum_axes(0) 3-D == [q, r_]
+  [ok 115] min_axis0 3-D 4x5x7
+  [ok 116] broadcast-row add+sum_axis0 200x777
+  [ok 117] explicit zero-stride sum_axis0 200x777 (CURRENT-BEHAVIOR lock, upstream bug)
+  [ok 118] explicit zero-stride mean_axis0 200x777 (CURRENT-BEHAVIOR lock, upstream bug)
+  [ok 119] explicit zero-stride min_axis0 200x777
+  [ok 120] explicit zero-stride sum_axis1 200x777
+  [ok 121] sum_axis0 of t-view
+  [ok 122] sum_axis1 of t-view
+  [ok 123] NaN poisons sum of its row (axis1)
+  [ok 124] NaN poisons sum of its column (axis0)
+  [ok 125] NaN poisons var of its row
+  [ok 126] NaN poisons norm of its row
+  [ok 127] NaN skipped by min_axis1
+  [ok 128] NaN skipped by max_axis1
+  [ok 129] all-NaN axis0: min -> +MAX seed, max -> -MIN seed
+  [ok 130] all-NaN sum_all -> NaN
+  [ok 131] signbit lock: min_all([-0,+0]) keeps incumbent -0.0 (value == 0.0)
+  [ok 132] signbit lock: max_all([+0,-0]) keeps incumbent +0.0 (value == 0.0)
+  [ok 133] signbit lock: min_axes(-1) [[-0,+0],[+0,-0]] -> [-0,+0] (incumbent kept: -0.0 == +0.0)
+  [ok 134] signbit lock: max_axes(-1) [[-0,+0],[+0,-0]] -> [-0,+0] (incumbent kept)
+  [ok 135] signbit lock: min_axes(0) [[-0,+0],[+0,-0]] -> [-0,+0] (incumbent kept)
+  [ok 136] i32 min_axis0 64x97
+  [ok 137] i32 max_axis1 64x97
+  [ok 138] i32 min_all
+  [ok 139] i32 max_all
+  [ok 140] sum_axis0 f32 255x769
+  [ok 141] sum_axis1 f32 255x769
+  [ok 142] min_axis0 f32 255x769
+correctness gate: ALL PASSED (142 checks; per-device counts above)
