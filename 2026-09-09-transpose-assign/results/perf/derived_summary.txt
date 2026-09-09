@@ -1,0 +1,56 @@
+# Derived perf metrics — T1' baseline (native config, profile_ops runner)
+# Element count 2048x2048 = 4,194,304. Traffic = 2x tensor bytes (64 MiB).
+# Raw outputs: perf_tb_serial.txt, perf_tb_faer16.txt, perf_ta_serial.txt.
+
+[transpose B (c.assign reuse), serial, 40 iters, 16.853 ms/iter wall]
+task-clock          691.87 ms   (1.0 CPU)
+instructions   18,082,789,719   -> 107.8 ins/elem
+cpu-cycles      3,759,598,519   -> 22.4 cyc/elem  (5.4 GHz)
+IPC                             -> 4.81
+L1-dcache-load-misses 281.5M    -> 2.9% miss rate
+branches        3,860,208,115   -> 920 branch/elem (iterator machinery)
+page-faults         16,474 total -> ~20/iter steady-state
+                                   (16,386 = startup: fixture a + warmed c;
+                                    NO per-iteration fault rider in B)
+GB/s (2x bytes)                 -> 4.0
+
+[transpose B, faer16, 400 iters, 1.534 ms/iter wall]
+task-clock        9,718.39 ms   (15.4 CPUs aggregate)
+instructions  194,755,183,080   -> 116.2 ins/elem aggregate (4.9 GHz, IPC 4.1)
+L1-dcache-load-misses   2.9B    -> 2.7% miss rate
+page-faults         17,087 total -> startup only
+GB/s (2x bytes)                 -> 43.8 aggregate
+
+[transpose A (allocating idiom), serial, 30 iters, 22.482 ms/iter wall]
+instructions   15,053,448,790   -> 119.7 ins/elem  (reproduces T0's ~122 A-profile)
+page-faults        254,070 total -> 8,469/iter = one fresh 32 MiB output mmap/munmap
+                                   per iteration (T7 rider mechanism confirmed)
+GB/s (2x bytes)                 -> 3.0
+
+Reading: the B kernel is an instruction mountain (108 ins/elem at IPC ~4.8,
+2.9% L1d misses) exactly like the elementwise strided branch (161.6 ins/elem
+with 3 iterators; ~108 with 2 here). The direct blocked-kernel probe
+(5.70 ms = 11.3 GB/s, ~14 ins/elem class) is the phase-2 candidate bound.
+
+# ============================================================================
+# PHASE 2 (candidate tree, same runner): *_after.txt
+# ============================================================================
+
+[transpose B, serial, after, 40 iters, 6.028 ms/iter wall (was 16.853)]
+instructions    2,211,739,335   -> 13.2 ins/elem   (was 107.8  -> 8.2x fewer)
+cpu-cycles      1,446,281,804   -> 8.6 cyc/elem    (was 22.4)
+IPC                             -> 1.53
+L1-dcache-load-misses 197.7M    -> 49.9% miss rate (was 2.9%: now MEMORY-bound,
+                                   which is the correct regime for a copy)
+page-faults         16,473 total -> startup only (unchanged)
+GB/s (2x bytes)                 -> 11.1 (was 4.0)
+
+[transpose B, faer16, after, 400 iters, 0.548 ms/iter wall (was 1.534)]
+instructions   29,938,010,634   -> 17.9 ins/elem aggregate (was 116.2)
+task-clock        3,563.98 ms   (14.8 CPUs; was 15.4)
+GB/s (2x bytes)                 -> 122.5 aggregate (was 43.8)
+
+[transpose A, serial, after, 30 iters, 10.519 ms/iter wall (was 22.482)]
+instructions    3,109,428,897   -> 24.7 ins/elem (was 119.7)
+page-faults        254,069 total -> 8,469/iter (fresh-output rider, unchanged
+                                   by design; A rows stay rider-masked)

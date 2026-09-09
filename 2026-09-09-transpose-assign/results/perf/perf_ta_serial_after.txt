@@ -1,0 +1,22 @@
+# started on Wed Sep  9 07:54:13 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops ta_serial':
+
+                12      context-switches                 #     36.8 cs/sec  cs_per_second     
+                 9      cpu-migrations                   #     27.6 migrations/sec  migrations_per_second
+           254,069      page-faults                      # 779175.4 faults/sec  page_faults_per_second
+            326.07 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+       173,722,895      L1-dcache-load-misses            #     18.5 %  l1d_miss_rate            (42.54%)
+         1,032,712      branch-misses                    #      0.2 %  branch_miss_rate         (42.86%)
+       626,003,201      branches                         #   1919.8 M/sec  branch_frequency     (43.16%)
+     1,824,184,210      cpu-cycles                       #      5.6 GHz  cycles_frequency       (43.22%)
+     3,109,428,897      instructions                     #      1.7 instructions  insn_per_cycle  (43.06%)
+       155,215,233      stalled-cycles-frontend          #     0.09 frontend_cycles_idle        (42.73%)
+
+       0.326510042 seconds time elapsed
+
+       0.177686000 seconds user
+       0.148737000 seconds sys
+
+

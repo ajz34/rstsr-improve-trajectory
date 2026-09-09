@@ -1,0 +1,3 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/kernels_probe.rs (target/release/deps/kernels_probe-f27e8d4946c94d19)
+Gnuplot not found, using plotters backend

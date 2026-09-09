@@ -1,0 +1,570 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/transpose.rs (target/release/deps/transpose-47ee5b05630b4756)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking transpose_copy/small_64x64-serial_f64/A
+Benchmarking transpose_copy/small_64x64-serial_f64/A: Warming up for 700.00 ms
+Benchmarking transpose_copy/small_64x64-serial_f64/A: Collecting 100 samples in estimated 2.0060 s (146k iterations)
+Benchmarking transpose_copy/small_64x64-serial_f64/A: Analyzing
+transpose_copy/small_64x64-serial_f64/A
+                        time:   [13.600 µs 13.604 µs 13.608 µs]
+                        change: [-0.0977% +0.0878% +0.2047%] (p = 0.34 > 0.05)
+                        No change in performance detected.
+Found 8 outliers among 100 measurements (8.00%)
+  6 (6.00%) high mild
+  2 (2.00%) high severe
+Benchmarking transpose_copy/small_64x64-serial_f64/B
+Benchmarking transpose_copy/small_64x64-serial_f64/B: Warming up for 700.00 ms
+Benchmarking transpose_copy/small_64x64-serial_f64/B: Collecting 100 samples in estimated 2.0084 s (141k iterations)
+Benchmarking transpose_copy/small_64x64-serial_f64/B: Analyzing
+transpose_copy/small_64x64-serial_f64/B
+                        time:   [14.072 µs 14.086 µs 14.107 µs]
+                        change: [+0.1660% +0.4186% +0.8154%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high severe
+Benchmarking transpose_copy/small_64x64-faer16_f64/A
+Benchmarking transpose_copy/small_64x64-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking transpose_copy/small_64x64-faer16_f64/A: Collecting 100 samples in estimated 2.0016 s (146k iterations)
+Benchmarking transpose_copy/small_64x64-faer16_f64/A: Analyzing
+transpose_copy/small_64x64-faer16_f64/A
+                        time:   [13.549 µs 13.581 µs 13.624 µs]
+                        change: [-1.1944% -0.9416% -0.5931%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  7 (7.00%) high severe
+Benchmarking transpose_copy/small_64x64-faer16_f64/B
+Benchmarking transpose_copy/small_64x64-faer16_f64/B: Warming up for 700.00 ms
+Benchmarking transpose_copy/small_64x64-faer16_f64/B: Collecting 100 samples in estimated 2.0711 s (146k iterations)
+Benchmarking transpose_copy/small_64x64-faer16_f64/B: Analyzing
+transpose_copy/small_64x64-faer16_f64/B
+                        time:   [14.035 µs 14.039 µs 14.044 µs]
+                        change: [-0.7306% -0.6852% -0.6393%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) low severe
+  2 (2.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking transpose_copy/medium_512x512-serial_f64/A
+Benchmarking transpose_copy/medium_512x512-serial_f64/A: Warming up for 700.00 ms
+Benchmarking transpose_copy/medium_512x512-serial_f64/A: Collecting 100 samples in estimated 2.0484 s (2500 iterations)
+Benchmarking transpose_copy/medium_512x512-serial_f64/A: Analyzing
+transpose_copy/medium_512x512-serial_f64/A
+                        time:   [813.25 µs 813.44 µs 813.64 µs]
+                        change: [-0.0661% -0.0040% +0.0420%] (p = 0.90 > 0.05)
+                        No change in performance detected.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+Benchmarking transpose_copy/medium_512x512-serial_f64/B
+Benchmarking transpose_copy/medium_512x512-serial_f64/B: Warming up for 700.00 ms
+Benchmarking transpose_copy/medium_512x512-serial_f64/B: Collecting 100 samples in estimated 2.0568 s (2500 iterations)
+Benchmarking transpose_copy/medium_512x512-serial_f64/B: Analyzing
+transpose_copy/medium_512x512-serial_f64/B
+                        time:   [816.28 µs 816.41 µs 816.54 µs]
+                        change: [+0.1451% +0.1720% +0.1978%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking transpose_copy/medium_512x512-faer16_f64/A
+Benchmarking transpose_copy/medium_512x512-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking transpose_copy/medium_512x512-faer16_f64/A: Collecting 100 samples in estimated 2.0461 s (10k iterations)
+Benchmarking transpose_copy/medium_512x512-faer16_f64/A: Analyzing
+transpose_copy/medium_512x512-faer16_f64/A
+                        time:   [202.91 µs 203.40 µs 203.88 µs]
+                        change: [+0.5406% +1.0614% +1.6401%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 9 outliers among 100 measurements (9.00%)
+  3 (3.00%) high mild
+  6 (6.00%) high severe
+Benchmarking transpose_copy/medium_512x512-faer16_f64/B
+Benchmarking transpose_copy/medium_512x512-faer16_f64/B: Warming up for 700.00 ms
+Benchmarking transpose_copy/medium_512x512-faer16_f64/B: Collecting 100 samples in estimated 2.0670 s (10k iterations)
+Benchmarking transpose_copy/medium_512x512-faer16_f64/B: Analyzing
+transpose_copy/medium_512x512-faer16_f64/B
+                        time:   [203.88 µs 204.25 µs 204.61 µs]
+                        change: [+0.2479% +0.6633% +1.1081%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 5 outliers among 100 measurements (5.00%)
+  1 (1.00%) low severe
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking transpose_copy/large_2048x2048-serial_f64/A
+Benchmarking transpose_copy/large_2048x2048-serial_f64/A: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.3s, or reduce sample count to 80.
+Benchmarking transpose_copy/large_2048x2048-serial_f64/A: Collecting 100 samples in estimated 2.3371 s (100 iterations)
+Benchmarking transpose_copy/large_2048x2048-serial_f64/A: Analyzing
+transpose_copy/large_2048x2048-serial_f64/A
+                        time:   [23.096 ms 23.159 ms 23.220 ms]
+                        change: [-1.2421% -0.7531% -0.2067%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) low mild
+Benchmarking transpose_copy/large_2048x2048-serial_f64/B
+Benchmarking transpose_copy/large_2048x2048-serial_f64/B: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-serial_f64/B: Collecting 100 samples in estimated 3.4955 s (200 iterations)
+Benchmarking transpose_copy/large_2048x2048-serial_f64/B: Analyzing
+transpose_copy/large_2048x2048-serial_f64/B
+                        time:   [17.115 ms 17.155 ms 17.196 ms]
+                        change: [-1.0231% -0.6906% -0.3581%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/A
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/A: Collecting 100 samples in estimated 2.2443 s (700 iterations)
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/A: Analyzing
+transpose_copy/large_2048x2048-faer16_f64/A
+                        time:   [3.2860 ms 3.3252 ms 3.3676 ms]
+                        change: [-1.1342% +0.4646% +2.0527%] (p = 0.58 > 0.05)
+                        No change in performance detected.
+Found 9 outliers among 100 measurements (9.00%)
+  4 (4.00%) high mild
+  5 (5.00%) high severe
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/B
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/B: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/B: Collecting 100 samples in estimated 2.0325 s (1400 iterations)
+Benchmarking transpose_copy/large_2048x2048-faer16_f64/B: Analyzing
+transpose_copy/large_2048x2048-faer16_f64/B
+                        time:   [1.4469 ms 1.4499 ms 1.4529 ms]
+                        change: [-3.0451% -2.2474% -1.6253%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) low mild
+Benchmarking transpose_copy/odd_1000x777-serial_f64/A
+Benchmarking transpose_copy/odd_1000x777-serial_f64/A: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-serial_f64/A: Collecting 100 samples in estimated 2.0064 s (800 iterations)
+Benchmarking transpose_copy/odd_1000x777-serial_f64/A: Analyzing
+transpose_copy/odd_1000x777-serial_f64/A
+                        time:   [2.4195 ms 2.4217 ms 2.4244 ms]
+                        change: [-0.6677% -0.5078% -0.3570%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+Benchmarking transpose_copy/odd_1000x777-serial_f64/B
+Benchmarking transpose_copy/odd_1000x777-serial_f64/B: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-serial_f64/B: Collecting 100 samples in estimated 2.2177 s (900 iterations)
+Benchmarking transpose_copy/odd_1000x777-serial_f64/B: Analyzing
+transpose_copy/odd_1000x777-serial_f64/B
+                        time:   [2.4208 ms 2.4247 ms 2.4293 ms]
+                        change: [-0.8069% -0.5578% -0.3048%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/A
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/A: Collecting 100 samples in estimated 3.6087 s (10k iterations)
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/A: Analyzing
+transpose_copy/odd_1000x777-faer16_f64/A
+                        time:   [360.46 µs 361.17 µs 361.81 µs]
+                        change: [-0.0520% +0.5016% +1.0650%] (p = 0.07 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high severe
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/B
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/B: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/B: Collecting 100 samples in estimated 3.6860 s (10k iterations)
+Benchmarking transpose_copy/odd_1000x777-faer16_f64/B: Analyzing
+transpose_copy/odd_1000x777-faer16_f64/B
+                        time:   [359.63 µs 360.21 µs 360.78 µs]
+                        change: [+0.0809% +0.4319% +0.8212%] (p = 0.03 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) low mild
+  6 (6.00%) high mild
+  3 (3.00%) high severe
+Benchmarking transpose_copy/oddT_777x1000-serial_f64/A
+Benchmarking transpose_copy/oddT_777x1000-serial_f64/A: Warming up for 700.00 ms
+Benchmarking transpose_copy/oddT_777x1000-serial_f64/A: Collecting 100 samples in estimated 2.2401 s (900 iterations)
+Benchmarking transpose_copy/oddT_777x1000-serial_f64/A: Analyzing
+transpose_copy/oddT_777x1000-serial_f64/A
+                        time:   [2.4375 ms 2.4397 ms 2.4422 ms]
+                        change: [+0.1427% +0.2631% +0.3772%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking transpose_copy/oddT_777x1000-serial_f64/B
+Benchmarking transpose_copy/oddT_777x1000-serial_f64/B: Warming up for 700.00 ms
+Benchmarking transpose_copy/oddT_777x1000-serial_f64/B: Collecting 100 samples in estimated 2.2071 s (900 iterations)
+Benchmarking transpose_copy/oddT_777x1000-serial_f64/B: Analyzing
+transpose_copy/oddT_777x1000-serial_f64/B
+                        time:   [2.4264 ms 2.4286 ms 2.4310 ms]
+                        change: [+0.0528% +0.1936% +0.3293%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking transpose_copy/oddT_777x1000-faer16_f64/A
+Benchmarking transpose_copy/oddT_777x1000-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking transpose_copy/oddT_777x1000-faer16_f64/A: Collecting 100 samples in estimated 3.6136 s (10k iterations)
+Benchmarking transpose_copy/oddT_777x1000-faer16_f64/A: Analyzing
+transpose_copy/oddT_777x1000-faer16_f64/A
+                        time:   [358.63 µs 359.60 µs 360.69 µs]
+                        change: [+0.3571% +1.1578% +2.1364%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) low severe
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+Benchmarking transpose_copy/oddT_777x1000-faer16_f64/B
+Benchmarking transpose_copy/oddT_777x1000-faer16_f64/B: Warming up for 700.00 ms
+Benchmarking transpose_copy/oddT_777x1000-faer16_f64/B: Collecting 100 samples in estimated 3.6237 s (10k iterations)
+Benchmarking transpose_copy/oddT_777x1000-faer16_f64/B: Analyzing
+transpose_copy/oddT_777x1000-faer16_f64/B
+                        time:   [360.48 µs 361.13 µs 361.74 µs]
+                        change: [-0.7174% -0.2569% +0.1558%] (p = 0.27 > 0.05)
+                        No change in performance detected.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) low severe
+  1 (1.00%) high mild
+Benchmarking transpose_copy/large_2048x2048-serial_f32/A
+Benchmarking transpose_copy/large_2048x2048-serial_f32/A: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-serial_f32/A: Collecting 100 samples in estimated 3.1719 s (200 iterations)
+Benchmarking transpose_copy/large_2048x2048-serial_f32/A: Analyzing
+transpose_copy/large_2048x2048-serial_f32/A
+                        time:   [15.461 ms 15.532 ms 15.616 ms]
+                        change: [-2.5298% -1.8171% -1.1148%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 14 outliers among 100 measurements (14.00%)
+  3 (3.00%) high mild
+  11 (11.00%) high severe
+Benchmarking transpose_copy/large_2048x2048-serial_f32/B
+Benchmarking transpose_copy/large_2048x2048-serial_f32/B: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-serial_f32/B: Collecting 100 samples in estimated 3.1100 s (200 iterations)
+Benchmarking transpose_copy/large_2048x2048-serial_f32/B: Analyzing
+transpose_copy/large_2048x2048-serial_f32/B
+                        time:   [15.518 ms 15.543 ms 15.568 ms]
+                        change: [-0.0468% +0.4811% +0.9560%] (p = 0.06 > 0.05)
+                        No change in performance detected.
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/A
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/A: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/A: Collecting 100 samples in estimated 2.0678 s (1600 iterations)
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/A: Analyzing
+transpose_copy/large_2048x2048-faer16_f32/A
+                        time:   [1.3016 ms 1.3043 ms 1.3071 ms]
+                        change: [-2.9255% -2.6505% -2.3621%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/B
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/B: Warming up for 700.00 ms
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/B: Collecting 100 samples in estimated 2.0837 s (1600 iterations)
+Benchmarking transpose_copy/large_2048x2048-faer16_f32/B: Analyzing
+transpose_copy/large_2048x2048-faer16_f32/B
+                        time:   [1.2994 ms 1.3019 ms 1.3043 ms]
+                        change: [-4.6894% -4.1712% -3.6749%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) low mild
+Benchmarking transpose_copy/odd_1000x777-serial_f32/A
+Benchmarking transpose_copy/odd_1000x777-serial_f32/A: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-serial_f32/A: Collecting 100 samples in estimated 2.1936 s (900 iterations)
+Benchmarking transpose_copy/odd_1000x777-serial_f32/A: Analyzing
+transpose_copy/odd_1000x777-serial_f32/A
+                        time:   [2.4041 ms 2.4059 ms 2.4082 ms]
+                        change: [-0.0312% +0.0545% +0.1537%] (p = 0.28 > 0.05)
+                        No change in performance detected.
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) low severe
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+Benchmarking transpose_copy/odd_1000x777-serial_f32/B
+Benchmarking transpose_copy/odd_1000x777-serial_f32/B: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-serial_f32/B: Collecting 100 samples in estimated 2.1828 s (900 iterations)
+Benchmarking transpose_copy/odd_1000x777-serial_f32/B: Analyzing
+transpose_copy/odd_1000x777-serial_f32/B
+                        time:   [2.4089 ms 2.4115 ms 2.4157 ms]
+                        change: [+0.4434% +0.5662% +0.7475%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking transpose_copy/odd_1000x777-faer16_f32/A
+Benchmarking transpose_copy/odd_1000x777-faer16_f32/A: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-faer16_f32/A: Collecting 100 samples in estimated 3.5602 s (10k iterations)
+Benchmarking transpose_copy/odd_1000x777-faer16_f32/A: Analyzing
+transpose_copy/odd_1000x777-faer16_f32/A
+                        time:   [354.85 µs 355.78 µs 356.69 µs]
+                        change: [-0.6725% -0.1569% +0.3205%] (p = 0.55 > 0.05)
+                        No change in performance detected.
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking transpose_copy/odd_1000x777-faer16_f32/B
+Benchmarking transpose_copy/odd_1000x777-faer16_f32/B: Warming up for 700.00 ms
+Benchmarking transpose_copy/odd_1000x777-faer16_f32/B: Collecting 100 samples in estimated 3.6928 s (10k iterations)
+Benchmarking transpose_copy/odd_1000x777-faer16_f32/B: Analyzing
+transpose_copy/odd_1000x777-faer16_f32/B
+                        time:   [357.27 µs 357.97 µs 358.65 µs]
+                        change: [+0.6465% +1.0782% +1.6121%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking assign_gates/contig_small_64x64-serial-f64/assign
+Benchmarking assign_gates/contig_small_64x64-serial-f64/assign: Warming up for 700.00 ms
+Benchmarking assign_gates/contig_small_64x64-serial-f64/assign: Collecting 100 samples in estimated 2.0031 s (1.9M iterations)
+Benchmarking assign_gates/contig_small_64x64-serial-f64/assign: Analyzing
+assign_gates/contig_small_64x64-serial-f64/assign
+                        time:   [1.0392 µs 1.0395 µs 1.0399 µs]
+Benchmarking assign_gates/contig_large_2048x2048-serial-f64/assign
+Benchmarking assign_gates/contig_large_2048x2048-serial-f64/assign: Warming up for 700.00 ms
+Benchmarking assign_gates/contig_large_2048x2048-serial-f64/assign: Collecting 100 samples in estimated 2.0247 s (1500 iterations)
+Benchmarking assign_gates/contig_large_2048x2048-serial-f64/assign: Analyzing
+assign_gates/contig_large_2048x2048-serial-f64/assign
+                        time:   [1.3507 ms 1.3682 ms 1.3828 ms]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low severe
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking assign_gates/sliced_t_large_2048x2048-serial-f64/assign
+Benchmarking assign_gates/sliced_t_large_2048x2048-serial-f64/assign: Warming up for 700.00 ms
+Benchmarking assign_gates/sliced_t_large_2048x2048-serial-f64/assign: Collecting 100 samples in estimated 2.6818 s (300 iterations)
+Benchmarking assign_gates/sliced_t_large_2048x2048-serial-f64/assign: Analyzing
+assign_gates/sliced_t_large_2048x2048-serial-f64/assign
+                        time:   [8.6896 ms 8.7533 ms 8.8174 ms]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking assign_gates/sliced_large_2048x2048-serial-f64/assign
+Benchmarking assign_gates/sliced_large_2048x2048-serial-f64/assign: Warming up for 700.00 ms
+Benchmarking assign_gates/sliced_large_2048x2048-serial-f64/assign: Collecting 100 samples in estimated 2.5798 s (400 iterations)
+Benchmarking assign_gates/sliced_large_2048x2048-serial-f64/assign: Analyzing
+assign_gates/sliced_large_2048x2048-serial-f64/assign
+                        time:   [6.4000 ms 6.4027 ms 6.4057 ms]
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+Benchmarking assign_gates/sliced_t_odd_1000x777-serial-f64/assign
+Benchmarking assign_gates/sliced_t_odd_1000x777-serial-f64/assign: Warming up for 700.00 ms
+Benchmarking assign_gates/sliced_t_odd_1000x777-serial-f64/assign: Collecting 100 samples in estimated 2.0723 s (1700 iterations)
+Benchmarking assign_gates/sliced_t_odd_1000x777-serial-f64/assign: Analyzing
+assign_gates/sliced_t_odd_1000x777-serial-f64/assign
+                        time:   [1.2133 ms 1.2141 ms 1.2150 ms]
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+Benchmarking assign_gates/sliced_odd_1000x777-serial-f64/assign
+Benchmarking assign_gates/sliced_odd_1000x777-serial-f64/assign: Warming up for 700.00 ms
+Benchmarking assign_gates/sliced_odd_1000x777-serial-f64/assign: Collecting 100 samples in estimated 2.0222 s (1700 iterations)
+Benchmarking assign_gates/sliced_odd_1000x777-serial-f64/assign: Analyzing
+assign_gates/sliced_odd_1000x777-serial-f64/assign
+                        time:   [1.1819 ms 1.1822 ms 1.1825 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking assign_gates/contig_small_64x64-faer16-f64/assign
+Benchmarking assign_gates/contig_small_64x64-faer16-f64/assign: Warming up for 700.00 ms
+Benchmarking assign_gates/contig_small_64x64-faer16-f64/assign: Collecting 100 samples in estimated 2.0020 s (1.9M iterations)
+Benchmarking assign_gates/contig_small_64x64-faer16-f64/assign: Analyzing
+assign_gates/contig_small_64x64-faer16-f64/assign
+                        time:   [1.0644 µs 1.0647 µs 1.0649 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
+Benchmarking assign_gates/contig_large_2048x2048-faer16-f64/assign
+Benchmarking assign_gates/contig_large_2048x2048-faer16-f64/assign: Warming up for 700.00 ms
+Benchmarking assign_gates/contig_large_2048x2048-faer16-f64/assign: Collecting 100 samples in estimated 2.0666 s (1500 iterations)
+Benchmarking assign_gates/contig_large_2048x2048-faer16-f64/assign: Analyzing
+assign_gates/contig_large_2048x2048-faer16-f64/assign
+                        time:   [1.3467 ms 1.3519 ms 1.3574 ms]
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+Benchmarking assign_gates/sliced_t_large_2048x2048-faer16-f64/assign
+Benchmarking assign_gates/sliced_t_large_2048x2048-faer16-f64/assign: Warming up for 700.00 ms
+Benchmarking assign_gates/sliced_t_large_2048x2048-faer16-f64/assign: Collecting 100 samples in estimated 2.0046 s (2100 iterations)
+Benchmarking assign_gates/sliced_t_large_2048x2048-faer16-f64/assign: Analyzing
+assign_gates/sliced_t_large_2048x2048-faer16-f64/assign
+                        time:   [913.42 µs 916.45 µs 919.49 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) low mild
+  1 (1.00%) high severe
+Benchmarking assign_gates/sliced_large_2048x2048-faer16-f64/assign
+Benchmarking assign_gates/sliced_large_2048x2048-faer16-f64/assign: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.6s, enable flat sampling, or reduce sample count to 50.
+Benchmarking assign_gates/sliced_large_2048x2048-faer16-f64/assign: Collecting 100 samples in estimated 3.6075 s (5050 iterations)
+Benchmarking assign_gates/sliced_large_2048x2048-faer16-f64/assign: Analyzing
+assign_gates/sliced_large_2048x2048-faer16-f64/assign
+                        time:   [704.91 µs 708.71 µs 714.61 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+Benchmarking assign_gates/sliced_t_odd_1000x777-faer16-f64/assign
+Benchmarking assign_gates/sliced_t_odd_1000x777-faer16-f64/assign: Warming up for 700.00 ms
+Benchmarking assign_gates/sliced_t_odd_1000x777-faer16-f64/assign: Collecting 100 samples in estimated 2.5159 s (10k iterations)
+Benchmarking assign_gates/sliced_t_odd_1000x777-faer16-f64/assign: Analyzing
+assign_gates/sliced_t_odd_1000x777-faer16-f64/assign
+                        time:   [247.08 µs 247.57 µs 248.06 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low severe
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking assign_gates/sliced_odd_1000x777-faer16-f64/assign
+Benchmarking assign_gates/sliced_odd_1000x777-faer16-f64/assign: Warming up for 700.00 ms
+Benchmarking assign_gates/sliced_odd_1000x777-faer16-f64/assign: Collecting 100 samples in estimated 2.4666 s (10k iterations)
+Benchmarking assign_gates/sliced_odd_1000x777-faer16-f64/assign: Analyzing
+assign_gates/sliced_odd_1000x777-faer16-f64/assign
+                        time:   [242.35 µs 242.78 µs 243.22 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) low severe
+  2 (2.00%) low mild
+  3 (3.00%) high mild
+
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/transpose.rs (target/release/deps/transpose-47ee5b05630b4756)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-serial-f64/A
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-serial-f64/A: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.1s, or reduce sample count to 90.
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-serial-f64/A: Collecting 100 samples in estimated 2.1142 s (100 iterations)
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-serial-f64/A: Analyzing
+orderchange_extra/to_fcontig_large_2048x2048-serial-f64/A
+                        time:   [20.963 ms 21.071 ms 21.181 ms]
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-serial-f64/B
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-serial-f64/B: Warming up for 700.00 ms
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-serial-f64/B: Collecting 100 samples in estimated 3.4332 s (200 iterations)
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-serial-f64/B: Analyzing
+orderchange_extra/to_fcontig_large_2048x2048-serial-f64/B
+                        time:   [17.110 ms 17.153 ms 17.197 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-serial-f64/A
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-serial-f64/A: Warming up for 700.00 ms
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-serial-f64/A: Collecting 100 samples in estimated 3.3775 s (200 iterations)
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-serial-f64/A: Analyzing
+orderchange_extra/bcast_t_large_2048x2048-serial-f64/A
+                        time:   [16.785 ms 16.813 ms 16.848 ms]
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-serial-f64/B
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-serial-f64/B: Warming up for 700.00 ms
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-serial-f64/B: Collecting 100 samples in estimated 2.5514 s (200 iterations)
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-serial-f64/B: Analyzing
+orderchange_extra/bcast_t_large_2048x2048-serial-f64/B
+                        time:   [12.705 ms 12.716 ms 12.728 ms]
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-serial-f64/A
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-serial-f64/A: Warming up for 700.00 ms
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-serial-f64/A: Collecting 100 samples in estimated 2.0130 s (800 iterations)
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-serial-f64/A: Analyzing
+orderchange_extra/to_fcontig_odd_1000x777-serial-f64/A
+                        time:   [2.4732 ms 2.4829 ms 2.4961 ms]
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) high mild
+  5 (5.00%) high severe
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-serial-f64/B
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-serial-f64/B: Warming up for 700.00 ms
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-serial-f64/B: Collecting 100 samples in estimated 2.1879 s (900 iterations)
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-serial-f64/B: Analyzing
+orderchange_extra/to_fcontig_odd_1000x777-serial-f64/B
+                        time:   [2.4261 ms 2.4292 ms 2.4325 ms]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-serial-f64/A
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-serial-f64/A: Warming up for 700.00 ms
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-serial-f64/A: Collecting 100 samples in estimated 2.1169 s (900 iterations)
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-serial-f64/A: Analyzing
+orderchange_extra/bcast_t_odd_1000x777-serial-f64/A
+                        time:   [2.3459 ms 2.3467 ms 2.3477 ms]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-serial-f64/B
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-serial-f64/B: Warming up for 700.00 ms
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-serial-f64/B: Collecting 100 samples in estimated 2.1269 s (900 iterations)
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-serial-f64/B: Analyzing
+orderchange_extra/bcast_t_odd_1000x777-serial-f64/B
+                        time:   [2.3448 ms 2.3452 ms 2.3455 ms]
+Found 6 outliers among 100 measurements (6.00%)
+  6 (6.00%) high mild
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-faer16-f64/A
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-faer16-f64/A: Warming up for 700.00 ms
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-faer16-f64/A: Collecting 100 samples in estimated 2.2601 s (200 iterations)
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-faer16-f64/A: Analyzing
+orderchange_extra/to_fcontig_large_2048x2048-faer16-f64/A
+                        time:   [10.519 ms 10.717 ms 10.933 ms]
+Found 5 outliers among 100 measurements (5.00%)
+  1 (1.00%) high mild
+  4 (4.00%) high severe
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-faer16-f64/B
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-faer16-f64/B: Warming up for 700.00 ms
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-faer16-f64/B: Collecting 100 samples in estimated 2.0430 s (1400 iterations)
+Benchmarking orderchange_extra/to_fcontig_large_2048x2048-faer16-f64/B: Analyzing
+orderchange_extra/to_fcontig_large_2048x2048-faer16-f64/B
+                        time:   [1.4741 ms 1.4831 ms 1.4931 ms]
+Found 9 outliers among 100 measurements (9.00%)
+  6 (6.00%) high mild
+  3 (3.00%) high severe
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-faer16-f64/A
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-faer16-f64/A: Warming up for 700.00 ms
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-faer16-f64/A: Collecting 100 samples in estimated 2.1932 s (800 iterations)
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-faer16-f64/A: Analyzing
+orderchange_extra/bcast_t_large_2048x2048-faer16-f64/A
+                        time:   [2.6748 ms 2.7037 ms 2.7333 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-faer16-f64/B
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-faer16-f64/B: Warming up for 700.00 ms
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-faer16-f64/B: Collecting 100 samples in estimated 2.0022 s (1700 iterations)
+Benchmarking orderchange_extra/bcast_t_large_2048x2048-faer16-f64/B: Analyzing
+orderchange_extra/bcast_t_large_2048x2048-faer16-f64/B
+                        time:   [1.1824 ms 1.1848 ms 1.1872 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-faer16-f64/A
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-faer16-f64/A: Warming up for 700.00 ms
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-faer16-f64/A: Collecting 100 samples in estimated 3.8106 s (10k iterations)
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-faer16-f64/A: Analyzing
+orderchange_extra/to_fcontig_odd_1000x777-faer16-f64/A
+                        time:   [376.62 µs 378.39 µs 381.03 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-faer16-f64/B
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-faer16-f64/B: Warming up for 700.00 ms
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-faer16-f64/B: Collecting 100 samples in estimated 3.6689 s (10k iterations)
+Benchmarking orderchange_extra/to_fcontig_odd_1000x777-faer16-f64/B: Analyzing
+orderchange_extra/to_fcontig_odd_1000x777-faer16-f64/B
+                        time:   [357.38 µs 358.16 µs 359.04 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) low mild
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-faer16-f64/A
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-faer16-f64/A: Warming up for 700.00 ms
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-faer16-f64/A: Collecting 100 samples in estimated 3.5702 s (10k iterations)
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-faer16-f64/A: Analyzing
+orderchange_extra/bcast_t_odd_1000x777-faer16-f64/A
+                        time:   [352.22 µs 352.86 µs 353.53 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-faer16-f64/B
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-faer16-f64/B: Warming up for 700.00 ms
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-faer16-f64/B: Collecting 100 samples in estimated 3.6058 s (10k iterations)
+Benchmarking orderchange_extra/bcast_t_odd_1000x777-faer16-f64/B: Analyzing
+orderchange_extra/bcast_t_odd_1000x777-faer16-f64/B
+                        time:   [354.12 µs 355.26 µs 356.68 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  4 (4.00%) high mild
+  5 (5.00%) high severe
+

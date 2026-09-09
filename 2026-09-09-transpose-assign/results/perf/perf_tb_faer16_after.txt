@@ -1,0 +1,22 @@
+# started on Wed Sep  9 07:54:12 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops tb_faer16':
+
+             2,424      context-switches                 #    680.1 cs/sec  cs_per_second     
+                50      cpu-migrations                   #     14.0 migrations/sec  migrations_per_second
+            16,729      page-faults                      #   4693.9 faults/sec  page_faults_per_second
+          3,563.98 msec task-clock                       #     14.8 CPUs  CPUs_utilized       
+     2,559,348,633      L1-dcache-load-misses            #     23.2 %  l1d_miss_rate            (42.82%)
+         2,681,507      branch-misses                    #      0.1 %  branch_miss_rate         (42.95%)
+     3,608,737,977      branches                         #   1012.6 M/sec  branch_frequency     (43.09%)
+    18,810,256,809      cpu-cycles                       #      5.3 GHz  cycles_frequency       (43.05%)
+    29,938,010,634      instructions                     #      1.6 instructions  insn_per_cycle  (43.11%)
+       266,278,707      stalled-cycles-frontend          #     0.01 frontend_cycles_idle        (42.96%)
+
+       0.241349242 seconds time elapsed
+
+       3.530030000 seconds user
+       0.036423000 seconds sys
+
+

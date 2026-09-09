@@ -1,0 +1,131 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/kernels_probe.rs (target/release/deps/kernels_probe-f27e8d4946c94d19)
+Gnuplot not found, using plotters backend
+Benchmarking kernels_probe/probe_2048x2048_f64/P_generic_serial
+Benchmarking kernels_probe/probe_2048x2048_f64/P_generic_serial: Warming up for 700.00 ms
+Benchmarking kernels_probe/probe_2048x2048_f64/P_generic_serial: Collecting 100 samples in estimated 2.3717 s (400 iterations)
+Benchmarking kernels_probe/probe_2048x2048_f64/P_generic_serial: Analyzing
+kernels_probe/probe_2048x2048_f64/P_generic_serial
+                        time:   [5.8902 ms 5.8988 ms 5.9093 ms]
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking kernels_probe/probe_2048x2048_f64/P_generic_rayon16
+Benchmarking kernels_probe/probe_2048x2048_f64/P_generic_rayon16: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.8s, enable flat sampling, or reduce sample count to 50.
+Benchmarking kernels_probe/probe_2048x2048_f64/P_generic_rayon16: Collecting 100 samples in estimated 2.8114 s (5050 iterations)
+Benchmarking kernels_probe/probe_2048x2048_f64/P_generic_rayon16: Analyzing
+kernels_probe/probe_2048x2048_f64/P_generic_rayon16
+                        time:   [552.60 µs 554.13 µs 555.78 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) low mild
+  4 (4.00%) high mild
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_c2r_serial
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_c2r_serial: Warming up for 700.00 ms
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_c2r_serial: Collecting 100 samples in estimated 2.3366 s (400 iterations)
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_c2r_serial: Analyzing
+kernels_probe/probe_2048x2048_f64/P_blocked_c2r_serial
+                        time:   [5.7671 ms 5.7743 ms 5.7816 ms]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_r2c_serial
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_r2c_serial: Warming up for 700.00 ms
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_r2c_serial: Collecting 100 samples in estimated 2.3356 s (400 iterations)
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_r2c_serial: Analyzing
+kernels_probe/probe_2048x2048_f64/P_blocked_r2c_serial
+                        time:   [5.8737 ms 5.8811 ms 5.8888 ms]
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_c2r_rayon16
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_c2r_rayon16: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.8s, enable flat sampling, or reduce sample count to 50.
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_c2r_rayon16: Collecting 100 samples in estimated 2.8079 s (5050 iterations)
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_c2r_rayon16: Analyzing
+kernels_probe/probe_2048x2048_f64/P_blocked_c2r_rayon16
+                        time:   [550.43 µs 552.96 µs 556.29 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) high mild
+  8 (8.00%) high severe
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_swap_serial
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_swap_serial: Warming up for 700.00 ms
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_swap_serial: Collecting 100 samples in estimated 3.5348 s (200 iterations)
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_swap_serial: Analyzing
+kernels_probe/probe_2048x2048_f64/P_blocked_swap_serial
+                        time:   [17.498 ms 17.509 ms 17.521 ms]
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_rawptr_serial
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_rawptr_serial: Warming up for 700.00 ms
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_rawptr_serial: Collecting 100 samples in estimated 2.3320 s (400 iterations)
+Benchmarking kernels_probe/probe_2048x2048_f64/P_blocked_rawptr_serial: Analyzing
+kernels_probe/probe_2048x2048_f64/P_blocked_rawptr_serial
+                        time:   [5.8318 ms 5.8360 ms 5.8402 ms]
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+Benchmarking kernels_probe/probe_1000x777_f64/P_generic_serial
+Benchmarking kernels_probe/probe_1000x777_f64/P_generic_serial: Warming up for 700.00 ms
+Benchmarking kernels_probe/probe_1000x777_f64/P_generic_serial: Collecting 100 samples in estimated 2.9229 s (10k iterations)
+Benchmarking kernels_probe/probe_1000x777_f64/P_generic_serial: Analyzing
+kernels_probe/probe_1000x777_f64/P_generic_serial
+                        time:   [284.67 µs 284.87 µs 285.17 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+Benchmarking kernels_probe/probe_1000x777_f64/P_generic_rayon16
+Benchmarking kernels_probe/probe_1000x777_f64/P_generic_rayon16: Warming up for 700.00 ms
+Benchmarking kernels_probe/probe_1000x777_f64/P_generic_rayon16: Collecting 100 samples in estimated 2.0020 s (20k iterations)
+Benchmarking kernels_probe/probe_1000x777_f64/P_generic_rayon16: Analyzing
+kernels_probe/probe_1000x777_f64/P_generic_rayon16
+                        time:   [99.063 µs 99.320 µs 99.586 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) low severe
+  2 (2.00%) low mild
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_c2r_serial
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_c2r_serial: Warming up for 700.00 ms
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_c2r_serial: Collecting 100 samples in estimated 2.5574 s (10k iterations)
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_c2r_serial: Analyzing
+kernels_probe/probe_1000x777_f64/P_blocked_c2r_serial
+                        time:   [247.64 µs 248.30 µs 248.97 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_r2c_serial
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_r2c_serial: Warming up for 700.00 ms
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_r2c_serial: Collecting 100 samples in estimated 2.5269 s (10k iterations)
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_r2c_serial: Analyzing
+kernels_probe/probe_1000x777_f64/P_blocked_r2c_serial
+                        time:   [248.73 µs 249.50 µs 250.28 µs]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_c2r_rayon16
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_c2r_rayon16: Warming up for 700.00 ms
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_c2r_rayon16: Collecting 100 samples in estimated 2.4926 s (25k iterations)
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_c2r_rayon16: Analyzing
+kernels_probe/probe_1000x777_f64/P_blocked_c2r_rayon16
+                        time:   [98.672 µs 98.940 µs 99.204 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_swap_serial
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_swap_serial: Warming up for 700.00 ms
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_swap_serial: Collecting 100 samples in estimated 3.0144 s (10k iterations)
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_swap_serial: Analyzing
+kernels_probe/probe_1000x777_f64/P_blocked_swap_serial
+                        time:   [295.71 µs 295.98 µs 296.27 µs]
+Found 12 outliers among 100 measurements (12.00%)
+  6 (6.00%) low mild
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_rawptr_serial
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_rawptr_serial: Warming up for 700.00 ms
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_rawptr_serial: Collecting 100 samples in estimated 2.0002 s (15k iterations)
+Benchmarking kernels_probe/probe_1000x777_f64/P_blocked_rawptr_serial: Analyzing
+kernels_probe/probe_1000x777_f64/P_blocked_rawptr_serial
+                        time:   [133.77 µs 134.43 µs 135.01 µs]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+

@@ -1,0 +1,3 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/anchors_ndarray.rs (target/release/deps/anchors_ndarray-2b656524010c9b64)
+Gnuplot not found, using plotters backend

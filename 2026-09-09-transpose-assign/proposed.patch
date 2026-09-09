@@ -1,0 +1,435 @@
+diff --git a/rstsr-native-impl/src/cpu_rayon/assignment.rs b/rstsr-native-impl/src/cpu_rayon/assignment.rs
+index c6d0b8e..0ebe3b6 100644
+--- a/rstsr-native-impl/src/cpu_rayon/assignment.rs
++++ b/rstsr-native-impl/src/cpu_rayon/assignment.rs
+@@ -16,26 +16,31 @@ const PARALLEL_SWITCH: usize = 16384;
+         func_name_serial
+         TypeC TypeA Types
+         func_clone
++        oc_r2c oc_c2r
+     ;
+     [assign_arbitary_cpu_rayon]
+         [assign_arbitary_cpu_serial]
+         [T] [T] [T: Clone + Send + Sync]
+         [*ci = ai.clone()]
++        [orderchange_out_r2c_ix2_promote_cpu_rayon] [orderchange_out_c2r_ix2_promote_cpu_rayon]
+     ;
+     [assign_arbitary_uninit_cpu_rayon]
+         [assign_arbitary_uninit_cpu_serial]
+         [MaybeUninit<T>] [T] [T: Clone + Send + Sync]
+         [ci.write(ai.clone())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon] [orderchange_out_c2r_ix2_uninit_promote_cpu_rayon]
+     ;
+     [assign_arbitary_promote_cpu_rayon]
+         [assign_arbitary_promote_cpu_serial]
+         [TC] [TA] [TC: Clone + Send + Sync, TA: Clone + Send + Sync + DTypeCastAPI<TC>]
+         [*ci = ai.clone().into_cast()]
++        [orderchange_out_r2c_ix2_promote_cpu_rayon] [orderchange_out_c2r_ix2_promote_cpu_rayon]
+     ;
+     [assign_arbitary_uninit_promote_cpu_rayon]
+         [assign_arbitary_uninit_promote_cpu_serial]
+         [MaybeUninit<TC>] [TA] [TC: Clone + Send + Sync, TA: Clone + Send + Sync + DTypeCastAPI<TC>]
+         [ci.write(ai.clone().into_cast())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon] [orderchange_out_c2r_ix2_uninit_promote_cpu_rayon]
+     ;
+ )]
+ pub fn func_name<Types, DC, DA>(
+@@ -72,6 +77,18 @@ where
+         });
+         Ok(())
+     } else {
++        // 2-D order-change fast path: blocked kernels with block-level rayon
++        // parallelism (see assign_arbitary_cpu_serial for the guard rationale;
++        // the kernels keep their own size < 16*BLOCK_SIZE^2 serial fallback).
++        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
++            let sc = *lc2.stride();
++            let sa = *la2.stride();
++            if sa[1] == 1 && sc[0] == 1 {
++                return oc_r2c(c, &lc2, a, &la2, pool);
++            } else if sa[0] == 1 && sc[1] == 1 {
++                return oc_c2r(c, &lc2, a, &la2, pool);
++            }
++        }
+         // determine order by layout preference
+         let order = match default_order {
+             RowMajor => TensorIterOrder::C,
+@@ -97,26 +114,31 @@ where
+         func_name_serial
+         TypeC TypeA Types
+         func_clone
++        oc_r2c oc_c2r
+     ;
+     [assign_cpu_rayon]
+         [assign_cpu_serial]
+         [T] [T] [T: Clone + Send + Sync]
+         [*ci = ai.clone()]
++        [orderchange_out_r2c_ix2_promote_cpu_rayon] [orderchange_out_c2r_ix2_promote_cpu_rayon]
+     ;
+     [assign_uninit_cpu_rayon]
+         [assign_uninit_cpu_serial]
+         [MaybeUninit<T>] [T] [T: Clone + Send + Sync]
+         [ci.write(ai.clone())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon] [orderchange_out_c2r_ix2_uninit_promote_cpu_rayon]
+     ;
+     [assign_promote_cpu_rayon]
+         [assign_promote_cpu_serial]
+         [TC] [TA] [TC: Clone + Send + Sync, TA: Clone + Send + Sync + DTypeCastAPI<TC>]
+         [*ci = ai.clone().into_cast()]
++        [orderchange_out_r2c_ix2_promote_cpu_rayon] [orderchange_out_c2r_ix2_promote_cpu_rayon]
+     ;
+     [assign_uninit_promote_cpu_rayon]
+         [assign_uninit_promote_cpu_serial]
+         [MaybeUninit<TC>] [TA] [TC: Clone + Send + Sync, TA: Clone + Send + Sync + DTypeCastAPI<TC>]
+         [ci.write(ai.clone().into_cast())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon] [orderchange_out_c2r_ix2_uninit_promote_cpu_rayon]
+     ;
+ )]
+ pub fn func_name<Types, D>(
+@@ -142,6 +164,17 @@ where
+ 
+     // actual parallel iteration
+     if size_contig < CONTIG_SWITCH {
++        // 2-D order-change fast path (see assign_arbitary_cpu_rayon); a
++        // contiguous pair never reaches this branch (contig branch above).
++        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
++            let sc = *lc2.stride();
++            let sa = *la2.stride();
++            if sa[1] == 1 && sc[0] == 1 {
++                return oc_r2c(c, &lc2, a, &la2, pool);
++            } else if sa[0] == 1 && sc[1] == 1 {
++                return oc_c2r(c, &lc2, a, &la2, pool);
++            }
++        }
+         // not possible for contiguous assign
+         let lc = &layouts_full[0];
+         let la = &layouts_full[1];
+diff --git a/rstsr-native-impl/src/cpu_rayon/transpose.rs b/rstsr-native-impl/src/cpu_rayon/transpose.rs
+index de5afc5..6061661 100644
+--- a/rstsr-native-impl/src/cpu_rayon/transpose.rs
++++ b/rstsr-native-impl/src/cpu_rayon/transpose.rs
+@@ -89,6 +89,116 @@ where
+     pool.unwrap().install(|| orderchange_out_r2c_ix2_cpu_rayon_no_pool(c, lc, a, la))
+ }
+ 
++/// Change order (row/col-major) a matrix out-place, promote/uninit variants
++/// (rayon twins of the `*_promote_cpu_serial` kernels in `cpu_serial`).
++///
++/// Same blocked traversal and stride guards as the serial kernels; writes go
++/// through raw pointers guarded by `debug_assert!` bounds contracts (the
++/// per-element bounds check is redundant here: the layout guard plus the
++/// full (i, j) write-once coverage guarantee in-bounds access). The uninit
++/// variant is sound because every output element is written exactly once.
++#[duplicate_item(
++    func_name
++        func_serial TypeC TypeA func_write
++    ;
++    [orderchange_out_r2c_ix2_promote_cpu_rayon]
++        [orderchange_out_r2c_ix2_promote_cpu_serial]
++        [TC] [TA]
++        [(*c_ptr.add(dst_idx)) = a[src_idx].clone().into_cast()]
++    ;
++    [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial]
++        [MaybeUninit<TC>] [TA]
++        [(*c_ptr.add(dst_idx)).write(a[src_idx].clone().into_cast())]
++    ;
++)]
++pub fn func_name<TC, TA>(
++    c: &mut [TypeC],
++    lc: &Layout<Ix2>,
++    a: &[TypeA],
++    la: &Layout<Ix2>,
++    pool: Option<&ThreadPool>,
++) -> Result<()>
++where
++    TC: Clone + Send + Sync,
++    TA: Clone + Send + Sync + DTypeCastAPI<TC>,
++{
++    // determine whether to use parallel iteration
++    let size = lc.size();
++    if size < 16 * BLOCK_SIZE * BLOCK_SIZE || pool.is_none() {
++        return func_serial(c, lc, a, la);
++    }
++
++    // shape check
++    let sc = lc.shape();
++    let sa = la.shape();
++    rstsr_assert_eq!(sc[0], sa[0], InvalidLayout, "This function requires shape identity")?;
++    rstsr_assert_eq!(sc[1], sa[1], InvalidLayout, "This function requires shape identity")?;
++    let [nrow, ncol] = *sa;
++
++    // stride check
++    rstsr_assert_eq!(lc.stride()[0], 1, InvalidLayout, "This function requires col-major output")?;
++    rstsr_assert_eq!(la.stride()[1], 1, InvalidLayout, "This function requires row-major input")?;
++
++    let offset_a = la.offset() as isize;
++    let offset_c = lc.offset() as isize;
++    let lda = la.stride()[0];
++    let ldc = lc.stride()[1];
++
++    (0..ncol).into_par_iter().step_by(BLOCK_SIZE).for_each(|j_start| {
++        let j_end = (j_start + BLOCK_SIZE).min(ncol);
++        let (j_start, j_end) = (j_start as isize, j_end as isize);
++        (0..nrow).into_par_iter().step_by(BLOCK_SIZE).for_each(|i_start| {
++            let i_end = (i_start + BLOCK_SIZE).min(nrow);
++            let (i_start, i_end) = (i_start as isize, i_end as isize);
++            for j in j_start..j_end {
++                for i in i_start..i_end {
++                    let src_idx = (offset_a + i * lda + j) as usize;
++                    let dst_idx = (offset_c + j * ldc + i) as usize;
++                    debug_assert!(src_idx < a.len() && dst_idx < c.len());
++                    unsafe {
++                        let c_ptr = c.as_ptr() as *mut TypeC;
++                        func_write;
++                    }
++                }
++            }
++        });
++    });
++
++    Ok(())
++}
++
++/// Change order (row/col-major) a matrix out-place, promote/uninit c2r
++/// wrappers with pool management (see the r2c rayon kernels above).
++#[duplicate_item(
++    func_name
++        TypeC TypeA func_r2c
++    ;
++    [orderchange_out_c2r_ix2_promote_cpu_rayon]
++        [TC] [TA]
++        [orderchange_out_r2c_ix2_promote_cpu_rayon]
++    ;
++    [orderchange_out_c2r_ix2_uninit_promote_cpu_rayon]
++        [MaybeUninit<TC>] [TA]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_rayon]
++    ;
++)]
++pub fn func_name<TC, TA>(
++    c: &mut [TypeC],
++    lc: &Layout<Ix2>,
++    a: &[TypeA],
++    la: &Layout<Ix2>,
++    pool: Option<&ThreadPool>,
++) -> Result<()>
++where
++    TC: Clone + Send + Sync,
++    TA: Clone + Send + Sync + DTypeCastAPI<TC>,
++{
++    let lc = lc.reverse_axes();
++    let la = la.reverse_axes();
++    func_r2c(c, &lc, a, &la, pool)
++}
++
+ /// Change order (row/col-major) a matrix out-place using a naive algorithm.
+ ///
+ /// Transpose from `a` (col-major) to `c` (row-major).
+diff --git a/rstsr-native-impl/src/cpu_serial/assignment.rs b/rstsr-native-impl/src/cpu_serial/assignment.rs
+index a6f7e22..dc69cb1 100644
+--- a/rstsr-native-impl/src/cpu_serial/assignment.rs
++++ b/rstsr-native-impl/src/cpu_serial/assignment.rs
+@@ -7,22 +7,27 @@ const CONTIG_SWITCH: usize = 16;
+     func_name
+         TypeC TypeA Types
+         func_clone
++        oc_r2c oc_c2r
+     ;
+     [assign_arbitary_cpu_serial]
+         [T] [T] [T: Clone]
+         [*ci = ai.clone()]
++        [orderchange_out_r2c_ix2_promote_cpu_serial] [orderchange_out_c2r_ix2_promote_cpu_serial]
+     ;
+     [assign_arbitary_uninit_cpu_serial]
+         [MaybeUninit<T>] [T] [T: Clone]
+         [ci.write(ai.clone())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial] [orderchange_out_c2r_ix2_uninit_promote_cpu_serial]
+     ;
+     [assign_arbitary_promote_cpu_serial]
+         [TC] [TA] [TC: Clone, TA: Clone + DTypeCastAPI<TC>]
+         [*ci = ai.clone().into_cast()]
++        [orderchange_out_r2c_ix2_promote_cpu_serial] [orderchange_out_c2r_ix2_promote_cpu_serial]
+     ;
+     [assign_arbitary_uninit_promote_cpu_serial]
+         [MaybeUninit<TC>] [TA] [TC: Clone, TA: Clone + DTypeCastAPI<TC>]
+         [ci.write(ai.clone().into_cast())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial] [orderchange_out_c2r_ix2_uninit_promote_cpu_serial]
+     ;
+ )]
+ pub fn func_name<Types, DC, DA>(
+@@ -49,6 +54,23 @@ where
+             func_clone;
+         });
+     } else {
++        // 2-D order-change fast path: when both layouts are 2-D and match the
++        // transpose pattern (one fast on axis 0, the other on axis 1, fast
++        // strides exactly +1), use the blocked orderchange kernels
++        // (BLOCK_SIZE = 64). Guards reject everything else — zero/negative
++        // fast-axis strides (broadcast / flip), sliced fast axes, ndim != 2 —
++        // which fall through to the generic iterator path unchanged. A copy
++        // writes every output element exactly once from one input element,
++        // so the tiled visit order is bit-identical to the iterator order.
++        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
++            let sc = *lc2.stride();
++            let sa = *la2.stride();
++            if sa[1] == 1 && sc[0] == 1 {
++                return oc_r2c(c, &lc2, a, &la2);
++            } else if sa[0] == 1 && sc[1] == 1 {
++                return oc_c2r(c, &lc2, a, &la2);
++            }
++        }
+         // determine order by layout preference
+         let order = match order {
+             RowMajor => TensorIterOrder::C,
+@@ -70,22 +92,27 @@ where
+     func_name
+         TypeC TypeA Types
+         func_clone
++        oc_r2c oc_c2r
+     ;
+     [assign_cpu_serial]
+         [T] [T] [T: Clone]
+         [*ci = ai.clone()]
++        [orderchange_out_r2c_ix2_promote_cpu_serial] [orderchange_out_c2r_ix2_promote_cpu_serial]
+     ;
+     [assign_uninit_cpu_serial]
+         [MaybeUninit<T>] [T] [T: Clone]
+         [ci.write(ai.clone())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial] [orderchange_out_c2r_ix2_uninit_promote_cpu_serial]
+     ;
+     [assign_promote_cpu_serial]
+         [TC] [TA] [TC: Clone, TA: Clone + DTypeCastAPI<TC>]
+         [*ci = ai.clone().into_cast()]
++        [orderchange_out_r2c_ix2_promote_cpu_serial] [orderchange_out_c2r_ix2_promote_cpu_serial]
+     ;
+     [assign_uninit_promote_cpu_serial]
+         [MaybeUninit<TC>] [TA] [TC: Clone, TA: Clone + DTypeCastAPI<TC>]
+         [ci.write(ai.clone().into_cast())]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial] [orderchange_out_c2r_ix2_uninit_promote_cpu_serial]
+     ;
+ )]
+ pub fn func_name<Types, D>(c: &mut [TypeC], lc: &Layout<D>, a: &[TypeA], la: &Layout<D>) -> Result<()>
+@@ -107,6 +134,19 @@ where
+             );
+         })?;
+     } else {
++        // 2-D order-change fast path (see assign_arbitary_cpu_serial): both
++        // layouts 2-D, transpose stride pattern, fast axes exactly +1; a
++        // fully/partially contiguous pair never reaches here (the contig
++        // branch above takes it), so this never shadows the memcpy path.
++        if let (Ok(lc2), Ok(la2)) = (lc.to_dim::<Ix2>(), la.to_dim::<Ix2>()) {
++            let sc = *lc2.stride();
++            let sa = *la2.stride();
++            if sa[1] == 1 && sc[0] == 1 {
++                return oc_r2c(c, &lc2, a, &la2);
++            } else if sa[0] == 1 && sc[1] == 1 {
++                return oc_c2r(c, &lc2, a, &la2);
++            }
++        }
+         let lc = &layouts_full[0];
+         let la = &layouts_full[1];
+         layout_col_major_dim_dispatch_2(lc, la, |(idx_c, idx_a)| {
+diff --git a/rstsr-native-impl/src/cpu_serial/transpose.rs b/rstsr-native-impl/src/cpu_serial/transpose.rs
+index 00e4356..37aa16f 100644
+--- a/rstsr-native-impl/src/cpu_serial/transpose.rs
++++ b/rstsr-native-impl/src/cpu_serial/transpose.rs
+@@ -47,6 +47,100 @@ where
+     Ok(())
+ }
+ 
++/// Promote-general variants of [`orderchange_out_r2c_ix2_cpu_serial`]: same
++/// blocked traversal, but the inner write is `clone().into_cast()` (identity
++/// inlined when `TC == TA`, so same-dtype callers pay nothing — the same
++/// contract as the promote assign families). The uninit variant writes
++/// `MaybeUninit<TC>` slots; this is sound **because the blocked loop covers
++/// every output element (i, j) exactly once** (full-coverage by loop
++/// construction: `i in 0..nrow`, `j in 0..ncol`, one write per pair).
++///
++/// All index arithmetic is `isize` (negative slow-axis strides are valid,
++/// e.g. flip views); the `usize` cast happens only after the full offset sum,
++/// and slice indexing keeps per-access bounds checks.
++#[duplicate_item(
++    func_name
++        TypeC TypeA func_write
++    ;
++    [orderchange_out_r2c_ix2_promote_cpu_serial]
++        [TC] [TA]
++        [*ci = ai.clone().into_cast()]
++    ;
++    [orderchange_out_r2c_ix2_uninit_promote_cpu_serial]
++        [MaybeUninit<TC>] [TA]
++        [ci.write(ai.clone().into_cast())]
++    ;
++)]
++pub fn func_name<TC, TA>(c: &mut [TypeC], lc: &Layout<Ix2>, a: &[TypeA], la: &Layout<Ix2>) -> Result<()>
++where
++    TC: Clone,
++    TA: Clone + DTypeCastAPI<TC>,
++{
++    // shape check
++    let sc = lc.shape();
++    let sa = la.shape();
++    rstsr_assert_eq!(sc[0], sa[0], InvalidLayout, "This function requires shape identity")?;
++    rstsr_assert_eq!(sc[1], sa[1], InvalidLayout, "This function requires shape identity")?;
++    let [nrow, ncol] = *sa;
++
++    // stride check
++    rstsr_assert_eq!(lc.stride()[0], 1, InvalidLayout, "This function requires col-major output")?;
++    rstsr_assert_eq!(la.stride()[1], 1, InvalidLayout, "This function requires row-major input")?;
++
++    let offset_a = la.offset() as isize;
++    let offset_c = lc.offset() as isize;
++    let lda = la.stride()[0];
++    let ldc = lc.stride()[1];
++
++    (0..ncol).step_by(BLOCK_SIZE).for_each(|j_start| {
++        let j_end = (j_start + BLOCK_SIZE).min(ncol);
++        let (j_start, j_end) = (j_start as isize, j_end as isize);
++        (0..nrow).step_by(BLOCK_SIZE).for_each(|i_start| {
++            let i_end = (i_start + BLOCK_SIZE).min(nrow);
++            let (i_start, i_end) = (i_start as isize, i_end as isize);
++            for j in j_start..j_end {
++                for i in i_start..i_end {
++                    let src_idx = (offset_a + i * lda + j) as usize;
++                    let dst_idx = (offset_c + j * ldc + i) as usize;
++                    let ai = &a[src_idx];
++                    let ci = &mut c[dst_idx];
++                    func_write;
++                }
++            }
++        });
++    });
++
++    Ok(())
++}
++
++/// Change order (row/col-major) a matrix out-place, promote/uninit variants.
++///
++/// Col-major-to-row-major wrappers of the `r2c` kernels above: reverse both
++/// layouts' axes and delegate. See the r2c functions for the write-once /
++/// isize-offset contract.
++#[duplicate_item(
++    func_name
++        TypeC TypeA func_r2c
++    ;
++    [orderchange_out_c2r_ix2_promote_cpu_serial]
++        [TC] [TA]
++        [orderchange_out_r2c_ix2_promote_cpu_serial]
++    ;
++    [orderchange_out_c2r_ix2_uninit_promote_cpu_serial]
++        [MaybeUninit<TC>] [TA]
++        [orderchange_out_r2c_ix2_uninit_promote_cpu_serial]
++    ;
++)]
++pub fn func_name<TC, TA>(c: &mut [TypeC], lc: &Layout<Ix2>, a: &[TypeA], la: &Layout<Ix2>) -> Result<()>
++where
++    TC: Clone,
++    TA: Clone + DTypeCastAPI<TC>,
++{
++    let lc = lc.reverse_axes();
++    let la = la.reverse_axes();
++    func_r2c(c, &lc, a, &la)
++}
++
+ /// Change order (row/col-major) a matrix out-place using a naive algorithm.
+ ///
+ /// Transpose from `a` (col-major) to `c` (row-major).

@@ -1,0 +1,62 @@
+[package]
+name = "transpose-assign"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+publish = false
+
+# T1' of the rstsr CPU-efficiency campaign: transpose copy + the generic
+# strided assign behind it (PHASE 1 = baseline + anatomy + PLAN; rstsr tree
+# strictly read-only).
+#
+# Standalone crate: NOT a workspace member of anything (the trajectory repo
+# root intentionally has no Cargo.toml). Path-depends on the local rstsr
+# checkout, mirroring rstsr-core's default features EXPLICITLY so the benched
+# configuration is visible in the manifest.
+#
+# rstsr-native-impl is added as a second direct path dep (same feature set
+# rstsr-core enables for it) so the RAW kernels (assign_arbitary_*,
+# orderchange_out_r2c/c2r_ix2_*) can be benched in isolation from the tensor
+# wiring — this separates "kernel cost" from "wiring cost" (task brief).
+
+[dependencies]
+rstsr-core = { path = "../../rstsr/rstsr-core", default-features = false, features = [
+    "row_major",
+    "aligned_alloc",
+    "faer",
+    "faer_as_default",
+] }
+rstsr-native-impl = { path = "../../rstsr/rstsr-native-impl", default-features = false, features = [
+    "rayon",
+] }
+# criterion is a regular dependency because the harness lib exposes
+# `configure_group`; this is a bench-only crate, nothing ships from it.
+criterion = { version = "0.5", features = ["cargo_bench_support"] }
+# direct dependency only to hand the raw rayon kernels an explicit pool in
+# benches/kernels_probe.rs (the same thing DeviceFaer does internally).
+rayon = "1"
+
+[dev-dependencies]
+ndarray = "0.16"
+
+# Criterion suites (release mode via `cargo bench`; profile is stock cargo
+# release: opt-level 3, no LTO — this is what we want to baseline).
+[[bench]]
+name = "transpose"
+harness = false
+
+[[bench]]
+name = "anchors_ndarray"
+harness = false
+
+[[bench]]
+name = "kernels_probe"
+harness = false
+
+[profile.release]
+# stock cargo release defaults; stated explicitly for the README
+opt-level = 3
+debug = false
+lto = false
+codegen-units = 16
+panic = "unwind"

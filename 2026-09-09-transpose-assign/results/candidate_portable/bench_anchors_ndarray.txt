@@ -1,0 +1,52 @@
+    Finished `bench` profile [optimized] target(s) in 0.04s
+     Running benches/anchors_ndarray.rs (target/release/deps/anchors_ndarray-1e9d055ca234b403)
+Gnuplot not found, using plotters backend
+Benchmarking ndarray_transpose/small_64x64-serial_f64/t_to_owned
+Benchmarking ndarray_transpose/small_64x64-serial_f64/t_to_owned: Warming up for 700.00 ms
+Benchmarking ndarray_transpose/small_64x64-serial_f64/t_to_owned: Collecting 100 samples in estimated 2.0003 s (7.3M iterations)
+Benchmarking ndarray_transpose/small_64x64-serial_f64/t_to_owned: Analyzing
+ndarray_transpose/small_64x64-serial_f64/t_to_owned
+                        time:   [270.45 ns 270.54 ns 270.64 ns]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking ndarray_transpose/medium_512x512-serial_f64/t_to_owned
+Benchmarking ndarray_transpose/medium_512x512-serial_f64/t_to_owned: Warming up for 700.00 ms
+Benchmarking ndarray_transpose/medium_512x512-serial_f64/t_to_owned: Collecting 100 samples in estimated 2.0870 s (71k iterations)
+Benchmarking ndarray_transpose/medium_512x512-serial_f64/t_to_owned: Analyzing
+ndarray_transpose/medium_512x512-serial_f64/t_to_owned
+                        time:   [29.581 µs 29.591 µs 29.603 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  4 (4.00%) high mild
+  2 (2.00%) high severe
+Benchmarking ndarray_transpose/large_2048x2048-serial_f64/t_to_owned
+Benchmarking ndarray_transpose/large_2048x2048-serial_f64/t_to_owned: Warming up for 700.00 ms
+Benchmarking ndarray_transpose/large_2048x2048-serial_f64/t_to_owned: Collecting 100 samples in estimated 2.1614 s (400 iterations)
+Benchmarking ndarray_transpose/large_2048x2048-serial_f64/t_to_owned: Analyzing
+ndarray_transpose/large_2048x2048-serial_f64/t_to_owned
+                        time:   [5.3306 ms 5.3722 ms 5.4241 ms]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking ndarray_transpose/odd_1000x777-serial_f64/t_to_owned
+Benchmarking ndarray_transpose/odd_1000x777-serial_f64/t_to_owned: Warming up for 700.00 ms
+Benchmarking ndarray_transpose/odd_1000x777-serial_f64/t_to_owned: Collecting 100 samples in estimated 2.2225 s (30k iterations)
+Benchmarking ndarray_transpose/odd_1000x777-serial_f64/t_to_owned: Analyzing
+ndarray_transpose/odd_1000x777-serial_f64/t_to_owned
+                        time:   [72.389 µs 72.550 µs 72.801 µs]
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low severe
+  4 (4.00%) low mild
+  2 (2.00%) high mild
+  7 (7.00%) high severe
+Benchmarking ndarray_transpose/oddT_777x1000-serial_f64/t_to_owned
+Benchmarking ndarray_transpose/oddT_777x1000-serial_f64/t_to_owned: Warming up for 700.00 ms
+Benchmarking ndarray_transpose/oddT_777x1000-serial_f64/t_to_owned: Collecting 100 samples in estimated 2.2080 s (30k iterations)
+Benchmarking ndarray_transpose/oddT_777x1000-serial_f64/t_to_owned: Analyzing
+ndarray_transpose/oddT_777x1000-serial_f64/t_to_owned
+                        time:   [72.542 µs 72.565 µs 72.593 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+
