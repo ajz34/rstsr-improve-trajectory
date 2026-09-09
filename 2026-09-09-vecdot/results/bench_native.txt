@@ -1,0 +1,391 @@
+   Compiling exp-vecdot v0.1.0 (/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-vecdot)
+    Finished `bench` profile [optimized] target(s) in 2.11s
+     Running unittests src/lib.rs (target/release/deps/exp_vecdot-82d1f29a9c45098d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running benches/innerdot.rs (target/release/deps/innerdot-b71297049518df08)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking innerdot/dot1d_small_64-serial_f64/percent
+Benchmarking innerdot/dot1d_small_64-serial_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_small_64-serial_f64/percent: Collecting 100 samples in estimated 2.0002 s (5.5M iterations)
+Benchmarking innerdot/dot1d_small_64-serial_f64/percent: Analyzing
+innerdot/dot1d_small_64-serial_f64/percent
+                        time:   [360.04 ns 361.30 ns 362.70 ns]
+                        change: [+4.5751% +4.8289% +5.1050%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 21 outliers among 100 measurements (21.00%)
+  10 (10.00%) high mild
+  11 (11.00%) high severe
+Benchmarking innerdot/dot1d_small_64-faer16_f64/percent
+Benchmarking innerdot/dot1d_small_64-faer16_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_small_64-faer16_f64/percent: Collecting 100 samples in estimated 2.0481 s (192k iterations)
+Benchmarking innerdot/dot1d_small_64-faer16_f64/percent: Analyzing
+innerdot/dot1d_small_64-faer16_f64/percent
+                        time:   [10.623 µs 10.639 µs 10.654 µs]
+                        change: [+2.1557% +2.3945% +2.6499%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) low severe
+  4 (4.00%) low mild
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking innerdot/dot1d_medium_10000-serial_f64/percent
+Benchmarking innerdot/dot1d_medium_10000-serial_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_medium_10000-serial_f64/percent: Collecting 100 samples in estimated 2.0180 s (505k iterations)
+Benchmarking innerdot/dot1d_medium_10000-serial_f64/percent: Analyzing
+innerdot/dot1d_medium_10000-serial_f64/percent
+                        time:   [3.9351 µs 3.9411 µs 3.9486 µs]
+                        change: [+0.6343% +0.7794% +0.9842%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 8 outliers among 100 measurements (8.00%)
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+Benchmarking innerdot/dot1d_medium_10000-faer16_f64/percent
+Benchmarking innerdot/dot1d_medium_10000-faer16_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_medium_10000-faer16_f64/percent: Collecting 100 samples in estimated 2.1423 s (71k iterations)
+Benchmarking innerdot/dot1d_medium_10000-faer16_f64/percent: Analyzing
+innerdot/dot1d_medium_10000-faer16_f64/percent
+                        time:   [30.283 µs 30.328 µs 30.369 µs]
+                        change: [+2.8964% +3.1566% +3.4237%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 8 outliers among 100 measurements (8.00%)
+  5 (5.00%) low mild
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking innerdot/dot1d_large_1000000-serial_f64/percent
+Benchmarking innerdot/dot1d_large_1000000-serial_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_large_1000000-serial_f64/percent: Collecting 100 samples in estimated 3.7952 s (10k iterations)
+Benchmarking innerdot/dot1d_large_1000000-serial_f64/percent: Analyzing
+innerdot/dot1d_large_1000000-serial_f64/percent
+                        time:   [370.97 µs 371.22 µs 371.54 µs]
+                        change: [-0.7996% -0.4739% -0.1162%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) high mild
+  8 (8.00%) high severe
+Benchmarking innerdot/dot1d_large_1000000-faer16_f64/percent
+Benchmarking innerdot/dot1d_large_1000000-faer16_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_large_1000000-faer16_f64/percent: Collecting 100 samples in estimated 2.1785 s (25k iterations)
+Benchmarking innerdot/dot1d_large_1000000-faer16_f64/percent: Analyzing
+innerdot/dot1d_large_1000000-faer16_f64/percent
+                        time:   [87.363 µs 87.501 µs 87.649 µs]
+                        change: [-1.6515% +0.8890% +3.4201%] (p = 0.51 > 0.05)
+                        No change in performance detected.
+Found 12 outliers among 100 measurements (12.00%)
+  2 (2.00%) high mild
+  10 (10.00%) high severe
+Benchmarking innerdot/dot1d_xlarge_10000000-serial_f64/percent
+Benchmarking innerdot/dot1d_xlarge_10000000-serial_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_xlarge_10000000-serial_f64/percent: Collecting 100 samples in estimated 2.0394 s (500 iterations)
+Benchmarking innerdot/dot1d_xlarge_10000000-serial_f64/percent: Analyzing
+innerdot/dot1d_xlarge_10000000-serial_f64/percent
+                        time:   [4.0677 ms 4.0710 ms 4.0748 ms]
+                        change: [-1.7227% -1.6232% -1.5130%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking innerdot/dot1d_xlarge_10000000-faer16_f64/percent
+Benchmarking innerdot/dot1d_xlarge_10000000-faer16_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_xlarge_10000000-faer16_f64/percent: Collecting 100 samples in estimated 2.0721 s (1300 iterations)
+Benchmarking innerdot/dot1d_xlarge_10000000-faer16_f64/percent: Analyzing
+innerdot/dot1d_xlarge_10000000-faer16_f64/percent
+                        time:   [1.8185 ms 1.8332 ms 1.8484 ms]
+                        change: [-2.1371% -1.0500% +0.0440%] (p = 0.06 > 0.05)
+                        No change in performance detected.
+Found 5 outliers among 100 measurements (5.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking innerdot/dot1d_medium_100000-serial_c64/percent
+Benchmarking innerdot/dot1d_medium_100000-serial_c64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_medium_100000-serial_c64/percent: Collecting 100 samples in estimated 2.2450 s (35k iterations)
+Benchmarking innerdot/dot1d_medium_100000-serial_c64/percent: Analyzing
+innerdot/dot1d_medium_100000-serial_c64/percent
+                        time:   [62.674 µs 62.718 µs 62.773 µs]
+                        change: [-29.432% -29.110% -28.907%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
+Benchmarking innerdot/dot1d_medium_100000-faer16_c64/percent
+Benchmarking innerdot/dot1d_medium_100000-faer16_c64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_medium_100000-faer16_c64/percent: Collecting 100 samples in estimated 2.1201 s (45k iterations)
+Benchmarking innerdot/dot1d_medium_100000-faer16_c64/percent: Analyzing
+innerdot/dot1d_medium_100000-faer16_c64/percent
+                        time:   [46.721 µs 46.788 µs 46.871 µs]
+                        change: [-4.2370% -3.6626% -3.0125%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 16 outliers among 100 measurements (16.00%)
+  8 (8.00%) high mild
+  8 (8.00%) high severe
+
+     Running benches/vecdot.rs (target/release/deps/vecdot-04e605f15f53c080)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking vecdot/dot1d_small_1000-serial_f64/vecdot
+Benchmarking vecdot/dot1d_small_1000-serial_f64/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/dot1d_small_1000-serial_f64/vecdot: Collecting 100 samples in estimated 2.0047 s (1.3M iterations)
+Benchmarking vecdot/dot1d_small_1000-serial_f64/vecdot: Analyzing
+vecdot/dot1d_small_1000-serial_f64/vecdot
+                        time:   [1.5778 µs 1.5785 µs 1.5794 µs]
+                        change: [-2.3407% -2.1973% -2.0439%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Benchmarking vecdot/dot1d_small_1000-faer16_f64/vecdot
+Benchmarking vecdot/dot1d_small_1000-faer16_f64/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/dot1d_small_1000-faer16_f64/vecdot: Collecting 100 samples in estimated 2.0169 s (424k iterations)
+Benchmarking vecdot/dot1d_small_1000-faer16_f64/vecdot: Analyzing
+vecdot/dot1d_small_1000-faer16_f64/vecdot
+                        time:   [4.5459 µs 4.6549 µs 4.7809 µs]
+                        change: [-1.8969% +1.2119% +4.7256%] (p = 0.49 > 0.05)
+                        No change in performance detected.
+Found 9 outliers among 100 measurements (9.00%)
+  9 (9.00%) high mild
+Benchmarking vecdot/dot1d_medium_100000-serial_f64/vecdot
+Benchmarking vecdot/dot1d_medium_100000-serial_f64/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/dot1d_medium_100000-serial_f64/vecdot: Collecting 100 samples in estimated 2.0594 s (157k iterations)
+Benchmarking vecdot/dot1d_medium_100000-serial_f64/vecdot: Analyzing
+vecdot/dot1d_medium_100000-serial_f64/vecdot
+                        time:   [13.003 µs 13.008 µs 13.014 µs]
+                        change: [+1.3226% +1.5007% +1.7557%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+Benchmarking vecdot/dot1d_medium_100000-faer16_f64/vecdot
+Benchmarking vecdot/dot1d_medium_100000-faer16_f64/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/dot1d_medium_100000-faer16_f64/vecdot: Collecting 100 samples in estimated 2.0449 s (126k iterations)
+Benchmarking vecdot/dot1d_medium_100000-faer16_f64/vecdot: Analyzing
+vecdot/dot1d_medium_100000-faer16_f64/vecdot
+                        time:   [15.671 µs 15.801 µs 15.937 µs]
+                        change: [-0.2538% +0.8838% +1.9933%] (p = 0.12 > 0.05)
+                        No change in performance detected.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking vecdot/dot1d_large_10000000-serial_f64/vecdot
+Benchmarking vecdot/dot1d_large_10000000-serial_f64/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/dot1d_large_10000000-serial_f64/vecdot: Collecting 100 samples in estimated 2.2119 s (800 iterations)
+Benchmarking vecdot/dot1d_large_10000000-serial_f64/vecdot: Analyzing
+vecdot/dot1d_large_10000000-serial_f64/vecdot
+                        time:   [2.9338 ms 2.9402 ms 2.9470 ms]
+                        change: [-0.8050% -0.3037% +0.2391%] (p = 0.27 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking vecdot/dot1d_large_10000000-faer16_f64/vecdot
+Benchmarking vecdot/dot1d_large_10000000-faer16_f64/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/dot1d_large_10000000-faer16_f64/vecdot: Collecting 100 samples in estimated 2.2681 s (800 iterations)
+Benchmarking vecdot/dot1d_large_10000000-faer16_f64/vecdot: Analyzing
+vecdot/dot1d_large_10000000-faer16_f64/vecdot
+                        time:   [2.8848 ms 2.8932 ms 2.9023 ms]
+                        change: [-3.2900% -2.7910% -2.3071%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking vecdot/dot1d_large_10000000-serial_f32/vecdot
+Benchmarking vecdot/dot1d_large_10000000-serial_f32/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/dot1d_large_10000000-serial_f32/vecdot: Collecting 100 samples in estimated 2.0375 s (1700 iterations)
+Benchmarking vecdot/dot1d_large_10000000-serial_f32/vecdot: Analyzing
+vecdot/dot1d_large_10000000-serial_f32/vecdot
+                        time:   [1.2689 ms 1.2737 ms 1.2786 ms]
+                        change: [-1.0155% -0.4265% +0.1377%] (p = 0.15 > 0.05)
+                        No change in performance detected.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking vecdot/dot1d_large_10000000-faer16_f32/vecdot
+Benchmarking vecdot/dot1d_large_10000000-faer16_f32/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/dot1d_large_10000000-faer16_f32/vecdot: Collecting 100 samples in estimated 2.1028 s (1800 iterations)
+Benchmarking vecdot/dot1d_large_10000000-faer16_f32/vecdot: Analyzing
+vecdot/dot1d_large_10000000-faer16_f32/vecdot
+                        time:   [1.2580 ms 1.2642 ms 1.2719 ms]
+                        change: [-2.9132% -2.1102% -1.2774%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+Benchmarking vecdot/dot1d_medium_100000-serial_c64/vecdot
+Benchmarking vecdot/dot1d_medium_100000-serial_c64/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/dot1d_medium_100000-serial_c64/vecdot: Collecting 100 samples in estimated 2.1161 s (61k iterations)
+Benchmarking vecdot/dot1d_medium_100000-serial_c64/vecdot: Analyzing
+vecdot/dot1d_medium_100000-serial_c64/vecdot
+                        time:   [34.795 µs 34.821 µs 34.850 µs]
+                        change: [-33.621% -33.558% -33.480%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+Benchmarking vecdot/dot1d_medium_100000-faer16_c64/vecdot
+Benchmarking vecdot/dot1d_medium_100000-faer16_c64/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/dot1d_medium_100000-faer16_c64/vecdot: Collecting 100 samples in estimated 2.0849 s (56k iterations)
+Benchmarking vecdot/dot1d_medium_100000-faer16_c64/vecdot: Analyzing
+vecdot/dot1d_medium_100000-faer16_c64/vecdot
+                        time:   [37.639 µs 37.689 µs 37.743 µs]
+                        change: [-32.780% -32.390% -31.916%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  4 (4.00%) high severe
+Benchmarking vecdot/small_64x64-ax-1-serial/vecdot
+Benchmarking vecdot/small_64x64-ax-1-serial/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/small_64x64-ax-1-serial/vecdot: Collecting 100 samples in estimated 2.0003 s (419k iterations)
+Benchmarking vecdot/small_64x64-ax-1-serial/vecdot: Analyzing
+vecdot/small_64x64-ax-1-serial/vecdot
+                        time:   [5.0022 µs 5.0029 µs 5.0036 µs]
+                        change: [+2.7208% +2.7636% +2.8071%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 12 outliers among 100 measurements (12.00%)
+  1 (1.00%) low severe
+  1 (1.00%) low mild
+  6 (6.00%) high mild
+  4 (4.00%) high severe
+Benchmarking vecdot/odd_1000x777-ax-1-serial/vecdot
+Benchmarking vecdot/odd_1000x777-ax-1-serial/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/odd_1000x777-ax-1-serial/vecdot: Collecting 100 samples in estimated 2.6029 s (20k iterations)
+Benchmarking vecdot/odd_1000x777-ax-1-serial/vecdot: Analyzing
+vecdot/odd_1000x777-ax-1-serial/vecdot
+                        time:   [131.52 µs 131.64 µs 131.81 µs]
+                        change: [+5.2703% +5.4498% +5.6589%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 7 outliers among 100 measurements (7.00%)
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+Benchmarking vecdot/batched_am1_4096x512-ax-1-serial/vecdot
+Benchmarking vecdot/batched_am1_4096x512-ax-1-serial/vecdot: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.2s, enable flat sampling, or reduce sample count to 60.
+Benchmarking vecdot/batched_am1_4096x512-ax-1-serial/vecdot: Collecting 100 samples in estimated 2.2331 s (5050 iterations)
+Benchmarking vecdot/batched_am1_4096x512-ax-1-serial/vecdot: Analyzing
+vecdot/batched_am1_4096x512-ax-1-serial/vecdot
+                        time:   [464.68 µs 466.32 µs 468.53 µs]
+                        change: [+4.1560% +4.5355% +4.8852%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+Benchmarking vecdot/batched_am1_4096x512-ax-1-serial_c64/vecdot
+Benchmarking vecdot/batched_am1_4096x512-ax-1-serial_c64/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/batched_am1_4096x512-ax-1-serial_c64/vecdot: Collecting 100 samples in estimated 2.1208 s (1700 iterations)
+Benchmarking vecdot/batched_am1_4096x512-ax-1-serial_c64/vecdot: Analyzing
+vecdot/batched_am1_4096x512-ax-1-serial_c64/vecdot
+                        time:   [1.2483 ms 1.2511 ms 1.2539 ms]
+                        change: [-9.8794% -9.6400% -9.4284%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+Benchmarking vecdot/batched_am1_8192x256-ax-1-serial/vecdot
+Benchmarking vecdot/batched_am1_8192x256-ax-1-serial/vecdot: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.8s, enable flat sampling, or reduce sample count to 50.
+Benchmarking vecdot/batched_am1_8192x256-ax-1-serial/vecdot: Collecting 100 samples in estimated 2.8343 s (5050 iterations)
+Benchmarking vecdot/batched_am1_8192x256-ax-1-serial/vecdot: Analyzing
+vecdot/batched_am1_8192x256-ax-1-serial/vecdot
+                        time:   [593.41 µs 593.91 µs 594.50 µs]
+                        change: [+5.7263% +6.0050% +6.2514%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking vecdot/batched_axis0_512x4096-ax0-serial/vecdot
+Benchmarking vecdot/batched_axis0_512x4096-ax0-serial/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/batched_axis0_512x4096-ax0-serial/vecdot: Collecting 100 samples in estimated 2.0431 s (2100 iterations)
+Benchmarking vecdot/batched_axis0_512x4096-ax0-serial/vecdot: Analyzing
+vecdot/batched_axis0_512x4096-ax0-serial/vecdot
+                        time:   [962.37 µs 965.87 µs 969.71 µs]
+                        change: [-40.649% -40.348% -40.040%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+Benchmarking vecdot/batched_strided_4096x512-ax-1-serial/vecdot
+Benchmarking vecdot/batched_strided_4096x512-ax-1-serial/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/batched_strided_4096x512-ax-1-serial/vecdot: Collecting 100 samples in estimated 2.2632 s (800 iterations)
+Benchmarking vecdot/batched_strided_4096x512-ax-1-serial/vecdot: Analyzing
+vecdot/batched_strided_4096x512-ax-1-serial/vecdot
+                        time:   [2.8203 ms 2.8242 ms 2.8281 ms]
+                        change: [-7.9163% -7.6937% -7.4739%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+Benchmarking vecdot/small_64x64-ax-1-faer16/vecdot
+Benchmarking vecdot/small_64x64-ax-1-faer16/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/small_64x64-ax-1-faer16/vecdot: Collecting 100 samples in estimated 2.1290 s (76k iterations)
+Benchmarking vecdot/small_64x64-ax-1-faer16/vecdot: Analyzing
+vecdot/small_64x64-ax-1-faer16/vecdot
+                        time:   [28.027 µs 28.112 µs 28.242 µs]
+                        change: [-3.5542% -3.1484% -2.7643%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking vecdot/odd_1000x777-ax-1-faer16/vecdot
+Benchmarking vecdot/odd_1000x777-ax-1-faer16/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/odd_1000x777-ax-1-faer16/vecdot: Collecting 100 samples in estimated 2.0503 s (25k iterations)
+Benchmarking vecdot/odd_1000x777-ax-1-faer16/vecdot: Analyzing
+vecdot/odd_1000x777-ax-1-faer16/vecdot
+                        time:   [81.050 µs 81.185 µs 81.323 µs]
+                        change: [-4.4475% -4.1028% -3.7344%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  2 (2.00%) low mild
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+Benchmarking vecdot/batched_am1_4096x512-ax-1-faer16/vecdot
+Benchmarking vecdot/batched_am1_4096x512-ax-1-faer16/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/batched_am1_4096x512-ax-1-faer16/vecdot: Collecting 100 samples in estimated 2.1577 s (15k iterations)
+Benchmarking vecdot/batched_am1_4096x512-ax-1-faer16/vecdot: Analyzing
+vecdot/batched_am1_4096x512-ax-1-faer16/vecdot
+                        time:   [141.36 µs 141.71 µs 142.06 µs]
+                        change: [-6.3975% -5.8455% -5.3269%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) low mild
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking vecdot/batched_am1_4096x512-ax-1-faer16_c64/vecdot
+Benchmarking vecdot/batched_am1_4096x512-ax-1-faer16_c64/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/batched_am1_4096x512-ax-1-faer16_c64/vecdot: Collecting 100 samples in estimated 2.4867 s (10k iterations)
+Benchmarking vecdot/batched_am1_4096x512-ax-1-faer16_c64/vecdot: Analyzing
+vecdot/batched_am1_4096x512-ax-1-faer16_c64/vecdot
+                        time:   [247.99 µs 250.79 µs 254.10 µs]
+                        change: [-15.353% -9.3722% -2.2464%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 12 outliers among 100 measurements (12.00%)
+  6 (6.00%) high mild
+  6 (6.00%) high severe
+Benchmarking vecdot/batched_am1_8192x256-ax-1-faer16/vecdot
+Benchmarking vecdot/batched_am1_8192x256-ax-1-faer16/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/batched_am1_8192x256-ax-1-faer16/vecdot: Collecting 100 samples in estimated 2.5360 s (15k iterations)
+Benchmarking vecdot/batched_am1_8192x256-ax-1-faer16/vecdot: Analyzing
+vecdot/batched_am1_8192x256-ax-1-faer16/vecdot
+                        time:   [166.51 µs 167.08 µs 167.73 µs]
+                        change: [-6.7205% -5.9296% -5.2412%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking vecdot/batched_axis0_512x4096-ax0-faer16/vecdot
+Benchmarking vecdot/batched_axis0_512x4096-ax0-faer16/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/batched_axis0_512x4096-ax0-faer16/vecdot: Collecting 100 samples in estimated 2.3592 s (20k iterations)
+Benchmarking vecdot/batched_axis0_512x4096-ax0-faer16/vecdot: Analyzing
+vecdot/batched_axis0_512x4096-ax0-faer16/vecdot
+                        time:   [120.76 µs 123.02 µs 125.71 µs]
+                        change: [-29.332% -27.404% -25.388%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+Benchmarking vecdot/batched_strided_4096x512-ax-1-faer16/vecdot
+Benchmarking vecdot/batched_strided_4096x512-ax-1-faer16/vecdot: Warming up for 700.00 ms
+Benchmarking vecdot/batched_strided_4096x512-ax-1-faer16/vecdot: Collecting 100 samples in estimated 3.2164 s (10k iterations)
+Benchmarking vecdot/batched_strided_4096x512-ax-1-faer16/vecdot: Analyzing
+vecdot/batched_strided_4096x512-ax-1-faer16/vecdot
+                        time:   [324.65 µs 327.71 µs 330.99 µs]
+                        change: [-1.4930% -0.6452% +0.2128%] (p = 0.14 > 0.05)
+                        No change in performance detected.
+Found 10 outliers among 100 measurements (10.00%)
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+

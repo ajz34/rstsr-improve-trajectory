@@ -1,0 +1,22 @@
+# started on Wed Sep  9 12:22:04 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops batched_axis0':
+
+                 5      context-switches                 #     22.1 cs/sec  cs_per_second     
+                 2      cpu-migrations                   #      8.9 migrations/sec  migrations_per_second
+             8,310      page-faults                      #  36810.0 faults/sec  page_faults_per_second
+            225.75 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+       319,573,500      L1-dcache-load-misses            #     37.4 %  l1d_miss_rate            (42.95%)
+           303,625      branch-misses                    #      0.4 %  branch_miss_rate         (43.32%)
+        77,347,964      branches                         #    342.6 M/sec  branch_frequency     (43.34%)
+     1,263,749,539      cpu-cycles                       #      5.6 GHz  cycles_frequency       (42.88%)
+       754,971,339      instructions                     #      0.6 instructions  insn_per_cycle  (42.51%)
+        40,501,775      stalled-cycles-frontend          #     0.03 frontend_cycles_idle        (42.50%)
+
+       0.226138674 seconds time elapsed
+
+       0.218123000 seconds user
+       0.008004000 seconds sys
+
+

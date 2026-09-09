@@ -1,0 +1,3 @@
+np.dot (BLAS)    dot1d_small_1000                       best=     0.000 ms  median=     0.000 ms  best_GBs=    39.0  best_GFLOPs=   4.88
+np.dot (BLAS)    dot1d_medium_100000                    best=     0.002 ms  median=     0.003 ms  best_GBs=   642.6  best_GFLOPs=  80.32
+np.dot (BLAS)    dot1d_large_10000000                   best=     0.949 ms  median=     0.988 ms  best_GBs=   168.7  best_GFLOPs=  21.08

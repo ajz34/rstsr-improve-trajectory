@@ -1,0 +1,474 @@
+diff --git a/rstsr-core/src/device_cpu_serial/linalg/matmul.rs b/rstsr-core/src/device_cpu_serial/linalg/matmul.rs
+index 40e4e0a..bd508ea 100644
+--- a/rstsr-core/src/device_cpu_serial/linalg/matmul.rs
++++ b/rstsr-core/src/device_cpu_serial/linalg/matmul.rs
+@@ -17,6 +17,11 @@ where
+     TA: Mul<TB, Output = TC>,
+     TB: Mul<TA, Output = TC>,
+     TC: Mul<TC, Output = TC> + Add<TC, Output = TC>,
++    // propagated from `inner_dot_naive_cpu_serial`'s contiguous fast-path
++    // guard (alpha == one, beta == zero). NOTE for the PR: impl-level bound
++    // widening on the published device API (same category as the T6 `ArgCmp`
++    // change); all in-tree instantiations satisfy these bounds.
++    TC: num::Zero + num::One + PartialEq,
+     Self: DeviceAPI<TA, Raw = Vec<TA>> + DeviceAPI<TB, Raw = Vec<TB>> + DeviceAPI<TC, Raw = Vec<TC>>,
+ {
+     fn matmul(
+diff --git a/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs b/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs
+index 828661a..ccf4308 100644
+--- a/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs
++++ b/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs
+@@ -9,6 +9,14 @@ use core::ops::{Add, Mul};
+ use num::Zero;
+ use rayon::prelude::*;
+ 
++/// elements per parallel chunk for the contiguous fast path in
++/// `inner_dot_naive_cpu_rayon`; small enough for load balancing across
++/// threads, large enough that each chunk's unrolled fold amortizes.
++const PAR_CHUNK_ELEMS: usize = 8192;
++
++/// below this n, fold sequentially (a rayon dispatch would dominate).
++const PARALLEL_SWITCH: usize = 512;
++
+ #[allow(clippy::too_many_arguments)]
+ pub fn gemm_ix2_naive_cpu_rayon<TA, TB, TC>(
+     c: &mut [TC],
+@@ -75,6 +83,52 @@ where
+     rstsr_assert_eq!(sa[0], sb[0], InvalidLayout)?;
+     let n = sa[0];
+ 
++    // Small n: a rayon dispatch would dominate the actual work (measured
++    // 10-30 µs of overhead at n = 64..1e4 vs ~µs of fold), so fold
++    // sequentially in-place instead (mirrors `vecdot_naive_cpu_rayon`'s
++    // PARALLEL_SWITCH serial fallback).
++    if n < PARALLEL_SWITCH {
++        let (off_a, st_a) = (la.offset() as isize, la.stride()[0]);
++        let (off_b, st_b) = (lb.offset() as isize, lb.stride()[0]);
++        let mut sum = TC::zero();
++        for i in 0..n {
++            let xa = &a[(off_a + i as isize * st_a) as usize];
++            let xb = &b[(off_b + i as isize * st_b) as usize];
++            sum = sum + xa.clone() * xb.clone();
++        }
++        *c = sum * alpha + c.clone() * beta;
++        return Ok(());
++    }
++
++    // Contiguous large n: fold over contiguous chunk pairs (each chunk uses
++    // the 8-lane `unrolled_binary_reduce`) instead of one rayon task per
++    // element with `index_uncheck` address arithmetic per element.
++    if la.stride()[0] == 1 && lb.stride()[0] == 1 {
++        let ca = &a[la.offset()..la.offset() + n];
++        let cb = &b[lb.offset()..lb.offset() + n];
++        let task = || {
++            ca.par_chunks(PAR_CHUNK_ELEMS)
++                .zip(cb.par_chunks(PAR_CHUNK_ELEMS))
++                .fold(
++                    || TC::zero(),
++                    |acc, (xa, xb)| {
++                        acc + unrolled_binary_reduce(
++                            xa,
++                            xb,
++                            || TC::zero(),
++                            |acc, (x, y)| acc + x.clone() * y.clone(),
++                            |acc, v| acc + v,
++                        )
++                    },
++                )
++                .reduce_with(|a, b| a + b)
++                .unwrap_or(TC::zero())
++        };
++        let c_innerdot = pool.map_or_else(task, |pool| pool.install(task));
++        *c = c_innerdot * alpha + c.clone() * beta;
++        return Ok(());
++    }
++
+     let task = || {
+         (0..n)
+             .into_par_iter()
+diff --git a/rstsr-native-impl/src/cpu_rayon/vecdot.rs b/rstsr-native-impl/src/cpu_rayon/vecdot.rs
+index b158a00..d9ed1da 100644
+--- a/rstsr-native-impl/src/cpu_rayon/vecdot.rs
++++ b/rstsr-native-impl/src/cpu_rayon/vecdot.rs
+@@ -93,10 +93,15 @@ where
+             // translate layouts for remaining
+             let layouts = translate_to_col_major(&[&lc, &lam, &lbm], TensorIterOrder::K)?;
+             let (lc, lam, lbm) = (&layouts[0], &layouts[1], &layouts[2]);
+-            // perform computation
+-            layout_col_major_dim_dispatch_par_3(lc, lam, lbm, |(idx_c, idx_m_a, idx_m_b)| {
+-                let mut val_c: TC = Zero::zero();
+-                let stat = layout_col_major_dim_dispatch_2(lasd, lbsd, |(idx_s_a, idx_s_b)| {
++            // Fast path: every summed axis is contiguous (the discontiguous-
++            // summed layouts are 0-dim, yielding exactly one dispatch
++            // iteration with idx == their offset). Hoist that single
++            // iteration out of the parallel row loop instead of running the
++            // `layout_col_major_dim_dispatch_2` machinery once per row.
++            if lasd.ndim() == 0 && lbsd.ndim() == 0 {
++                let (idx_s_a, idx_s_b) = (lasd.offset(), lbsd.offset());
++                // perform computation
++                layout_col_major_dim_dispatch_par_3(lc, lam, lbm, |(idx_c, idx_m_a, idx_m_b)| {
+                     let idx_a = idx_m_a + idx_s_a - offset_a; // double count offset
+                     let idx_b = idx_m_b + idx_s_b - offset_b; // double count offset
+                     let val = unrolled_binary_reduce(
+@@ -106,14 +111,37 @@ where
+                         |acc, (x, y)| acc + x.ext_conj() * y,
+                         |acc, v| acc + v,
+                     );
+-                    val_c = val_c.clone() + val;
+-                });
+-                stat.rstsr_unwrap();
+-                unsafe {
+-                    let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
+-                    (*c_ptr).write(val_c);
+-                }
+-            })
++                    // Skipping the serial twin's `0 + val` is bit-exact:
++                    // zero-seeded lanes never produce -0.0 (see
++                    // cpu_serial/vecdot.rs), NaN passes through unchanged.
++                    unsafe {
++                        let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
++                        (*c_ptr).write(val);
++                    }
++                })
++            } else {
++                // perform computation
++                layout_col_major_dim_dispatch_par_3(lc, lam, lbm, |(idx_c, idx_m_a, idx_m_b)| {
++                    let mut val_c: TC = Zero::zero();
++                    let stat = layout_col_major_dim_dispatch_2(lasd, lbsd, |(idx_s_a, idx_s_b)| {
++                        let idx_a = idx_m_a + idx_s_a - offset_a; // double count offset
++                        let idx_b = idx_m_b + idx_s_b - offset_b; // double count offset
++                        let val = unrolled_binary_reduce(
++                            &a[idx_a..idx_a + n_contig],
++                            &b[idx_b..idx_b + n_contig],
++                            || Zero::zero(),
++                            |acc, (x, y)| acc + x.ext_conj() * y,
++                            |acc, v| acc + v,
++                        );
++                        val_c = val_c.clone() + val;
++                    });
++                    stat.rstsr_unwrap();
++                    unsafe {
++                        let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
++                        (*c_ptr).write(val_c);
++                    }
++                })
++            }
+         } else if flag_contig_m {
+             let n_contig = amc.iter().map(|&i| lam.shape()[i]).product::<usize>();
+             // translate layouts for summed
+@@ -126,32 +154,74 @@ where
+             let (_, lcd) = lc.dim_split_axes(&amc)?;
+             let layouts = translate_to_col_major(&[&lcd, &lamd, &lbmd], TensorIterOrder::K)?;
+             let (lcd, lamd, lbmd) = (&layouts[0], &layouts[1], &layouts[2]);
++            // Materialize the summed-layout walk ONCE (instead of one
++            // `layout_col_major_dim_dispatch_2` re-walk per 64-element band),
++            // then let every band task accumulate into a band-local buffer
++            // (no MaybeUninit read-modify-write on `c` per element per step).
++            // Per-output accumulation order is unchanged (summed positions
++            // `0..K` in order within each band task), so results are
++            // bit-exact. Falls through to the band re-walk if the walk is
++            // too large to materialize (scratch cap ~1 MiB, T2' precedent).
++            const SCRATCH_CAP: usize = 65536; // (usize, usize) entries ≈ 1 MiB
++            let mut scd: Vec<(usize, usize)> = Vec::new();
++            let stat_sc = layout_col_major_dim_dispatch_2(las, lbs, |(idx_s_a, idx_s_b)| {
++                scd.push((idx_s_a, idx_s_b));
++            });
++            stat_sc.rstsr_unwrap();
+             // perform computation
+-            const CHUNK: usize = 64;
+-            layout_col_major_dim_dispatch_par_3(lcd, lamd, lbmd, |(idx_c, idx_m_a, idx_m_b)| {
+-                let slc_c = unsafe {
+-                    let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
+-                    core::slice::from_raw_parts_mut(c_ptr, n_contig)
+-                };
+-                // currently c has not been initialized, init here
+-                slc_c.iter_mut().for_each(|c| *c = MaybeUninit::new(Zero::zero()));
+-                slc_c.par_chunks_mut(CHUNK).enumerate().for_each(|(ichunk, chunk_c)| {
+-                    let n_chunk = chunk_c.len();
+-                    let idx_a_chunk = idx_m_a + ichunk * CHUNK;
+-                    let idx_b_chunk = idx_m_b + ichunk * CHUNK;
+-                    let stat = layout_col_major_dim_dispatch_2(las, lbs, |(idx_s_a, idx_s_b)| {
+-                        let idx_a = idx_a_chunk + idx_s_a - offset_a; // double count offset
+-                        let idx_b = idx_b_chunk + idx_s_b - offset_b; // double count offset
+-                        let chunk_a = &a[idx_a..idx_a + n_chunk];
+-                        let chunk_b = &b[idx_b..idx_b + n_chunk];
+-                        chunk_c.iter_mut().zip(chunk_a.iter().zip(chunk_b.iter())).for_each(|(c, (x, y))| unsafe {
+-                            let val = x.clone().ext_conj() * y.clone();
+-                            c.write(c.assume_init_read() + val);
++            if scd.len() <= SCRATCH_CAP {
++                const CHUNK: usize = 64;
++                layout_col_major_dim_dispatch_par_3(lcd, lamd, lbmd, |(idx_c, idx_m_a, idx_m_b)| {
++                    let slc_c = unsafe {
++                        let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
++                        core::slice::from_raw_parts_mut(c_ptr, n_contig)
++                    };
++                    slc_c.par_chunks_mut(CHUNK).enumerate().for_each(|(ichunk, chunk_c)| {
++                        let n_chunk = chunk_c.len();
++                        let mut acc = vec![TC::zero(); n_chunk];
++                        for &(idx_s_a, idx_s_b) in &scd {
++                            let idx_a = idx_m_a + ichunk * CHUNK + idx_s_a - offset_a;
++                            let idx_b = idx_m_b + ichunk * CHUNK + idx_s_b - offset_b;
++                            let chunk_a = &a[idx_a..idx_a + n_chunk];
++                            let chunk_b = &b[idx_b..idx_b + n_chunk];
++                            acc.iter_mut()
++                                .zip(chunk_a.iter().zip(chunk_b.iter()))
++                                .for_each(|(v, (x, y))| {
++                                    *v = v.clone() + x.clone().ext_conj() * y.clone();
++                                });
++                        }
++                        chunk_c.iter_mut().zip(acc).for_each(|(dst, v)| {
++                            dst.write(v);
+                         });
+                     });
+-                    stat.rstsr_unwrap();
+-                });
+-            })
++                })
++            } else {
++                const CHUNK: usize = 64;
++                layout_col_major_dim_dispatch_par_3(lcd, lamd, lbmd, |(idx_c, idx_m_a, idx_m_b)| {
++                    let slc_c = unsafe {
++                        let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
++                        core::slice::from_raw_parts_mut(c_ptr, n_contig)
++                    };
++                    // currently c has not been initialized, init here
++                    slc_c.iter_mut().for_each(|c| *c = MaybeUninit::new(Zero::zero()));
++                    slc_c.par_chunks_mut(CHUNK).enumerate().for_each(|(ichunk, chunk_c)| {
++                        let n_chunk = chunk_c.len();
++                        let idx_a_chunk = idx_m_a + ichunk * CHUNK;
++                        let idx_b_chunk = idx_m_b + ichunk * CHUNK;
++                        let stat = layout_col_major_dim_dispatch_2(las, lbs, |(idx_s_a, idx_s_b)| {
++                            let idx_a = idx_a_chunk + idx_s_a - offset_a; // double count offset
++                            let idx_b = idx_b_chunk + idx_s_b - offset_b; // double count offset
++                            let chunk_a = &a[idx_a..idx_a + n_chunk];
++                            let chunk_b = &b[idx_b..idx_b + n_chunk];
++                            chunk_c.iter_mut().zip(chunk_a.iter().zip(chunk_b.iter())).for_each(|(c, (x, y))| unsafe {
++                                let val = x.clone().ext_conj() * y.clone();
++                                c.write(c.assume_init_read() + val);
++                            });
++                        });
++                        stat.rstsr_unwrap();
++                    });
++                })
++            }
+         } else {
+             // general case
+             layout_col_major_dim_dispatch_par_3(&lc, &lam, &lbm, |(idx_c, idx_m_a, idx_m_b)| {
+diff --git a/rstsr-native-impl/src/cpu_serial/matmul_naive.rs b/rstsr-native-impl/src/cpu_serial/matmul_naive.rs
+index 95e805c..38be19f 100644
+--- a/rstsr-native-impl/src/cpu_serial/matmul_naive.rs
++++ b/rstsr-native-impl/src/cpu_serial/matmul_naive.rs
+@@ -4,6 +4,7 @@
+ 
+ use crate::prelude_dev::*;
+ use core::ops::{Add, Mul};
++use num::{One, Zero};
+ 
+ #[allow(clippy::too_many_arguments)]
+ pub fn matmul_naive_cpu_serial<TA, TB, TC, DA, DB, DC>(
+@@ -25,6 +26,9 @@ where
+     DC: DimAPI,
+     TA: Mul<TB, Output = TC>,
+     TC: Mul<TC, Output = TC> + Add<TC, Output = TC>,
++    // propagated from `inner_dot_naive_cpu_serial`'s fast-path guard (see the
++    // API-break note there)
++    TC: Zero + One + PartialEq,
+ {
+     // NOTE: this only works for row-major layout
+     // for column-major layout, we need to transpose the input:
+@@ -220,6 +224,12 @@ where
+     TC: Clone,
+     TA: Mul<TB, Output = TC>,
+     TC: Mul<TC, Output = TC> + Add<TC, Output = TC>,
++    // bound widening for the contiguous fast-path guard (alpha == one, beta
++    // == zero, comparability). NOTE for the PR: this is an API break on a
++    // `pub fn` of the published crate, same category as the T6 `ArgCmp`
++    // change — every in-tree instantiation (f32/f64/Complex/ints) already
++    // satisfies these bounds.
++    TC: Zero + One + PartialEq,
+ {
+     // shape check
+     let sa = la.shape();
+@@ -227,6 +237,27 @@ where
+     rstsr_assert_eq!(sa[0], sb[0], InvalidLayout)?;
+     let n = sa[0];
+ 
++    // Fast path: contiguous operands forming a plain dot (alpha == 1, beta
++    // == 0) — this is the entire `%` surface (the tensor-level matmul always
++    // passes alpha = 1, beta = 0 with a fresh output). The 8-lane unrolled
++    // fold re-associates the summation relative to the sequential loop below;
++    // `%` has no cross-device bit-exact contract (the rayon twin already
++    // re-associates through its parallel fold/reduce). Note this path also
++    // no longer reads `c` (the old loop's `beta * c[idx]` on a fresh uninit
++    // output was a latent NaN hazard when beta == 0).
++    if la.stride()[0] == 1 && lb.stride()[0] == 1 && alpha == TC::one() && beta == TC::zero() {
++        let idx_c = unsafe { lc.index_uncheck(&[]) } as usize;
++        let sum = unrolled_binary_reduce(
++            &a[la.offset()..la.offset() + n],
++            &b[lb.offset()..lb.offset() + n],
++            || TC::zero(),
++            |acc, (x, y)| acc + x.clone() * y.clone(),
++            |acc, v| acc + v,
++        );
++        c[idx_c] = sum;
++        return Ok(());
++    }
++
+     // naive iteration
+     unsafe {
+         let idx_c = lc.index_uncheck(&[]) as usize;
+diff --git a/rstsr-native-impl/src/cpu_serial/vecdot.rs b/rstsr-native-impl/src/cpu_serial/vecdot.rs
+index c5b8a34..910f10a 100644
+--- a/rstsr-native-impl/src/cpu_serial/vecdot.rs
++++ b/rstsr-native-impl/src/cpu_serial/vecdot.rs
+@@ -83,12 +83,25 @@ where
+         // translate layouts for remaining
+         let layouts = translate_to_col_major(&[&lc, &lam, &lbm], TensorIterOrder::K)?;
+         let (lc, lam, lbm) = (&layouts[0], &layouts[1], &layouts[2]);
+-        // perform computation
+-        layout_col_major_dim_dispatch_3(lc, lam, lbm, |(idx_c, idx_m_a, idx_m_b)| {
+-            let mut val_c: TC = Zero::zero();
+-            let stat = layout_col_major_dim_dispatch_2(lasd, lbsd, |(idx_s_a, idx_s_b)| {
+-                let idx_a = idx_m_a + idx_s_a - offset_a; // double count offset
+-                let idx_b = idx_m_b + idx_s_b - offset_b; // double count offset
++        // Fast path: every summed axis is contiguous (the discontiguous-summed
++        // layouts are 0-dim) and the remaining layouts are all 1-D — the
++        // batched row-dot shape. Walk the rows with plain index arithmetic
++        // instead of the nested per-position dispatch machinery
++        // (`layout_col_major_dim_dispatch_3` + `_2`), whose per-row cost
++        // dominates the contraction itself at typical row lengths.
++        if lasd.ndim() == 0 && lbsd.ndim() == 0 && lc.ndim() == 1 && lam.ndim() == 1 && lbm.ndim() == 1 {
++            // A 0-dim translated layout yields exactly one dispatch iteration
++            // with idx == its offset; hoist it out of the row loop.
++            let (idx_s_a, idx_s_b) = (lasd.offset(), lbsd.offset());
++            let (off_c, off_a, off_b) = (lc.offset(), lam.offset(), lbm.offset());
++            let (st_c, st_a, st_b) = (lc.stride()[0], lam.stride()[0], lbm.stride()[0]);
++            let n_rem = lc.shape()[0];
++            for i in 0..n_rem {
++                let idx_c = (off_c as isize + i as isize * st_c) as usize;
++                let idx_a =
++                    (idx_s_a as isize + off_a as isize + i as isize * st_a - offset_a as isize) as usize;
++                let idx_b =
++                    (idx_s_b as isize + off_b as isize + i as isize * st_b - offset_b as isize) as usize;
+                 let val = unrolled_binary_reduce(
+                     &a[idx_a..idx_a + n_contig],
+                     &b[idx_b..idx_b + n_contig],
+@@ -96,11 +109,35 @@ where
+                     |acc, (x, y)| acc + x.ext_conj() * y,
+                     |acc, v| acc + v,
+                 );
+-                val_c = val_c.clone() + val;
+-            });
+-            stat.rstsr_unwrap();
+-            c[idx_c].write(val_c);
+-        })
++                // The dispatch path below accumulates `val_c = 0 + val` (the
++                // 0-dim summed walk iterates exactly once). Skipping the
++                // `0 +` is bit-exact: IEEE `x + (+0.0)` returns `x` for every
++                // value the zero-seeded lanes can produce — the lane seeds
++                // are +0.0 and `(+0.0) + (-0.0) = +0.0`, so `val` is never
++                // -0.0; NaN payloads pass through unchanged (as before).
++                c[idx_c].write(val);
++            }
++            Ok(())
++        } else {
++            // perform computation
++            layout_col_major_dim_dispatch_3(lc, lam, lbm, |(idx_c, idx_m_a, idx_m_b)| {
++                let mut val_c: TC = Zero::zero();
++                let stat = layout_col_major_dim_dispatch_2(lasd, lbsd, |(idx_s_a, idx_s_b)| {
++                    let idx_a = idx_m_a + idx_s_a - offset_a; // double count offset
++                    let idx_b = idx_m_b + idx_s_b - offset_b; // double count offset
++                    let val = unrolled_binary_reduce(
++                        &a[idx_a..idx_a + n_contig],
++                        &b[idx_b..idx_b + n_contig],
++                        || Zero::zero(),
++                        |acc, (x, y)| acc + x.ext_conj() * y,
++                        |acc, v| acc + v,
++                    );
++                    val_c = val_c.clone() + val;
++                });
++                stat.rstsr_unwrap();
++                c[idx_c].write(val_c);
++            })
++        }
+     } else if flag_contig_m {
+         let n_contig = amc.iter().map(|&i| lam.shape()[i]).product::<usize>();
+         // translate layouts for summed
+@@ -113,29 +150,58 @@ where
+         let (_, lcd) = lc.dim_split_axes(&amc)?;
+         let layouts = translate_to_col_major(&[&lcd, &lamd, &lbmd], TensorIterOrder::K)?;
+         let (lcd, lamd, lbmd) = (&layouts[0], &layouts[1], &layouts[2]);
+-        // perform computation
+-        const CHUNK: usize = 64;
+-        layout_col_major_dim_dispatch_3(lcd, lamd, lbmd, |(idx_c, idx_m_a, idx_m_b)| {
+-            let slc_c = &mut c[idx_c..idx_c + n_contig];
+-            // currently c has not been initialized, init here
+-            slc_c.iter_mut().for_each(|c| *c = MaybeUninit::new(Zero::zero()));
+-            for (ichunk, chunk_c) in slc_c.chunks_mut(CHUNK).enumerate() {
+-                let n_chunk = chunk_c.len();
+-                let idx_a_chunk = idx_m_a + ichunk * CHUNK;
+-                let idx_b_chunk = idx_m_b + ichunk * CHUNK;
++        // Fast path: when the contiguous remaining run fits the L1 budget,
++        // accumulate into ONE local buffer (the summed layouts are walked
++        // exactly once) and write back at the end, instead of initializing
++        // `c` and read-modify-writing it per element per summed step with a
++        // `dispatch_2` re-walk per 64-element band. Accumulation order per
++        // output element is unchanged (summed positions `0..K` in order),
++        // so results are bit-exact.
++        const L1_VACC_BUDGET_BYTES: usize = 32768;
++        if n_contig * core::mem::size_of::<TC>() <= L1_VACC_BUDGET_BYTES {
++            // perform computation
++            layout_col_major_dim_dispatch_3(lcd, lamd, lbmd, |(idx_c, idx_m_a, idx_m_b)| {
++                let mut vacc = vec![TC::zero(); n_contig];
+                 let stat = layout_col_major_dim_dispatch_2(las, lbs, |(idx_s_a, idx_s_b)| {
+-                    let idx_a = idx_a_chunk + idx_s_a - offset_a; // double count offset
+-                    let idx_b = idx_b_chunk + idx_s_b - offset_b; // double count offset
+-                    let chunk_a = &a[idx_a..idx_a + n_chunk];
+-                    let chunk_b = &b[idx_b..idx_b + n_chunk];
+-                    chunk_c.iter_mut().zip(chunk_a.iter().zip(chunk_b.iter())).for_each(|(c, (x, y))| unsafe {
+-                        let val = x.clone().ext_conj() * y.clone();
+-                        c.write(c.assume_init_read() + val);
++                    let idx_a = idx_m_a + idx_s_a - offset_a; // double count offset
++                    let idx_b = idx_m_b + idx_s_b - offset_b; // double count offset
++                    let ra = &a[idx_a..idx_a + n_contig];
++                    let rb = &b[idx_b..idx_b + n_contig];
++                    vacc.iter_mut().zip(ra.iter().zip(rb.iter())).for_each(|(acc, (x, y))| {
++                        *acc = acc.clone() + x.clone().ext_conj() * y.clone();
+                     });
+                 });
+                 stat.rstsr_unwrap();
+-            }
+-        })
++                let slc_c = &mut c[idx_c..idx_c + n_contig];
++                slc_c.iter_mut().zip(vacc.into_iter()).for_each(|(dst, v)| {
++                    dst.write(v);
++                });
++            })
++        } else {
++            // perform computation
++            const CHUNK: usize = 64;
++            layout_col_major_dim_dispatch_3(lcd, lamd, lbmd, |(idx_c, idx_m_a, idx_m_b)| {
++                let slc_c = &mut c[idx_c..idx_c + n_contig];
++                // currently c has not been initialized, init here
++                slc_c.iter_mut().for_each(|c| *c = MaybeUninit::new(Zero::zero()));
++                for (ichunk, chunk_c) in slc_c.chunks_mut(CHUNK).enumerate() {
++                    let n_chunk = chunk_c.len();
++                    let idx_a_chunk = idx_m_a + ichunk * CHUNK;
++                    let idx_b_chunk = idx_m_b + ichunk * CHUNK;
++                    let stat = layout_col_major_dim_dispatch_2(las, lbs, |(idx_s_a, idx_s_b)| {
++                        let idx_a = idx_a_chunk + idx_s_a - offset_a; // double count offset
++                        let idx_b = idx_b_chunk + idx_s_b - offset_b; // double count offset
++                        let chunk_a = &a[idx_a..idx_a + n_chunk];
++                        let chunk_b = &b[idx_b..idx_b + n_chunk];
++                        chunk_c.iter_mut().zip(chunk_a.iter().zip(chunk_b.iter())).for_each(|(c, (x, y))| unsafe {
++                            let val = x.clone().ext_conj() * y.clone();
++                            c.write(c.assume_init_read() + val);
++                        });
++                    });
++                    stat.rstsr_unwrap();
++                }
++            })
++        }
+     } else {
+         // general case
+         layout_col_major_dim_dispatch_3(&lc, &lam, &lbm, |(idx_c, idx_m_a, idx_m_b)| {

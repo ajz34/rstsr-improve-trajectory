@@ -1,0 +1,11 @@
+Derived from perf stat -d (native, PATCHED tree; results/perf_candidate/).
+Compare with results/perf/derived_summary.txt (clean tree).
+op                   ms/iter    GB/s  cyc/el  ins/el   IPC  L1d-m%
+batched_am1            0.359    93.6    0.95    2.67  2.81    23.3
+batched_axis0          0.564    59.5    1.51    0.90  0.60    37.4
+dot1d                  2.990    53.5    1.69    2.63  1.55    24.3
+innerdot_serial        3.077    52.0    1.75    2.72  1.56    24.1
+batched_faer           2.277    14.7    5.66    8.67  1.53     6.6
+innerdot_faer         24.681     6.5   13.55    2.95  0.22    20.5
+
+(cyc/ins per ELEMENT of per-iter work; faer rows aggregate all threads)

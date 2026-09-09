@@ -1,0 +1,11 @@
+   Compiling rstsr-native-impl v0.8.0 (/home/a/rstsr_pack/rstsr/rstsr-native-impl)
+   Compiling rstsr-core v0.8.0 (/home/a/rstsr_pack/rstsr/rstsr-core)
+   Compiling exp-vecdot v0.1.0 (/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-vecdot)
+    Finished `release` profile [optimized] target(s) in 9.54s
+     Running `target/release/examples/correctness`
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+=== correctness: DeviceCpuSerial ===
+=== correctness: DeviceFaer (16 threads) ===
+
+correctness: 49 checks, 0 failures
+ALL PASS

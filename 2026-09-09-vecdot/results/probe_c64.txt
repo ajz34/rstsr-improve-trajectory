@@ -1,0 +1,4 @@
+A5 c64 per-row plain fold (conj(a)*b)                     1.707 ms     39.3 GB/s     7.37 GFLOP/s
+A6 c64 per-row 8-lane                                     1.388 ms     48.4 GB/s     9.07 GFLOP/s
+A5 c64 per-row plain fold (conj(a)*b)                     1.274 ms     52.7 GB/s     9.88 GFLOP/s
+A6 c64 per-row 8-lane                                     1.450 ms     46.3 GB/s     8.68 GFLOP/s

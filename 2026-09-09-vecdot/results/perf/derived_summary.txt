@@ -1,0 +1,13 @@
+Derived from perf stat -d (native, results/perf/perf_<op>.txt).
+GB/s = bytes/task-clock (wall for faer noted); cyc+ins per ELEMENT of per-iter work.
+op                   ms/iter    GB/s  cyc/el  ins/el   IPC  L1d-m%  brmis%
+batched_am1            0.468    71.7    1.23    3.68  2.99    14.3     0.0
+batched_axis0          0.810    41.4    2.15    3.17  1.48    14.9     0.0
+batched_strided        2.839    11.8    7.64   13.62  1.78    17.5     0.1
+dot1d                  2.884    55.5    1.64    2.64  1.61    24.2     0.0
+innerdot_serial        4.227    37.8    2.37   12.25  5.18     8.3     0.0
+batched_faer           2.425    13.8    6.04   10.28  1.70     5.8     0.2
+innerdot_faer         25.747     6.2   14.03   11.76  0.84    10.5     0.0
+
+faer rows: task-clock counts all threads (aggregate core-time); GB/s column for faer
+is aggregate-bandwidth-equivalent using task-clock, i.e. wall*threads; see README.

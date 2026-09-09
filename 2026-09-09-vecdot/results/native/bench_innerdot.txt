@@ -1,0 +1,97 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/innerdot.rs (target/release/deps/innerdot-b71297049518df08)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking innerdot/dot1d_small_64-serial_f64/percent
+Benchmarking innerdot/dot1d_small_64-serial_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_small_64-serial_f64/percent: Collecting 100 samples in estimated 2.0003 s (5.5M iterations)
+Benchmarking innerdot/dot1d_small_64-serial_f64/percent: Analyzing
+innerdot/dot1d_small_64-serial_f64/percent
+                        time:   [356.68 ns 356.82 ns 356.97 ns]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking innerdot/dot1d_small_64-faer16_f64/percent
+Benchmarking innerdot/dot1d_small_64-faer16_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_small_64-faer16_f64/percent: Collecting 100 samples in estimated 2.0505 s (192k iterations)
+Benchmarking innerdot/dot1d_small_64-faer16_f64/percent: Analyzing
+innerdot/dot1d_small_64-faer16_f64/percent
+                        time:   [10.629 µs 10.636 µs 10.642 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) low severe
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking innerdot/dot1d_medium_10000-serial_f64/percent
+Benchmarking innerdot/dot1d_medium_10000-serial_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_medium_10000-serial_f64/percent: Collecting 100 samples in estimated 2.0154 s (505k iterations)
+Benchmarking innerdot/dot1d_medium_10000-serial_f64/percent: Analyzing
+innerdot/dot1d_medium_10000-serial_f64/percent
+                        time:   [3.9352 µs 3.9504 µs 3.9817 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  10 (10.00%) high severe
+Benchmarking innerdot/dot1d_medium_10000-faer16_f64/percent
+Benchmarking innerdot/dot1d_medium_10000-faer16_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_medium_10000-faer16_f64/percent: Collecting 100 samples in estimated 2.1392 s (71k iterations)
+Benchmarking innerdot/dot1d_medium_10000-faer16_f64/percent: Analyzing
+innerdot/dot1d_medium_10000-faer16_f64/percent
+                        time:   [30.288 µs 30.308 µs 30.327 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) low mild
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+Benchmarking innerdot/dot1d_large_1000000-serial_f64/percent
+Benchmarking innerdot/dot1d_large_1000000-serial_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_large_1000000-serial_f64/percent: Collecting 100 samples in estimated 3.8092 s (10k iterations)
+Benchmarking innerdot/dot1d_large_1000000-serial_f64/percent: Analyzing
+innerdot/dot1d_large_1000000-serial_f64/percent
+                        time:   [373.01 µs 373.32 µs 373.69 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking innerdot/dot1d_large_1000000-faer16_f64/percent
+Benchmarking innerdot/dot1d_large_1000000-faer16_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_large_1000000-faer16_f64/percent: Collecting 100 samples in estimated 2.1732 s (25k iterations)
+Benchmarking innerdot/dot1d_large_1000000-faer16_f64/percent: Analyzing
+innerdot/dot1d_large_1000000-faer16_f64/percent
+                        time:   [87.158 µs 87.312 µs 87.466 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  3 (3.00%) high mild
+  8 (8.00%) high severe
+Benchmarking innerdot/dot1d_xlarge_10000000-serial_f64/percent
+Benchmarking innerdot/dot1d_xlarge_10000000-serial_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_xlarge_10000000-serial_f64/percent: Collecting 100 samples in estimated 2.0481 s (500 iterations)
+Benchmarking innerdot/dot1d_xlarge_10000000-serial_f64/percent: Analyzing
+innerdot/dot1d_xlarge_10000000-serial_f64/percent
+                        time:   [4.0762 ms 4.0790 ms 4.0820 ms]
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) high mild
+Benchmarking innerdot/dot1d_xlarge_10000000-faer16_f64/percent
+Benchmarking innerdot/dot1d_xlarge_10000000-faer16_f64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_xlarge_10000000-faer16_f64/percent: Collecting 100 samples in estimated 2.0674 s (1300 iterations)
+Benchmarking innerdot/dot1d_xlarge_10000000-faer16_f64/percent: Analyzing
+innerdot/dot1d_xlarge_10000000-faer16_f64/percent
+                        time:   [1.8298 ms 1.8416 ms 1.8531 ms]
+Benchmarking innerdot/dot1d_medium_100000-serial_c64/percent
+Benchmarking innerdot/dot1d_medium_100000-serial_c64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_medium_100000-serial_c64/percent: Collecting 100 samples in estimated 2.2384 s (35k iterations)
+Benchmarking innerdot/dot1d_medium_100000-serial_c64/percent: Analyzing
+innerdot/dot1d_medium_100000-serial_c64/percent
+                        time:   [63.539 µs 63.645 µs 63.748 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) low mild
+  9 (9.00%) high mild
+  1 (1.00%) high severe
+Benchmarking innerdot/dot1d_medium_100000-faer16_c64/percent
+Benchmarking innerdot/dot1d_medium_100000-faer16_c64/percent: Warming up for 700.00 ms
+Benchmarking innerdot/dot1d_medium_100000-faer16_c64/percent: Collecting 100 samples in estimated 2.1015 s (45k iterations)
+Benchmarking innerdot/dot1d_medium_100000-faer16_c64/percent: Analyzing
+innerdot/dot1d_medium_100000-faer16_c64/percent
+                        time:   [46.613 µs 46.702 µs 46.807 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  2 (2.00%) low mild
+  3 (3.00%) high mild
+  6 (6.00%) high severe
+

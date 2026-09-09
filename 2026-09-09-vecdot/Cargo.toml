@@ -1,0 +1,60 @@
+[package]
+name = "exp-vecdot"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+publish = false
+
+# T3' of the rstsr CPU-efficiency campaign: batched vecdot (serial) + the
+# inner_dot path of `%`, at rstsr commit 386948be819baa334b8da02232f3a1944e5447d5.
+#
+# PHASE 1 (baseline + anatomy + design): NO code changes to rstsr.
+#
+# Standalone crate: NOT a workspace member of anything. Path-depends on the
+# local rstsr checkout, mirroring rstsr-core's default features EXPLICITLY so
+# the benched configuration is visible in the manifest (T0 harness pattern).
+#
+# NOTE (T0 carry-forward): no `dispatch_dim_layout_iter` D8 column is run for
+# T3' — the feature regressed f32 1-D vecdot to 0.57x in T0's build, and the
+# plan is to keep vecdot clear of it. The feature passthrough below exists so
+# a one-off check stays possible without editing the manifest.
+
+[dependencies]
+rstsr-core = { path = "../../rstsr/rstsr-core", default-features = false, features = [
+    "row_major",
+    "aligned_alloc",
+    "faer",
+    "faer_as_default",
+] }
+# direct dep for the layout-branch probe (public layout machinery), mirroring
+# the T2' experiment's pattern
+rstsr-common = { path = "../../rstsr/rstsr-common", default-features = false, features = [
+    "row_major",
+    "aligned_alloc",
+] }
+num = "0.4"
+# criterion is a regular dependency because the harness lib exposes
+# `configure_group`; this is a bench-only crate, nothing ships from it.
+criterion = { version = "0.5", features = ["cargo_bench_support"] }
+
+[dev-dependencies]
+ndarray = "0.16"
+
+[features]
+dispatch_dim_layout_iter = ["rstsr-core/dispatch_dim_layout_iter"]
+
+[[bench]]
+name = "vecdot"
+harness = false
+
+[[bench]]
+name = "innerdot"
+harness = false
+
+[profile.release]
+# stock cargo release defaults; stated explicitly for the README
+opt-level = 3
+debug = false
+lto = false
+codegen-units = 16
+panic = "unwind"

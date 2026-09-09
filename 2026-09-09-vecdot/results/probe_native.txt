@@ -1,0 +1,25 @@
+=== am1 row-dot (branch-1 shape)  a(4096,512).b(4096,512) -> (4096,) ===
+A0 branch1-replica (ubr per row)                          0.292 ms    115.1 GB/s    14.38 GFLOP/s
+A1 per-row plain fold s+=x*y                              0.748 ms     44.9 GB/s     5.61 GFLOP/s
+A2 per-row 8-lane [f64;8]                                 0.434 ms     77.3 GB/s     9.67 GFLOP/s
+A3 two-rows interleaved 8-lane                            0.981 ms     34.2 GB/s     4.27 GFLOP/s
+A2 @ (8192,256) 8-lane                                    0.426 ms     78.7 GB/s     9.84 GFLOP/s
+A5 c64 per-row plain fold (conj(a)*b)                     1.246 ms     53.8 GB/s    10.10 GFLOP/s
+=== axis0 column-accumulation (branch-2 RMW shape)  a(4096,512).b(4096,512) ax0 -> (4096,) ===
+B0 branch2-replica (RMW per elem per row)                 1.757 ms     19.1 GB/s     2.39 GFLOP/s
+B1 full vacc (32KiB L1) row walks                         0.446 ms     75.2 GB/s     9.40 GFLOP/s
+B2 full vacc 8-lane j split                               0.799 ms     42.0 GB/s     5.25 GFLOP/s
+=== strided general-branch shape  a(4096,512) contig . b(512,4096)-view -> (4096,) ===
+C0 general-replica (idx + i*step per elem)                2.999 ms     11.2 GB/s     1.40 GFLOP/s
+C1 8-lane stride fold                                     3.001 ms     11.2 GB/s     1.40 GFLOP/s
+=== inner_dot 1-D ===
+-- n=4096 --
+D0 serial-kernel replica (idx_uncheck + alpha*)           0.001 ms     45.8 GB/s     5.72 GFLOP/s
+D1 zip fold s+=x*y                                        0.001 ms     45.8 GB/s     5.72 GFLOP/s
+D2 8-lane unrolled                                        0.001 ms     90.0 GB/s    11.25 GFLOP/s
+-- n=1e7 --
+D0 serial-kernel replica (idx_uncheck + alpha*)           3.988 ms     40.1 GB/s     5.01 GFLOP/s
+D1 zip fold s+=x*y                                        3.989 ms     40.1 GB/s     5.01 GFLOP/s
+D2 8-lane unrolled                                        2.858 ms     56.0 GB/s     7.00 GFLOP/s
+
+(nominal cycles/elem labels assume ~5.7 GHz; treat GB/s as primary)

@@ -1,0 +1,10 @@
+=== vecdot bench geometries at 386948be (row-major default order) ===
+dot1d n=1e7 (1-D dot)                        -> BRANCH-1 contig_s (unrolled_binary_reduce per output, write once)   [las: stride 1, n_contig_s=10000000] [amc len=0]
+batched_am1 (4096,512).(4096,512) ax-1       -> BRANCH-1 contig_s (unrolled_binary_reduce per output, write once)   [las: stride 1, n_contig_s=512] [amc len=0]
+batched_am1 (8192,256).(8192,256) ax-1       -> BRANCH-1 contig_s (unrolled_binary_reduce per output, write once)   [las: stride 1, n_contig_s=256] [amc len=0]
+batched_axis0 (512,4096).(512,4096) ax0      -> BRANCH-2 contig_m (MaybeUninit RMW per element per contraction step)   [las: stride 4096, n_contig_s=0] [amc len=1]
+batched_strided (4096,512).(512,4096).t() ax-1 -> BRANCH-3 general (per-element stride/index fold)   [las: stride 1, n_contig_s=0] [amc len=0]
+batched odd (1000,777).(1000,777) ax-1       -> BRANCH-1 contig_s (unrolled_binary_reduce per output, write once)   [las: stride 1, n_contig_s=777] [amc len=0]
+batched_am1 (1000,777).(777,) ax-1 (brem bcast) -> BRANCH-1 contig_s (unrolled_binary_reduce per output, write once)   [las: stride 1, n_contig_s=777] [amc len=0]
+batched_am1 (1000,777).(1000,777)bcast ax-1  -> BRANCH-1 contig_s (unrolled_binary_reduce per output, write once)   [las: stride 1, n_contig_s=777] [amc len=0]
+batched_am1 fcontig-a (1000,777).(1000,777) ax-1 -> BRANCH-3 general (per-element stride/index fold)   [las: stride 1000, n_contig_s=0] [amc len=0]

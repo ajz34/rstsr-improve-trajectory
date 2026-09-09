@@ -1,0 +1,22 @@
+# started on Wed Sep  9 11:19:10 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops batched_faer':
+
+            32,084      context-switches                 #   2646.4 cs/sec  cs_per_second     
+               353      cpu-migrations                   #     29.1 migrations/sec  migrations_per_second
+             8,833      page-faults                      #    728.6 faults/sec  page_faults_per_second
+         12,123.49 msec task-clock                       #     15.2 CPUs  CPUs_utilized       
+     3,395,482,764      L1-dcache-load-misses            #      5.8 %  l1d_miss_rate            (42.77%)
+        35,531,037      branch-misses                    #      0.2 %  branch_miss_rate         (42.99%)
+    18,715,242,030      branches                         #   1543.7 M/sec  branch_frequency     (43.09%)
+    63,373,906,156      cpu-cycles                       #      5.2 GHz  cycles_frequency       (43.00%)
+   107,771,231,185      instructions                     #      1.7 instructions  insn_per_cycle  (42.90%)
+     4,008,838,809      stalled-cycles-frontend          #     0.06 frontend_cycles_idle        (42.74%)
+
+       0.779651169 seconds time elapsed
+
+      11.606649000 seconds user
+       0.518219000 seconds sys
+
+

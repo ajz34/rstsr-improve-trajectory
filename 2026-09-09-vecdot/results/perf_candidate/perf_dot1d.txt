@@ -1,0 +1,22 @@
+# started on Wed Sep  9 12:22:04 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops dot1d':
+
+                 7      context-switches                 #      4.7 cs/sec  cs_per_second     
+                 0      cpu-migrations                   #      0.0 migrations/sec  migrations_per_second
+            39,156      page-faults                      #  26191.8 faults/sec  page_faults_per_second
+          1,494.97 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+     1,261,245,314      L1-dcache-load-misses            #     24.3 %  l1d_miss_rate            (42.78%)
+           211,179      branch-misses                    #      0.0 %  branch_miss_rate         (42.86%)
+     1,307,869,103      branches                         #    874.8 M/sec  branch_frequency     (42.92%)
+     8,473,753,476      cpu-cycles                       #      5.7 GHz  cycles_frequency       (42.95%)
+    13,171,628,333      instructions                     #      1.6 instructions  insn_per_cycle  (42.90%)
+       118,592,500      stalled-cycles-frontend          #     0.01 frontend_cycles_idle        (42.83%)
+
+       1.495503483 seconds time elapsed
+
+       1.466374000 seconds user
+       0.029007000 seconds sys
+
+

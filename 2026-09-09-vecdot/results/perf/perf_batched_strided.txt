@@ -1,0 +1,22 @@
+# started on Wed Sep  9 11:19:03 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops batched_strided':
+
+                13      context-switches                 #     15.3 cs/sec  cs_per_second     
+                 3      cpu-migrations                   #      3.5 migrations/sec  migrations_per_second
+             8,303      page-faults                      #   9748.7 faults/sec  page_faults_per_second
+            851.70 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+       732,724,933      L1-dcache-load-misses            #     17.5 %  l1d_miss_rate            (42.76%)
+         1,340,478      branch-misses                    #      0.1 %  branch_miss_rate         (42.81%)
+     1,953,401,569      branches                         #   2293.5 M/sec  branch_frequency     (42.88%)
+     4,805,324,609      cpu-cycles                       #      5.6 GHz  cycles_frequency       (42.92%)
+     8,569,621,529      instructions                     #      1.8 instructions  insn_per_cycle  (42.92%)
+        57,743,871      stalled-cycles-frontend          #     0.01 frontend_cycles_idle        (42.92%)
+
+       0.852615232 seconds time elapsed
+
+       0.844054000 seconds user
+       0.008000000 seconds sys
+
+

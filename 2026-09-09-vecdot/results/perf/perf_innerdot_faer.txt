@@ -1,0 +1,22 @@
+# started on Wed Sep  9 11:19:12 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops innerdot_faer':
+
+             7,581      context-switches                 #    294.4 cs/sec  cs_per_second     
+               226      cpu-migrations                   #      8.8 migrations/sec  migrations_per_second
+            39,544      page-faults                      #   1535.9 faults/sec  page_faults_per_second
+         25,746.56 msec task-clock                       #     15.4 CPUs  CPUs_utilized       
+     2,636,105,228      L1-dcache-load-misses            #     10.5 %  l1d_miss_rate            (42.89%)
+        14,869,634      branch-misses                    #      0.0 %  branch_miss_rate         (42.85%)
+    30,987,806,856      branches                         #   1203.6 M/sec  branch_frequency     (42.81%)
+   140,329,605,239      cpu-cycles                       #      5.5 GHz  cycles_frequency       (42.86%)
+   117,613,428,598      instructions                     #      0.8 instructions  insn_per_cycle  (42.88%)
+     2,295,664,991      stalled-cycles-frontend          #     0.02 frontend_cycles_idle        (42.91%)
+
+       1.667644543 seconds time elapsed
+
+      25.491681000 seconds user
+       0.259349000 seconds sys
+
+

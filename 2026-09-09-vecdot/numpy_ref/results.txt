@@ -1,0 +1,21 @@
+numpy 2.5.1 (conda env: torch); anchors single-threaded (OMP_NUM_THREADS=1)
+repeat=5, best/median wall time
+
+einsum ij,ij->i  batched_am1_4096x512                   best=     0.345 ms  median=     0.346 ms  best_GBs=    97.2  best_GFLOPs=  12.15
+einsum ij,ij->j  batched_am1_4096x512                   best=     0.435 ms  median=     0.438 ms  best_GBs=    77.1  best_GFLOPs=   9.64
+einsum ij,ij->i  batched_am1_8192x256                   best=     0.358 ms  median=     0.405 ms  best_GBs=    93.8  best_GFLOPs=  11.73
+einsum ij,ij->j  batched_am1_8192x256                   best=     0.419 ms  median=     0.432 ms  best_GBs=    80.1  best_GFLOPs=  10.01
+einsum ij,ij->i  odd_1000x777                           best=     0.134 ms  median=     0.138 ms  best_GBs=    93.1  best_GFLOPs=  11.64
+einsum ij,ij->j  odd_1000x777                           best=     0.140 ms  median=     0.142 ms  best_GBs=    88.5  best_GFLOPs=  11.07
+einsum ij,ji->i  batched_strided_4096x512               best=    24.942 ms  median=    56.457 ms  best_GBs=     1.3  best_GFLOPs=   0.17
+einsum ij,ij->i  batched_am1_4096x512_c64               best=     1.351 ms  median=     1.415 ms  best_GBs=    49.7
+einsum i,i->     dot1d_small_1000                       best=     0.001 ms  median=     0.001 ms  best_GBs=    14.4  best_GFLOPs=   1.80
+np.dot (BLAS)    dot1d_small_1000                       best=     0.001 ms  median=     0.001 ms  best_GBs=    31.4  best_GFLOPs=   3.92
+einsum i,i->     dot1d_medium_100000                    best=     0.019 ms  median=     0.019 ms  best_GBs=    84.3  best_GFLOPs=  10.53
+np.dot (BLAS)    dot1d_medium_100000                    best=     0.003 ms  median=     0.003 ms  best_GBs=   588.2  best_GFLOPs=  73.53
+einsum i,i->     dot1d_large_10000000                   best=     2.791 ms  median=     2.857 ms  best_GBs=    57.3  best_GFLOPs=   7.16
+np.dot (BLAS)    dot1d_large_10000000                   best=     1.258 ms  median=     1.297 ms  best_GBs=   127.2  best_GFLOPs=  15.90
+np.vdot          dot1d_medium_100000_c64                best=     0.005 ms  median=     0.005 ms  best_GBs=   711.1
+einsum i,i->     innerdot_small_64                      best=     0.001 ms  median=     0.001 ms  best_GBs=     0.8  best_GFLOPs=   0.10
+einsum i,i->     innerdot_medium_10000                  best=     0.003 ms  median=     0.003 ms  best_GBs=    50.6  best_GFLOPs=   6.33
+einsum i,i->     innerdot_large_1000000                 best=     0.193 ms  median=     0.194 ms  best_GBs=    83.0  best_GFLOPs=  10.38
