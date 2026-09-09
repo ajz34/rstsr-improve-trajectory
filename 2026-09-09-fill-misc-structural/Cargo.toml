@@ -1,0 +1,36 @@
+[package]
+name = "fill-misc-structural"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+publish = false
+
+# T5 (half 1) of the rstsr CPU-efficiency campaign: fill/creation kernel
+# study + consolidation (half 2 lives in the .md files of this directory).
+#
+# rstsr base commit 386948be819baa334b8da02232f3a1944e5447d5 via path dep.
+# PHASE 1 ONLY: no edits to ../rstsr anywhere in this task.
+#
+# Standalone crate (no workspace), T0 harness pattern; rstsr-core default
+# features mirrored EXPLICITLY so the benched configuration is visible.
+
+[dependencies]
+rstsr-core = { path = "../../rstsr/rstsr-core", default-features = false, features = [
+    "row_major",
+    "aligned_alloc",
+    "faer",
+    "faer_as_default",
+] }
+criterion = { version = "0.5", features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "fill"
+harness = false
+
+[profile.release]
+# stock cargo release defaults; stated explicitly for the README
+opt-level = 3
+debug = false
+lto = false
+codegen-units = 16
+panic = "unwind"

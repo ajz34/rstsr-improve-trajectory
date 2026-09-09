@@ -1,0 +1,6 @@
+profile_ops: mode=full_odd iters=500
+24.68;msec;task-clock;24679977;100.00;;
+3117;;page-faults;24679977;100.00;;
+1;;context-switches;24679977;100.00;;
+140850923;;cpu-cycles;24679977;100.00;;
+102936164;;instructions;24679977;100.00;;

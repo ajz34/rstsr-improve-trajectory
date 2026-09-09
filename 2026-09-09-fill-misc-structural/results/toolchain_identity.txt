@@ -1,0 +1,33 @@
+# Toolchain identity evidence (captured at review-fix time, same session as the gates)
+# Mechanism: rustup resolves the toolchain from the INVOKING directory tree only.
+# The experiment crate lives OUTSIDE the rstsr tree, and rust-toolchain.toml does
+# NOT propagate along cargo path dependencies — so this crate (and every campaign
+# crate before it, all siblings of rstsr) builds with the machine's rustup DEFAULT.
+# The rstsr tree's own rust-toolchain.toml overrides nightly ONLY inside that tree.
+
+[experiment dir: 2026-09-09-fill-misc-structural — what built/benched everything here]
+$ rustc --version
+rustc 1.97.1 (8bab26f4f 2026-07-14)
+$ rustup show active-toolchain
+stable-x86_64-unknown-linux-gnu (default)
+$ cargo -vV | sed -n '1,2p'
+cargo 1.97.1 (c980f4866 2026-06-30)
+release: 1.97.1
+
+[inside the rstsr tree — for contrast: this is where the 1.99.0 sighting came from]
+$ cat rust-toolchain.toml
+[toolchain]
+channel = "nightly"$ rustc --version
+rustc 1.99.0-nightly (1a98b1e13 2026-08-07)
+$ rustup show active-toolchain
+nightly-x86_64-unknown-linux-gnu (overridden by '/home/a/rstsr_pack/rstsr/rust-toolchain.toml')
+
+[machine defaults]
+$ rustup default
+stable-x86_64-unknown-linux-gnu (default)
+$ rustup toolchain list
+stable-x86_64-unknown-linux-gnu (active, default)
+nightly-x86_64-unknown-linux-gnu
+
+Committed artifact of the gate-time compiler: results/rustc_version.txt
+(= rustc 1.97.1 (8bab26f4f 2026-07-14), the stable default above)

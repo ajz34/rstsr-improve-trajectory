@@ -1,0 +1,22 @@
+# started on Wed Sep  9 12:55:12 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops ones_a 200':
+
+                19      context-switches                 #     19.9 cs/sec  cs_per_second     
+                12      cpu-migrations                   #     12.6 migrations/sec  migrations_per_second
+         1,638,678      page-faults                      # 1720481.7 faults/sec  page_faults_per_second
+            952.45 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+       230,450,058      L1-dcache-load-misses            #      5.0 %  l1d_miss_rate            (42.79%)
+         5,774,313      branch-misses                    #      0.3 %  branch_miss_rate         (42.90%)
+     1,724,170,906      branches                         #   1810.2 M/sec  branch_frequency     (43.04%)
+     5,399,911,999      cpu-cycles                       #      5.7 GHz  cycles_frequency       (42.93%)
+    10,168,509,008      instructions                     #      1.9 instructions  insn_per_cycle  (42.83%)
+       942,743,755      stalled-cycles-frontend          #     0.17 frontend_cycles_idle        (42.79%)
+
+       0.953310403 seconds time elapsed
+
+       0.098195000 seconds user
+       0.854702000 seconds sys
+
+

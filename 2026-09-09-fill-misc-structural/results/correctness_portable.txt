@@ -1,0 +1,4 @@
+    Finished `release` profile [optimized] target(s) in 0.03s
+     Running `target/release/examples/correctness`
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+correctness: 41 passed, 0 failed

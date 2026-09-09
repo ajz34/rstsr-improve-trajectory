@@ -1,0 +1,59 @@
+# T5 derived perf summary (native, 200-iteration perf stat runs unless noted)
+# Raw outputs: ./perf_full_a.txt ./perf_ones_a.txt ./perf_zeros_c.txt
+#              ./perf_fill_b.txt ./perf_fill_b_faer.txt ./perf_fill_bound.txt
+#              ./perf_fill_bt.txt  ../tunables/{full_a_default,full_a_tunables}.txt
+# Size regime runs (500 iters, perf stat -x';', raw files perf_{zeros_med,
+#   zeros_odd,full_med,full_odd}.txt; two runs agreed within ~4%):
+#   zeros_med 14.9-15.2 us/iter, ~1.2 faults/iter,  ~8.9k ins/iter  (calloc memset, L3-ish)
+#   zeros_odd 109.5-110.7 us/iter, ~3.2 faults/iter, ~19.5k ins/iter (calloc NT memset, DRAM)
+#   full_med   15.3-15.4 us/iter, ~2.2 faults/iter
+#   full_odd   46.2-49.4 us/iter, ~6.2 faults/iter (~206k ins/iter: vec! broadcast,
+#              regular cache-resident stores — FEWER cycles than the NT memset)
+
+full_a   (rt::full 2048x2048 f64 serial):
+  wall 0.9186-0.9659 s / 200 = 4.59-4.83 ms/iter
+  page-faults 1,638,681 = 8193/iter  (T7 signature, exact)
+  sys 0.87 s vs user 0.09 s = 90% sys (fault handling dominates)
+  instructions 9.83e9 = 49.2 M/iter = 11.7 ins/elem (alloc+rider work, not kernel)
+  IPC 1.8; L1d-miss 4.7%
+  -> rider ~4.0 ms = 86-88% of wall; kernel ~0.5-0.6 ms
+
+ones_a   (rt::ones): wall 0.9533 s / 200 = 4.77 ms/iter (same class as full_a)
+
+zeros_c  (rt::zeros 2048^2, control): wall 0.00109 s / 200 = 5.5 us/iter
+  (calloc-lazy zero pages at >=32 MiB output; ~1 fault/iter)
+
+fill_b   (c.fill(v) reuse, fill_promote_cpu_serial):
+  wall 0.0791 s / 200 = 0.394 ms/iter (perf run; criterion median 507-617 us)
+  page-faults 8275 total = ~0.4/iter steady (startup only)
+  instructions 239.7e6 = 1.20 M/iter = 0.29 ins/elem  -> vectorized broadcast stores
+  IPC 0.55; L1d-miss 46.2%; user 95%/sys 5%
+  -> kernel-only; memory-stalled streaming store loop; at the write floor
+
+fill_b_faer (c.fill(v) on DeviceFaer):
+  wall 0.1242 s / 200 = 0.62 ms/iter (criterion median 530 us; pool sync
+  ctx-switches 695 visible in the raw loop). Parallel fill never beats serial:
+  write bandwidth saturates per-core (T7 RQ4 consistent).
+
+fill_bound (raw slice broadcast loop, pre-warmed Vec):
+  perf single-runs swing 0.39-0.60 ms/iter (frequency/order-sensitive);
+  criterion same-session medians are authoritative:
+  bound 543.9 (native) / 611.0 (portable) us vs fill 507.4 / 616.5 us
+  -> fill is at/above the naive bound; no kernel headroom >= 10%.
+
+fill_bt  (device fill, diag layout [2048] stride [2049] = eye path):
+  200 iters: 1.67 ms task-clock = 8.4 us/iter; 2000 iters ~ 8.5 us/iter
+  2048 elements written per iter; iterator-branch machinery dominates
+  (~4 ns/element) but absolute cost trivial.
+
+tunables (full_a + MALLOC_MMAP_THRESHOLD_=67108864 MALLOC_TRIM_THRESHOLD_=134217728):
+  wall 0.1239 s / 200 = 0.62 ms/iter (7.4x vs default env)
+  page-faults 8271 total = ~0.4/iter steady (startup only); sys 0.9%
+  0.62 ms ~= reuse fill (0.51) + alloc overhead -> the broadcast kernel was
+  never the problem; numpy's allocating fill (1.19 ms, T0 context) is BEATEN
+  by env-tuned rt::full.
+
+caveat: single perf-stat runs of the 0.4-0.6 ms streaming-store loops swing
+with CPU frequency/order; conclusions above rest on criterion medians from
+the interleaved suite (results/tables.md) with perf used for the qualitative
+split (faults/sys/ins-per-elem), following the T7 method.

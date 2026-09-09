@@ -1,0 +1,22 @@
+# started on Wed Sep  9 12:55:13 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops fill_bound 200':
+
+                 3      context-switches                 #     25.3 cs/sec  cs_per_second     
+                 2      cpu-migrations                   #     16.8 migrations/sec  migrations_per_second
+             8,273      page-faults                      #  69665.3 faults/sec  page_faults_per_second
+            118.75 msec task-clock                       #      1.0 CPUs  CPUs_utilized       
+       106,274,231      L1-dcache-load-misses            #     44.4 %  l1d_miss_rate            (41.92%)
+            39,340      branch-misses                    #      0.1 %  branch_miss_rate         (41.90%)
+        34,610,939      branches                         #    291.5 M/sec  branch_frequency     (43.11%)
+       670,249,443      cpu-cycles                       #      5.6 GHz  cycles_frequency       (43.77%)
+       230,546,503      instructions                     #      0.3 instructions  insn_per_cycle  (43.78%)
+         7,639,818      stalled-cycles-frontend          #     0.01 frontend_cycles_idle        (42.96%)
+
+       0.119059388 seconds time elapsed
+
+       0.111990000 seconds user
+       0.007062000 seconds sys
+
+

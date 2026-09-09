@@ -1,0 +1,6 @@
+profile_ops: mode=zeros_med iters=500
+7.58;msec;task-clock;7584608;100.00;;
+594;;page-faults;7584608;100.00;;
+1;;context-switches;7584608;100.00;;
+41022379;;cpu-cycles;7584608;100.00;;
+4304194;;instructions;7584608;100.00;;

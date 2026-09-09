@@ -1,0 +1,6 @@
+profile_ops: mode=zeros_odd iters=500
+54.74;msec;task-clock;54738790;100.00;;
+1601;;page-faults;54738790;100.00;;
+3;;context-switches;54738790;100.00;;
+311095950;;cpu-cycles;54738790;100.00;;
+9745299;;instructions;54738790;100.00;;

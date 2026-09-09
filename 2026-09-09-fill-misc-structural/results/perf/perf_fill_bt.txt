@@ -1,0 +1,26 @@
+# started on Wed Sep  9 12:55:13 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops fill_bt 200':
+
+                 0      context-switches                 #      0.0 cs/sec  cs_per_second     
+                 0      cpu-migrations                   #      0.0 migrations/sec  migrations_per_second
+             2,128      page-faults                      # 1275547.7 faults/sec  page_faults_per_second
+              1.67 msec task-clock                       #      0.8 CPUs  CPUs_utilized       
+           183,448      L1-dcache-load-misses            #      3.3 %  l1d_miss_rate            (49.83%)
+            15,783      branch-misses                    #      0.4 %  branch_miss_rate       
+         3,704,136      branches                         #   2220.3 M/sec  branch_frequency   
+         9,185,881      cpu-cycles                       #      5.5 GHz  cycles_frequency       (50.17%)
+     <not counted>      instructions                     #      nan instructions  insn_per_cycle  (0.00%)
+     <not counted>      stalled-cycles-frontend          #      nan frontend_cycles_idle        (0.00%)
+
+       0.001919520 seconds time elapsed
+
+       0.000000000 seconds user
+       0.001963000 seconds sys
+
+
+Some events weren't counted. Try disabling the NMI watchdog:
+	echo 0 > /proc/sys/kernel/nmi_watchdog
+	perf stat ...
+	echo 1 > /proc/sys/kernel/nmi_watchdog

@@ -1,0 +1,26 @@
+# started on Wed Sep  9 12:55:13 2026
+
+
+ Performance counter stats for './target/release/examples/profile_ops zeros_c 200':
+
+                 2      context-switches                 #   2361.5 cs/sec  cs_per_second     
+                 2      cpu-migrations                   #   2361.5 migrations/sec  migrations_per_second
+               282      page-faults                      # 332968.9 faults/sec  page_faults_per_second
+              0.85 msec task-clock                       #      0.7 CPUs  CPUs_utilized       
+            66,429      L1-dcache-load-misses            #      2.4 %  l1d_miss_rate          
+            14,895      branch-misses                    #      1.4 %  branch_miss_rate       
+         1,080,993      branches                         #   1276.4 M/sec  branch_frequency   
+     <not counted>      cpu-cycles                       #      nan GHz  cycles_frequency       (0.00%)
+     <not counted>      instructions                     #      nan instructions  insn_per_cycle  (0.00%)
+     <not counted>      stalled-cycles-frontend          #      nan frontend_cycles_idle        (0.00%)
+
+       0.001093550 seconds time elapsed
+
+       0.000000000 seconds user
+       0.001123000 seconds sys
+
+
+Some events weren't counted. Try disabling the NMI watchdog:
+	echo 0 > /proc/sys/kernel/nmi_watchdog
+	perf stat ...
+	echo 1 > /proc/sys/kernel/nmi_watchdog
