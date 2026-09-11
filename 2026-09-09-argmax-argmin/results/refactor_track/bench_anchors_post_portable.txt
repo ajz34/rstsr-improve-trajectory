@@ -1,0 +1,202 @@
+   Compiling bench-argmax-argmin v0.1.0 (/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-argmax-argmin)
+    Finished `bench` profile [optimized] target(s) in 0.49s
+     Running benches/anchors_ndarray.rs (target/release/deps/anchors_ndarray-3a38eef14c559918)
+Gnuplot not found, using plotters backend
+Benchmarking anchor_ndarray_arg/small_64-f64/argmax
+Benchmarking anchor_ndarray_arg/small_64-f64/argmax: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/small_64-f64/argmax: Collecting 100 samples in estimated 2.0002 s (44M iterations)
+Benchmarking anchor_ndarray_arg/small_64-f64/argmax: Analyzing
+anchor_ndarray_arg/small_64-f64/argmax
+                        time:   [45.121 ns 45.137 ns 45.159 ns]
+                        change: [-0.6278% -0.5634% -0.4954%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 8 outliers among 100 measurements (8.00%)
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+Benchmarking anchor_ndarray_arg/small_64-f64/argmin
+Benchmarking anchor_ndarray_arg/small_64-f64/argmin: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/small_64-f64/argmin: Collecting 100 samples in estimated 2.0002 s (45M iterations)
+Benchmarking anchor_ndarray_arg/small_64-f64/argmin: Analyzing
+anchor_ndarray_arg/small_64-f64/argmin
+                        time:   [43.641 ns 43.689 ns 43.753 ns]
+                        change: [-0.2625% -0.1636% -0.0652%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 11 outliers among 100 measurements (11.00%)
+  6 (6.00%) high mild
+  5 (5.00%) high severe
+Benchmarking anchor_ndarray_arg/small_odd_1000-f64/argmax
+Benchmarking anchor_ndarray_arg/small_odd_1000-f64/argmax: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/small_odd_1000-f64/argmax: Collecting 100 samples in estimated 2.0006 s (2.8M iterations)
+Benchmarking anchor_ndarray_arg/small_odd_1000-f64/argmax: Analyzing
+anchor_ndarray_arg/small_odd_1000-f64/argmax
+                        time:   [709.17 ns 709.54 ns 710.01 ns]
+                        change: [-0.1981% -0.1423% -0.0841%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  6 (6.00%) high severe
+Benchmarking anchor_ndarray_arg/small_odd_1000-f64/argmin
+Benchmarking anchor_ndarray_arg/small_odd_1000-f64/argmin: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/small_odd_1000-f64/argmin: Collecting 100 samples in estimated 2.0007 s (2.8M iterations)
+Benchmarking anchor_ndarray_arg/small_odd_1000-f64/argmin: Analyzing
+anchor_ndarray_arg/small_odd_1000-f64/argmin
+                        time:   [711.04 ns 711.28 ns 711.58 ns]
+                        change: [-0.5286% -0.4490% -0.3333%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking anchor_ndarray_arg/medium_1000000-f64/argmax
+Benchmarking anchor_ndarray_arg/medium_1000000-f64/argmax: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.6s, enable flat sampling, or reduce sample count to 50.
+Benchmarking anchor_ndarray_arg/medium_1000000-f64/argmax: Collecting 100 samples in estimated 3.6089 s (5050 iterations)
+Benchmarking anchor_ndarray_arg/medium_1000000-f64/argmax: Analyzing
+anchor_ndarray_arg/medium_1000000-f64/argmax
+                        time:   [706.39 µs 706.57 µs 706.80 µs]
+                        change: [-0.6791% -0.6430% -0.6076%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking anchor_ndarray_arg/medium_1000000-f64/argmin
+Benchmarking anchor_ndarray_arg/medium_1000000-f64/argmin: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.6s, enable flat sampling, or reduce sample count to 50.
+Benchmarking anchor_ndarray_arg/medium_1000000-f64/argmin: Collecting 100 samples in estimated 3.6141 s (5050 iterations)
+Benchmarking anchor_ndarray_arg/medium_1000000-f64/argmin: Analyzing
+anchor_ndarray_arg/medium_1000000-f64/argmin
+                        time:   [708.17 µs 708.41 µs 708.70 µs]
+                        change: [-0.5960% -0.5587% -0.5185%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking anchor_ndarray_arg/large_10000000-f64/argmax
+Benchmarking anchor_ndarray_arg/large_10000000-f64/argmax: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/large_10000000-f64/argmax: Collecting 100 samples in estimated 2.1492 s (300 iterations)
+Benchmarking anchor_ndarray_arg/large_10000000-f64/argmax: Analyzing
+anchor_ndarray_arg/large_10000000-f64/argmax
+                        time:   [7.1168 ms 7.1272 ms 7.1379 ms]
+                        change: [-0.7216% -0.4523% -0.1966%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Benchmarking anchor_ndarray_arg/large_10000000-f64/argmin
+Benchmarking anchor_ndarray_arg/large_10000000-f64/argmin: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/large_10000000-f64/argmin: Collecting 100 samples in estimated 2.1703 s (300 iterations)
+Benchmarking anchor_ndarray_arg/large_10000000-f64/argmin: Analyzing
+anchor_ndarray_arg/large_10000000-f64/argmin
+                        time:   [7.1497 ms 7.1637 ms 7.1793 ms]
+                        change: [-0.6156% -0.3000% +0.0081%] (p = 0.07 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking anchor_ndarray_arg/large_10000000-f32/argmax
+Benchmarking anchor_ndarray_arg/large_10000000-f32/argmax: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/large_10000000-f32/argmax: Collecting 100 samples in estimated 2.4889 s (400 iterations)
+Benchmarking anchor_ndarray_arg/large_10000000-f32/argmax: Analyzing
+anchor_ndarray_arg/large_10000000-f32/argmax
+                        time:   [6.1829 ms 6.2189 ms 6.2535 ms]
+                        change: [+0.3251% +1.1228% +1.9646%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Benchmarking anchor_ndarray_arg/large_10000000-f32/argmin
+Benchmarking anchor_ndarray_arg/large_10000000-f32/argmin: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/large_10000000-f32/argmin: Collecting 100 samples in estimated 2.5536 s (400 iterations)
+Benchmarking anchor_ndarray_arg/large_10000000-f32/argmin: Analyzing
+anchor_ndarray_arg/large_10000000-f32/argmin
+                        time:   [6.2845 ms 6.3063 ms 6.3271 ms]
+                        change: [+0.6686% +1.1974% +1.7318%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) low mild
+Benchmarking anchor_ndarray_arg/small_64x64-f64/argmax
+Benchmarking anchor_ndarray_arg/small_64x64-f64/argmax: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/small_64x64-f64/argmax: Collecting 100 samples in estimated 2.0108 s (510k iterations)
+Benchmarking anchor_ndarray_arg/small_64x64-f64/argmax: Analyzing
+anchor_ndarray_arg/small_64x64-f64/argmax
+                        time:   [3.9130 µs 3.9184 µs 3.9245 µs]
+                        change: [-0.8059% -0.5515% -0.3467%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 7 outliers among 100 measurements (7.00%)
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+Benchmarking anchor_ndarray_arg/small_64x64-f64/argmin
+Benchmarking anchor_ndarray_arg/small_64x64-f64/argmin: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/small_64x64-f64/argmin: Collecting 100 samples in estimated 2.0156 s (545k iterations)
+Benchmarking anchor_ndarray_arg/small_64x64-f64/argmin: Analyzing
+anchor_ndarray_arg/small_64x64-f64/argmin
+                        time:   [3.6590 µs 3.6683 µs 3.6839 µs]
+                        change: [-0.5302% -0.1034% +0.2460%] (p = 0.65 > 0.05)
+                        No change in performance detected.
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) high mild
+  5 (5.00%) high severe
+Benchmarking anchor_ndarray_arg/medium_512x512-f64/argmax
+Benchmarking anchor_ndarray_arg/medium_512x512-f64/argmax: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/medium_512x512-f64/argmax: Collecting 100 samples in estimated 2.3951 s (10k iterations)
+Benchmarking anchor_ndarray_arg/medium_512x512-f64/argmax: Analyzing
+anchor_ndarray_arg/medium_512x512-f64/argmax
+                        time:   [235.29 µs 235.48 µs 235.71 µs]
+                        change: [-0.0699% -0.0119% +0.0657%] (p = 0.74 > 0.05)
+                        No change in performance detected.
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  6 (6.00%) high severe
+Benchmarking anchor_ndarray_arg/medium_512x512-f64/argmin
+Benchmarking anchor_ndarray_arg/medium_512x512-f64/argmin: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/medium_512x512-f64/argmin: Collecting 100 samples in estimated 2.3923 s (10k iterations)
+Benchmarking anchor_ndarray_arg/medium_512x512-f64/argmin: Analyzing
+anchor_ndarray_arg/medium_512x512-f64/argmin
+                        time:   [234.91 µs 235.07 µs 235.27 µs]
+                        change: [-0.3944% -0.2353% -0.1155%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 8 outliers among 100 measurements (8.00%)
+  2 (2.00%) high mild
+  6 (6.00%) high severe
+Benchmarking anchor_ndarray_arg/large_2048x2048-f64/argmax
+Benchmarking anchor_ndarray_arg/large_2048x2048-f64/argmax: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/large_2048x2048-f64/argmax: Collecting 100 samples in estimated 2.2722 s (600 iterations)
+Benchmarking anchor_ndarray_arg/large_2048x2048-f64/argmax: Analyzing
+anchor_ndarray_arg/large_2048x2048-f64/argmax
+                        time:   [3.7634 ms 3.7679 ms 3.7731 ms]
+                        change: [-0.5955% -0.4302% -0.2515%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 13 outliers among 100 measurements (13.00%)
+  1 (1.00%) low severe
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  8 (8.00%) high severe
+Benchmarking anchor_ndarray_arg/large_2048x2048-f64/argmin
+Benchmarking anchor_ndarray_arg/large_2048x2048-f64/argmin: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/large_2048x2048-f64/argmin: Collecting 100 samples in estimated 2.2660 s (600 iterations)
+Benchmarking anchor_ndarray_arg/large_2048x2048-f64/argmin: Analyzing
+anchor_ndarray_arg/large_2048x2048-f64/argmin
+                        time:   [3.7493 ms 3.7506 ms 3.7520 ms]
+                        change: [-0.2594% -0.1967% -0.1360%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking anchor_ndarray_arg/large_2048x2048-tview-f64/argmax
+Benchmarking anchor_ndarray_arg/large_2048x2048-tview-f64/argmax: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/large_2048x2048-tview-f64/argmax: Collecting 100 samples in estimated 2.5596 s (200 iterations)
+Benchmarking anchor_ndarray_arg/large_2048x2048-tview-f64/argmax: Analyzing
+anchor_ndarray_arg/large_2048x2048-tview-f64/argmax
+                        time:   [12.760 ms 12.833 ms 12.904 ms]
+                        change: [-1.2865% -0.5748% +0.1341%] (p = 0.11 > 0.05)
+                        No change in performance detected.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+Benchmarking anchor_ndarray_arg/large_2048x2048-tview-f64/argmin
+Benchmarking anchor_ndarray_arg/large_2048x2048-tview-f64/argmin: Warming up for 700.00 ms
+Benchmarking anchor_ndarray_arg/large_2048x2048-tview-f64/argmin: Collecting 100 samples in estimated 2.6159 s (200 iterations)
+Benchmarking anchor_ndarray_arg/large_2048x2048-tview-f64/argmin: Analyzing
+anchor_ndarray_arg/large_2048x2048-tview-f64/argmin
+                        time:   [12.959 ms 12.987 ms 13.017 ms]
+                        change: [+1.1517% +1.5675% +1.9713%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 12 outliers among 100 measurements (12.00%)
+  9 (9.00%) high mild
+  3 (3.00%) high severe
+

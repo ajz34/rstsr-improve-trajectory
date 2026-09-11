@@ -385,3 +385,62 @@ finishes; `Cargo.lock` is kept for reproducibility.
   D3 met, [proposed.patch](proposed.patch) produced, `../rstsr` reset to
   clean `386948be` (verified). Phase-2 numbers: tables above +
   `results/candidate/`.
+
+## Addendum 2026-09-11: integration review applied, committed in rstsr
+
+The owner reviewed [proposed.patch](proposed.patch) and authorized
+integration of this patch (first of the campaign's five) into `../rstsr`.
+Review follow-ups were applied and verified before committing.
+
+**What changed vs [proposed.patch](proposed.patch):**
+
+1. *General closure API restored.* The original closure-based
+   `reduce_{all,axes}_{,unraveled_}arg_cpu_{serial,rayon}` signatures
+   (`f_comp`/`f_eq`) are kept verbatim as the general API for future
+   non-standard arg-reductions; the specialized kernels are renamed
+   `reduce_*_arg_cmp_cpu_{serial,rayon}` (+ `ArgCmp`) and documented as the
+   argmin/argmax-only fast path. Device wiring calls the `_cmp_` functions.
+   Net effect vs `386948be`: **publicly additive only** — this supersedes
+   the API-break note in the phase-2 section above.
+2. *Clippy clean* (both feature configs): targeted `#[allow(clippy::eq_op)]`
+   with justification on the generic `x == x` NaN check (owner confirmed
+   keep `==`; `is_nan` would widen public bounds via `ExtNum`), and
+   `while_let_on_iterator` fixed by real `for ch in chunks.by_ref()`
+   rewrites (equivalent iterator protocol).
+3. *No new helper:* the patch's `pub fn unravel_c_order` was replaced by
+   `DimShapeAPI::unravel_index_c` from rstsr-common (exact duplicate;
+   f-order twin also exists for any future f-order-native variant).
+   Column-major conventions re-checked: the arg pipeline's visit order is
+   explicitly `RowMajor` everywhere (feature-independent), so c-order
+   unraveling stays correct under the `col_major` feature; `c_contig()`
+   gating is a strides property, also feature-independent. (Col-major has
+   no test binary yet — guarded by construction, not by tests.)
+
+**Verification** (transcripts in `results/refactor_track/`, criterion
+baselines `refA_*` kept):
+
+- Gates: rstsr-core lib 110/110 + entry_row_cpu 290/290, correctness gate
+  ALL PASSED, both configs, after every change.
+- Benches: refA baseline reproduced the phase-2 numbers (1e7 argmax 1.82 ms
+  portable / 1.54 ms native); then **three paired passes** post-refactor.
+  No case slower than refA by >2% in all passes of a config; pass-1 flags
+  did not replicate (tview small argmin portable +2.6% → −0.7%; faer16 1e7
+  argmin native +3.2% → +1.3%). Persistent improvements are code-layout
+  luck (serial f32 1e7 argmax −10% in all passes; faer16 1e7 argmax native
+  −24…−29%), not algorithmic. Small/faer cells swing ±5–20% between
+  same-binary reruns — only replicated deltas mean anything.
+
+**NaN semantics correction (important):** the phase-2 section above claims
+rstsr's NaN behavior "coincide[s] with numpy's documented argmax/argmin NaN
+behavior". Verified against NumPy 2.5.2 source: NumPy returns the **first
+NaN at any position** (kernel breaks at the first NaN; `argmax([1,nan,3])`
+= 1), while rstsr skips mid-stream NaNs (`[1,nan,3]` argmax = 2). The claim
+holds only for NaN-at-front and all-NaN inputs. A nanargmin/nanargmax
+proposal (incl. the open decision on plain-arg NaN semantics) is in
+[NANARG-PROPOSAL.md](NANARG-PROPOSAL.md).
+
+**Landed as:** `../rstsr` branch `260910-core-efficiency`, commit `091f3e2`
+("rstsr: speed up argmin/argmax with 8-lane contiguous fast path",
+4 files +667/−248) — local commit, not pushed, no PR yet.
+Final diff also kept here as
+[proposed-v2-post-review.patch](proposed-v2-post-review.patch).

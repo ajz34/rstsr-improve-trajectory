@@ -1,0 +1,443 @@
+    Finished `bench` profile [optimized] target(s) in 0.03s
+     Running benches/arg.rs (target/release/deps/arg-a4e4e02dddd8fe34)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking arg_1d/small_64-serial_f64/argmax
+Benchmarking arg_1d/small_64-serial_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_1d/small_64-serial_f64/argmax: Collecting 100 samples in estimated 2.0002 s (29M iterations)
+Benchmarking arg_1d/small_64-serial_f64/argmax: Analyzing
+arg_1d/small_64-serial_f64/argmax
+                        time:   [67.879 ns 67.896 ns 67.916 ns]
+                        change: [-0.3864% -0.2551% -0.1550%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Benchmarking arg_1d/small_64-serial_f64/argmin
+Benchmarking arg_1d/small_64-serial_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_1d/small_64-serial_f64/argmin: Collecting 100 samples in estimated 2.0002 s (24M iterations)
+Benchmarking arg_1d/small_64-serial_f64/argmin: Analyzing
+arg_1d/small_64-serial_f64/argmin
+                        time:   [81.641 ns 81.652 ns 81.665 ns]
+                        change: [-1.4185% -1.2449% -1.0812%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 6 outliers among 100 measurements (6.00%)
+  4 (4.00%) high mild
+  2 (2.00%) high severe
+Benchmarking arg_1d/small_64-faer16_f64/argmax
+Benchmarking arg_1d/small_64-faer16_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_1d/small_64-faer16_f64/argmax: Collecting 100 samples in estimated 2.0003 s (24M iterations)
+Benchmarking arg_1d/small_64-faer16_f64/argmax: Analyzing
+arg_1d/small_64-faer16_f64/argmax
+                        time:   [82.935 ns 82.961 ns 82.990 ns]
+                        change: [-8.9092% -8.8381% -8.7615%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking arg_1d/small_64-faer16_f64/argmin
+Benchmarking arg_1d/small_64-faer16_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_1d/small_64-faer16_f64/argmin: Collecting 100 samples in estimated 2.0003 s (22M iterations)
+Benchmarking arg_1d/small_64-faer16_f64/argmin: Analyzing
+arg_1d/small_64-faer16_f64/argmin
+                        time:   [89.607 ns 89.700 ns 89.798 ns]
+                        change: [-0.2828% -0.1987% -0.1126%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) low mild
+  3 (3.00%) high mild
+Benchmarking arg_1d/small_odd_1000-serial_f64/argmax
+Benchmarking arg_1d/small_odd_1000-serial_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_1d/small_odd_1000-serial_f64/argmax: Collecting 100 samples in estimated 2.0007 s (9.9M iterations)
+Benchmarking arg_1d/small_odd_1000-serial_f64/argmax: Analyzing
+arg_1d/small_odd_1000-serial_f64/argmax
+                        time:   [199.38 ns 199.40 ns 199.42 ns]
+                        change: [-0.1112% -0.0256% +0.0511%] (p = 0.55 > 0.05)
+                        No change in performance detected.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking arg_1d/small_odd_1000-serial_f64/argmin
+Benchmarking arg_1d/small_odd_1000-serial_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_1d/small_odd_1000-serial_f64/argmin: Collecting 100 samples in estimated 2.0003 s (9.8M iterations)
+Benchmarking arg_1d/small_odd_1000-serial_f64/argmin: Analyzing
+arg_1d/small_odd_1000-serial_f64/argmin
+                        time:   [202.68 ns 202.84 ns 203.03 ns]
+                        change: [+0.4949% +0.5916% +0.6935%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking arg_1d/small_odd_1000-faer16_f64/argmax
+Benchmarking arg_1d/small_odd_1000-faer16_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_1d/small_odd_1000-faer16_f64/argmax: Collecting 100 samples in estimated 2.0010 s (9.6M iterations)
+Benchmarking arg_1d/small_odd_1000-faer16_f64/argmax: Analyzing
+arg_1d/small_odd_1000-faer16_f64/argmax
+                        time:   [206.54 ns 206.59 ns 206.66 ns]
+                        change: [-0.1368% -0.0765% -0.0190%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+Benchmarking arg_1d/small_odd_1000-faer16_f64/argmin
+Benchmarking arg_1d/small_odd_1000-faer16_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_1d/small_odd_1000-faer16_f64/argmin: Collecting 100 samples in estimated 2.0002 s (9.5M iterations)
+Benchmarking arg_1d/small_odd_1000-faer16_f64/argmin: Analyzing
+arg_1d/small_odd_1000-faer16_f64/argmin
+                        time:   [207.55 ns 207.58 ns 207.62 ns]
+                        change: [-0.0742% -0.0161% +0.0372%] (p = 0.58 > 0.05)
+                        No change in performance detected.
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+Benchmarking arg_1d/medium_1000000-serial_f64/argmax
+Benchmarking arg_1d/medium_1000000-serial_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_1d/medium_1000000-serial_f64/argmax: Collecting 100 samples in estimated 2.0063 s (15k iterations)
+Benchmarking arg_1d/medium_1000000-serial_f64/argmax: Analyzing
+arg_1d/medium_1000000-serial_f64/argmax
+                        time:   [131.90 µs 131.93 µs 131.96 µs]
+                        change: [+0.1489% +0.2583% +0.3911%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low mild
+  8 (8.00%) high mild
+  5 (5.00%) high severe
+Benchmarking arg_1d/medium_1000000-serial_f64/argmin
+Benchmarking arg_1d/medium_1000000-serial_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_1d/medium_1000000-serial_f64/argmin: Collecting 100 samples in estimated 2.0218 s (15k iterations)
+Benchmarking arg_1d/medium_1000000-serial_f64/argmin: Analyzing
+arg_1d/medium_1000000-serial_f64/argmin
+                        time:   [131.53 µs 131.55 µs 131.58 µs]
+                        change: [+0.0484% +0.0880% +0.1269%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking arg_1d/medium_1000000-faer16_f64/argmax
+Benchmarking arg_1d/medium_1000000-faer16_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_1d/medium_1000000-faer16_f64/argmax: Collecting 100 samples in estimated 2.0091 s (96k iterations)
+Benchmarking arg_1d/medium_1000000-faer16_f64/argmax: Analyzing
+arg_1d/medium_1000000-faer16_f64/argmax
+                        time:   [20.975 µs 20.993 µs 21.009 µs]
+                        change: [-3.7066% -3.0895% -2.5005%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+Benchmarking arg_1d/medium_1000000-faer16_f64/argmin
+Benchmarking arg_1d/medium_1000000-faer16_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_1d/medium_1000000-faer16_f64/argmin: Collecting 100 samples in estimated 2.0212 s (96k iterations)
+Benchmarking arg_1d/medium_1000000-faer16_f64/argmin: Analyzing
+arg_1d/medium_1000000-faer16_f64/argmin
+                        time:   [20.955 µs 20.971 µs 20.987 µs]
+                        change: [-5.5294% -4.7904% -4.0441%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low severe
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+Benchmarking arg_1d/large_10000000-serial_f64/argmax
+Benchmarking arg_1d/large_10000000-serial_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_1d/large_10000000-serial_f64/argmax: Collecting 100 samples in estimated 2.1523 s (1400 iterations)
+Benchmarking arg_1d/large_10000000-serial_f64/argmax: Analyzing
+arg_1d/large_10000000-serial_f64/argmax
+                        time:   [1.5076 ms 1.5084 ms 1.5092 ms]
+                        change: [-2.3562% -1.8959% -1.4551%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking arg_1d/large_10000000-serial_f64/argmin
+Benchmarking arg_1d/large_10000000-serial_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_1d/large_10000000-serial_f64/argmin: Collecting 100 samples in estimated 2.1322 s (1400 iterations)
+Benchmarking arg_1d/large_10000000-serial_f64/argmin: Analyzing
+arg_1d/large_10000000-serial_f64/argmin
+                        time:   [1.5024 ms 1.5031 ms 1.5037 ms]
+                        change: [-1.9926% -1.5323% -1.1011%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking arg_1d/large_10000000-faer16_f64/argmax
+Benchmarking arg_1d/large_10000000-faer16_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_1d/large_10000000-faer16_f64/argmax: Collecting 100 samples in estimated 2.5138 s (10k iterations)
+Benchmarking arg_1d/large_10000000-faer16_f64/argmax: Analyzing
+arg_1d/large_10000000-faer16_f64/argmax
+                        time:   [245.05 µs 249.23 µs 253.70 µs]
+                        change: [-24.860% -19.024% -12.950%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking arg_1d/large_10000000-faer16_f64/argmin
+Benchmarking arg_1d/large_10000000-faer16_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_1d/large_10000000-faer16_f64/argmin: Collecting 100 samples in estimated 2.7744 s (10k iterations)
+Benchmarking arg_1d/large_10000000-faer16_f64/argmin: Analyzing
+arg_1d/large_10000000-faer16_f64/argmin
+                        time:   [247.13 µs 249.46 µs 251.86 µs]
+                        change: [+1.2934% +3.0391% +4.7753%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking arg_1d/large_10000000-serial_f32/argmax
+Benchmarking arg_1d/large_10000000-serial_f32/argmax: Warming up for 700.00 ms
+Benchmarking arg_1d/large_10000000-serial_f32/argmax: Collecting 100 samples in estimated 2.0472 s (1400 iterations)
+Benchmarking arg_1d/large_10000000-serial_f32/argmax: Analyzing
+arg_1d/large_10000000-serial_f32/argmax
+                        time:   [1.4454 ms 1.4461 ms 1.4469 ms]
+                        change: [-0.8239% -0.7111% -0.6031%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking arg_1d/large_10000000-serial_f32/argmin
+Benchmarking arg_1d/large_10000000-serial_f32/argmin: Warming up for 700.00 ms
+Benchmarking arg_1d/large_10000000-serial_f32/argmin: Collecting 100 samples in estimated 2.0410 s (1400 iterations)
+Benchmarking arg_1d/large_10000000-serial_f32/argmin: Analyzing
+arg_1d/large_10000000-serial_f32/argmin
+                        time:   [1.4435 ms 1.4440 ms 1.4445 ms]
+                        change: [-0.4140% -0.3243% -0.2444%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+Benchmarking arg_1d/large_10000000-faer16_f32/argmax
+Benchmarking arg_1d/large_10000000-faer16_f32/argmax: Warming up for 700.00 ms
+Benchmarking arg_1d/large_10000000-faer16_f32/argmax: Collecting 100 samples in estimated 2.5003 s (20k iterations)
+Benchmarking arg_1d/large_10000000-faer16_f32/argmax: Analyzing
+arg_1d/large_10000000-faer16_f32/argmax
+                        time:   [125.18 µs 126.27 µs 127.50 µs]
+                        change: [-13.130% -10.892% -8.5614%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking arg_1d/large_10000000-faer16_f32/argmin
+Benchmarking arg_1d/large_10000000-faer16_f32/argmin: Warming up for 700.00 ms
+Benchmarking arg_1d/large_10000000-faer16_f32/argmin: Collecting 100 samples in estimated 2.5523 s (20k iterations)
+Benchmarking arg_1d/large_10000000-faer16_f32/argmin: Analyzing
+arg_1d/large_10000000-faer16_f32/argmin
+                        time:   [125.30 µs 126.60 µs 128.16 µs]
+                        change: [-2.6350% -1.1921% +0.1562%] (p = 0.11 > 0.05)
+                        No change in performance detected.
+Found 5 outliers among 100 measurements (5.00%)
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking arg_2d_whole/small_64x64-serial_f64/argmax
+Benchmarking arg_2d_whole/small_64x64-serial_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_2d_whole/small_64x64-serial_f64/argmax: Collecting 100 samples in estimated 2.0027 s (3.3M iterations)
+Benchmarking arg_2d_whole/small_64x64-serial_f64/argmax: Analyzing
+arg_2d_whole/small_64x64-serial_f64/argmax
+                        time:   [593.87 ns 594.31 ns 594.80 ns]
+                        change: [-0.0167% +0.1217% +0.2565%] (p = 0.08 > 0.05)
+                        No change in performance detected.
+Found 14 outliers among 100 measurements (14.00%)
+  12 (12.00%) low mild
+  2 (2.00%) high mild
+Benchmarking arg_2d_whole/small_64x64-serial_f64/argmin
+Benchmarking arg_2d_whole/small_64x64-serial_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_2d_whole/small_64x64-serial_f64/argmin: Collecting 100 samples in estimated 2.0000 s (3.3M iterations)
+Benchmarking arg_2d_whole/small_64x64-serial_f64/argmin: Analyzing
+arg_2d_whole/small_64x64-serial_f64/argmin
+                        time:   [604.08 ns 604.31 ns 604.63 ns]
+                        change: [-1.3199% -1.2389% -1.1677%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking arg_2d_whole/small_64x64-faer16_f64/argmax
+Benchmarking arg_2d_whole/small_64x64-faer16_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_2d_whole/small_64x64-faer16_f64/argmax: Collecting 100 samples in estimated 2.0113 s (192k iterations)
+Benchmarking arg_2d_whole/small_64x64-faer16_f64/argmax: Analyzing
+arg_2d_whole/small_64x64-faer16_f64/argmax
+                        time:   [10.487 µs 10.493 µs 10.499 µs]
+                        change: [-1.0991% -0.9069% -0.6981%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) low severe
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking arg_2d_whole/small_64x64-faer16_f64/argmin
+Benchmarking arg_2d_whole/small_64x64-faer16_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_2d_whole/small_64x64-faer16_f64/argmin: Collecting 100 samples in estimated 2.0085 s (192k iterations)
+Benchmarking arg_2d_whole/small_64x64-faer16_f64/argmin: Analyzing
+arg_2d_whole/small_64x64-faer16_f64/argmin
+                        time:   [10.458 µs 10.465 µs 10.471 µs]
+                        change: [-1.8733% -1.7071% -1.5772%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) low severe
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+Benchmarking arg_2d_whole/medium_512x512-serial_f64/argmax
+Benchmarking arg_2d_whole/medium_512x512-serial_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_2d_whole/medium_512x512-serial_f64/argmax: Collecting 100 samples in estimated 2.1475 s (61k iterations)
+Benchmarking arg_2d_whole/medium_512x512-serial_f64/argmax: Analyzing
+arg_2d_whole/medium_512x512-serial_f64/argmax
+                        time:   [35.002 µs 35.019 µs 35.036 µs]
+                        change: [+0.5380% +0.6111% +0.6728%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking arg_2d_whole/medium_512x512-serial_f64/argmin
+Benchmarking arg_2d_whole/medium_512x512-serial_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_2d_whole/medium_512x512-serial_f64/argmin: Collecting 100 samples in estimated 2.1299 s (61k iterations)
+Benchmarking arg_2d_whole/medium_512x512-serial_f64/argmin: Analyzing
+arg_2d_whole/medium_512x512-serial_f64/argmin
+                        time:   [34.885 µs 34.902 µs 34.919 µs]
+                        change: [+0.3935% +0.4504% +0.5092%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Benchmarking arg_2d_whole/medium_512x512-faer16_f64/argmax
+Benchmarking arg_2d_whole/medium_512x512-faer16_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_2d_whole/medium_512x512-faer16_f64/argmax: Collecting 100 samples in estimated 2.0589 s (157k iterations)
+Benchmarking arg_2d_whole/medium_512x512-faer16_f64/argmax: Analyzing
+arg_2d_whole/medium_512x512-faer16_f64/argmax
+                        time:   [13.229 µs 13.241 µs 13.251 µs]
+                        change: [-1.5959% -1.4064% -1.2190%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) low severe
+  1 (1.00%) low mild
+Benchmarking arg_2d_whole/medium_512x512-faer16_f64/argmin
+Benchmarking arg_2d_whole/medium_512x512-faer16_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_2d_whole/medium_512x512-faer16_f64/argmin: Collecting 100 samples in estimated 2.0130 s (152k iterations)
+Benchmarking arg_2d_whole/medium_512x512-faer16_f64/argmin: Analyzing
+arg_2d_whole/medium_512x512-faer16_f64/argmin
+                        time:   [13.314 µs 13.322 µs 13.329 µs]
+                        change: [-0.6361% -0.4912% -0.3622%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking arg_2d_whole/large_2048x2048-serial_f64/argmax
+Benchmarking arg_2d_whole/large_2048x2048-serial_f64/argmax: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.4s, enable flat sampling, or reduce sample count to 50.
+Benchmarking arg_2d_whole/large_2048x2048-serial_f64/argmax: Collecting 100 samples in estimated 3.3573 s (5050 iterations)
+Benchmarking arg_2d_whole/large_2048x2048-serial_f64/argmax: Analyzing
+arg_2d_whole/large_2048x2048-serial_f64/argmax
+                        time:   [656.20 µs 656.71 µs 657.31 µs]
+                        change: [+0.0425% +0.1864% +0.3433%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+Benchmarking arg_2d_whole/large_2048x2048-serial_f64/argmin
+Benchmarking arg_2d_whole/large_2048x2048-serial_f64/argmin: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.3s, enable flat sampling, or reduce sample count to 50.
+Benchmarking arg_2d_whole/large_2048x2048-serial_f64/argmin: Collecting 100 samples in estimated 3.3308 s (5050 iterations)
+Benchmarking arg_2d_whole/large_2048x2048-serial_f64/argmin: Analyzing
+arg_2d_whole/large_2048x2048-serial_f64/argmin
+                        time:   [654.98 µs 655.33 µs 655.71 µs]
+                        change: [+0.0042% +0.2753% +0.4877%] (p = 0.02 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking arg_2d_whole/large_2048x2048-faer16_f64/argmax
+Benchmarking arg_2d_whole/large_2048x2048-faer16_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_2d_whole/large_2048x2048-faer16_f64/argmax: Collecting 100 samples in estimated 2.3234 s (35k iterations)
+Benchmarking arg_2d_whole/large_2048x2048-faer16_f64/argmax: Analyzing
+arg_2d_whole/large_2048x2048-faer16_f64/argmax
+                        time:   [63.009 µs 63.195 µs 63.418 µs]
+                        change: [-4.7744% -3.8842% -2.9654%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 16 outliers among 100 measurements (16.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  12 (12.00%) high severe
+Benchmarking arg_2d_whole/large_2048x2048-faer16_f64/argmin
+Benchmarking arg_2d_whole/large_2048x2048-faer16_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_2d_whole/large_2048x2048-faer16_f64/argmin: Collecting 100 samples in estimated 2.2305 s (35k iterations)
+Benchmarking arg_2d_whole/large_2048x2048-faer16_f64/argmin: Analyzing
+arg_2d_whole/large_2048x2048-faer16_f64/argmin
+                        time:   [62.908 µs 63.179 µs 63.545 µs]
+                        change: [-6.7379% -5.0355% -3.4576%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 12 outliers among 100 measurements (12.00%)
+  4 (4.00%) high mild
+  8 (8.00%) high severe
+
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking arg_strided/small_64x64-tview-serial_f64/argmax
+Benchmarking arg_strided/small_64x64-tview-serial_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_strided/small_64x64-tview-serial_f64/argmax: Collecting 100 samples in estimated 2.0806 s (50k iterations)
+Benchmarking arg_strided/small_64x64-tview-serial_f64/argmax: Analyzing
+arg_strided/small_64x64-tview-serial_f64/argmax
+                        time:   [40.715 µs 40.813 µs 40.923 µs]
+                        change: [-0.2550% +0.0789% +0.4057%] (p = 0.65 > 0.05)
+                        No change in performance detected.
+Found 8 outliers among 100 measurements (8.00%)
+  6 (6.00%) high mild
+  2 (2.00%) high severe
+Benchmarking arg_strided/small_64x64-tview-serial_f64/argmin
+Benchmarking arg_strided/small_64x64-tview-serial_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_strided/small_64x64-tview-serial_f64/argmin: Collecting 100 samples in estimated 2.0774 s (50k iterations)
+Benchmarking arg_strided/small_64x64-tview-serial_f64/argmin: Analyzing
+arg_strided/small_64x64-tview-serial_f64/argmin
+                        time:   [40.918 µs 40.984 µs 41.052 µs]
+                        change: [+0.1586% +0.3322% +0.4983%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Benchmarking arg_strided/small_64x64-tview-faer16_f64/argmax
+Benchmarking arg_strided/small_64x64-tview-faer16_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_strided/small_64x64-tview-faer16_f64/argmax: Collecting 100 samples in estimated 2.2799 s (40k iterations)
+Benchmarking arg_strided/small_64x64-tview-faer16_f64/argmax: Analyzing
+arg_strided/small_64x64-tview-faer16_f64/argmax
+                        time:   [56.708 µs 56.753 µs 56.796 µs]
+                        change: [+0.5576% +0.7278% +0.8946%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) low severe
+  3 (3.00%) low mild
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+Benchmarking arg_strided/small_64x64-tview-faer16_f64/argmin
+Benchmarking arg_strided/small_64x64-tview-faer16_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_strided/small_64x64-tview-faer16_f64/argmin: Collecting 100 samples in estimated 2.0194 s (35k iterations)
+Benchmarking arg_strided/small_64x64-tview-faer16_f64/argmin: Analyzing
+arg_strided/small_64x64-tview-faer16_f64/argmin
+                        time:   [57.174 µs 57.229 µs 57.283 µs]
+                        change: [+0.2573% +0.4650% +0.6547%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) low severe
+  1 (1.00%) high severe
+Benchmarking arg_strided/large_2048x2048-tview-serial_f64/argmax
+Benchmarking arg_strided/large_2048x2048-tview-serial_f64/argmax: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 4.3s, or reduce sample count to 40.
+Benchmarking arg_strided/large_2048x2048-tview-serial_f64/argmax: Collecting 100 samples in estimated 4.3075 s (100 iterations)
+Benchmarking arg_strided/large_2048x2048-tview-serial_f64/argmax: Analyzing
+arg_strided/large_2048x2048-tview-serial_f64/argmax
+                        time:   [42.357 ms 42.415 ms 42.480 ms]
+                        change: [-1.0594% -0.8504% -0.6412%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+Benchmarking arg_strided/large_2048x2048-tview-serial_f64/argmin
+Benchmarking arg_strided/large_2048x2048-tview-serial_f64/argmin: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 4.3s, or reduce sample count to 40.
+Benchmarking arg_strided/large_2048x2048-tview-serial_f64/argmin: Collecting 100 samples in estimated 4.3404 s (100 iterations)
+Benchmarking arg_strided/large_2048x2048-tview-serial_f64/argmin: Analyzing
+arg_strided/large_2048x2048-tview-serial_f64/argmin
+                        time:   [43.267 ms 43.305 ms 43.343 ms]
+                        change: [-1.1803% -1.0594% -0.9357%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Benchmarking arg_strided/large_2048x2048-tview-faer16_f64/argmax
+Benchmarking arg_strided/large_2048x2048-tview-faer16_f64/argmax: Warming up for 700.00 ms
+Benchmarking arg_strided/large_2048x2048-tview-faer16_f64/argmax: Collecting 100 samples in estimated 2.3283 s (400 iterations)
+Benchmarking arg_strided/large_2048x2048-tview-faer16_f64/argmax: Analyzing
+arg_strided/large_2048x2048-tview-faer16_f64/argmax
+                        time:   [5.8543 ms 5.8664 ms 5.8787 ms]
+                        change: [-0.7183% -0.4305% -0.1360%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
+Benchmarking arg_strided/large_2048x2048-tview-faer16_f64/argmin
+Benchmarking arg_strided/large_2048x2048-tview-faer16_f64/argmin: Warming up for 700.00 ms
+Benchmarking arg_strided/large_2048x2048-tview-faer16_f64/argmin: Collecting 100 samples in estimated 2.3658 s (400 iterations)
+Benchmarking arg_strided/large_2048x2048-tview-faer16_f64/argmin: Analyzing
+arg_strided/large_2048x2048-tview-faer16_f64/argmin
+                        time:   [5.8801 ms 5.8907 ms 5.9014 ms]
+                        change: [-0.7215% -0.4493% -0.1703%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+

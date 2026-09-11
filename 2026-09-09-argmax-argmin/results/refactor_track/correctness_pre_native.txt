@@ -1,0 +1,228 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling autocfg v1.5.1
+   Compiling unicode-ident v1.0.24
+   Compiling libm v0.2.16
+   Compiling bytemuck v1.25.2
+   Compiling cfg-if v1.0.4
+   Compiling version_check v0.9.5
+   Compiling crossbeam-utils v0.8.23
+   Compiling either v1.18.0
+   Compiling crossbeam-epoch v0.9.21
+   Compiling crossbeam-deque v0.8.8
+   Compiling nano-gemm-codegen v0.1.0
+   Compiling rayon-core v1.13.0
+   Compiling zerocopy v0.8.56
+   Compiling reborrow v0.5.5
+   Compiling paste v1.0.15
+   Compiling dyn-stack-macros v0.1.3
+   Compiling ident_case v1.0.1
+   Compiling fnv v1.0.7
+   Compiling once_cell v1.21.4
+   Compiling serde_core v1.0.229
+   Compiling strsim v0.11.1
+   Compiling bitflags v2.13.1
+   Compiling seq-macro v0.3.6
+   Compiling libc v0.2.189
+   Compiling serde v1.0.229
+   Compiling nano-gemm-core v0.1.0
+   Compiling heck v0.5.0
+   Compiling zmij v1.0.23
+   Compiling generativity v1.2.1
+   Compiling serde_json v1.0.151
+   Compiling memchr v2.8.3
+   Compiling rstsr-cblas-base v0.1.2
+   Compiling anstyle v1.0.14
+   Compiling ciborium-io v0.2.2
+   Compiling regex-syntax v0.8.11
+   Compiling itoa v1.0.18
+   Compiling clap_lex v1.1.0
+   Compiling plotters-backend v0.3.7
+   Compiling cast v0.3.0
+   Compiling same-file v1.0.6
+   Compiling rawpointer v0.2.1
+   Compiling oorandom v11.1.5
+   Compiling equivalent v1.0.2
+   Compiling anes v0.1.6
+   Compiling hashbrown v0.17.1
+   Compiling itertools v0.13.0
+   Compiling raw-cpuid v11.6.0
+   Compiling itertools v0.10.5
+   Compiling walkdir v2.5.0
+   Compiling dyn-stack v0.13.2
+   Compiling pulp v0.21.5
+   Compiling proc-macro2-diagnostics v0.10.1
+   Compiling clap_builder v4.6.6
+   Compiling num-traits v0.2.19
+   Compiling matrixmultiply v0.3.11
+   Compiling plotters-svg v0.3.7
+   Compiling nano-gemm-c32 v0.1.0
+   Compiling nano-gemm-c64 v0.1.0
+   Compiling nano-gemm-f32 v0.1.0
+   Compiling nano-gemm-f64 v0.1.0
+   Compiling indexmap v2.14.2
+   Compiling syn v2.0.119
+   Compiling syn v3.0.5
+   Compiling getrandom v0.2.17
+   Compiling is-terminal v0.4.17
+   Compiling criterion-plot v0.5.0
+   Compiling rand_core v0.6.4
+   Compiling rayon v1.12.0
+   Compiling regex-automata v0.4.18
+   Compiling num-complex v0.4.6
+   Compiling num-integer v0.1.47
+   Compiling plotters v0.3.7
+   Compiling noisy_float v0.2.1
+   Compiling num-bigint v0.4.8
+   Compiling num-iter v0.1.46
+   Compiling clap v4.6.6
+   Compiling ndarray v0.16.1
+   Compiling serde_derive v1.0.229
+   Compiling num-rational v0.4.2
+   Compiling darling_core v0.20.11
+   Compiling num v0.4.3
+   Compiling regex v1.13.1
+   Compiling zerocopy-derive v0.8.56
+   Compiling equator-macro v0.2.1
+   Compiling duplicate v2.0.1
+   Compiling equator-macro v0.4.2
+   Compiling faer-macros v0.21.0
+   Compiling equator v0.2.2
+   Compiling equator v0.4.2
+   Compiling gemm-common v0.18.2
+   Compiling qd v0.7.7
+   Compiling faer-traits v0.22.1
+   Compiling gemm-f32 v0.18.2
+   Compiling gemm-f64 v0.18.2
+   Compiling gemm-c64 v0.18.2
+   Compiling gemm-c32 v0.18.2
+   Compiling darling_macro v0.20.11
+   Compiling darling v0.20.11
+   Compiling derive_builder_core v0.20.2
+   Compiling tinytemplate v1.2.1
+   Compiling gemm v0.18.2
+   Compiling derive_builder_macro v0.20.2
+   Compiling derive_builder v0.20.2
+   Compiling rstsr-common v0.8.0 (/home/a/rstsr_pack/rstsr/rstsr-common)
+   Compiling half v2.7.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand_chacha v0.3.1
+   Compiling rstsr-dtype-traits v0.8.0 (/home/a/rstsr_pack/rstsr/rstsr-dtype-traits)
+   Compiling ciborium-ll v0.2.2
+   Compiling ciborium v0.2.2
+   Compiling rand v0.8.8
+   Compiling rstsr-native-impl v0.8.0 (/home/a/rstsr_pack/rstsr/rstsr-native-impl)
+   Compiling nano-gemm v0.1.3
+   Compiling criterion v0.5.1
+   Compiling faer v0.22.6
+   Compiling ndarray-stats v0.6.0
+   Compiling faer-ext v0.6.0
+   Compiling rstsr-core v0.8.0 (/home/a/rstsr_pack/rstsr/rstsr-core)
+   Compiling bench-argmax-argmin v0.1.0 (/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-argmax-argmin)
+    Finished `release` profile [optimized] target(s) in 19.08s
+     Running `target/release/examples/correctness`
+=== T6 argmax/argmin correctness gate (rstsr 386948be semantics) ===
+-- device: DeviceCpuSerial
+  [ok]   argmax 1-D contig odd n=999983
+  [ok]   argmin 1-D contig odd n=999983
+  [ok]   argmax 1-D odd n=999983 (ndarray cross-check)
+  [ok]   argmax all-equal n=127 -> 0
+  [ok]   argmin all-equal n=127 -> 0
+  [ok]   argmax all-equal n=4099 -> 0
+  [ok]   argmin all-equal n=4099 -> 0
+  [ok]   argmax duplicated max (first at 0) -> 0
+  [ok]   argmax duplicated max (first at 23) -> 23
+  [ok]   argmin duplicated min (first at 31) -> 31
+  [ok]   argmax NaN middle (real max wins)
+  [ok]   argmax NaN end (real max wins)
+  [ok]   argmax NaN front -> 0 (NaN poisons)
+  [ok]   argmax NaN at 1, max at 9 (same lane) -> 9
+  [ok]   argmax NaN at 2, max at 10 (same lane) -> 10
+  [ok]   argmax NaN at 3, max at 11 (same lane) -> 11
+  [ok]   argmax NaN at 4, max at 12 (same lane) -> 12
+  [ok]   argmax NaN at 5, max at 13 (same lane) -> 13
+  [ok]   argmax NaN at 6, max at 14 (same lane) -> 14
+  [ok]   argmax NaN at 7, max at 15 (same lane) -> 15
+  [ok]   argmax NaN at 3, max mid (other lane) -> mid
+  [ok]   argmax all-NaN -> 0 (no error)
+  [ok]   argmin all-NaN -> 0 (no error)
+  [ok]   argmin NaN middle (real min wins)
+  [ok]   argmin NaN front -> 0 (NaN poisons)
+  [ok]   argmax NaN at chunk-start offsets (real max wins, deterministic)
+  [ok]   argmin NaN at chunk-start offsets (real min wins, deterministic)
+  [ok]   argmax_f empty -> Err
+         [document] argmax_f(empty) error: Error { inner: InvalidLayout("/home/a/rstsr_pack/rstsr/rstsr-native-impl/src/cpu_serial/reduction.rs:646: Error::InvalidLayout : empty sequence is not allowed for reduce_arg. : la.size() > 0"), backtrace: None }
+         [document] argmax(empty) panic message: RSTSR Error (backtrace disabled): InvalidLayout("/home/a/rstsr_pack/rstsr/rstsr-native-impl/src/cpu_serial/reduction.rs:646: Error::InvalidLayout : empty sequence is not allowed for reduce_arg. : la.size() > 0")
+  [ok]   argmax empty -> panics mentioning 'empty sequence'
+  [ok]   argmax 2-D contig 37x53 (flat row-major)
+  [ok]   argmin 2-D contig 37x53 (flat row-major)
+  [ok]   argmax 2-D t-view 53x37 (flat row-major of view)
+  [ok]   argmin 2-D t-view 53x37 (flat row-major of view)
+  [ok]   2-D whole argmax == raveled 1-D argmax
+  [ok]   argmax 2-D all-equal 17x23 -> 0
+  [ok]   argmax broadcast view (max in row 0 at correct col)
+  [ok]   argmax broadcast all-equal (ties -> 0)
+  [ok]   argmin broadcast all-equal (ties -> 0)
+  [ok]   argmax_axes(-1) 37x53
+  [ok]   argmin_axes(-1) 37x53
+  [ok]   argmax_axes(0) 37x53
+  [ok]   argmax_axes(-1) on t-view 53x37
+  [ok]   argmax 1-D contig odd f32 n=999983
+  [ok]   argmin 1-D contig odd f32 n=999983
+  [ok]   argmax/argmin 1-D odd f32 n=999983 (ndarray cross-check)
+  [ok]   argmax f32 NaN front -> 0 (NaN poisons)
+  [ok]   argmax 2-D contig f32 41x67
+  [ok]   argmin 2-D t-view f32 67x41
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+-- device: DeviceFaer (rayon, 16 threads)
+  [ok]   argmax 1-D contig odd n=999983
+  [ok]   argmin 1-D contig odd n=999983
+  [ok]   argmax 1-D odd n=999983 (ndarray cross-check)
+  [ok]   argmax all-equal n=127 -> 0
+  [ok]   argmin all-equal n=127 -> 0
+  [ok]   argmax all-equal n=4099 -> 0
+  [ok]   argmin all-equal n=4099 -> 0
+  [ok]   argmax duplicated max (first at 0) -> 0
+  [ok]   argmax duplicated max (first at 23) -> 23
+  [ok]   argmin duplicated min (first at 31) -> 31
+  [ok]   argmax NaN middle (real max wins)
+  [ok]   argmax NaN end (real max wins)
+  [ok]   argmax NaN front -> 0 (NaN poisons)
+  [ok]   argmax NaN at 1, max at 9 (same lane) -> 9
+  [ok]   argmax NaN at 2, max at 10 (same lane) -> 10
+  [ok]   argmax NaN at 3, max at 11 (same lane) -> 11
+  [ok]   argmax NaN at 4, max at 12 (same lane) -> 12
+  [ok]   argmax NaN at 5, max at 13 (same lane) -> 13
+  [ok]   argmax NaN at 6, max at 14 (same lane) -> 14
+  [ok]   argmax NaN at 7, max at 15 (same lane) -> 15
+  [ok]   argmax NaN at 3, max mid (other lane) -> mid
+  [ok]   argmax all-NaN -> 0 (no error)
+  [ok]   argmin all-NaN -> 0 (no error)
+  [ok]   argmin NaN middle (real min wins)
+  [ok]   argmin NaN front -> 0 (NaN poisons)
+  [ok]   argmax NaN at chunk-start offsets (real max wins, deterministic)
+  [ok]   argmin NaN at chunk-start offsets (real min wins, deterministic)
+  [ok]   argmax_f empty -> Err
+         [document] argmax_f(empty) error: Error { inner: InvalidLayout("/home/a/rstsr_pack/rstsr/rstsr-native-impl/src/cpu_rayon/reduction.rs:596: Error::InvalidLayout : empty sequence is not allowed for reduce_arg. : la.size() > 0"), backtrace: None }
+         [document] argmax(empty) panic message: RSTSR Error (backtrace disabled): InvalidLayout("/home/a/rstsr_pack/rstsr/rstsr-native-impl/src/cpu_rayon/reduction.rs:596: Error::InvalidLayout : empty sequence is not allowed for reduce_arg. : la.size() > 0")
+  [ok]   argmax empty -> panics mentioning 'empty sequence'
+  [ok]   argmax 2-D contig 37x53 (flat row-major)
+  [ok]   argmin 2-D contig 37x53 (flat row-major)
+  [ok]   argmax 2-D t-view 53x37 (flat row-major of view)
+  [ok]   argmin 2-D t-view 53x37 (flat row-major of view)
+  [ok]   2-D whole argmax == raveled 1-D argmax
+  [ok]   argmax 2-D all-equal 17x23 -> 0
+  [ok]   argmax broadcast view (max in row 0 at correct col)
+  [ok]   argmax broadcast all-equal (ties -> 0)
+  [ok]   argmin broadcast all-equal (ties -> 0)
+  [ok]   argmax_axes(-1) 37x53
+  [ok]   argmin_axes(-1) 37x53
+  [ok]   argmax_axes(0) 37x53
+  [ok]   argmax_axes(-1) on t-view 53x37
+  [ok]   argmax 1-D contig odd f32 n=999983
+  [ok]   argmin 1-D contig odd f32 n=999983
+  [ok]   argmax/argmin 1-D odd f32 n=999983 (ndarray cross-check)
+  [ok]   argmax f32 NaN front -> 0 (NaN poisons)
+  [ok]   argmax 2-D contig f32 41x67
+  [ok]   argmin 2-D t-view f32 67x41
+correctness gate: ALL PASSED
