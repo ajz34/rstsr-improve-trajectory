@@ -6,7 +6,7 @@ metadata:
 ---
 
 2026-09-11, follow-up to [[rstsr-argmax-integration]]. `nanargmin`/`nanargmax`
-landed in `../rstsr` commit `9c42b1f` (branch `260910-core-efficiency`, local):
+landed in `../rstsr` commit `9c42b1f` (PR RESTGroup/rstsr#100, squash `e835173` upstream):
 NumPy nanarg semantics (skip NaN anywhere; all-NaN slice → `InvalidValue`
 "All-NaN slice encountered"), `ArgCmp::{NanMin,NanMax}` kernels, rt:: families,
 OpNanArg*API traits. **Free on NaN-free input**: the seed loop exits at element

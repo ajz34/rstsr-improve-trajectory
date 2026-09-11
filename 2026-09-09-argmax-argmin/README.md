@@ -441,8 +441,7 @@ proposal (incl. the open decision on plain-arg NaN semantics) is in
 
 **Landed as:** `../rstsr` branch `260910-core-efficiency`, commit `091f3e2`
 ("rstsr: speed up argmin/argmax with 8-lane contiguous fast path",
-4 files +667/−248) — local commit, not pushed, no PR yet.
-Final diff also kept here as
+4 files +667/−248). Final diff also kept here as
 [proposed-v2-post-review.patch](proposed-v2-post-review.patch).
 
 ## Addendum 2026-09-11b: nanargmin/nanargmax implemented; plain-arg NaN semantics settled by measurement
@@ -497,4 +496,6 @@ cross-device spot check (18/18).
 
 **Landed as:** `../rstsr` commit `9c42b1f` ("rstsr: add
 nanargmin/nanargmax (NumPy nanarg semantics)", 12 files +681/−133) on
-branch `260910-core-efficiency` — local, not pushed.
+branch `260910-core-efficiency`. Both commits merged upstream via
+**PR RESTGroup/rstsr#100** (squash `e835173` into `master`, 2026-09-11,
+all 13 CI checks green after rustfmt/clippy fix commits).

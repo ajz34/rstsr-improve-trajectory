@@ -6,7 +6,7 @@ metadata:
 ---
 
 Campaign patch 1 (argmax/argmin, T6) was integrated into `../rstsr` branch
-`260910-core-efficiency` as commit `091f3e2` (2026-09-11, local, not pushed).
+`260910-core-efficiency` as commit `091f3e2` (2026-09-11; with the nanarg follow-up merged upstream via PR RESTGroup/rstsr#100, squash `e835173`).
 Differs from the experiment's `proposed.patch`: (1) general closure-based
 `reduce_*_arg_*` API restored verbatim (kept for future non-standard
 arg-reductions), specialized kernels renamed `*_arg_cmp_*` — net vs

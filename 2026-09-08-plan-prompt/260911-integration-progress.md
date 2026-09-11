@@ -16,7 +16,7 @@ after the first integration session (Claude Code + glm-5.3-flash).
   addendum).
 - **Committed:** `../rstsr` branch `260910-core-efficiency`, commit `091f3e2`
   ("rstsr: speed up argmin/argmax with 8-lane contiguous fast path",
-  4 files +667/−248). Local only — not pushed, no PR opened. Final diff kept
+  4 files +667/−248). Final diff kept
   as `2026-09-09-argmax-argmin/proposed-v2-post-review.patch`.
 
 ## Patch 1 follow-up — nanargmin/nanargmax: INTEGRATED
@@ -33,8 +33,14 @@ after the first integration session (Claude Code + glm-5.3-flash).
   both configs; rayon/faer device path verified by a cross-device spot
   check (18/18) kept in `2026-09-09-argmax-argmin/nan-scan-variants/`.
 - **Committed:** `../rstsr` commit `9c42b1f` ("rstsr: add
-  nanargmin/nanargmax (NumPy nanarg semantics)", 12 files +681/−133) —
-  local, not pushed.
+  nanargmin/nanargmax (NumPy nanarg semantics)", 12 files +681/−133).
+- **PR #100 merged** (RESTGroup/rstsr, squash `e835173` into `master`,
+  2026-09-11): both commits landed together as
+  "rstsr: faster argmin/argmax kernels + nanargmin/nanargmax". CI fix
+  commits on the way in: rustfmt (b3f5483), needless borrows + comment
+  form (630258f + restore — CI nightly wraps comments; local rustfmt
+  unwraps; device crates compile rstsr-core tests via the
+  tests/core_func symlink, so workspace clippy sees them).
 - This closes NANARG-PROPOSAL open question §5.1 (plain-arg NaN semantics:
   decided — keep rstsr semantics, divergence documented) and §5.2 (all-NaN:
   error, matching NumPy). §5.3/§5.4 (unraveled twins deferred; naming)
