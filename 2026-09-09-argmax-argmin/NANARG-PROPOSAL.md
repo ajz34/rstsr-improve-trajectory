@@ -4,6 +4,25 @@
 + patch + closure-API restoration). Facts verified against NumPy 2.5.2 source
 (`/home/a/Git-Others/numpy`, tag v2.5.2) and empirically (NumPy 2.5.1).
 
+> **OUTCOME 2026-09-11 (implemented, uncommitted at time of writing):**
+> `nanargmin`/`nanargmax` were implemented and shipped (rt:: nanarg{min,max}
+> families + `ArgCmp::{NanMin,NanMax}` kernels) — free on NaN-free input
+> (the seed loop exits at element 0, then the plain 8-lane scan runs
+> unchanged). Open question §5.1 was answered by measurement: adopting
+> NumPy's first-NaN-wins rule for PLAIN argmin/argmax was **rejected** for
+> now. Making NaN win requires either an unordered-aware update
+> (`!(x <= best)`, an extra parity flag check per element) or a separate
+> NaN pre-pass — every Rust-source variant tried de-vectorizes or doubles
+> the auto-vectorized 8-lane kernel. Measured (n=1e7 f64, native Zen5,
+> kernel level): fused +5…+18%, separate pre-pass +100…340%, per-block
+> check +55…80%; small compute-bound sizes up to +100% for the fused form.
+> NumPy itself pays the same (its argmax is still ~4× slower than rstsr's
+> at 1e7). Plain argmin/argmax therefore keep the original rstsr NaN
+> semantics, documented as a deliberate NumPy divergence (see `ArgCmp`
+> docs and the tensor::reduction module docs). If NumPy parity is ever
+> required, the fused-scalar variant is the least-bad implementation and
+> its cost is the price of the semantics.
+
 ## 1. Current state
 
 **rstsr-core (patched tree)** — `rt::argmin/argmax` (all/axes, raveled/unraveled,

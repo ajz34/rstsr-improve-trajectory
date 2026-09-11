@@ -444,3 +444,57 @@ proposal (incl. the open decision on plain-arg NaN semantics) is in
 4 files +667/−248) — local commit, not pushed, no PR yet.
 Final diff also kept here as
 [proposed-v2-post-review.patch](proposed-v2-post-review.patch).
+
+## Addendum 2026-09-11b: nanargmin/nanargmax implemented; plain-arg NaN semantics settled by measurement
+
+Follow-up to the integration review: the owner asked for NumPy-like
+argmin/argmax ("usual and its nan form").
+
+**Shipped — `nanargmin`/`nanargmax` (free):** NumPy `nanarg*` semantics
+(NaN skipped anywhere; all-NaN slice → `InvalidValue`
+"All-NaN slice encountered"; ±inf ordinary; NaN+inf-only slice → first
+index; ties first; ints unaffected). Full surface: `rt::nanarg{min,max}` +
+`_f/_all/_axes` + Tensor methods; `OpNanArg{Min,Max}API` device traits;
+`ArgCmp::{NanMin,NanMax}` kernels (serial + rayon/faer). Cost on NaN-free
+input: **zero** — the seed loop exits at element 0 and the plain 8-lane
+scan runs unchanged.
+
+**Settled by measurement — plain argmin/argmax keep NaN-skipping
+semantics** (NaN never wins an update; NaN at the first scanned position
+poisons to 0; all-NaN → 0), documented as a deliberate NumPy divergence.
+NumPy's first-NaN-wins rule cannot be added for free in Rust source:
+an unordered-aware update (`!(x <= best)`, NumPy's own scalar trick) needs
+a second (parity) flag check per element and blocks auto-vectorization;
+any separate NaN pre-pass costs a full DRAM pass at large sizes. Measured
+at kernel level (n=1e7 f64, 9950X3D, release; sweeps in
+[nan-scan-variants/](nan-scan-variants/)):
+
+| variant | NaN-free cost vs plain scan (native, kernel level) |
+|---|---|
+| plain 8-lane scan (committed) | baseline (vectorized) |
+| fused unordered update (NumPy trick) | +5…+18% large, +73…+100% small |
+| NaN pre-pass, whole buffer | ~+100% (second memory pass) |
+| NaN pre-pass, block-tiled | +180…+340% (per-block calls) |
+| per-8-block NaN check | +55…+80% (de-vectorizes the loop) |
+
+Real-kernel paired benches (fused attempt, criterion vs refC): native
+large serial +4…+6%, native small +15…+26%; a block-tiled attempt was
++100…+250% and reverted the same day. NumPy pays the same class of cost —
+its argmax remains ~4× slower than rstsr's at 1e7 even with first-NaN-wins.
+Caveat: the micro-benchmark numbers in the table are codegen-lottery
+dependent run-to-run and across builds (the fused variant measured
+anywhere from −24% to +100% vs plain depending on the build); the
+real-kernel criterion pairs quoted above are the authoritative
+measurement, and they agree the alternatives are never reliably free.
+
+**Tests:** new `tests/core_func/reduction/test_nanarg{min,max}.rs` (skip,
+front-NaN, ties, inf, axes incl. negative and None, all-NaN error/panic,
+int input); NaN-semantics cases in `test_arg{min,max}.rs` including the
+strided fallback. Gates: lib 110/110, entry_row_cpu 302/302, clippy clean
+both configs; rayon/faer path verified by the
+[nan-scan-variants final_check](nan-scan-variants/src/bin/final_check.rs)
+cross-device spot check (18/18).
+
+**Landed as:** `../rstsr` commit `9c42b1f` ("rstsr: add
+nanargmin/nanargmax (NumPy nanarg semantics)", 12 files +681/−133) on
+branch `260910-core-efficiency` — local, not pushed.

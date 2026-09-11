@@ -1,0 +1,28 @@
+[package]
+name = "nan-scan-variants"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# NanPolicy scan-variant benchmarks for the argmin/argmax kernels
+# (2026-09-11 nanarg work). Standalone; `nan_scan_bench` has no
+# dependencies, `final_check` path-depends on the local rstsr checkout to
+# verify end-to-end semantics on the rayon/faer device path.
+
+[dependencies]
+rstsr-core = { path = "../../../rstsr/rstsr-core" }
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = false
+codegen-units = 16
+panic = "unwind"
+
+[[bin]]
+name = "nan_scan_bench"
+path = "src/bin/nan_scan_bench.rs"
+
+[[bin]]
+name = "final_check"
+path = "src/bin/final_check.rs"

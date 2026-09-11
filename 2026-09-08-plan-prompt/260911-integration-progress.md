@@ -18,9 +18,27 @@ after the first integration session (Claude Code + glm-5.3-flash).
   ("rstsr: speed up argmin/argmax with 8-lane contiguous fast path",
   4 files +667/−248). Local only — not pushed, no PR opened. Final diff kept
   as `2026-09-09-argmax-argmin/proposed-v2-post-review.patch`.
-- Follow-up artifacts: `2026-09-09-argmax-argmin/NANARG-PROPOSAL.md`
-  (nanargmin/nanargmax design + open owner decisions, incl. the NumPy
-  first-NaN-wins divergence of plain argmin/argmax).
+
+## Patch 1 follow-up — nanargmin/nanargmax: INTEGRATED
+
+- The owner then asked for NumPy-like argmin/argmax ("usual and its nan
+  form"). Implemented same day (see the 2026-09-11b addendum in the argmax
+  README for the full record): `nanargmin`/`nanargmax` shipped with NumPy
+  nanarg semantics — **free** on NaN-free input; plain argmin/argmax keep
+  NaN-skipping semantics after measurement showed NumPy's first-NaN-wins
+  rule cannot be added without de-vectorizing the kernel (+55…+100% small,
+  +5…+18% large at kernel level; a block-tiled attempt hit +100…+250% and
+  was reverted same day).
+- Gates: lib 110/110, entry_row_cpu 302/302 (12 new tests), clippy clean
+  both configs; rayon/faer device path verified by a cross-device spot
+  check (18/18) kept in `2026-09-09-argmax-argmin/nan-scan-variants/`.
+- **Committed:** `../rstsr` commit `9c42b1f` ("rstsr: add
+  nanargmin/nanargmax (NumPy nanarg semantics)", 12 files +681/−133) —
+  local, not pushed.
+- This closes NANARG-PROPOSAL open question §5.1 (plain-arg NaN semantics:
+  decided — keep rstsr semantics, divergence documented) and §5.2 (all-NaN:
+  error, matching NumPy). §5.3/§5.4 (unraveled twins deferred; naming)
+  stand as decided in the proposal.
 
 ## Patches 2–5 — PENDING
 
