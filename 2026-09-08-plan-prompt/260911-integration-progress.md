@@ -46,13 +46,34 @@ after the first integration session (Claude Code + glm-5.3-flash).
   error, matching NumPy). §5.3/§5.4 (unraveled twins deferred; naming)
   stand as decided in the proposal.
 
-## Patches 2–5 — PENDING
+## Patch 2 — elementwise: READY FOR REVIEW
 
-elementwise, transpose-assign (with compose-smoke's shape-identity guard
-amendment), reductions, vecdot: not yet applied. Patches are mutually
-disjoint; `2026-09-09-compose-smoke/combined_all_five.patch` is now stale
-relative to the reviewed patch 1 (regenerate from per-dir patches when
-stacking the next one).
+- Applied to `../rstsr` branch `260914-elementwise`, base = `origin/master`
+  `e835173` (post-PR#100). Applied clean (+346, files unchanged:
+  `rstsr-native-impl/src/cpu_{serial,rayon}/op_with_func.rs`).
+- Working-tree-only so far (not committed — same review-then-commit cycle as
+  patch 1). Post-rustfmt diff:
+  `2026-09-09-elementwise/proposed-v2-post-fmt.patch` (fmt reflowed added
+  lines only; zero content changes).
+- Gates: lib 110/110 + entry_row_cpu 302/302 both configs (faer-free config
+  too: 94+1 ign / 302), clippy `-p rstsr-native-impl --all-targets
+  -D warnings` clean both configs, correctness example 94/94 both configs.
+- G1 caller enumeration done: only out-of-family callers are the reduction
+  order-fixup sites (dead under default iter order; disjoint-buffer copy
+  where tiled order is harmless). T8 union smoke already covered compose.
+- Paired benches: 3 alternating refA(master)/cand passes × portable+native,
+  full 54-bench suite — **no stable regression in any cell; all headline
+  wins reproduce** (strided B serial 23.4→7.4 ms, faer16 2.06→0.96 ms, odd
+  8–9×, small 64² 16×, `c += bᵀ` 0.34×; lottery cells inside documented
+  bands). Evidence: `2026-09-09-elementwise/results/integration260914/`.
+
+## Patches 3–5 — PENDING
+
+transpose-assign (with compose-smoke's shape-identity guard amendment),
+reductions, vecdot: not yet applied. Patches are mutually disjoint;
+`2026-09-09-compose-smoke/combined_all_five.patch` is now stale relative to
+the reviewed patch 1 (regenerate from per-dir patches when stacking the next
+one).
 
 ## Still open (owner decisions, from the campaign outcome)
 

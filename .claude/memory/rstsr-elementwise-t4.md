@@ -1,6 +1,6 @@
 ---
 name: rstsr-elementwise-t4
-description: T4' phase-1 findings — rstsr contig elementwise kernel is ALREADY AVX-512-vectorized (0.83 ins/elem; T0's 12.9 was an alloc/fault artifact); strided branch is 161.6 ins/elem and a 64x64 blocked kernel gives 3.4x; dispatch_simd not needed for elementwise.
+description: T4' elementwise patch — blocked 64x64 2-D strided kernel (contig was ALREADY vectorized, 0.83 ins/elem); INTEGRATED to rstsr branch 260914-elementwise 2026-09-14, gates+paired benches green, awaiting owner review/commit.
 metadata:
   type: project
 ---
@@ -37,3 +37,19 @@ G2):
 - rstsr API quirks: asarray/zeros give IxD; broadcast_to([m,n]) array
   literal forces Ix2 (use vec![m,n] to stay IxD); asarray can't take [m,n]
   for non-square bt fixtures — shape the storage tensor [n,m] so .t() fits.
+
+Integration status (2026-09-14, patch-2 cycle): applied clean on
+`../rstsr` branch `260914-elementwise` (base e835173 = post-PR#100 master;
++346, then local rustfmt reflow of added lines → capture in
+proposed-v2-post-fmt.patch; zero content change). Gates: lib 110 + entry
+302 both configs, clippy -p rstsr-native-impl clean both, correctness 94/94
+both. G1 caller scan: only out-of-family callers are reduction order-fixup
+sites (dead under default order; disjoint-buffer copy — tiled order
+harmless). Paired 3×refA/cand benches portable+native: NO stable
+regression (54 cells ×2 configs), wins all reproduce (strided B serial
+0.32×, faer16 0.46×, odd 0.11×, small 0.06×). Evidence
+`2026-09-09-elementwise/results/integration260914/`. Patch is
+working-tree-only in ../rstsr — NOT committed (main-repo no-auto-commit;
+owner reviews first). Local workspace `fmt --check` noise on untouched
+files is the known local-vs-CI rustfmt comment-wrap divergence — never
+"fix" it in patches.

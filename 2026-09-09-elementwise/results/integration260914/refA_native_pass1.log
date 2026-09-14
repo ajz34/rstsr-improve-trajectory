@@ -1,0 +1,625 @@
+   Compiling rstsr-native-impl v0.8.0 (/home/a/rstsr_pack/rstsr/rstsr-native-impl)
+   Compiling rstsr-core v0.8.0 (/home/a/rstsr_pack/rstsr/rstsr-core)
+   Compiling elementwise v0.1.0 (/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-elementwise)
+    Finished `bench` profile [optimized] target(s) in 9.41s
+     Running benches/elementwise.rs (target/release/deps/elementwise-ab360560e656fcf8)
+Gnuplot not found, using plotters backend
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+Benchmarking add/add_contig_64x64-serial_f64/A
+Benchmarking add/add_contig_64x64-serial_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_contig_64x64-serial_f64/A: Collecting 100 samples in estimated 2.0063 s (1.5M iterations)
+Benchmarking add/add_contig_64x64-serial_f64/A: Analyzing
+add/add_contig_64x64-serial_f64/A
+                        time:   [1.3655 µs 1.3659 µs 1.3662 µs]
+                        change: [-6.1615% -6.0490% -5.9644%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking add/add_contig_64x64-serial_f64/B
+Benchmarking add/add_contig_64x64-serial_f64/B: Warming up for 700.00 ms
+Benchmarking add/add_contig_64x64-serial_f64/B: Collecting 100 samples in estimated 2.0034 s (1.5M iterations)
+Benchmarking add/add_contig_64x64-serial_f64/B: Analyzing
+add/add_contig_64x64-serial_f64/B
+                        time:   [1.3170 µs 1.3174 µs 1.3178 µs]
+                        change: [-4.9423% -4.8722% -4.7984%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking add/add_contig_64x64-faer16_f64/A
+Benchmarking add/add_contig_64x64-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_contig_64x64-faer16_f64/A: Collecting 100 samples in estimated 2.0154 s (76k iterations)
+Benchmarking add/add_contig_64x64-faer16_f64/A: Analyzing
+add/add_contig_64x64-faer16_f64/A
+                        time:   [26.823 µs 26.848 µs 26.873 µs]
+                        change: [+1.7022% +1.9449% +2.1854%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) low severe
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking add/add_contig_64x64-faer16_f64/B
+Benchmarking add/add_contig_64x64-faer16_f64/B: Warming up for 700.00 ms
+Benchmarking add/add_contig_64x64-faer16_f64/B: Collecting 100 samples in estimated 2.0200 s (76k iterations)
+Benchmarking add/add_contig_64x64-faer16_f64/B: Analyzing
+add/add_contig_64x64-faer16_f64/B
+                        time:   [26.669 µs 26.706 µs 26.753 µs]
+                        change: [+2.2516% +2.5016% +2.7428%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) low mild
+  2 (2.00%) high severe
+Benchmarking add/add_contig_512x512-serial_f64/A
+Benchmarking add/add_contig_512x512-serial_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_contig_512x512-serial_f64/A: Collecting 100 samples in estimated 2.0730 s (50k iterations)
+Benchmarking add/add_contig_512x512-serial_f64/A: Analyzing
+add/add_contig_512x512-serial_f64/A
+                        time:   [40.649 µs 40.663 µs 40.680 µs]
+                        change: [-18.414% -18.353% -18.287%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) low mild
+  7 (7.00%) high mild
+  2 (2.00%) high severe
+Benchmarking add/add_contig_512x512-serial_f64/B
+Benchmarking add/add_contig_512x512-serial_f64/B: Warming up for 700.00 ms
+Benchmarking add/add_contig_512x512-serial_f64/B: Collecting 100 samples in estimated 2.1710 s (50k iterations)
+Benchmarking add/add_contig_512x512-serial_f64/B: Analyzing
+add/add_contig_512x512-serial_f64/B
+                        time:   [42.570 µs 42.614 µs 42.659 µs]
+                        change: [-12.028% -11.901% -11.777%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low severe
+  2 (2.00%) low mild
+  3 (3.00%) high mild
+Benchmarking add/add_contig_512x512-faer16_f64/A
+Benchmarking add/add_contig_512x512-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_contig_512x512-faer16_f64/A: Collecting 100 samples in estimated 2.2112 s (35k iterations)
+Benchmarking add/add_contig_512x512-faer16_f64/A: Analyzing
+add/add_contig_512x512-faer16_f64/A
+                        time:   [62.785 µs 62.851 µs 62.915 µs]
+                        change: [+2.4500% +2.7985% +3.1528%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) low severe
+  3 (3.00%) low mild
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking add/add_contig_512x512-faer16_f64/B
+Benchmarking add/add_contig_512x512-faer16_f64/B: Warming up for 700.00 ms
+Benchmarking add/add_contig_512x512-faer16_f64/B: Collecting 100 samples in estimated 2.2406 s (35k iterations)
+Benchmarking add/add_contig_512x512-faer16_f64/B: Analyzing
+add/add_contig_512x512-faer16_f64/B
+                        time:   [63.314 µs 63.372 µs 63.430 µs]
+                        change: [+3.2164% +3.4525% +3.6856%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking add/add_contig_2048x2048-serial_f64/A
+Benchmarking add/add_contig_2048x2048-serial_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_contig_2048x2048-serial_f64/A: Collecting 100 samples in estimated 2.4313 s (400 iterations)
+Benchmarking add/add_contig_2048x2048-serial_f64/A: Analyzing
+add/add_contig_2048x2048-serial_f64/A
+                        time:   [6.1938 ms 6.2087 ms 6.2272 ms]
+                        change: [-4.7936% -4.5476% -4.2195%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking add/add_contig_2048x2048-serial_f64/B
+Benchmarking add/add_contig_2048x2048-serial_f64/B: Warming up for 700.00 ms
+Benchmarking add/add_contig_2048x2048-serial_f64/B: Collecting 100 samples in estimated 2.1099 s (1000 iterations)
+Benchmarking add/add_contig_2048x2048-serial_f64/B: Analyzing
+add/add_contig_2048x2048-serial_f64/B
+                        time:   [2.0844 ms 2.0915 ms 2.0985 ms]
+                        change: [+1.3469% +1.7596% +2.1548%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Benchmarking add/add_contig_2048x2048-faer16_f64/A
+Benchmarking add/add_contig_2048x2048-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_contig_2048x2048-faer16_f64/A: Collecting 100 samples in estimated 2.0730 s (800 iterations)
+Benchmarking add/add_contig_2048x2048-faer16_f64/A: Analyzing
+add/add_contig_2048x2048-faer16_f64/A
+                        time:   [2.4501 ms 2.4798 ms 2.5091 ms]
+                        change: [-13.665% -12.099% -10.439%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Benchmarking add/add_contig_2048x2048-faer16_f64/B
+Benchmarking add/add_contig_2048x2048-faer16_f64/B: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.8s, enable flat sampling, or reduce sample count to 50.
+Benchmarking add/add_contig_2048x2048-faer16_f64/B: Collecting 100 samples in estimated 2.8092 s (5050 iterations)
+Benchmarking add/add_contig_2048x2048-faer16_f64/B: Analyzing
+add/add_contig_2048x2048-faer16_f64/B
+                        time:   [555.58 µs 558.32 µs 561.25 µs]
+                        change: [+4.7828% +5.9252% +7.1341%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 10 outliers among 100 measurements (10.00%)
+  4 (4.00%) low mild
+  4 (4.00%) high mild
+  2 (2.00%) high severe
+Benchmarking add/add_contig_1000x777-serial_f64/A
+Benchmarking add/add_contig_1000x777-serial_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_contig_1000x777-serial_f64/A: Collecting 100 samples in estimated 2.3667 s (20k iterations)
+Benchmarking add/add_contig_1000x777-serial_f64/A: Analyzing
+add/add_contig_1000x777-serial_f64/A
+                        time:   [114.83 µs 114.88 µs 114.94 µs]
+                        change: [-9.7892% -9.5807% -9.3747%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking add/add_contig_1000x777-serial_f64/B
+Benchmarking add/add_contig_1000x777-serial_f64/B: Warming up for 700.00 ms
+Benchmarking add/add_contig_1000x777-serial_f64/B: Collecting 100 samples in estimated 2.4041 s (20k iterations)
+Benchmarking add/add_contig_1000x777-serial_f64/B: Analyzing
+add/add_contig_1000x777-serial_f64/B
+                        time:   [120.73 µs 120.77 µs 120.83 µs]
+                        change: [-4.3179% -4.0509% -3.7891%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking add/add_contig_1000x777-faer16_f64/A
+Benchmarking add/add_contig_1000x777-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_contig_1000x777-faer16_f64/A: Collecting 100 samples in estimated 2.0548 s (20k iterations)
+Benchmarking add/add_contig_1000x777-faer16_f64/A: Analyzing
+add/add_contig_1000x777-faer16_f64/A
+                        time:   [101.89 µs 102.05 µs 102.20 µs]
+                        change: [+1.6439% +1.9468% +2.2585%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) low severe
+  1 (1.00%) low mild
+Benchmarking add/add_contig_1000x777-faer16_f64/B
+Benchmarking add/add_contig_1000x777-faer16_f64/B: Warming up for 700.00 ms
+Benchmarking add/add_contig_1000x777-faer16_f64/B: Collecting 100 samples in estimated 2.0696 s (20k iterations)
+Benchmarking add/add_contig_1000x777-faer16_f64/B: Analyzing
+add/add_contig_1000x777-faer16_f64/B
+                        time:   [102.10 µs 102.26 µs 102.43 µs]
+                        change: [+1.8492% +2.2307% +2.5875%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking add/add_contig_512x512-serial_f32/A
+Benchmarking add/add_contig_512x512-serial_f32/A: Warming up for 700.00 ms
+Benchmarking add/add_contig_512x512-serial_f32/A: Collecting 100 samples in estimated 2.0069 s (86k iterations)
+Benchmarking add/add_contig_512x512-serial_f32/A: Analyzing
+add/add_contig_512x512-serial_f32/A
+                        time:   [23.372 µs 23.402 µs 23.425 µs]
+                        change: [-1.4254% -1.2282% -1.0241%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Benchmarking add/add_contig_512x512-serial_f32/B
+Benchmarking add/add_contig_512x512-serial_f32/B: Warming up for 700.00 ms
+Benchmarking add/add_contig_512x512-serial_f32/B: Collecting 100 samples in estimated 2.1069 s (91k iterations)
+Benchmarking add/add_contig_512x512-serial_f32/B: Analyzing
+add/add_contig_512x512-serial_f32/B
+                        time:   [23.075 µs 23.081 µs 23.088 µs]
+                        change: [-1.0971% -1.0437% -0.9879%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking add/add_contig_512x512-faer16_f32/A
+Benchmarking add/add_contig_512x512-faer16_f32/A: Warming up for 700.00 ms
+Benchmarking add/add_contig_512x512-faer16_f32/A: Collecting 100 samples in estimated 2.0161 s (35k iterations)
+Benchmarking add/add_contig_512x512-faer16_f32/A: Analyzing
+add/add_contig_512x512-faer16_f32/A
+                        time:   [57.201 µs 57.258 µs 57.314 µs]
+                        change: [+2.3734% +2.7035% +2.9788%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low severe
+  4 (4.00%) low mild
+  1 (1.00%) high mild
+Benchmarking add/add_contig_512x512-faer16_f32/B
+Benchmarking add/add_contig_512x512-faer16_f32/B: Warming up for 700.00 ms
+Benchmarking add/add_contig_512x512-faer16_f32/B: Collecting 100 samples in estimated 2.0719 s (35k iterations)
+Benchmarking add/add_contig_512x512-faer16_f32/B: Analyzing
+add/add_contig_512x512-faer16_f32/B
+                        time:   [58.406 µs 58.470 µs 58.531 µs]
+                        change: [+4.5883% +4.8761% +5.1443%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 8 outliers among 100 measurements (8.00%)
+  3 (3.00%) low severe
+  3 (3.00%) low mild
+  2 (2.00%) high mild
+Benchmarking add/add_contig_2048x2048-serial_f32/A
+Benchmarking add/add_contig_2048x2048-serial_f32/A: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.6s, enable flat sampling, or reduce sample count to 50.
+Benchmarking add/add_contig_2048x2048-serial_f32/A: Collecting 100 samples in estimated 3.5612 s (5050 iterations)
+Benchmarking add/add_contig_2048x2048-serial_f32/A: Analyzing
+add/add_contig_2048x2048-serial_f32/A
+                        time:   [740.41 µs 743.89 µs 747.19 µs]
+                        change: [-3.8682% -3.3855% -2.8948%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 19 outliers among 100 measurements (19.00%)
+  10 (10.00%) low severe
+  2 (2.00%) low mild
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+Benchmarking add/add_contig_2048x2048-serial_f32/B
+Benchmarking add/add_contig_2048x2048-serial_f32/B: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.8s, enable flat sampling, or reduce sample count to 50.
+Benchmarking add/add_contig_2048x2048-serial_f32/B: Collecting 100 samples in estimated 3.7895 s (5050 iterations)
+Benchmarking add/add_contig_2048x2048-serial_f32/B: Analyzing
+add/add_contig_2048x2048-serial_f32/B
+                        time:   [702.92 µs 734.49 µs 757.33 µs]
+                        change: [-4.6146% -3.0634% -1.9597%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 13 outliers among 100 measurements (13.00%)
+  3 (3.00%) low severe
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  6 (6.00%) high severe
+Benchmarking add/add_contig_2048x2048-faer16_f32/A
+Benchmarking add/add_contig_2048x2048-faer16_f32/A: Warming up for 700.00 ms
+Benchmarking add/add_contig_2048x2048-faer16_f32/A: Collecting 100 samples in estimated 2.5528 s (10k iterations)
+Benchmarking add/add_contig_2048x2048-faer16_f32/A: Analyzing
+add/add_contig_2048x2048-faer16_f32/A
+                        time:   [252.18 µs 252.91 µs 253.84 µs]
+                        change: [+8.3344% +8.8865% +9.5010%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 11 outliers among 100 measurements (11.00%)
+  2 (2.00%) low mild
+  6 (6.00%) high mild
+  3 (3.00%) high severe
+Benchmarking add/add_contig_2048x2048-faer16_f32/B
+Benchmarking add/add_contig_2048x2048-faer16_f32/B: Warming up for 700.00 ms
+Benchmarking add/add_contig_2048x2048-faer16_f32/B: Collecting 100 samples in estimated 2.5523 s (10k iterations)
+Benchmarking add/add_contig_2048x2048-faer16_f32/B: Analyzing
+add/add_contig_2048x2048-faer16_f32/B
+                        time:   [251.13 µs 251.51 µs 251.91 µs]
+                        change: [+7.6381% +8.1257% +8.5832%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking add/add_bcast_2048x2048-serial_f64/A
+Benchmarking add/add_bcast_2048x2048-serial_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_bcast_2048x2048-serial_f64/A: Collecting 100 samples in estimated 2.2832 s (400 iterations)
+Benchmarking add/add_bcast_2048x2048-serial_f64/A: Analyzing
+add/add_bcast_2048x2048-serial_f64/A
+                        time:   [5.6133 ms 5.6185 ms 5.6240 ms]
+                        change: [-3.8823% -3.7011% -3.5423%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  6 (6.00%) high mild
+  2 (2.00%) high severe
+Benchmarking add/add_bcast_2048x2048-serial_f64/B
+Benchmarking add/add_bcast_2048x2048-serial_f64/B: Warming up for 700.00 ms
+Benchmarking add/add_bcast_2048x2048-serial_f64/B: Collecting 100 samples in estimated 2.0764 s (1400 iterations)
+Benchmarking add/add_bcast_2048x2048-serial_f64/B: Analyzing
+add/add_bcast_2048x2048-serial_f64/B
+                        time:   [1.5026 ms 1.5068 ms 1.5106 ms]
+                        change: [-2.0606% -1.7367% -1.4199%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 23 outliers among 100 measurements (23.00%)
+  11 (11.00%) low severe
+  9 (9.00%) high mild
+  3 (3.00%) high severe
+Benchmarking add/add_bcast_2048x2048-faer16_f64/A
+Benchmarking add/add_bcast_2048x2048-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_bcast_2048x2048-faer16_f64/A: Collecting 100 samples in estimated 2.0143 s (900 iterations)
+Benchmarking add/add_bcast_2048x2048-faer16_f64/A: Analyzing
+add/add_bcast_2048x2048-faer16_f64/A
+                        time:   [2.0756 ms 2.1090 ms 2.1441 ms]
+                        change: [-11.180% -8.1702% -4.8478%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 7 outliers among 100 measurements (7.00%)
+  7 (7.00%) high mild
+Benchmarking add/add_bcast_2048x2048-faer16_f64/B
+Benchmarking add/add_bcast_2048x2048-faer16_f64/B: Warming up for 700.00 ms
+Benchmarking add/add_bcast_2048x2048-faer16_f64/B: Collecting 100 samples in estimated 2.7702 s (10k iterations)
+Benchmarking add/add_bcast_2048x2048-faer16_f64/B: Analyzing
+add/add_bcast_2048x2048-faer16_f64/B
+                        time:   [273.09 µs 274.15 µs 275.27 µs]
+                        change: [-2.6699% -1.8606% -1.0131%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) low mild
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking add/add_strided_2048x2048-serial_f64/A
+Benchmarking add/add_strided_2048x2048-serial_f64/A: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 3.0s, or reduce sample count to 60.
+Benchmarking add/add_strided_2048x2048-serial_f64/A: Collecting 100 samples in estimated 2.9638 s (100 iterations)
+Benchmarking add/add_strided_2048x2048-serial_f64/A: Analyzing
+add/add_strided_2048x2048-serial_f64/A
+                        time:   [29.129 ms 29.251 ms 29.371 ms]
+                        change: [+132.53% +133.49% +134.35%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 18 outliers among 100 measurements (18.00%)
+  10 (10.00%) low mild
+  7 (7.00%) high mild
+  1 (1.00%) high severe
+Benchmarking add/add_strided_2048x2048-serial_f64/B
+Benchmarking add/add_strided_2048x2048-serial_f64/B: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.4s, or reduce sample count to 80.
+Benchmarking add/add_strided_2048x2048-serial_f64/B: Collecting 100 samples in estimated 2.3903 s (100 iterations)
+Benchmarking add/add_strided_2048x2048-serial_f64/B: Analyzing
+add/add_strided_2048x2048-serial_f64/B
+                        time:   [23.905 ms 24.011 ms 24.115 ms]
+                        change: [+215.10% +216.37% +217.86%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 13 outliers among 100 measurements (13.00%)
+  11 (11.00%) low mild
+  2 (2.00%) high mild
+Benchmarking add/add_strided_2048x2048-faer16_f64/A
+Benchmarking add/add_strided_2048x2048-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_strided_2048x2048-faer16_f64/A: Collecting 100 samples in estimated 2.0535 s (500 iterations)
+Benchmarking add/add_strided_2048x2048-faer16_f64/A: Analyzing
+add/add_strided_2048x2048-faer16_f64/A
+                        time:   [3.9246 ms 3.9448 ms 3.9645 ms]
+                        change: [+28.036% +29.809% +31.634%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) low mild
+  1 (1.00%) high mild
+Benchmarking add/add_strided_2048x2048-faer16_f64/B
+Benchmarking add/add_strided_2048x2048-faer16_f64/B: Warming up for 700.00 ms
+Benchmarking add/add_strided_2048x2048-faer16_f64/B: Collecting 100 samples in estimated 2.0748 s (1000 iterations)
+Benchmarking add/add_strided_2048x2048-faer16_f64/B: Analyzing
+add/add_strided_2048x2048-faer16_f64/B
+                        time:   [2.0725 ms 2.0792 ms 2.0860 ms]
+                        change: [+110.08% +112.48% +114.82%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  4 (4.00%) low mild
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+Benchmarking add/add_strided_64x64-serial_f64/A
+Benchmarking add/add_strided_64x64-serial_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_strided_64x64-serial_f64/A: Collecting 100 samples in estimated 2.0753 s (96k iterations)
+Benchmarking add/add_strided_64x64-serial_f64/A: Analyzing
+add/add_strided_64x64-serial_f64/A
+                        time:   [20.886 µs 20.894 µs 20.904 µs]
+                        change: [+556.58% +557.10% +557.63%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Benchmarking add/add_strided_64x64-serial_f64/B
+Benchmarking add/add_strided_64x64-serial_f64/B: Warming up for 700.00 ms
+Benchmarking add/add_strided_64x64-serial_f64/B: Collecting 100 samples in estimated 2.0356 s (96k iterations)
+Benchmarking add/add_strided_64x64-serial_f64/B: Analyzing
+add/add_strided_64x64-serial_f64/B
+                        time:   [20.777 µs 20.789 µs 20.803 µs]
+                        change: [+567.73% +568.25% +568.83%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  1 (1.00%) low severe
+  3 (3.00%) low mild
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+Benchmarking add/add_strided_64x64-faer16_f64/A
+Benchmarking add/add_strided_64x64-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_strided_64x64-faer16_f64/A: Collecting 100 samples in estimated 2.2490 s (25k iterations)
+Benchmarking add/add_strided_64x64-faer16_f64/A: Analyzing
+add/add_strided_64x64-faer16_f64/A
+                        time:   [89.353 µs 89.470 µs 89.595 µs]
+                        change: [+1540.3% +1580.0% +1619.7%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) low mild
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking add/add_strided_64x64-faer16_f64/B
+Benchmarking add/add_strided_64x64-faer16_f64/B: Warming up for 700.00 ms
+Benchmarking add/add_strided_64x64-faer16_f64/B: Collecting 100 samples in estimated 2.2585 s (25k iterations)
+Benchmarking add/add_strided_64x64-faer16_f64/B: Analyzing
+add/add_strided_64x64-faer16_f64/B
+                        time:   [89.386 µs 89.483 µs 89.587 µs]
+                        change: [+1606.9% +1643.2% +1679.0%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 8 outliers among 100 measurements (8.00%)
+  2 (2.00%) low severe
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking add/add_strided_1000x777-serial_f64/A
+Benchmarking add/add_strided_1000x777-serial_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_strided_1000x777-serial_f64/A: Collecting 100 samples in estimated 2.2466 s (600 iterations)
+Benchmarking add/add_strided_1000x777-serial_f64/A: Analyzing
+add/add_strided_1000x777-serial_f64/A
+                        time:   [3.6807 ms 3.6832 ms 3.6860 ms]
+                        change: [+684.26% +686.49% +688.73%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking add/add_strided_1000x777-serial_f64/B
+Benchmarking add/add_strided_1000x777-serial_f64/B: Warming up for 700.00 ms
+Benchmarking add/add_strided_1000x777-serial_f64/B: Collecting 100 samples in estimated 2.2224 s (600 iterations)
+Benchmarking add/add_strided_1000x777-serial_f64/B: Analyzing
+add/add_strided_1000x777-serial_f64/B
+                        time:   [3.6702 ms 3.6720 ms 3.6741 ms]
+                        change: [+767.64% +769.95% +772.12%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+Benchmarking add/add_strided_1000x777-faer16_f64/A
+Benchmarking add/add_strided_1000x777-faer16_f64/A: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.5s, enable flat sampling, or reduce sample count to 60.
+Benchmarking add/add_strided_1000x777-faer16_f64/A: Collecting 100 samples in estimated 2.5300 s (5050 iterations)
+Benchmarking add/add_strided_1000x777-faer16_f64/A: Analyzing
+add/add_strided_1000x777-faer16_f64/A
+                        time:   [502.75 µs 504.56 µs 506.58 µs]
+                        change: [+676.24% +701.64% +728.58%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) low severe
+  3 (3.00%) low mild
+  6 (6.00%) high mild
+  1 (1.00%) high severe
+Benchmarking add/add_strided_1000x777-faer16_f64/B
+Benchmarking add/add_strided_1000x777-faer16_f64/B: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.5s, enable flat sampling, or reduce sample count to 60.
+Benchmarking add/add_strided_1000x777-faer16_f64/B: Collecting 100 samples in estimated 2.5413 s (5050 iterations)
+Benchmarking add/add_strided_1000x777-faer16_f64/B: Analyzing
+add/add_strided_1000x777-faer16_f64/B
+                        time:   [502.89 µs 503.99 µs 505.17 µs]
+                        change: [+640.13% +666.28% +694.35%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) high mild
+Benchmarking add/add_stridedfirst_2048x2048-serial_f64/A
+Benchmarking add/add_stridedfirst_2048x2048-serial_f64/A: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.9s, or reduce sample count to 60.
+Benchmarking add/add_stridedfirst_2048x2048-serial_f64/A: Collecting 100 samples in estimated 2.8750 s (100 iterations)
+Benchmarking add/add_stridedfirst_2048x2048-serial_f64/A: Analyzing
+add/add_stridedfirst_2048x2048-serial_f64/A
+                        time:   [28.623 ms 28.721 ms 28.818 ms]
+                        change: [+128.45% +129.29% +130.11%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Benchmarking add/add_stridedfirst_2048x2048-serial_f64/B
+Benchmarking add/add_stridedfirst_2048x2048-serial_f64/B: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.3s, or reduce sample count to 80.
+Benchmarking add/add_stridedfirst_2048x2048-serial_f64/B: Collecting 100 samples in estimated 2.3180 s (100 iterations)
+Benchmarking add/add_stridedfirst_2048x2048-serial_f64/B: Analyzing
+add/add_stridedfirst_2048x2048-serial_f64/B
+                        time:   [23.105 ms 23.190 ms 23.280 ms]
+                        change: [+206.58% +207.68% +208.97%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+Benchmarking add/add_stridedfirst_2048x2048-faer16_f64/A
+Benchmarking add/add_stridedfirst_2048x2048-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking add/add_stridedfirst_2048x2048-faer16_f64/A: Collecting 100 samples in estimated 2.1649 s (500 iterations)
+Benchmarking add/add_stridedfirst_2048x2048-faer16_f64/A: Analyzing
+add/add_stridedfirst_2048x2048-faer16_f64/A
+                        time:   [4.4139 ms 4.4436 ms 4.4712 ms]
+                        change: [+41.378% +43.888% +46.289%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) low mild
+Benchmarking add/add_stridedfirst_2048x2048-faer16_f64/B
+Benchmarking add/add_stridedfirst_2048x2048-faer16_f64/B: Warming up for 700.00 ms
+Benchmarking add/add_stridedfirst_2048x2048-faer16_f64/B: Collecting 100 samples in estimated 2.1273 s (1000 iterations)
+Benchmarking add/add_stridedfirst_2048x2048-faer16_f64/B: Analyzing
+add/add_stridedfirst_2048x2048-faer16_f64/B
+                        time:   [2.0730 ms 2.0890 ms 2.1077 ms]
+                        change: [+114.84% +118.38% +122.12%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 11 outliers among 100 measurements (11.00%)
+  4 (4.00%) high mild
+  7 (7.00%) high severe
+Benchmarking add/addasgn_strided_2048x2048-serial_f64/B
+Benchmarking add/addasgn_strided_2048x2048-serial_f64/B: Warming up for 700.00 ms
+Benchmarking add/addasgn_strided_2048x2048-serial_f64/B: Collecting 100 samples in estimated 3.7231 s (200 iterations)
+Benchmarking add/addasgn_strided_2048x2048-serial_f64/B: Analyzing
+add/addasgn_strided_2048x2048-serial_f64/B
+                        time:   [17.740 ms 17.889 ms 18.016 ms]
+                        change: [+203.32% +205.85% +207.94%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) low severe
+  2 (2.00%) low mild
+Benchmarking add/addasgn_strided_2048x2048-faer16_f64/B
+Benchmarking add/addasgn_strided_2048x2048-faer16_f64/B: Warming up for 700.00 ms
+Benchmarking add/addasgn_strided_2048x2048-faer16_f64/B: Collecting 100 samples in estimated 2.1089 s (1400 iterations)
+Benchmarking add/addasgn_strided_2048x2048-faer16_f64/B: Analyzing
+add/addasgn_strided_2048x2048-faer16_f64/B
+                        time:   [1.5091 ms 1.5184 ms 1.5285 ms]
+                        change: [+120.18% +122.67% +125.21%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) high mild
+
+Benchmarking mul/mul_contig_2048x2048-serial_f64/A
+Benchmarking mul/mul_contig_2048x2048-serial_f64/A: Warming up for 700.00 ms
+Benchmarking mul/mul_contig_2048x2048-serial_f64/A: Collecting 100 samples in estimated 2.5330 s (400 iterations)
+Benchmarking mul/mul_contig_2048x2048-serial_f64/A: Analyzing
+mul/mul_contig_2048x2048-serial_f64/A
+                        time:   [6.2416 ms 6.2521 ms 6.2634 ms]
+                        change: [-4.3151% -4.0824% -3.8524%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking mul/mul_contig_2048x2048-serial_f64/B
+Benchmarking mul/mul_contig_2048x2048-serial_f64/B: Warming up for 700.00 ms
+Benchmarking mul/mul_contig_2048x2048-serial_f64/B: Collecting 100 samples in estimated 2.0699 s (1000 iterations)
+Benchmarking mul/mul_contig_2048x2048-serial_f64/B: Analyzing
+mul/mul_contig_2048x2048-serial_f64/B
+                        time:   [2.0742 ms 2.0828 ms 2.0932 ms]
+                        change: [+0.9468% +1.4223% +2.0004%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+Benchmarking mul/mul_contig_2048x2048-faer16_f64/A
+Benchmarking mul/mul_contig_2048x2048-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking mul/mul_contig_2048x2048-faer16_f64/A: Collecting 100 samples in estimated 2.1930 s (900 iterations)
+Benchmarking mul/mul_contig_2048x2048-faer16_f64/A: Analyzing
+mul/mul_contig_2048x2048-faer16_f64/A
+                        time:   [2.3962 ms 2.4221 ms 2.4478 ms]
+                        change: [+3.5313% +4.9436% +6.4036%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Benchmarking mul/mul_contig_2048x2048-faer16_f64/B
+Benchmarking mul/mul_contig_2048x2048-faer16_f64/B: Warming up for 700.00 ms
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.7s, enable flat sampling, or reduce sample count to 60.
+Benchmarking mul/mul_contig_2048x2048-faer16_f64/B: Collecting 100 samples in estimated 2.7418 s (5050 iterations)
+Benchmarking mul/mul_contig_2048x2048-faer16_f64/B: Analyzing
+mul/mul_contig_2048x2048-faer16_f64/B
+                        time:   [540.70 µs 545.16 µs 550.07 µs]
+                        change: [-0.2813% +0.7372% +1.7496%] (p = 0.16 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low severe
+  3 (3.00%) high mild
+
+Benchmarking scale/scale_contig_2048x2048-serial_f64/A
+Benchmarking scale/scale_contig_2048x2048-serial_f64/A: Warming up for 700.00 ms
+Benchmarking scale/scale_contig_2048x2048-serial_f64/A: Collecting 100 samples in estimated 2.1519 s (400 iterations)
+Benchmarking scale/scale_contig_2048x2048-serial_f64/A: Analyzing
+scale/scale_contig_2048x2048-serial_f64/A
+                        time:   [5.3642 ms 5.3692 ms 5.3747 ms]
+                        change: [+0.5380% +0.6706% +0.7996%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking scale/scale_contig_2048x2048-serial_f64/B
+Benchmarking scale/scale_contig_2048x2048-serial_f64/B: Warming up for 700.00 ms
+Benchmarking scale/scale_contig_2048x2048-serial_f64/B: Collecting 100 samples in estimated 2.0700 s (1500 iterations)
+Benchmarking scale/scale_contig_2048x2048-serial_f64/B: Analyzing
+scale/scale_contig_2048x2048-serial_f64/B
+                        time:   [1.4587 ms 1.4643 ms 1.4699 ms]
+                        change: [-5.3070% -4.9031% -4.4962%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Benchmarking scale/scale_contig_2048x2048-faer16_f64/A
+Benchmarking scale/scale_contig_2048x2048-faer16_f64/A: Warming up for 700.00 ms
+Benchmarking scale/scale_contig_2048x2048-faer16_f64/A: Collecting 100 samples in estimated 2.1637 s (1000 iterations)
+Benchmarking scale/scale_contig_2048x2048-faer16_f64/A: Analyzing
+scale/scale_contig_2048x2048-faer16_f64/A
+                        time:   [2.1863 ms 2.2029 ms 2.2213 ms]
+                        change: [+4.6332% +6.6182% +8.6356%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking scale/scale_contig_2048x2048-faer16_f64/B
+Benchmarking scale/scale_contig_2048x2048-faer16_f64/B: Warming up for 700.00 ms
+Benchmarking scale/scale_contig_2048x2048-faer16_f64/B: Collecting 100 samples in estimated 2.7740 s (10k iterations)
+Benchmarking scale/scale_contig_2048x2048-faer16_f64/B: Analyzing
+scale/scale_contig_2048x2048-faer16_f64/B
+                        time:   [264.11 µs 265.51 µs 266.99 µs]
+                        change: [-6.3237% -5.5996% -4.8404%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+

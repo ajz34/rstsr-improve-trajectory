@@ -276,3 +276,47 @@ HEAD 386948b. `target/` left in place for reviewer re-runs (D14 deviation,
 same note as before); the committed-baseline stages of reproduce.sh
 (`portable`/`native`) and the `candidate` stage (to be run with the patch
 applied) are both reproducible.
+
+## Integration into rstsr (2026-09-14) — patch 2 of the campaign queue
+
+Applied to `../rstsr` branch `260914-elementwise` (base = `origin/master`
+`e835173`, i.e. post-PR#100 argmax+nanarg merge; base content is identical
+to the 386948be tree in the touched files — patch applies clean, +346).
+Status: gates + benches green, **awaiting owner review** (patch-1 cycle).
+
+- Patch file: [proposed-v2-post-fmt.patch](proposed-v2-post-fmt.patch) —
+  the applied diff after local `rustfmt` reflowed the added lines
+  (`debug_assert!` split to multi-line form, guard chain joined; zero
+  content-line changes, verified by a `-`-line-free diff against master and
+  `rustfmt --check` on both files). [proposed.patch](proposed.patch) is the
+  original campaign capture, kept for the record; CI's pinned rustfmt is the
+  authority for comment wrapping (patch-1 lesson), and the workspace
+  `fmt --check` noise on *untouched* files (build.rs, rearrangement.rs,
+  tensordot_to_einsum.rs, reduction.rs ×2) is the known local-vs-CI rustfmt
+  divergence, not part of this patch.
+- Gates on the patched tree: rstsr-core lib 110/110 + entry_row_cpu 302/302,
+  portable AND native (plus the faer-free usual-situation config: lib 94+1
+  ign, entry 302); `cargo clippy -p rstsr-native-impl --all-targets
+  -D warnings` clean both configs; elementwise correctness example 94/94
+  PASS both configs (flip/negative-stride views, i32, complex64, f32,
+  ndarray cross-check).
+- G1 caller enumeration (the compose-smoke lesson): callers of
+  `op_mutc_refa_refb_func` / `op_muta_refb_func` are the elementwise-op
+  families (`op_binary_*`, `op_ternary_*` serial+rayon twins, `map_elementwise`,
+  public `op_with_func` wrappers) and — outside elementwise-land — the
+  reduction order-fixup sites in `cpu_{serial,rayon}/reduction.rs`. Those are
+  dead under the default iter order (`default() == K`), and even if alive
+  they copy between disjoint buffers (visit order harmless) with a
+  contiguous destination layout the guard admits only for 2-D ≥4096
+  no-broadcast problems. Broadcast and 1-D inputs fall through to the
+  iterator path everywhere; the T8 union smoke (332 checks, entry 3-fix
+  regression) already covered this patch in combination.
+- Paired benches (3 alternating refA=master/cand=patched passes × portable +
+  native, full 54-bench suite, same session, quiet machine):
+  [results/integration260914/](results/integration260914/README.md).
+  **Verdict: no stable regression in any cell; all headline wins reproduce**
+  (strided B serial 23.4→7.4 ms = 0.32×; faer16 2.06→0.96 ms; odd 8–9×;
+  small 64² 16×; `c += bᵀ` 0.34×; stridedfirst 0.33×; strided A 0.42–0.47×).
+  Known lottery cells (portable contig 1000×777 serial, native contig
+  2048² f64 B, faer large-A) all inside their documented bands.
+
