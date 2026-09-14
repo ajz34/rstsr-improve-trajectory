@@ -1,6 +1,6 @@
 ---
 name: rstsr-elementwise-t4
-description: T4' elementwise patch — blocked 64x64 2-D strided kernel (contig was ALREADY vectorized, 0.83 ins/elem); INTEGRATED + OWNER-REVIEWED 2026-09-14 (CORRECT): tall-skinny rayon parallel-degree caveat documented, review tests captured, working-tree-only awaiting owner commit.
+description: T4' elementwise patch — blocked 64x64 2-D strided kernel (contig was ALREADY vectorized, 0.83 ins/elem); MERGED to restgroup/master 2026-09-14 as c08e44a (PR #101, squash) after owner review; tall-skinny rayon parallel-degree caveat documented upstream.
 metadata:
   type: project
 ---
@@ -70,3 +70,11 @@ both tile axes) recorded, not implemented. Nits fixed: removed unneeded
 has `tmp*` — never prefix review/test files with `tmp_` if git must see
 them (use e.g. `review_blocked2d_e2e.rs`). Review tests are applied-on-top /
 reverted via the captured patch; round-trip verified byte-identical.
+
+MERGED (2026-09-14): owner authorized commit+PR+merge; committed as 96ecd63
+on 260914-elementwise, pushed to ajz34 fork, PR #101 to restgroup/rstsr —
+all 12 CI checks pass first try (rustfmt/clippy/unittests incl. col-major +
+pthread + no-std + doctests), squash-merged as c08e44a. Local rstsr branch
+260914-elementwise is now redundant (pre-squash SHA). Open follow-ups:
+tall-skinny rayon parallel degree (fix sketch in review-260914.md), scalar-
+operand kernels (`*_numb_*`) still on generic path for strided 2-D.
