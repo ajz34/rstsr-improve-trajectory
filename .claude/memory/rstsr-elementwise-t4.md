@@ -1,6 +1,6 @@
 ---
 name: rstsr-elementwise-t4
-description: T4' elementwise patch — blocked 64x64 2-D strided kernel (contig was ALREADY vectorized, 0.83 ins/elem); INTEGRATED to rstsr branch 260914-elementwise 2026-09-14, gates+paired benches green, awaiting owner review/commit.
+description: T4' elementwise patch — blocked 64x64 2-D strided kernel (contig was ALREADY vectorized, 0.83 ins/elem); INTEGRATED + OWNER-REVIEWED 2026-09-14 (CORRECT): tall-skinny rayon parallel-degree caveat documented, review tests captured, working-tree-only awaiting owner commit.
 metadata:
   type: project
 ---
@@ -53,3 +53,20 @@ working-tree-only in ../rstsr — NOT committed (main-repo no-auto-commit;
 owner reviews first). Local workspace `fmt --check` noise on untouched
 files is the known local-vs-CI rustfmt comment-wrap divergence — never
 "fix" it in patches.
+
+Owner review (2026-09-14, same day as integration; report
+`2026-09-09-elementwise/review-260914.md`, test capture
+`results/review260914/review-tests.patch`): verdict CORRECT. Soundness
+arguments verified (broadcast guard exact via `d>1 && s==0`; isize offset
+formula identical to IterLayoutColMajor; tiled coverage write-once; bounds
+contract matches file norm). Adversarial kernel matrix (negative/interleaved
+strides, offsets, TILE-boundary shapes; serial+rayon; 106 traced blocked-path
+executions) + e2e all bit-exact vs layout-iterator reference. NEW finding:
+rayon parallelism is over slow-axis tile bands only — tall-skinny 70×10000
+measured ~1.5× SLOWER on 8 threads (2 bands); documented in
+`blocked_2d_applicable_rayon` doc, fix sketch (flatten to one par_iter over
+both tile axes) recorded, not implemented. Nits fixed: removed unneeded
+`too_many_arguments` on the 2-layout rayon fn. Lesson: rstsr `.gitignore`
+has `tmp*` — never prefix review/test files with `tmp_` if git must see
+them (use e.g. `review_blocked2d_e2e.rs`). Review tests are applied-on-top /
+reverted via the captured patch; round-trip verified byte-identical.

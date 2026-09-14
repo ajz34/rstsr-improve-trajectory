@@ -51,6 +51,8 @@ reproduce.sh               correctness -> portable -> native -> portable_c -> na
                            pre2 (clean-tree extended baseline); candidate (patched-tree pass)
 PLAN.md                    phase-2 edit plan (design options, accept criteria)
 proposed.patch             phase-2 diff vs 386948be (captured; tree restored after)
+review-260914.md           owner review: verdict CORRECT, tall-skinny caveat, dispositions
+results/review260914/      review test patch + snippets + re-run instructions
 ```
 
 ## Phase-2 result (blocked 2-D strided kernel) — D3 PASS
