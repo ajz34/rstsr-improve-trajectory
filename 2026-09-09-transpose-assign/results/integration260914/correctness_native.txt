@@ -1,0 +1,274 @@
+   Compiling autocfg v1.5.1
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.47
+   Compiling libm v0.2.16
+   Compiling bytemuck v1.25.2
+   Compiling version_check v0.9.5
+   Compiling crossbeam-utils v0.8.23
+   Compiling cfg-if v1.0.4
+   Compiling crossbeam-epoch v0.9.21
+   Compiling crossbeam-deque v0.8.8
+   Compiling nano-gemm-codegen v0.1.0
+   Compiling either v1.18.0
+   Compiling rayon-core v1.13.0
+   Compiling reborrow v0.5.5
+   Compiling dyn-stack-macros v0.1.3
+   Compiling paste v1.0.15
+   Compiling serde_core v1.0.229
+   Compiling once_cell v1.21.4
+   Compiling strsim v0.11.1
+   Compiling fnv v1.0.7
+   Compiling bitflags v2.13.1
+   Compiling ident_case v1.0.1
+   Compiling zerocopy v0.8.57
+   Compiling seq-macro v0.3.6
+   Compiling nano-gemm-core v0.1.0
+   Compiling serde v1.0.229
+   Compiling zmij v1.0.23
+   Compiling heck v0.5.0
+   Compiling libc v0.2.189
+   Compiling serde_json v1.0.151
+   Compiling generativity v1.2.1
+   Compiling plotters-backend v0.3.7
+   Compiling anstyle v1.0.14
+   Compiling itoa v1.0.18
+   Compiling rstsr-cblas-base v0.1.2
+   Compiling regex-syntax v0.8.11
+   Compiling memchr v2.8.3
+   Compiling clap_lex v1.1.0
+   Compiling ciborium-io v0.2.2
+   Compiling cast v0.3.0
+   Compiling same-file v1.0.6
+   Compiling oorandom v11.1.5
+   Compiling rawpointer v0.2.1
+   Compiling dyn-stack v0.13.2
+   Compiling anes v0.1.6
+   Compiling raw-cpuid v11.6.0
+   Compiling itertools v0.13.0
+   Compiling itertools v0.10.5
+   Compiling walkdir v2.5.0
+   Compiling pulp v0.21.5
+   Compiling proc-macro2-diagnostics v0.10.1
+   Compiling clap_builder v4.6.6
+   Compiling num-traits v0.2.19
+   Compiling matrixmultiply v0.3.11
+   Compiling plotters-svg v0.3.7
+   Compiling nano-gemm-f32 v0.1.0
+   Compiling nano-gemm-c32 v0.1.0
+   Compiling nano-gemm-c64 v0.1.0
+   Compiling nano-gemm-f64 v0.1.0
+   Compiling syn v2.0.119
+   Compiling syn v3.0.5
+   Compiling is-terminal v0.4.17
+   Compiling rayon v1.12.0
+   Compiling regex-automata v0.4.18
+   Compiling criterion-plot v0.5.0
+   Compiling num-complex v0.4.6
+   Compiling num-integer v0.1.47
+   Compiling plotters v0.3.7
+   Compiling num-bigint v0.4.8
+   Compiling num-iter v0.1.46
+   Compiling clap v4.6.6
+   Compiling ndarray v0.16.1
+   Compiling serde_derive v1.0.229
+   Compiling regex v1.13.1
+   Compiling num-rational v0.4.2
+   Compiling darling_core v0.20.11
+   Compiling num v0.4.3
+   Compiling gemm-common v0.18.2
+   Compiling qd v0.7.7
+   Compiling zerocopy-derive v0.8.57
+   Compiling equator-macro v0.2.1
+   Compiling equator-macro v0.4.2
+   Compiling faer-macros v0.21.0
+   Compiling duplicate v2.0.1
+   Compiling tinytemplate v1.2.1
+   Compiling gemm-c64 v0.18.2
+   Compiling gemm-f32 v0.18.2
+   Compiling gemm-c32 v0.18.2
+   Compiling gemm-f64 v0.18.2
+   Compiling equator v0.2.2
+   Compiling faer-traits v0.22.1
+   Compiling equator v0.4.2
+   Compiling darling_macro v0.20.11
+   Compiling darling v0.20.11
+   Compiling derive_builder_core v0.20.2
+   Compiling gemm v0.18.2
+   Compiling derive_builder_macro v0.20.2
+   Compiling derive_builder v0.20.2
+   Compiling rstsr-common v0.8.0 (/home/a/rstsr_pack/rstsr/rstsr-common)
+   Compiling half v2.7.1
+   Compiling ciborium-ll v0.2.2
+   Compiling rstsr-dtype-traits v0.8.0 (/home/a/rstsr_pack/rstsr/rstsr-dtype-traits)
+   Compiling ciborium v0.2.2
+   Compiling nano-gemm v0.1.3
+   Compiling rstsr-native-impl v0.8.0 (/home/a/rstsr_pack/rstsr/rstsr-native-impl)
+   Compiling faer v0.22.6
+   Compiling criterion v0.5.1
+   Compiling faer-ext v0.6.0
+   Compiling rstsr-core v0.8.0 (/home/a/rstsr_pack/rstsr/rstsr-core)
+   Compiling transpose-assign v0.1.0 (/home/a/rstsr_pack/rstsr-improve-trajectory/2026-09-09-transpose-assign)
+    Finished `release` profile [optimized] target(s) in 19.34s
+     Running `target/release/examples/correctness`
+[harness] DeviceFaer thread pool: 16 threads (RAYON_NUM_THREADS convention)
+[PASS] transpose A idiom 37x53 serial f64
+[PASS] transpose A idiom ColMajor 37x53 serial f64
+[PASS] transpose B assign-reuse 37x53 serial f64
+[PASS] transpose flip(0).t() A 37x53 serial f64
+[PASS] transpose flip(0).t() B reuse 37x53 serial f64
+[PASS] transpose flip(1).t() A 37x53 serial f64
+[PASS] sliced view to_contig 37x27 serial f64
+[PASS] sliced.t() assign 27x37 serial f64
+[PASS] to_contig(ColMajor) r2c 37x53 serial f64
+[PASS] assign into f-contig r2c 37x53 serial f64
+[PASS] order-changing reshape 4x3f->3x4c serial f64
+[PASS] contig assign 37x53 serial f64
+[PASS] transpose A idiom 1000x777 serial f64
+[PASS] transpose A idiom ColMajor 1000x777 serial f64
+[PASS] transpose B assign-reuse 1000x777 serial f64
+[PASS] transpose flip(0).t() A 1000x777 serial f64
+[PASS] transpose flip(0).t() B reuse 1000x777 serial f64
+[PASS] transpose flip(1).t() A 1000x777 serial f64
+[PASS] sliced view to_contig 1000x389 serial f64
+[PASS] sliced.t() assign 389x1000 serial f64
+[PASS] to_contig(ColMajor) r2c 1000x777 serial f64
+[PASS] assign into f-contig r2c 1000x777 serial f64
+[PASS] order-changing reshape 4x3f->3x4c serial f64
+[PASS] contig assign 1000x777 serial f64
+[PASS] transpose A idiom 777x1000 serial f64
+[PASS] transpose A idiom ColMajor 777x1000 serial f64
+[PASS] transpose B assign-reuse 777x1000 serial f64
+[PASS] transpose flip(0).t() A 777x1000 serial f64
+[PASS] transpose flip(0).t() B reuse 777x1000 serial f64
+[PASS] transpose flip(1).t() A 777x1000 serial f64
+[PASS] sliced view to_contig 777x500 serial f64
+[PASS] sliced.t() assign 500x777 serial f64
+[PASS] to_contig(ColMajor) r2c 777x1000 serial f64
+[PASS] assign into f-contig r2c 777x1000 serial f64
+[PASS] order-changing reshape 4x3f->3x4c serial f64
+[PASS] contig assign 777x1000 serial f64
+[PASS] transpose A idiom 1x7 serial f64
+[PASS] transpose A idiom ColMajor 1x7 serial f64
+[PASS] transpose B assign-reuse 1x7 serial f64
+[PASS] transpose flip(0).t() A 1x7 serial f64
+[PASS] transpose flip(0).t() B reuse 1x7 serial f64
+[PASS] transpose flip(1).t() A 1x7 serial f64
+[PASS] sliced view to_contig 1x4 serial f64
+[PASS] sliced.t() assign 4x1 serial f64
+[PASS] to_contig(ColMajor) r2c 1x7 serial f64
+[PASS] assign into f-contig r2c 1x7 serial f64
+[PASS] order-changing reshape 4x3f->3x4c serial f64
+[PASS] contig assign 1x7 serial f64
+[PASS] transpose A idiom 7x1 serial f64
+[PASS] transpose A idiom ColMajor 7x1 serial f64
+[PASS] transpose B assign-reuse 7x1 serial f64
+[PASS] transpose flip(0).t() A 7x1 serial f64
+[PASS] transpose flip(0).t() B reuse 7x1 serial f64
+[PASS] transpose flip(1).t() A 7x1 serial f64
+[PASS] sliced view to_contig 7x1 serial f64
+[PASS] sliced.t() assign 1x7 serial f64
+[PASS] to_contig(ColMajor) r2c 7x1 serial f64
+[PASS] assign into f-contig r2c 7x1 serial f64
+[PASS] order-changing reshape 4x3f->3x4c serial f64
+[PASS] contig assign 7x1 serial f64
+[PASS] bcast assign [1,53]->37x53 serial f64
+[PASS] bcast.t() to_contig 53x37 serial f64
+[PASS] bcast.t() assign 53x37 serial f64
+[PASS] 3-D t().to_contig 2x3x4 serial f64
+[PASS] transpose A idiom 37x53 serial i32
+[PASS] transpose A idiom 1000x777 serial f32
+[PASS] transpose B assign-reuse 1000x777 serial f32
+[PASS] transpose A idiom 1000x777 vs ndarray serial f64
+[PASS] transpose A idiom 37x53 faer16 f64
+[PASS] transpose A idiom ColMajor 37x53 faer16 f64
+[PASS] transpose B assign-reuse 37x53 faer16 f64
+[PASS] transpose flip(0).t() A 37x53 faer16 f64
+[PASS] transpose flip(0).t() B reuse 37x53 faer16 f64
+[PASS] transpose flip(1).t() A 37x53 faer16 f64
+[PASS] sliced view to_contig 37x27 faer16 f64
+[PASS] sliced.t() assign 27x37 faer16 f64
+[PASS] to_contig(ColMajor) r2c 37x53 faer16 f64
+[PASS] assign into f-contig r2c 37x53 faer16 f64
+[PASS] order-changing reshape 4x3f->3x4c faer16 f64
+[PASS] contig assign 37x53 faer16 f64
+[PASS] transpose A idiom 1000x777 faer16 f64
+[PASS] transpose A idiom ColMajor 1000x777 faer16 f64
+[PASS] transpose B assign-reuse 1000x777 faer16 f64
+[PASS] transpose flip(0).t() A 1000x777 faer16 f64
+[PASS] transpose flip(0).t() B reuse 1000x777 faer16 f64
+[PASS] transpose flip(1).t() A 1000x777 faer16 f64
+[PASS] sliced view to_contig 1000x389 faer16 f64
+[PASS] sliced.t() assign 389x1000 faer16 f64
+[PASS] to_contig(ColMajor) r2c 1000x777 faer16 f64
+[PASS] assign into f-contig r2c 1000x777 faer16 f64
+[PASS] order-changing reshape 4x3f->3x4c faer16 f64
+[PASS] contig assign 1000x777 faer16 f64
+[PASS] transpose A idiom 777x1000 faer16 f64
+[PASS] transpose A idiom ColMajor 777x1000 faer16 f64
+[PASS] transpose B assign-reuse 777x1000 faer16 f64
+[PASS] transpose flip(0).t() A 777x1000 faer16 f64
+[PASS] transpose flip(0).t() B reuse 777x1000 faer16 f64
+[PASS] transpose flip(1).t() A 777x1000 faer16 f64
+[PASS] sliced view to_contig 777x500 faer16 f64
+[PASS] sliced.t() assign 500x777 faer16 f64
+[PASS] to_contig(ColMajor) r2c 777x1000 faer16 f64
+[PASS] assign into f-contig r2c 777x1000 faer16 f64
+[PASS] order-changing reshape 4x3f->3x4c faer16 f64
+[PASS] contig assign 777x1000 faer16 f64
+[PASS] transpose A idiom 1x7 faer16 f64
+[PASS] transpose A idiom ColMajor 1x7 faer16 f64
+[PASS] transpose B assign-reuse 1x7 faer16 f64
+[PASS] transpose flip(0).t() A 1x7 faer16 f64
+[PASS] transpose flip(0).t() B reuse 1x7 faer16 f64
+[PASS] transpose flip(1).t() A 1x7 faer16 f64
+[PASS] sliced view to_contig 1x4 faer16 f64
+[PASS] sliced.t() assign 4x1 faer16 f64
+[PASS] to_contig(ColMajor) r2c 1x7 faer16 f64
+[PASS] assign into f-contig r2c 1x7 faer16 f64
+[PASS] order-changing reshape 4x3f->3x4c faer16 f64
+[PASS] contig assign 1x7 faer16 f64
+[PASS] transpose A idiom 7x1 faer16 f64
+[PASS] transpose A idiom ColMajor 7x1 faer16 f64
+[PASS] transpose B assign-reuse 7x1 faer16 f64
+[PASS] transpose flip(0).t() A 7x1 faer16 f64
+[PASS] transpose flip(0).t() B reuse 7x1 faer16 f64
+[PASS] transpose flip(1).t() A 7x1 faer16 f64
+[PASS] sliced view to_contig 7x1 faer16 f64
+[PASS] sliced.t() assign 1x7 faer16 f64
+[PASS] to_contig(ColMajor) r2c 7x1 faer16 f64
+[PASS] assign into f-contig r2c 7x1 faer16 f64
+[PASS] order-changing reshape 4x3f->3x4c faer16 f64
+[PASS] contig assign 7x1 faer16 f64
+[PASS] bcast assign [1,53]->37x53 faer16 f64
+[PASS] bcast.t() to_contig 53x37 faer16 f64
+[PASS] bcast.t() assign 53x37 faer16 f64
+[PASS] 3-D t().to_contig 2x3x4 faer16 f64
+[PASS] transpose A idiom 37x53 faer16 i32
+[PASS] transpose A idiom 1000x777 faer16 f32
+[PASS] transpose B assign-reuse 1000x777 faer16 f32
+[PASS] transpose A idiom 1000x777 vs ndarray faer16 f64
+[PASS] direct assign_arbitary_uninit_cpu_serial 1000x777
+[PASS] direct assign_arbitary_uninit_cpu_rayon 1000x777
+[PASS] direct orderchange_out_c2r_ix2_cpu_serial 1000x777
+[PASS] direct orderchange_out_r2c_ix2_cpu_serial 1000x777
+[PASS] direct orderchange_out_c2r_ix2_cpu_rayon 1000x777
+[PASS] direct orderchange c2r negative slow stride 1000x777
+[PASS] direct assign_arbitary_uninit_cpu_serial 777x1000
+[PASS] direct assign_arbitary_uninit_cpu_rayon 777x1000
+[PASS] direct orderchange_out_c2r_ix2_cpu_serial 777x1000
+[PASS] direct orderchange_out_r2c_ix2_cpu_serial 777x1000
+[PASS] direct orderchange_out_c2r_ix2_cpu_rayon 777x1000
+[PASS] direct orderchange c2r negative slow stride 777x1000
+[PASS] direct assign_arbitary_uninit_cpu_serial 1x7
+[PASS] direct assign_arbitary_uninit_cpu_rayon 1x7
+[PASS] direct orderchange_out_c2r_ix2_cpu_serial 1x7
+[PASS] direct orderchange_out_r2c_ix2_cpu_serial 1x7
+[PASS] direct orderchange_out_c2r_ix2_cpu_rayon 1x7
+[PASS] direct assign_arbitary_uninit_cpu_serial 7x1
+[PASS] direct assign_arbitary_uninit_cpu_rayon 7x1
+[PASS] direct orderchange_out_c2r_ix2_cpu_serial 7x1
+[PASS] direct orderchange_out_r2c_ix2_cpu_serial 7x1
+[PASS] direct orderchange_out_c2r_ix2_cpu_rayon 7x1
+
+ALL CORRECTNESS CHECKS PASSED

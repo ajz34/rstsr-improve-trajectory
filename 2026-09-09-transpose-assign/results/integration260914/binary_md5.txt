@@ -1,0 +1,12 @@
+refA_portable_pass1.log RUSTFLAGS='<unset>' md5=5c95790d5d238c9ae0d4f3a9ff8f47a5
+cand_portable_pass1.log RUSTFLAGS='<unset>' md5=bc7f3ed8d1de27af1257a3f0d395e7b7
+refA_native_pass1.log RUSTFLAGS='-C target-cpu=native' md5=b05337d8895a59b38dec61bfbcdec80e
+cand_native_pass1.log RUSTFLAGS='-C target-cpu=native' md5=b68593e39aa57454d473ab5a8742bfff
+refA_portable_pass2.log RUSTFLAGS='<unset>' md5=5c95790d5d238c9ae0d4f3a9ff8f47a5
+cand_portable_pass2.log RUSTFLAGS='<unset>' md5=bc7f3ed8d1de27af1257a3f0d395e7b7
+refA_native_pass2.log RUSTFLAGS='-C target-cpu=native' md5=b05337d8895a59b38dec61bfbcdec80e
+cand_native_pass2.log RUSTFLAGS='-C target-cpu=native' md5=b68593e39aa57454d473ab5a8742bfff
+refA_portable_pass3.log RUSTFLAGS='<unset>' md5=5c95790d5d238c9ae0d4f3a9ff8f47a5
+cand_portable_pass3.log RUSTFLAGS='<unset>' md5=bc7f3ed8d1de27af1257a3f0d395e7b7
+refA_native_pass3.log RUSTFLAGS='-C target-cpu=native' md5=b05337d8895a59b38dec61bfbcdec80e
+cand_native_pass3.log RUSTFLAGS='-C target-cpu=native' md5=b68593e39aa57454d473ab5a8742bfff

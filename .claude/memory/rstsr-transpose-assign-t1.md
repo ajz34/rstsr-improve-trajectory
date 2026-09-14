@@ -82,3 +82,23 @@ an order-changing-reshape fixture (legacy fall-through mapping for
 tree clean. LESSON: routers into shape-assuming kernels need explicit shape
 guards; gate must include shape-changing assigns through the SAME entry
 points (assign_arbitary_uninit serves reshape).
+
+INTEGRATION (2026-09-14, branch 260914-transpose on master c08e44a post-PR
+#101): READY FOR REVIEW, uncommitted working tree. Gates lib 110/110 +
+entry 302/302 both configs (faer-free 94+1 ign/302), clippy clean, example
+correctness 158/158 both configs (README's "154 checks" undercounted —
+fixture set grew). Paired benches 3×2 configs: zero REG in 112 cells, wins
+reproduce (B large 2.9× serial / 2.7× faer16, odd 9.5×, small 6.3×), all 12
+canaries parity except sliced_t_large faer16 1.05–1.08× — DISSECTED not
+reproducible (alternating re-runs flip sign, ±5–8% faer transient; same
+cell flagged+cleared in phase 2; portable counterpart 0.87–1.00×). cargo
+fmt: ZERO drift in patch files (only unwrapped pre-existing master comments
+in reduction.rs — reverted; local rustfmt unwraps what CI nightly wraps).
+Tree diff byte-identical to proposed.patch → no post-fmt capture needed.
+Evidence: results/integration260914/ (README, paired_bench.sh, tables,
+dissect_slicedt.sh, binary_md5.txt). PROTOCOL CHANGES vs patch 2: tree flip
+via `git apply -R`/`apply` instead of git stash (rstsr repo carries an old
+USER stash `fix-stack` on enhance-core-tests-0.7.9 — never stash-pop over
+it); criterion completion marker must match the id's hyphenation exactly
+(this suite: `-faer16-f64`, not `_f64`); md5 of newest bench binary logged
+per stage as RUSTFLAGS-caching guard.

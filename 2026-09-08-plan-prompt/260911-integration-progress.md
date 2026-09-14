@@ -67,13 +67,36 @@ after the first integration session (Claude Code + glm-5.3-flash).
   8–9×, small 64² 16×, `c += bᵀ` 0.34×; lottery cells inside documented
   bands). Evidence: `2026-09-09-elementwise/results/integration260914/`.
 
-## Patches 3–5 — PENDING
+## Patch 3 — transpose-assign: READY FOR REVIEW
 
-transpose-assign (with compose-smoke's shape-identity guard amendment),
+- Applied to `../rstsr` branch `260914-transpose`, base = `origin/master`
+  `c08e44a` (post PR #101). Applied clean (+297, 4 files:
+  `rstsr-native-impl/src/cpu_{serial,rayon}/{assignment,transpose}.rs`);
+  patch already carries the compose-smoke shape-identity guard amendment.
+- Gates: lib 110/110 + entry_row_cpu 302/302 both configs, faer-free config
+  94+1 ign / 302, clippy `-p rstsr-native-impl --all-targets -D warnings`
+  clean both configs, experiment correctness example 158/158 both configs
+  (incl. the order-changing-reshape fixture).
+- Paired benches: 3 alternating refA(master)/cand passes × portable+native,
+  full 56-bench transpose suite — **no stable regression in any cell; all
+  headline wins reproduce** (B large serial 17.1→5.9 ms ≈ 2.9×, faer16
+  1.45→0.54 ms ≈ 2.7×, odd 9.5×, small 64² 6.3×; A large 0.46–0.48×).
+  All 12 fall-through canaries at parity; the one borderline cell
+  (`sliced_t_large` faer16, 1.05–1.08×) dissected with alternating re-runs —
+  not reproducible, sign flips, ±5–8% faer transient (same cell also flagged
+  and cleared in phase 2). Tree flip ran via `git apply -R`/`apply` (repo
+  carries a pre-existing user stash; stash push/pop avoided).
+- `cargo fmt -p rstsr-native-impl`: zero drift in the 4 patch files (local
+  fmt touched only pre-existing master comments in reduction.rs — reverted);
+  tree diff byte-identical to `proposed.patch`, no post-fmt capture needed.
+- Evidence: `2026-09-09-transpose-assign/results/integration260914/`.
+
+## Patches 4–5 — PENDING
+
 reductions, vecdot: not yet applied. Patches are mutually disjoint;
 `2026-09-09-compose-smoke/combined_all_five.patch` is now stale relative to
-the reviewed patch 1 (regenerate from per-dir patches when stacking the next
-one).
+the reviewed patches 1–2 (regenerate from per-dir patches when stacking the
+next one).
 
 ## Still open (owner decisions, from the campaign outcome)
 

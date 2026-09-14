@@ -1,0 +1,12 @@
+=== cand_portable_pass1.log (cand = patched) ===
+=== refA_native_pass1.log (refA = origin/master) ===
+=== cand_native_pass1.log (cand = patched) ===
+=== refA_portable_pass2.log (refA = origin/master) ===
+=== cand_portable_pass2.log (cand = patched) ===
+=== refA_native_pass2.log (refA = origin/master) ===
+=== cand_native_pass2.log (cand = patched) ===
+=== refA_portable_pass3.log (refA = origin/master) ===
+=== cand_portable_pass3.log (cand = patched) ===
+=== refA_native_pass3.log (refA = origin/master) ===
+=== cand_native_pass3.log (cand = patched) ===
+ALL PASSES DONE (patch still applied)
