@@ -1,0 +1,841 @@
+diff --git a/rstsr-common/src/alloc_vec.rs b/rstsr-common/src/alloc_vec.rs
+index e6785a2..4d73902 100644
+--- a/rstsr-common/src/alloc_vec.rs
++++ b/rstsr-common/src/alloc_vec.rs
+@@ -48,6 +48,8 @@ pub unsafe fn uninitialized_vec<T>(size: usize) -> Result<Vec<T>> {
+ pub unsafe fn unaligned_uninitialized_vec<T>(size: usize) -> Result<Vec<T>> {
+     let mut v: Vec<T> = vec![];
+     v.try_reserve_exact(size)?;
++    // SAFETY: capacity >= `size` was reserved by `try_reserve_exact` above; per the
++    // # Safety contract, the caller must initialize all elements before any read.
+     unsafe { v.set_len(size) };
+     return Ok(v);
+ }
+@@ -64,6 +66,8 @@ pub fn aligned_alloc(numbytes: usize, alignment: usize) -> Result<Option<NonNull
+         return Ok(None);
+     }
+     let layout = alloc::alloc::Layout::from_size_align(numbytes, alignment)?;
++    // SAFETY: `layout` was built from (numbytes, alignment) above; `alloc` is the
++    // corresponding GlobalAlloc call, None result = allocation failure.
+     let pointer = NonNull::new(unsafe { alloc::alloc::alloc(layout) }).map(|p| p.cast::<()>());
+     Ok(pointer)
+ }
+@@ -88,8 +92,20 @@ pub unsafe fn aligned_uninitialized_vec<T, const N: usize>(size: usize, alignmen
+         return unaligned_uninitialized_vec(size);
+     } else {
+         let sizeof = core::mem::size_of::<T>();
+-        let pointer = aligned_alloc(size * sizeof, alignment)?;
++        // Byte count must be computed with overflow checking: a wrapping
++        // `size * sizeof` would allocate a (possibly tiny) buffer and then
++        // build a `Vec` claiming `size` elements — out-of-bounds from there on.
++        let numbytes = match size.checked_mul(sizeof) {
++            Some(numbytes) => numbytes,
++            None => rstsr_raise!(RuntimeError, "Allocation failed (size * size_of::<T>() overflows usize)")?,
++        };
++        let pointer = aligned_alloc(numbytes, alignment)?;
+         if let Some(pointer) = pointer {
++            // SAFETY: `pointer` comes from `aligned_alloc(size * size_of::<T>(), alignment)`
++            // (this very size, above), so the Vec claims exactly the allocated extent.
++            // NOTE: `alignment` (64 for `uninitialized_vec`) must also satisfy
++            // `align_of::<T>()` — fine for all numeric element types used by rstsr.
++            // Per the # Safety contract, the caller initializes all elements before reads.
+             let mut v = Vec::from_raw_parts(pointer.as_ptr() as *mut T, size, size);
+             unsafe { v.set_len(size) };
+             return Ok(v);
+@@ -98,3 +114,18 @@ pub unsafe fn aligned_uninitialized_vec<T, const N: usize>(size: usize, alignmen
+         }
+     }
+ }
++
++#[cfg(test)]
++mod test {
++    use super::*;
++
++    #[test]
++    fn test_aligned_alloc_overflow() {
++        // Regression: `size * size_of::<T>()` used to wrap in release, so an
++        // absurd element count produced a tiny allocation reinterpreted as a
++        // huge `Vec` (out-of-bounds on first use). It must now be an error.
++        let size = usize::MAX / 4 + 1; // * 8 (u64) overflows usize
++        let r = unsafe { aligned_uninitialized_vec::<u64, 128>(size, 64) };
++        assert!(r.is_err());
++    }
++}
+diff --git a/rstsr-core/src/feature_rayon/par_iter.rs b/rstsr-core/src/feature_rayon/par_iter.rs
+index 0350c24..368bac6 100644
+--- a/rstsr-core/src/feature_rayon/par_iter.rs
++++ b/rstsr-core/src/feature_rayon/par_iter.rs
+@@ -23,7 +23,9 @@ where
+ impl<'a, T, B> IntoParallelIterator for IterTensor<'a, T, B>
+ where
+     T: Send + Sync,
+-    B::Raw: Send,
++    // the iterator internally holds `DataRef<'a, B::Raw>` / `DataMut<'a, B::Raw>`;
++    // sending it to other threads requires the shared data to be `Sync` as well
++    B::Raw: Send + Sync,
+     B: DeviceAPI<T> + Send,
+ {
+     type Item = <IterTensor<'a, T, B> as Iterator>::Item;
+diff --git a/rstsr-core/src/storage/data.rs b/rstsr-core/src/storage/data.rs
+index c68650e..030fc41 100644
+--- a/rstsr-core/src/storage/data.rs
++++ b/rstsr-core/src/storage/data.rs
+@@ -41,16 +41,23 @@ pub enum DataReference<'a, C> {
+     Mut(DataMut<'a, C>),
+ }
+ 
++// Send/Sync below are tighter than a plain derive would suggest:
++// - a variant holding `&'a C` (`DataRef::TrueRef`) is `Send` only when `C: Sync`,
++// - `Arc<C>` is `Send`/`Sync` only when `C: Send + Sync`,
++// so every impl that can expose a shared reference (directly or through
++// `Arc`/`DataRef`/`DataCow`/`DataReference`) requires `C: Send + Sync`.
++// The previous looser bounds (`C: Send` only) allowed e.g.
++// `DataRef<'_, Cell<i32>>` to be sent across threads — a data race.
+ unsafe impl<C> Send for DataOwned<C> where C: Send {}
+-unsafe impl<C> Send for DataRef<'_, C> where C: Send {}
++unsafe impl<C> Send for DataRef<'_, C> where C: Send + Sync {}
+ unsafe impl<C> Sync for DataRef<'_, C> where C: Sync {}
+ unsafe impl<C> Send for DataMut<'_, C> where C: Send {}
+ unsafe impl<C> Sync for DataCow<'_, C> where C: Sync {}
+-unsafe impl<C> Send for DataCow<'_, C> where C: Send {}
+-unsafe impl<C> Send for DataArc<C> where C: Send {}
+-unsafe impl<C> Sync for DataArc<C> where C: Sync {}
+-unsafe impl<C> Send for DataReference<'_, C> where C: Send {}
+-unsafe impl<C> Sync for DataReference<'_, C> where C: Sync {}
++unsafe impl<C> Send for DataCow<'_, C> where C: Send + Sync {}
++unsafe impl<C> Send for DataArc<C> where C: Send + Sync {}
++unsafe impl<C> Sync for DataArc<C> where C: Send + Sync {}
++unsafe impl<C> Send for DataReference<'_, C> where C: Send + Sync {}
++unsafe impl<C> Sync for DataReference<'_, C> where C: Send + Sync {}
+ 
+ /* #endregion */
+ 
+@@ -431,6 +438,10 @@ impl<T> DataForceMutAPI<Vec<T>> for DataRef<'_, Vec<T>> {
+             DataRef::TrueRef(raw) => (raw.as_ptr(), raw.len()),
+             DataRef::ManuallyDropOwned(raw) => (raw.as_ptr(), raw.len()),
+         };
++        // SAFETY: `ptr` is the original buffer's own pointer with its exact length and
++        // capacity; the resulting `Vec` is wrapped in `ManuallyDrop` immediately, so it
++        // is never deallocated or resized. Per the trait docs, the caller guarantees
++        // unique access.
+         let vec = unsafe { Vec::from_raw_parts(ptr as *mut T, len, len) };
+         let vec = ManuallyDrop::new(vec);
+         DataMut::ManuallyDropOwned(vec)
+diff --git a/rstsr-core/src/tensor/creation.rs b/rstsr-core/src/tensor/creation.rs
+index e578249..b399376 100644
+--- a/rstsr-core/src/tensor/creation.rs
++++ b/rstsr-core/src/tensor/creation.rs
+@@ -164,6 +164,8 @@ where
+         let (start, stop, step, device) = self;
+         let data = device.arange_impl(start, stop, step)?;
+         let layout = vec![data.len()].into();
++        // SAFETY: `layout` is the contiguous `[data.len()]` layout with offset 0 —
++        // bounds trivially match the fresh storage.
+         unsafe { Ok(Tensor::new_unchecked(data, layout)) }
+     }
+ }
+@@ -409,6 +411,8 @@ where
+         let (layout, device) = self;
+         let (_, idx_max) = layout.bounds_index()?;
+         let storage = B::empty_impl(device, idx_max)?;
++        // SAFETY: storage was just allocated with `idx_max = bounds_index().1`
++        // elements, covering every addressable element of `layout`.
+         unsafe { Ok(Tensor::new_unchecked(storage, layout.into_dim()?)) }
+     }
+ }
+@@ -603,6 +607,8 @@ where
+         let layout = layout_for_array_copy(tensor.layout(), order)?;
+         let idx_max = layout.size();
+         let storage = device.empty_impl(idx_max)?;
++        // SAFETY: `layout_for_array_copy` returns a fresh contiguous layout with
++        // offset 0; storage allocated with exactly `layout.size()` elements.
+         unsafe { Ok(Tensor::new_unchecked(storage, layout)) }
+     }
+ }
+@@ -827,6 +833,8 @@ where
+         let mut storage = device.zeros_impl(layout.size())?;
+         let layout_diag = layout.diagonal(Some(k), Some(0), Some(1))?;
+         device.fill(storage.raw_mut(), &layout_diag, T::one())?;
++        // SAFETY: storage is `zeros_impl(layout.size())`; `layout` is a fresh
++        // contiguous layout of the same size, so bounds match.
+         unsafe { Ok(Tensor::new_unchecked(storage, layout.into_dim()?)) }
+     }
+ }
+@@ -1049,8 +1057,15 @@ where
+ 
+     fn full_f(self) -> Result<Self::Out> {
+         let (layout, fill, device) = self;
+-        let idx_max = layout.size();
++        // SAFETY (allocation size): allocate by layout bounds, not `size()`.
++        // A user-provided layout may have non-zero offset or negative strides,
++        // so the addressable upper bound (`bounds_index().1`) can exceed the
++        // element count; the storage must cover the whole bound, exactly like
++        // `empty` / `zeros` / `ones` above.
++        let (_, idx_max) = layout.bounds_index()?;
+         let storage = device.full_impl(idx_max, fill)?;
++        // SAFETY: storage was allocated to `bounds_index().1` (see `full_f` above),
++        // covering every addressable element of `layout`.
+         unsafe { Ok(Tensor::new_unchecked(storage, layout.into_dim()?)) }
+     }
+ }
+@@ -1241,6 +1256,8 @@ where
+         let layout = layout_for_array_copy(tensor.layout(), order)?;
+         let idx_max = layout.size();
+         let storage = device.full_impl(idx_max, fill)?;
++        // SAFETY: `layout_for_array_copy` returns a fresh contiguous layout with
++        // offset 0; storage allocated with exactly `layout.size()` elements.
+         unsafe { Ok(Tensor::new_unchecked(storage, layout)) }
+     }
+ }
+@@ -1441,6 +1458,8 @@ where
+         let (start, end, n, endpoint, device) = self;
+         let data = B::linspace_impl(device, start, end, n, endpoint)?;
+         let layout = vec![data.len()].into();
++        // SAFETY: `layout` is the contiguous `[data.len()]` layout with offset 0 —
++        // bounds trivially match the fresh storage.
+         unsafe { Ok(Tensor::new_unchecked(data, layout)) }
+     }
+ }
+@@ -1633,6 +1652,8 @@ where
+         let (layout, device) = self;
+         let (_, idx_max) = layout.bounds_index()?;
+         let storage = device.ones_impl(idx_max)?;
++        // SAFETY: storage allocated with `bounds_index().1` elements — covers every
++        // addressable element of `layout` (same as `empty`).
+         unsafe { Ok(Tensor::new_unchecked(storage, layout.into_dim()?)) }
+     }
+ }
+@@ -1819,6 +1840,8 @@ where
+         let layout = layout_for_array_copy(tensor.layout(), order)?;
+         let idx_max = layout.size();
+         let storage = device.ones_impl(idx_max)?;
++        // SAFETY: `layout_for_array_copy` returns a fresh contiguous layout with
++        // offset 0; storage allocated with exactly `layout.size()` elements.
+         unsafe { Ok(Tensor::new_unchecked(storage, layout)) }
+     }
+ }
+@@ -2032,6 +2055,8 @@ where
+         let (layout, device) = self;
+         let (_, idx_max) = layout.bounds_index()?;
+         let storage = B::uninit_impl(device, idx_max)?;
++        // SAFETY: storage allocated with `bounds_index().1` elements — covers every
++        // addressable element of `layout` (same as `empty`).
+         unsafe { Ok(Tensor::new_unchecked(storage, layout.into_dim()?)) }
+     }
+ }
+@@ -2110,6 +2135,9 @@ where
+ {
+     let (storage, layout) = tensor.into_raw_parts();
+     let storage = B::assume_init_impl(storage)?;
++    // SAFETY: `storage` is the `MaybeUninit` buffer reinterpreted after the
++    // caller (per the # Safety contract) guaranteed initialization; the layout
++    // is unchanged from the validated input.
+     unsafe { Ok(Tensor::new_unchecked(storage, layout)) }
+ }
+ 
+@@ -2126,6 +2154,8 @@ where
+     D: DimAPI,
+     B: DeviceAPI<T> + DeviceAPI<MaybeUninit<T>> + DeviceCreationAnyAPI<T>,
+ {
++    // SAFETY: forwarding to `assume_init_f`; per the # Safety contract the caller
++    // guarantees all `MaybeUninit` elements are initialized.
+     unsafe { assume_init_f(tensor).rstsr_unwrap() }
+ }
+ 
+@@ -2285,6 +2315,8 @@ where
+         let (layout, device) = self;
+         let (_, idx_max) = layout.bounds_index()?;
+         let storage = B::zeros_impl(device, idx_max)?;
++        // SAFETY: storage allocated with `bounds_index().1` elements — covers every
++        // addressable element of `layout` (same as `empty`).
+         unsafe { Ok(Tensor::new_unchecked(storage, layout.into_dim()?)) }
+     }
+ }
+@@ -2480,6 +2512,8 @@ where
+         let layout = layout_for_array_copy(tensor.layout(), order)?;
+         let idx_max = layout.size();
+         let storage = B::zeros_impl(device, idx_max)?;
++        // SAFETY: `layout_for_array_copy` returns a fresh contiguous layout with
++        // offset 0; storage allocated with exactly `layout.size()` elements.
+         unsafe { Ok(Tensor::new_unchecked(storage, layout)) }
+     }
+ }
+@@ -3128,6 +3162,8 @@ macro_rules! impl_from_nested_array {
+             fn from_nested_array(arr: $arr_type, device: &B) -> Self {
+                 let shape: Layout<$ix_type> = [$($n),+].c();
+                 let slc = unsafe {
++                    // SAFETY: `arr` is `[T; N1 * N2 * ...]` and `shape.size()` is exactly that
++                    // product; the slice is only read (`to_vec`).
+                     core::slice::from_raw_parts(arr.as_ptr() as *const T, shape.size())
+                 };
+                 let vec = slc.to_vec();
+@@ -3272,6 +3308,31 @@ mod test {
+     use super::*;
+     use num::complex::Complex32;
+ 
++    #[test]
++    fn test_full_with_offset_layout() {
++        // Regression: `full` used to allocate `layout.size()` elements while
++        // the provided layout could address up to `bounds_index().1`, so a
++        // layout with non-zero offset addressed storage out of its bounds.
++        let layout = Layout::new(vec![3], vec![1], 100).unwrap();
++        let a: Tensor<i32, _> = full((layout, 7));
++        assert_eq!(a.shape(), &[3]);
++        assert_eq!(a.to_vec(), vec![7, 7, 7]);
++        // storage must cover the layout's upper bound (offset 100 + 3 elements)
++        let (idx_min, idx_max) = a.layout().bounds_index().unwrap();
++        assert_eq!((idx_min, idx_max), (100, 103));
++        assert!(a.storage().len() >= idx_max, "storage smaller than layout upper bound");
++    }
++
++    #[test]
++    fn test_full_with_negative_stride_layout() {
++        // same class of bug: negative strides raise the required upper bound
++        let layout = Layout::new(vec![3], vec![-1], 3).unwrap();
++        let a: Tensor<i32, _> = full((layout, 2));
++        assert_eq!(a.shape(), &[3]);
++        assert_eq!(a.to_vec(), vec![2, 2, 2]);
++        assert!(a.storage().len() >= 4);
++    }
++
+     #[test]
+     fn playground() {
+         let a = arange((2.5, 3.2, 0.02));
+diff --git a/rstsr-core/src/tensor/iterator_axes.rs b/rstsr-core/src/tensor/iterator_axes.rs
+index 6ff935e..345bf79 100644
+--- a/rstsr-core/src/tensor/iterator_axes.rs
++++ b/rstsr-core/src/tensor/iterator_axes.rs
+@@ -29,6 +29,9 @@ where
+     B: DeviceAPI<T>,
+ {
+     pub fn update_offset(&mut self, offset: usize) {
++        // SAFETY: `offset` comes from the `IterLayout` iterator over the iterated axes
++        // of the validated layout; inner layout + this offset addresses only elements
++        // of the original (in-bounds) tensor.
+         unsafe { self.view.layout.set_offset(offset) };
+     }
+ }
+@@ -42,6 +45,8 @@ where
+     fn next(&mut self) -> Option<Self::Item> {
+         self.axes_iter.next().map(|offset| {
+             self.update_offset(offset);
++            // SAFETY: lifetime rewrite only — the iterator owns the `'a` shared borrow of
++            // the data; yielded views are immutable shares.
+             unsafe { transmute(self.view.view()) }
+         })
+     }
+@@ -54,6 +59,8 @@ where
+     fn next_back(&mut self) -> Option<Self::Item> {
+         self.axes_iter.next_back().map(|offset| {
+             self.update_offset(offset);
++            // SAFETY: lifetime rewrite only — the iterator owns the `'a` shared borrow of
++            // the data; yielded views are immutable shares.
+             unsafe { transmute(self.view.view()) }
+         })
+     }
+@@ -74,6 +81,8 @@ where
+ {
+     fn split_at(self, index: usize) -> (Self, Self) {
+         let (lhs_axes_iter, rhs_axes_iter) = self.axes_iter.split_at(index);
++        // SAFETY: lifetime rewrite to `'a`; the split halves share the iterator's
++        // immutable data borrow (rayon requires the halves to be `Send`).
+         let view_lhs = unsafe { transmute(self.view.view()) };
+         let lhs = IterAxesView { axes_iter: lhs_axes_iter, view: view_lhs };
+         let rhs = IterAxesView { axes_iter: rhs_axes_iter, view: self.view };
+@@ -88,7 +97,7 @@ where
+     D: DimAPI,
+     B: DeviceAPI<T, Raw = Vec<T>> + 'a,
+ {
+-    pub fn axes_iter_with_order_f<I>(&self, axes: I, order: TensorIterOrder) -> Result<IterAxesView<'a, T, B>>
++    pub fn axes_iter_with_order_f<I>(&self, axes: I, order: TensorIterOrder) -> Result<IterAxesView<'_, T, B>>
+     where
+         I: TryInto<AxesIndex<isize>, Error: Into<Error>>,
+     {
+@@ -124,6 +133,8 @@ where
+             shape_axes.push(shape_full[idx as usize]);
+             stride_axes.push(stride_full[idx as usize]);
+         }
++        // SAFETY: `layout_axes` repeats selected (shape, stride) pairs of the validated
++        // full layout with the same offset — a subset of the original element set.
+         let layout_axes = unsafe { Layout::new_unchecked(shape_axes, stride_axes, offset) };
+ 
+         // get layout for inner view
+@@ -135,24 +146,30 @@ where
+                 stride_inner.push(stride_full[idx as usize]);
+             }
+         }
++        // SAFETY: `layout_inner` collects the (shape, stride) pairs of the non-iterated
++        // axes of the validated full layout — a subset of the original element set.
+         let layout_inner = unsafe { Layout::new_unchecked(shape_inner, stride_inner, offset) };
+ 
+         // create axes iter
+         let axes_iter = IterLayout::<IxD>::new(&layout_axes, order)?;
+         let mut view = self.view().into_dyn();
+         view.layout = layout_inner.clone();
+-        let iter = IterAxesView { axes_iter, view: unsafe { transmute(view) } };
++        // The iterator borrows `self`: it must not outlive the tensor. Do not
++        // `transmute` the borrow to an unrelated lifetime here — for owned
++        // tensors (`R = DataOwned<_>`) that allowed the iterator (and its
++        // internal data reference) to outlive the tensor (use-after-free).
++        let iter = IterAxesView { axes_iter, view };
+         Ok(iter)
+     }
+ 
+-    pub fn axes_iter_f<I>(&self, axes: I) -> Result<IterAxesView<'a, T, B>>
++    pub fn axes_iter_f<I>(&self, axes: I) -> Result<IterAxesView<'_, T, B>>
+     where
+         I: TryInto<AxesIndex<isize>, Error: Into<Error>>,
+     {
+         self.axes_iter_with_order_f(axes, TensorIterOrder::default())
+     }
+ 
+-    pub fn axes_iter_with_order<I>(&self, axes: I, order: TensorIterOrder) -> IterAxesView<'a, T, B>
++    pub fn axes_iter_with_order<I>(&self, axes: I, order: TensorIterOrder) -> IterAxesView<'_, T, B>
+     where
+         I: TryInto<AxesIndex<isize>, Error: Into<Error>>,
+     {
+@@ -209,7 +226,7 @@ where
+     /// - [`TensorAny::axes_iter_mut`]: mutable views.
+     /// - [`TensorAny::indexed_axes_iter`]: iteration with the axis position.
+     /// - [`TensorAny::iter`]: element-wise iteration.
+-    pub fn axes_iter<I>(&self, axes: I) -> IterAxesView<'a, T, B>
++    pub fn axes_iter<I>(&self, axes: I) -> IterAxesView<'_, T, B>
+     where
+         I: TryInto<AxesIndex<isize>, Error: Into<Error>>,
+     {
+@@ -235,6 +252,9 @@ where
+     B: DeviceAPI<T>,
+ {
+     pub fn update_offset(&mut self, offset: usize) {
++        // SAFETY: `offset` comes from the `IterLayout` iterator over the iterated axes
++        // of the validated layout; inner layout + this offset addresses only elements
++        // of the original (in-bounds) tensor.
+         unsafe { self.view.layout.set_offset(offset) };
+     }
+ }
+@@ -248,6 +268,10 @@ where
+     fn next(&mut self) -> Option<Self::Item> {
+         self.axes_iter.next().map(|offset| {
+             self.update_offset(offset);
++            // SAFETY: lifetime rewrite to `'a`; the iterator holds the unique `'a` mutable
++            // borrow, and successive views cover disjoint elements provided the iterated
++            // axes have non-zero strides (stride-0 mutable layouts are not producible by
++            // the safe `&mut` constructors used in practice).
+             unsafe { transmute(self.view.view_mut()) }
+         })
+     }
+@@ -260,6 +284,10 @@ where
+     fn next_back(&mut self) -> Option<Self::Item> {
+         self.axes_iter.next_back().map(|offset| {
+             self.update_offset(offset);
++            // SAFETY: lifetime rewrite to `'a`; the iterator holds the unique `'a` mutable
++            // borrow, and successive views cover disjoint elements provided the iterated
++            // axes have non-zero strides (stride-0 mutable layouts are not producible by
++            // the safe `&mut` constructors used in practice).
+             unsafe { transmute(self.view.view_mut()) }
+         })
+     }
+@@ -280,6 +308,8 @@ where
+ {
+     fn split_at(mut self, index: usize) -> (Self, Self) {
+         let (lhs_axes_iter, rhs_axes_iter) = self.axes_iter.clone().split_at(index);
++        // SAFETY: lifetime rewrite to `'a`; the two halves iterate disjoint offset
++        // ranges of the same unique mutable borrow.
+         let view_lhs = unsafe { transmute(self.view.view_mut()) };
+         let lhs = IterAxesMut { axes_iter: lhs_axes_iter, view: view_lhs };
+         let rhs = IterAxesMut { axes_iter: rhs_axes_iter, view: self.view };
+@@ -330,6 +360,8 @@ where
+             shape_axes.push(shape_full[idx as usize]);
+             stride_axes.push(stride_full[idx as usize]);
+         }
++        // SAFETY: `layout_axes` repeats selected (shape, stride) pairs of the validated
++        // full layout with the same offset — a subset of the original element set.
+         let layout_axes = unsafe { Layout::new_unchecked(shape_axes, stride_axes, offset) };
+ 
+         // get layout for inner view
+@@ -341,6 +373,8 @@ where
+                 stride_inner.push(stride_full[idx as usize]);
+             }
+         }
++        // SAFETY: `layout_inner` collects the (shape, stride) pairs of the non-iterated
++        // axes of the validated full layout — a subset of the original element set.
+         let layout_inner = unsafe { Layout::new_unchecked(shape_inner, stride_inner, offset) };
+ 
+         // create axes iter
+@@ -413,6 +447,9 @@ where
+     B: DeviceAPI<T>,
+ {
+     pub fn update_offset(&mut self, offset: usize) {
++        // SAFETY: `offset` comes from the `IterLayout` iterator over the iterated axes
++        // of the validated layout; inner layout + this offset addresses only elements
++        // of the original (in-bounds) tensor.
+         unsafe { self.view.layout.set_offset(offset) };
+     }
+ }
+@@ -430,6 +467,8 @@ where
+         };
+         self.axes_iter.next().map(|offset| {
+             self.update_offset(offset);
++            // SAFETY: lifetime rewrite only — the iterator owns the `'a` shared borrow;
++            // yielded views are immutable shares (indexed variant).
+             (index, unsafe { transmute(self.view.view()) })
+         })
+     }
+@@ -446,6 +485,8 @@ where
+         };
+         self.axes_iter.next_back().map(|offset| {
+             self.update_offset(offset);
++            // SAFETY: lifetime rewrite only — the iterator owns the `'a` shared borrow;
++            // yielded views are immutable shares (indexed variant).
+             (index, unsafe { transmute(self.view.view()) })
+         })
+     }
+@@ -466,6 +507,8 @@ where
+ {
+     fn split_at(self, index: usize) -> (Self, Self) {
+         let (lhs_axes_iter, rhs_axes_iter) = self.axes_iter.split_at(index);
++        // SAFETY: lifetime rewrite to `'a`; the split halves share the iterator's
++        // immutable data borrow (rayon requires the halves to be `Send`).
+         let view_lhs = unsafe { transmute(self.view.view()) };
+         let lhs = IndexedIterAxesView { axes_iter: lhs_axes_iter, view: view_lhs };
+         let rhs = IndexedIterAxesView { axes_iter: rhs_axes_iter, view: self.view };
+@@ -484,7 +527,7 @@ where
+         &self,
+         axes: I,
+         order: TensorIterOrder,
+-    ) -> Result<IndexedIterAxesView<'a, T, B>>
++    ) -> Result<IndexedIterAxesView<'_, T, B>>
+     where
+         I: TryInto<AxesIndex<isize>, Error: Into<Error>>,
+     {
+@@ -526,6 +569,8 @@ where
+             shape_axes.push(shape_full[idx as usize]);
+             stride_axes.push(stride_full[idx as usize]);
+         }
++        // SAFETY: `layout_axes` repeats selected (shape, stride) pairs of the validated
++        // full layout with the same offset — a subset of the original element set.
+         let layout_axes = unsafe { Layout::new_unchecked(shape_axes, stride_axes, offset) };
+ 
+         // get layout for inner view
+@@ -537,17 +582,21 @@ where
+                 stride_inner.push(stride_full[idx as usize]);
+             }
+         }
++        // SAFETY: `layout_inner` collects the (shape, stride) pairs of the non-iterated
++        // axes of the validated full layout — a subset of the original element set.
+         let layout_inner = unsafe { Layout::new_unchecked(shape_inner, stride_inner, offset) };
+ 
+         // create axes iter
+         let axes_iter = IterLayout::<IxD>::new(&layout_axes, order)?;
+         let mut view = self.view().into_dyn();
+         view.layout = layout_inner.clone();
+-        let iter = IndexedIterAxesView { axes_iter, view: unsafe { transmute(view) } };
++        // The iterator borrows `self`; see `axes_iter_with_order_f` for why
++        // the lifetime must not be `transmute`d to an unrelated one.
++        let iter = IndexedIterAxesView { axes_iter, view };
+         Ok(iter)
+     }
+ 
+-    pub fn indexed_axes_iter_f<I>(&self, axes: I) -> Result<IndexedIterAxesView<'a, T, B>>
++    pub fn indexed_axes_iter_f<I>(&self, axes: I) -> Result<IndexedIterAxesView<'_, T, B>>
+     where
+         I: TryInto<AxesIndex<isize>, Error: Into<Error>>,
+     {
+@@ -559,7 +608,7 @@ where
+         self.indexed_axes_iter_with_order_f(axes, order)
+     }
+ 
+-    pub fn indexed_axes_iter_with_order<I>(&self, axes: I, order: TensorIterOrder) -> IndexedIterAxesView<'a, T, B>
++    pub fn indexed_axes_iter_with_order<I>(&self, axes: I, order: TensorIterOrder) -> IndexedIterAxesView<'_, T, B>
+     where
+         I: TryInto<AxesIndex<isize>, Error: Into<Error>>,
+     {
+@@ -572,7 +621,7 @@ where
+     /// # See also
+     ///
+     /// [`TensorAny::axes_iter`].
+-    pub fn indexed_axes_iter<I>(&self, axes: I) -> IndexedIterAxesView<'a, T, B>
++    pub fn indexed_axes_iter<I>(&self, axes: I) -> IndexedIterAxesView<'_, T, B>
+     where
+         I: TryInto<AxesIndex<isize>, Error: Into<Error>>,
+     {
+@@ -598,6 +647,9 @@ where
+     B: DeviceAPI<T>,
+ {
+     pub fn update_offset(&mut self, offset: usize) {
++        // SAFETY: `offset` comes from the `IterLayout` iterator over the iterated axes
++        // of the validated layout; inner layout + this offset addresses only elements
++        // of the original (in-bounds) tensor.
+         unsafe { self.view.layout.set_offset(offset) };
+     }
+ }
+@@ -615,6 +667,8 @@ where
+         };
+         self.axes_iter.next().map(|offset| {
+             self.update_offset(offset);
++            // SAFETY: lifetime rewrite of the tuple (same layout) to `'a`; see the mutable
++            // iterator SAFETY notes above.
+             unsafe { transmute((index, self.view.view_mut())) }
+         })
+     }
+@@ -631,6 +685,8 @@ where
+         };
+         self.axes_iter.next_back().map(|offset| {
+             self.update_offset(offset);
++            // SAFETY: lifetime rewrite of the tuple (same layout) to `'a`; see the mutable
++            // iterator SAFETY notes above.
+             unsafe { transmute((index, self.view.view_mut())) }
+         })
+     }
+@@ -651,6 +707,8 @@ where
+ {
+     fn split_at(mut self, index: usize) -> (Self, Self) {
+         let (lhs_axes_iter, rhs_axes_iter) = self.axes_iter.clone().split_at(index);
++        // SAFETY: lifetime rewrite to `'a`; the two halves iterate disjoint offset
++        // ranges of the same unique mutable borrow.
+         let view_lhs = unsafe { transmute(self.view.view_mut()) };
+         let lhs = IndexedIterAxesMut { axes_iter: lhs_axes_iter, view: view_lhs };
+         let rhs = IndexedIterAxesMut { axes_iter: rhs_axes_iter, view: self.view };
+@@ -705,6 +763,8 @@ where
+             shape_axes.push(shape_full[idx as usize]);
+             stride_axes.push(stride_full[idx as usize]);
+         }
++        // SAFETY: `layout_axes` repeats selected (shape, stride) pairs of the validated
++        // full layout with the same offset — a subset of the original element set.
+         let layout_axes = unsafe { Layout::new_unchecked(shape_axes, stride_axes, offset) };
+ 
+         // get layout for inner view
+@@ -716,6 +776,8 @@ where
+                 stride_inner.push(stride_full[idx as usize]);
+             }
+         }
++        // SAFETY: `layout_inner` collects the (shape, stride) pairs of the non-iterated
++        // axes of the validated full layout — a subset of the original element set.
+         let layout_inner = unsafe { Layout::new_unchecked(shape_inner, stride_inner, offset) };
+ 
+         // create axes iter
+diff --git a/rstsr-core/src/tensor/iterator_elem.rs b/rstsr-core/src/tensor/iterator_elem.rs
+index 639409d..81fd116 100644
+--- a/rstsr-core/src/tensor/iterator_elem.rs
++++ b/rstsr-core/src/tensor/iterator_elem.rs
+@@ -59,27 +59,28 @@ where
+     }
+ }
+ 
+-impl<'a, R, T, B, D> TensorAny<R, T, B, D>
++impl<R, T, B, D> TensorAny<R, T, B, D>
+ where
+     R: DataAPI<Data = B::Raw>,
+     D: DimAPI,
+-    B: DeviceAPI<T, Raw = Vec<T>> + 'a,
++    B: DeviceAPI<T, Raw = Vec<T>>,
+ {
+-    pub fn iter_with_order_f(&self, order: TensorIterOrder) -> Result<IterVecView<'a, T, D>> {
++    pub fn iter_with_order_f(&self, order: TensorIterOrder) -> Result<IterVecView<'_, T, D>> {
++        // The iterator borrows `self`: it must not outlive the tensor. Do not
++        // `transmute` the borrow to an unrelated lifetime here — for owned
++        // tensors (`R = DataOwned<_>`, which carries no lifetime) that allowed
++        // `let it = { let t = tensor; t.iter() };` to compile and read freed
++        // memory (use-after-free).
+         let layout_iter = IterLayout::new(self.layout(), order)?;
+         let raw = self.raw().as_ref();
+-
+-        // SAFETY: The lifetime of `raw` is guaranteed to be at least `'a`.
+-        // transmute is to change the lifetime, not for type casting.
+-        let iter = IterVecView { layout_iter, view: raw };
+-        Ok(unsafe { transmute::<IterVecView<'_, T, D>, IterVecView<'_, T, D>>(iter) })
++        Ok(IterVecView { layout_iter, view: raw })
+     }
+ 
+-    pub fn iter_with_order(&self, order: TensorIterOrder) -> IterVecView<'a, T, D> {
++    pub fn iter_with_order(&self, order: TensorIterOrder) -> IterVecView<'_, T, D> {
+         self.iter_with_order_f(order).rstsr_unwrap()
+     }
+ 
+-    pub fn iter_f(&self) -> Result<IterVecView<'a, T, D>> {
++    pub fn iter_f(&self) -> Result<IterVecView<'_, T, D>> {
+         let default_order = self.device().default_order();
+         let order = match default_order {
+             RowMajor => TensorIterOrder::C,
+@@ -123,7 +124,7 @@ where
+     ///   order.
+     /// - [`TensorAny::iter_mut`]: mutable element iteration.
+     /// - [`TensorAny::indexed_iter`]: iteration with logical indices.
+-    pub fn iter(&self) -> IterVecView<'a, T, D> {
++    pub fn iter(&self) -> IterVecView<'_, T, D> {
+         self.iter_f().rstsr_unwrap()
+     }
+ }
+@@ -148,6 +149,9 @@ where
+     type Item = &'a mut T;
+ 
+     fn next(&mut self) -> Option<Self::Item> {
++        // SAFETY: lifetime rewrite — each yielded `&mut T` points to a distinct
++        // element of the iterator's own `&mut [T]` (the standard owning-iterator
++        // pattern, cf. `slice::IterMut`).
+         self.layout_iter.next().map(|offset| unsafe { transmute(&mut self.view[offset]) })
+     }
+ }
+@@ -157,6 +161,9 @@ where
+     D: DimDevAPI,
+ {
+     fn next_back(&mut self) -> Option<Self::Item> {
++        // SAFETY: lifetime rewrite — each yielded `&mut T` points to a distinct
++        // element of the iterator's own `&mut [T]` (the standard owning-iterator
++        // pattern, cf. `slice::IterMut`).
+         self.layout_iter.next_back().map(|offset| unsafe { transmute(&mut self.view[offset]) })
+     }
+ }
+@@ -181,6 +188,9 @@ where
+         let cloned_view = unsafe {
+             let len = self.view.len();
+             let ptr = self.view.as_mut_ptr();
++            // SAFETY: duplicates the iterator's `&mut [T]` as a raw slice so both split
++            // halves can iterate; the two layout iterators visit disjoint offsets, and
++            // each half only accesses elements of its own iteration range.
+             core::slice::from_raw_parts_mut(ptr, len)
+         };
+         let lhs = IterVecMut { layout_iter: lhs, view: cloned_view };
+@@ -308,33 +318,31 @@ where
+     }
+ }
+ 
+-impl<'a, R, T, B, D> TensorAny<R, T, B, D>
++impl<R, T, B, D> TensorAny<R, T, B, D>
+ where
+     R: DataAPI<Data = B::Raw>,
+     D: DimAPI,
+-    B: DeviceAPI<T, Raw = Vec<T>> + 'a,
++    B: DeviceAPI<T, Raw = Vec<T>>,
+ {
+-    pub fn indexed_iter_with_order_f(&self, order: TensorIterOrder) -> Result<IndexedIterVecView<'a, T, D>> {
++    pub fn indexed_iter_with_order_f(&self, order: TensorIterOrder) -> Result<IndexedIterVecView<'_, T, D>> {
+         use TensorIterOrder::*;
+         // this function only accepts c/f iter order currently
+         match order {
+             C | F => (),
+             _ => rstsr_invalid!(order, "This function only accepts TensorIterOrder::C|F.",)?,
+         };
++        // The iterator borrows `self`; see `iter_with_order_f` for why the
++        // lifetime must not be `transmute`d to an unrelated one.
+         let layout_iter = IterLayout::<D>::new(self.layout(), order)?;
+         let raw = self.raw().as_ref();
+-
+-        // SAFETY: The lifetime of `raw` is guaranteed to be at least `'a`.
+-        // transmute is to change the lifetime, not for type casting.
+-        let iter = IndexedIterVecView { layout_iter, view: raw };
+-        Ok(unsafe { transmute::<IndexedIterVecView<'_, T, D>, IndexedIterVecView<'_, T, D>>(iter) })
++        Ok(IndexedIterVecView { layout_iter, view: raw })
+     }
+ 
+-    pub fn indexed_iter_with_order(&self, order: TensorIterOrder) -> IndexedIterVecView<'a, T, D> {
++    pub fn indexed_iter_with_order(&self, order: TensorIterOrder) -> IndexedIterVecView<'_, T, D> {
+         self.indexed_iter_with_order_f(order).rstsr_unwrap()
+     }
+ 
+-    pub fn indexed_iter_f(&self) -> Result<IndexedIterVecView<'a, T, D>> {
++    pub fn indexed_iter_f(&self) -> Result<IndexedIterVecView<'_, T, D>> {
+         let default_order = self.device().default_order();
+         let order = match default_order {
+             RowMajor => TensorIterOrder::C,
+@@ -361,7 +369,7 @@ where
+     /// # See also
+     ///
+     /// [`TensorAny::iter`].
+-    pub fn indexed_iter(&self) -> IndexedIterVecView<'a, T, D> {
++    pub fn indexed_iter(&self) -> IndexedIterVecView<'_, T, D> {
+         self.indexed_iter_f().rstsr_unwrap()
+     }
+ }
+@@ -389,6 +397,8 @@ where
+             IterLayout::ColMajor(iter_inner) => iter_inner.index_start().clone(),
+             IterLayout::RowMajor(iter_inner) => iter_inner.index_start().clone(),
+         };
++        // SAFETY: lifetime rewrite only (same type) — each yielded `&mut T` points to
++        // a distinct element of the iterator's own `&mut [T]`.
+         self.layout_iter.next().map(|offset| (index, unsafe { transmute::<&mut T, &mut T>(&mut self.view[offset]) }))
+     }
+ }
+@@ -404,6 +414,8 @@ where
+         };
+         self.layout_iter
+             .next_back()
++            // SAFETY: lifetime rewrite only (same type) — each yielded `&mut T` points to
++            // a distinct element of the iterator's own `&mut [T]`.
+             .map(|offset| (index, unsafe { transmute::<&mut T, &mut T>(&mut self.view[offset]) }))
+     }
+ }
+@@ -426,6 +438,9 @@ where
+         let cloned_view = unsafe {
+             let len = self.view.len();
+             let ptr = self.view.as_mut_ptr();
++            // SAFETY: duplicates the iterator's `&mut [T]` as a raw slice so both split
++            // halves can iterate; the two layout iterators visit disjoint offsets, and
++            // each half only accesses elements of its own iteration range.
+             core::slice::from_raw_parts_mut(ptr, len)
+         };
+         let lhs = IndexedIterVecMut { layout_iter: lhs, view: cloned_view };
+@@ -484,6 +499,31 @@ where
+ mod tests_serial {
+     use super::*;
+ 
++    #[test]
++    fn test_iter_correctness() {
++        // Regression guard for the lifetime fix: the iterator previously
++        // `transmute`d its borrow to an unrelated lifetime, which made
++        // `let it = { let t = tensor; t.iter() };` compile (use-after-free).
++        // After the fix the iterator is tied to `&self`, so that pattern is
++        // rejected at compile time; these are the equivalent in-borrow uses.
++        let t = arange(6);
++        let v: Vec<_> = t.iter().cloned().collect();
++        assert_eq!(v, vec![0, 1, 2, 3, 4, 5]);
++
++        let v: Vec<_> = t.iter().enumerate().map(|(i, x)| *x + i).collect();
++        assert_eq!(v, vec![0, 2, 4, 6, 8, 10]);
++
++        let v: Vec<_> = t.indexed_iter().map(|(_, x)| *x).collect();
++        assert_eq!(v, vec![0, 1, 2, 3, 4, 5]);
++    }
++
++    #[test]
++    fn test_axes_iter_correctness() {
++        let t = arange(6).into_shape([2, 3]);
++        let rows: Vec<Vec<_>> = t.axes_iter(0).map(|v| v.iter().cloned().collect()).collect();
++        assert_eq!(rows, vec![vec![0, 1, 2], vec![3, 4, 5]]);
++    }
++
+     #[test]
+     fn test_iter() {
+         let a = arange(6).into_shape([3, 2]);
+@@ -491,7 +531,10 @@ mod tests_serial {
+         let vec = iter.collect::<Vec<_>>();
+         assert_eq!(vec, vec![&0, &1, &2, &3, &4, &5]);
+ 
+-        let iter_t = a.t().iter();
++        // the iterator borrows the view; bind the view first (the previous
++        // lifetime `transmute` allowed borrowing from a dropped temporary)
++        let binding = a.t();
++        let iter_t = binding.iter();
+         let vec_t = iter_t.collect::<Vec<_>>();
+         #[cfg(not(feature = "col_major"))]
+         {
+@@ -526,7 +569,8 @@ mod tests_serial {
+         #[cfg(feature = "col_major")]
+         assert_eq!(vec, vec![([0, 0], &0), ([0, 1], &3), ([1, 0], &1), ([1, 1], &4), ([2, 0], &2), ([2, 1], &5)]);
+ 
+-        let iter_t = a.t().indexed_iter_with_order(TensorIterOrder::C);
++        let binding = a.t();
++        let iter_t = binding.indexed_iter_with_order(TensorIterOrder::C);
+         let vec_t = iter_t.collect::<Vec<_>>();
+         #[cfg(not(feature = "col_major"))]
+         assert_eq!(vec_t, vec![([0, 0], &0), ([0, 1], &2), ([0, 2], &4), ([1, 0], &1), ([1, 1], &3), ([1, 2], &5)]);
+@@ -548,7 +592,8 @@ mod tests_parallel {
+         let vec = iter.collect::<Vec<_>>();
+         assert_eq!(vec[..6], vec![&0, &1, &2, &3, &4, &5]);
+ 
+-        let iter_t = a.t().iter().into_par_iter();
++        let binding = a.t();
++        let iter_t = binding.iter().into_par_iter();
+         let vec_t = iter_t.collect::<Vec<_>>();
+         // since we only collect the first 6 elements, the order is the same for col and
+         // row major however, if more elements are collected, the order will be

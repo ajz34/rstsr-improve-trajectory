@@ -1,0 +1,1046 @@
+diff --git a/rstsr-core/Cargo.toml b/rstsr-core/Cargo.toml
+index ab5a70e..76e7d96 100644
+--- a/rstsr-core/Cargo.toml
++++ b/rstsr-core/Cargo.toml
+@@ -66,6 +66,10 @@ dispatch_dim_layout_iter = ["rstsr-common/dispatch_dim_layout_iter"]
+ name = "entry_row_cpu"
+ required-features = ["row_major"]
+ 
++[[test]]
++name = "entry_col_cpu"
++required-features = ["col_major"]
++
+ [package.metadata.docs.rs]
+ features = ["default"]
+ rustdoc-args = ["--cfg", "docsrs", "--document-private-items", "--html-in-header", "katex-header.html"]
+diff --git a/rstsr-core/tests/col_func/mod.rs b/rstsr-core/tests/col_func/mod.rs
+new file mode 100644
+index 0000000..254d3e0
+--- /dev/null
++++ b/rstsr-core/tests/col_func/mod.rs
+@@ -0,0 +1,39 @@
++//! Col-major test track (`col_major body`, see tests/CONTEXT.md).
++//!
++//! This tree is NOT NumPy-parity (NumPy is row-major); it pins rstsr's
++//! column-major convention against the documented contract in
++//! `src/docs/order_semantics.md` and per-function docstring notices.
++//!
++//! Deviations from the `core_func/` body conventions (both deliberate):
++//! - plain `#[test]` fns: `specify_test!`/`TestCfg` skip machinery exists for
++//!   NumPy-parity tracking and per-device skip lists; col tests are not
++//!   NumPy-parity and currently have no per-device matrix;
++//! - each test builds its own device via [`col_dev`] / [`faer_dev`] instead of
++//!   `TESTCFG`, so the tested order is explicit and cannot be silently
++//!   neutralized by a default-order mismatch.
++//!
++//! Included only from `entry_col_cpu.rs` (gated on the `col_major` feature).
++
++#[allow(unused_imports)]
++use rstsr::prelude::*;
++
++/// A CPU-serial device pinned to col-major default order.
++pub fn col_dev() -> DeviceCpuSerial {
++    let mut device = DeviceCpuSerial::default();
++    device.set_default_order(ColMajor);
++    device
++}
++
++/// A Faer device pinned to col-major default order.
++pub fn faer_dev() -> DeviceFaer {
++    let mut device = DeviceFaer::default();
++    device.set_default_order(ColMajor);
++    device
++}
++
++mod test_broadcast_ops;
++mod test_creation_order;
++mod test_iteration_indexing;
++mod test_manipulation_order;
++mod test_matmul_col;
++mod test_reduction_col;
+diff --git a/rstsr-core/tests/col_func/test_broadcast_ops.rs b/rstsr-core/tests/col_func/test_broadcast_ops.rs
+new file mode 100644
+index 0000000..e4b6f64
+--- /dev/null
++++ b/rstsr-core/tests/col_func/test_broadcast_ops.rs
+@@ -0,0 +1,145 @@
++//! Broadcasting semantics and element-wise ops on mixed layouts under col
++//! major ("Julia-style limited broadcasting").
++//!
++//! Contract (order_semantics.md): under col-major, shapes align from the
++//! FIRST axis. NumPy-style trailing-axis broadcasts are errors.
++
++use super::*;
++
++#[test]
++fn test_trailing_broadcast_is_limited() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 3]);
++    let v = rt::arange((3, &device));
++    // NumPy would broadcast [3] onto the last axis; col-major aligns the
++    // first axis, so this must fail
++    assert!(rt::add_f(&a, &v).is_err());
++    assert!(rt::add_f(&v, &a).is_err());
++}
++
++#[test]
++fn test_leading_broadcast_values() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([3, 2]); // [[0, 3], [1, 4], [2, 5]]
++    let v = rt::arange((3, &device)); // aligns along the first axis
++    let c = rt::add_f(&a, &v).unwrap();
++    assert_eq!(c.shape(), &[3, 2]);
++    assert_eq!((c[[0, 0]], c[[0, 1]]), (0, 3));
++    assert_eq!((c[[1, 0]], c[[1, 1]]), (2, 5));
++    assert_eq!((c[[2, 0]], c[[2, 1]]), (4, 7));
++    // operand order does not change the broadcast
++    let c2 = rt::add_f(&v, &a).unwrap();
++    assert_eq!((c2[[1, 0]], c2[[2, 1]]), (2, 7));
++}
++
++#[test]
++fn test_size_one_first_axis_broadcast() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 3]); // [[0, 2, 4], [1, 3, 5]]
++    let col = rt::arange((2, &device)).into_shape([2, 1]);
++    let c = rt::add_f(&a, &col).unwrap();
++    assert_eq!(c.shape(), &[2, 3]);
++    assert_eq!((c[[0, 0]], c[[0, 2]], c[[1, 0]], c[[1, 2]]), (0, 4, 2, 6));
++    // [3, 1] vs [2, 3]: first dims 3 vs 2 conflict
++    let bad = rt::arange((3, &device)).into_shape([3, 1]);
++    assert!(rt::add_f(&a, &bad).is_err());
++}
++
++#[test]
++fn test_both_axes_size_one_broadcast() {
++    let device = col_dev();
++    let a = rt::arange((3, &device)).into_shape([3, 1]);
++    let b = rt::arange((3, &device)).into_shape([1, 3]);
++    let c = rt::add_f(&a, &b).unwrap();
++    assert_eq!(c.shape(), &[3, 3]);
++    // a is a column [0, 1, 2], b is a row [0, 1, 2]
++    assert_eq!((c[[0, 0]], c[[1, 1]], c[[2, 2]]), (0, 2, 4));
++    assert_eq!(c[[0, 2]], 2);
++    assert_eq!(c[[2, 0]], 2);
++}
++
++#[test]
++fn test_mixed_layout_elementwise() {
++    let device = col_dev();
++    let v = vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0];
++    let f = rt::asarray((v.clone(), [2, 3].f(), &device));
++    // to_layout keeps the LOGICAL tensor and changes only the physical layout
++    let c_same = f.to_layout([2, 3].c());
++    assert!(c_same.c_contig());
++    for i in 0..2 {
++        for j in 0..3 {
++            assert_eq!(f[[i, j]], c_same[[i, j]]);
++        }
++    }
++    // F + C (same logical tensor): logical sums regardless of physical layouts
++    let s = rt::add_f(&f, &c_same).unwrap();
++    assert_eq!(s.stride(), &[1, 2]); // fresh result follows the col default
++    for i in 0..2 {
++        for j in 0..3 {
++            assert_eq!(s[[i, j]], 2.0 * (i + 2 * j) as f64);
++        }
++    }
++}
++
++#[test]
++fn test_broadcast_view_in_operator() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([3, 2]);
++    let col = rt::arange((30, 33, &device)).into_shape([3, 1]); // [30, 31, 32]
++    let bv = rt::broadcast_to(&col, vec![3, 2]);
++    let c = rt::add_f(&a, &bv).unwrap();
++    assert_eq!(c.shape(), &[3, 2]);
++    assert_eq!((c[[0, 0]], c[[1, 1]], c[[2, 0]]), (30, 35, 34));
++}
++
++#[test]
++fn test_assign_into_f_output() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 3]);
++    let mut dst: Tensor<i64, _> = rt::zeros(([2, 3], &device)).into_owned();
++    dst.assign(&a);
++    assert!(dst.f_contig());
++    for i in 0..2 {
++        for j in 0..3 {
++            assert_eq!(dst[[i, j]], a[[i, j]]);
++        }
++    }
++    // assignment into a tensor whose LAYOUT is row-major still writes logically
++    let dc: Tensor<i64, _> = rt::zeros(([2, 3], &device));
++    let mut dc: Tensor<i64, _, Ix2> = dc.into_layout([2, 3].c()).into_owned();
++    dc.assign(&a);
++    assert!(dc.c_contig());
++    for i in 0..2 {
++        for j in 0..3 {
++            assert_eq!(dc[[i, j]], a[[i, j]]);
++        }
++    }
++}
++
++#[test]
++fn test_inplace_scalar_ops() {
++    let device = col_dev();
++    let mut a = rt::arange((6, &device)).into_shape([2, 3]).into_owned();
++    a *= 2;
++    assert_eq!(a[[1, 2]], 10);
++    a += 1;
++    assert_eq!(a[[1, 2]], 11);
++    let mut f: Tensor<f64, _> = rt::zeros(([2, 3], &device)).into_owned();
++    f /= 2.0;
++    assert_eq!(f[[0, 0]], 0.0);
++}
++
++#[test]
++fn test_comparison_ops_logical() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 3]);
++    let b = rt::arange((6, &device)).into_shape([2, 3]) * 2 + 1;
++    // bool tensors; compare via reshape(-1).to_vec (to_vec is 1-D only, and
++    // assert_equal cannot take bool)
++    assert_eq!(rt::lt(&a, &b).reshape(-1).to_vec(), vec![true; 6]);
++    let c = rt::arange((6, &device)).into_shape([2, 3]);
++    assert_eq!(rt::eq(&a, &c).reshape(-1).to_vec(), vec![true; 6]);
++    // mixing layouts in comparison: logical, not physical, correspondence
++    let cl = a.to_layout([2, 3].c());
++    assert_eq!(rt::eq(&a, &cl).reshape(-1).to_vec(), vec![true; 6]);
++}
+diff --git a/rstsr-core/tests/col_func/test_creation_order.rs b/rstsr-core/tests/col_func/test_creation_order.rs
+new file mode 100644
+index 0000000..540ea01
+--- /dev/null
++++ b/rstsr-core/tests/col_func/test_creation_order.rs
+@@ -0,0 +1,150 @@
++//! Creation under the col-major convention.
++//!
++//! Contract (src/docs/order_semantics.md): shape-driven creation produces
++//! F-contiguous results under a col-major default device; the same linear
++//! buffer fills the tensor, only the logical mapping differs.
++
++use super::*;
++
++#[test]
++fn test_flag_default_is_col_under_feature() {
++    // The `col_major` cargo feature flips the compile-time default order.
++    assert_eq!(FlagOrder::default(), ColMajor);
++}
++
++#[test]
++fn test_device_default_order_flippable() {
++    let device = col_dev();
++    assert_eq!(device.default_order(), ColMajor);
++}
++
++#[test]
++fn test_arange_into_shape_is_f_contig() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 3]);
++    assert!(a.f_contig());
++    assert!(!a.c_contig());
++    assert_eq!(a.shape(), &[2, 3]);
++    assert_eq!(a.stride(), &[1, 2]);
++    // logical mapping: buffer value v sits at (i, j) = (v % 2, v / 2)
++    for i in 0..2 {
++        for j in 0..3 {
++            assert_eq!(a[[i, j]] as i64, (i + 2 * j) as i64);
++        }
++    }
++    assert_eq!(format!("{a}"), "[[ 0 2 4]\n [ 1 3 5]]");
++}
++
++#[test]
++fn test_shape_creation_f_contig() {
++    let device = col_dev();
++    let z: Tensor<f64, _> = rt::zeros(([2, 3], &device));
++    assert!(z.f_contig());
++    let o: Tensor<f64, _> = rt::ones(([2, 3], &device));
++    assert!(o.f_contig());
++    let f: Tensor<f64, _> = rt::full(([2, 3], 7.0, &device));
++    assert!(f.f_contig());
++    let e: Tensor<f64, _> = rt::zeros(([2, 3], &device));
++    assert!(e.f_contig());
++}
++
++#[test]
++fn test_eye_col_order() {
++    let device = col_dev();
++    let e: Tensor<f64, _> = rt::eye((3, 3, 0, &device));
++    for i in 0..3 {
++        for j in 0..3 {
++            assert_eq!(e[[i, j]], if i == j { 1.0 } else { 0.0 });
++        }
++    }
++    // k = 1 superdiagonal
++    let e1: Tensor<f64, _> = rt::eye((3, 3, 1, &device));
++    assert_eq!(e1[[0, 1]], 1.0);
++    assert_eq!(e1[[1, 0]], 0.0);
++    assert_eq!(e1[[1, 1]], 0.0);
++}
++
++#[test]
++fn test_asarray_explicit_orders() {
++    let device = col_dev();
++    let v = vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0];
++    let f = rt::asarray((v.clone(), [2, 3].f(), &device));
++    let c = rt::asarray((v, [2, 3].c(), &device));
++    assert!(f.f_contig());
++    assert!(c.c_contig());
++    assert_eq!(f.stride(), &[1, 2]);
++    assert_eq!(c.stride(), &[3, 1]);
++    // explicit F: first column is the first three buffer values
++    assert_eq!((f[[0, 0]], f[[1, 0]], f[[0, 1]]), (0.0, 1.0, 2.0));
++    // explicit C: first row is the first three buffer values
++    assert_eq!((c[[0, 0]], c[[0, 1]], c[[1, 0]]), (0.0, 1.0, 3.0));
++}
++
++#[test]
++fn test_asarray_into_shape_packs_col() {
++    let device = col_dev();
++    let a = rt::asarray((vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0], &device)).into_shape([3, 2]);
++    assert!(a.f_contig());
++    // col packing: column 0 = first half of the buffer
++    assert_eq!((a[[0, 0]], a[[1, 0]], a[[2, 0]]), (0.0, 1.0, 2.0));
++    assert_eq!((a[[0, 1]], a[[1, 1]], a[[2, 1]]), (3.0, 4.0, 5.0));
++}
++
++#[test]
++fn test_tensor_from_nested_stays_row_major() {
++    // Documented exception (order_semantics.md): tensor_from_nested! always
++    // produces a row-major layout, regardless of device default order.
++    let device = col_dev();
++    let a = rt::tensor_from_nested!([[1, 2, 3], [4, 5, 6]], &device);
++    assert!(a.c_contig());
++    assert_eq!(a.stride(), &[3, 1]);
++    assert_eq!((a[[0, 0]], a[[0, 1]], a[[1, 0]]), (1, 2, 4));
++}
++
++#[test]
++fn test_linspace_order_independent() {
++    // linspace is 1-D; values must not depend on the device default order.
++    let device = col_dev();
++    let a = rt::linspace((0.0, 1.0, 5, &device));
++    assert_eq!(a.to_vec(), vec![0.0, 0.25, 0.5, 0.75, 1.0]);
++}
++
++#[test]
++fn test_tril_triu_col_device() {
++    let device = col_dev();
++    let a = rt::tensor_from_nested!([[1.0, 2.0], [3.0, 4.0]], &device);
++    let l = rt::tril((&a, 0));
++    assert_eq!((l[[0, 0]], l[[0, 1]], l[[1, 0]], l[[1, 1]]), (1.0, 0.0, 3.0, 4.0));
++    let u = rt::triu((&a, 0));
++    assert_eq!((u[[0, 0]], u[[0, 1]], u[[1, 0]], u[[1, 1]]), (1.0, 2.0, 0.0, 4.0));
++}
++
++#[test]
++fn test_zero_dim_creation() {
++    let device = col_dev();
++    let a: Tensor<f64, _> = rt::asarray((3.5, &device));
++    assert_eq!(a.shape(), &[] as &[usize]);
++    assert_eq!(a.to_scalar(), 3.5);
++}
++
++#[test]
++fn test_size_one_dims() {
++    let device = col_dev();
++    let a = rt::arange((1, &device)).into_shape([1, 1, 1]);
++    assert_eq!(a.shape(), &[1, 1, 1]);
++    assert_eq!(a.stride(), &[1, 1, 1]);
++    assert_eq!(a[[0, 0, 0]], 0);
++    assert_eq!(a.sum_all(), 0);
++}
++
++#[test]
++fn test_empty_dims() {
++    let device = col_dev();
++    let a = rt::arange((0, &device)).into_shape([0, 3]);
++    assert_eq!(a.shape(), &[0, 3]);
++    assert_eq!(a.sum_all(), 0);
++    assert_eq!(a.iter().count(), 0);
++    // reductions over empty inputs error (documented)
++    assert!(a.min_all_f().is_err());
++    assert!(a.argmax_f().is_err());
++}
+diff --git a/rstsr-core/tests/col_func/test_iteration_indexing.rs b/rstsr-core/tests/col_func/test_iteration_indexing.rs
+new file mode 100644
+index 0000000..3fea07b
+--- /dev/null
++++ b/rstsr-core/tests/col_func/test_iteration_indexing.rs
+@@ -0,0 +1,108 @@
++//! Iteration, flattening, indexing, and slicing under col-major layouts.
++
++use super::*;
++
++#[test]
++fn test_iter_f_contig_is_buffer_order() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 3]);
++    // col-major logical reading of an F-contiguous tensor == buffer order
++    assert_eq!(a.iter().copied().collect::<Vec<_>>(), vec![0, 1, 2, 3, 4, 5]);
++    // reshape(-1) needs no copy and reads in the same order
++    let flat = a.reshape(-1);
++    assert!(!flat.is_owned());
++    assert_eq!(flat.to_vec(), vec![0, 1, 2, 3, 4, 5]);
++}
++
++#[test]
++fn test_iter_c_layout_reads_col_major() {
++    let device = col_dev();
++    let c = rt::asarray((vec![0., 1., 2., 3., 4., 5.], [2, 3].c(), &device));
++    // iteration follows the device default order (col-major traversal), so a
++    // C-contiguous tensor is read out of buffer order
++    assert_eq!(c.iter().copied().collect::<Vec<_>>(), vec![0.0, 3.0, 1.0, 4.0, 2.0, 5.0]);
++    // reshape(-1) must copy (the C layout is not col-major contiguous)
++    let flat = c.reshape(-1);
++    assert!(flat.is_owned());
++    assert_eq!(flat.to_vec(), vec![0.0, 3.0, 1.0, 4.0, 2.0, 5.0]);
++}
++
++#[test]
++fn test_iter_transposed_view() {
++    let device = col_dev();
++    let t3 = rt::arange((24, &device)).into_shape([2, 3, 4]);
++    let tv = t3.t(); // [4, 3, 2]
++    // transposing swaps the logical axes; col-major reading of the transpose
++    // walks the last (previously first) axis fastest
++    assert_eq!(tv.iter().take(6).copied().collect::<Vec<_>>(), vec![0, 6, 12, 18, 2, 8]);
++}
++
++#[test]
++fn test_iter_3d_noncontig_slice() {
++    let device = col_dev();
++    let t3 = rt::arange((24, &device)).into_shape([2, 3, 4]);
++    // drop the middle axis to 2 columns: stride [1, 2, 6], still readable in
++    // col-major order without copy
++    let sl = t3.clone().into_slice((.., 0..2, ..));
++    assert_eq!(sl.stride(), &[1, 2, 6]);
++    assert_eq!(
++        sl.iter().copied().collect::<Vec<_>>(),
++        vec![0, 1, 2, 3, 6, 7, 8, 9, 12, 13, 14, 15, 18, 19, 20, 21]
++    );
++}
++
++#[test]
++fn test_partially_contiguous_slice() {
++    let device = col_dev();
++    let t3 = rt::arange((24, &device)).into_shape([2, 3, 4]);
++    // (.., .., 0) keeps a contiguous run over the two leading axes
++    let sl2 = t3.clone().into_slice((.., .., 0));
++    assert_eq!(sl2.shape(), &[2, 3]);
++    assert_eq!(sl2.stride(), &[1, 2]);
++    assert_eq!(sl2.iter().copied().collect::<Vec<_>>(), vec![0, 1, 2, 3, 4, 5]);
++}
++
++#[test]
++fn test_indexing_logical_indices() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 3]);
++    // logical (i, j) = i + 2j under col packing
++    assert_eq!(a[[0, 2]], 4);
++    assert_eq!(a[[1, 0]], 1);
++    assert_eq!(a[[1, 2]], 5);
++}
++
++#[test]
++fn test_slicing_steps_and_negative() {
++    let device = col_dev();
++    let a = rt::arange((12, &device)).into_shape([3, 4]);
++    // logical matrix rows: [0, 4, 8, 12? no: (i, j) = i + 3j] -> [0, 3, 6, 9] etc.
++    let sl = a.i((.., 0..3)); // drop last column
++    assert_eq!(sl.shape(), &[3, 3]);
++    assert_eq!(sl[[0, 0]], 0);
++    assert_eq!(sl[[2, 2]], 2 + 3 * 2);
++    // negative index selects from the end
++    let last_row = a.i(-1);
++    assert_eq!(last_row.shape(), &[4]);
++    assert_eq!(last_row.to_vec(), vec![2, 5, 8, 11]);
++}
++
++#[test]
++fn test_index_select_col_semantics() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([3, 2]);
++    // logical: [[0, 3], [1, 4], [2, 5]]
++    let b = a.index_select(0, [0, 2]);
++    assert_eq!(b.shape(), &[2, 2]);
++    assert_eq!((b[[0, 0]], b[[0, 1]], b[[1, 0]], b[[1, 1]]), (0, 3, 2, 5));
++}
++
++#[test]
++fn test_index_mut_write_through_layout() {
++    let device = col_dev();
++    let mut a = rt::arange((6, &device)).into_shape([2, 3]).into_owned();
++    a[[1, 2]] = 100;
++    // the write lands where the col-major layout says: buffer offset 1 + 2*2 = 5
++    assert_eq!(a.raw()[5], 100);
++    assert_eq!(a[[0, 0]], 0);
++}
+diff --git a/rstsr-core/tests/col_func/test_manipulation_order.rs b/rstsr-core/tests/col_func/test_manipulation_order.rs
+new file mode 100644
+index 0000000..a2a60d9
+--- /dev/null
++++ b/rstsr-core/tests/col_func/test_manipulation_order.rs
+@@ -0,0 +1,166 @@
++//! Reshape / transpose / moveaxis / flip / layout conversions under col order.
++
++use super::*;
++
++#[test]
++fn test_reshape_reading_invariance() {
++    let device = col_dev();
++    let a = rt::arange((24, &device)).into_shape([2, 3, 4]);
++    // col-major reading of arange-packed [2, 3, 4] is 0..24 in buffer order
++    assert_eq!(a.reshape([24]).to_vec(), (0..24).collect::<Vec<_>>());
++    let b = a.reshape([6, 4]);
++    assert_eq!(b.shape(), &[6, 4]);
++    // logical content is preserved: value v sits at the same reading position
++    assert_eq!(b[[0, 0]], 0);
++    assert_eq!(b[[5, 3]], 23);
++    // reading position p lands at (p % 6, p / 6) in the [6, 4] output
++    assert_eq!(b[[1, 1]], 7);
++}
++
++#[test]
++fn test_reshape_copy_when_crossing_contiguity() {
++    let device = col_dev();
++    // documentated example: leading axes merge for free, merging across the
++    // f-contiguity boundary copies
++    let a = rt::arange((288, &device)).into_shape([4, 8, 9]).into_slice((.., 0..6, ..));
++    assert_eq!(a.shape(), &[4, 6, 9]);
++    assert_eq!(a.stride(), &[1, 4, 32]);
++    let lead = a.reshape([24, 9]);
++    assert!(!lead.is_owned());
++    let cross = a.reshape([4, 54]);
++    assert!(cross.is_owned());
++}
++
++#[test]
++fn test_transpose_round_trip() {
++    let device = col_dev();
++    let a = rt::arange((12, &device)).into_shape([3, 4]);
++    let at = a.t();
++    assert_eq!(at.shape(), &[4, 3]);
++    assert_eq!(at.stride(), &[3, 1]);
++    // double transpose restores everything
++    let att = at.t();
++    assert_eq!(att.shape(), a.shape());
++    assert_eq!(att.stride(), a.stride());
++    for i in 0..3 {
++        for j in 0..4 {
++            assert_eq!(att[[i, j]], a[[i, j]]);
++        }
++    }
++    // transposed logical content: at[i, j] == a[j, i]
++    assert_eq!(at[[0, 1]], a[[1, 0]]);
++    assert_eq!(at[[3, 2]], a[[2, 3]]);
++}
++
++#[test]
++fn test_moveaxis_round_trip() {
++    let device = col_dev();
++    let a = rt::arange((24, &device)).into_shape([2, 3, 4]);
++    let m = a.moveaxis(2, 0); // -> [4, 2, 3]
++    assert_eq!(m.shape(), &[4, 2, 3]);
++    assert_eq!(m.stride(), &[6, 1, 2]);
++    assert_eq!(m[[1, 0, 0]], 6); // old (0, 0, 1)
++    let back = m.moveaxis(0, 2); // -> [2, 3, 4]
++    assert_eq!(back.shape(), a.shape());
++    for i in 0..2 {
++        for j in 0..3 {
++            for k in 0..4 {
++                assert_eq!(back[[i, j, k]], a[[i, j, k]]);
++            }
++        }
++    }
++}
++
++#[test]
++fn test_flip_logical() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 3]);
++    // logical [[0, 2, 4], [1, 3, 5]]
++    let f0 = rt::flip(&a, 0);
++    assert_eq!((f0[[0, 0]], f0[[0, 1]], f0[[1, 0]]), (1, 3, 0));
++    let f1 = rt::flip(&a, 1);
++    assert_eq!((f1[[0, 0]], f1[[0, 2]], f1[[1, 2]]), (4, 0, 1));
++}
++
++#[test]
++fn test_squeeze_expand_dims() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 1, 3]);
++    let s = rt::squeeze(&a, 1);
++    assert_eq!(s.shape(), &[2, 3]);
++    assert_eq!(s.stride(), &[1, 2]);
++    let e = rt::expand_dims(&s, 0);
++    assert_eq!(e.shape(), &[1, 2, 3]);
++    assert_eq!(e[[0, 0, 0]], 0);
++    assert_eq!(e[[0, 1, 2]], 5);
++    let sq = s.squeeze(None);
++    assert_eq!(sq.shape(), &[2, 3]);
++}
++
++#[test]
++fn test_to_contig_col_device() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 3]);
++    let c = a.to_contig(ColMajor);
++    assert!(c.f_contig());
++    // to_contig with explicit row order
++    let r = a.to_contig(RowMajor);
++    assert!(r.c_contig());
++    assert_eq!(r.stride(), &[3, 1]);
++}
++
++#[test]
++fn test_to_layout_values_preserved() {
++    let device = col_dev();
++    let a = rt::arange((12, &device)).into_shape([3, 4]);
++    let c = a.to_layout([3, 4].c());
++    assert!(c.c_contig());
++    // logical values unchanged after reorder copy
++    for i in 0..3 {
++        for j in 0..4 {
++            assert_eq!(c[[i, j]], a[[i, j]]);
++        }
++    }
++}
++
++#[test]
++fn test_broadcast_shapes_explicit_orders() {
++    // col-major aligns from the first axis (Fortran/Julia rule)
++    assert_eq!(rt::broadcast_shapes(&[vec![1, 6, 1, 8], vec![5, 1, 7]], ColMajor), vec![5, 6, 7, 8]);
++    // row-major aligns from the last axis (NumPy rule)
++    assert_eq!(rt::broadcast_shapes(&[vec![8, 1, 6, 1], vec![7, 1, 5]], RowMajor), vec![8, 7, 6, 5]);
++}
++
++#[test]
++fn test_broadcast_to_col() {
++    let device = col_dev();
++    let v = rt::arange((3, &device)).into_shape([3, 1]);
++    let b = rt::broadcast_to(&v, vec![3, 2]);
++    assert_eq!(b.shape(), &[3, 2]);
++    assert_eq!((b[[0, 0]], b[[0, 1]], b[[2, 0]]), (0, 0, 2));
++}
++
++#[test]
++fn test_concat_axis_logical() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 3]);
++    let b = rt::arange((6, &device)).into_shape([2, 3]) + 6;
++    let c = rt::concatenate((vec![&a, &b], 0isize));
++    assert_eq!(c.shape(), &[4, 3]);
++    assert_eq!(c[[0, 0]], 0);
++    assert_eq!(c[[2, 0]], 6);
++    let d = rt::concatenate((vec![&a, &b], 1isize));
++    assert_eq!(d.shape(), &[2, 6]);
++    assert_eq!(d[[0, 3]], 6);
++    assert_eq!(d[[1, 5]], 11);
++}
++
++#[test]
++fn test_diag_col_device() {
++    let device = col_dev();
++    let a = rt::arange((9, &device)).into_shape([3, 3]);
++    let d = rt::diag((&a, 0));
++    assert_eq!(d.to_vec(), vec![0, 4, 8]);
++    let d1 = rt::diag((&a, 1));
++    assert_eq!(d1.to_vec(), vec![3, 7]);
++}
+diff --git a/rstsr-core/tests/col_func/test_matmul_col.rs b/rstsr-core/tests/col_func/test_matmul_col.rs
+new file mode 100644
+index 0000000..d24d6bf
+--- /dev/null
++++ b/rstsr-core/tests/col_func/test_matmul_col.rs
+@@ -0,0 +1,187 @@
++//! Matrix multiplication with F-order inputs/outputs on both devices.
++//!
++//! The faer matmul path has a dedicated col cfg (`device_faer/matmul_impl.rs`);
++//! before this track it had ZERO col-major coverage (its only correctness test
++//! was cfg'd out under `col_major`).
++
++use super::*;
++
++/// Asserts that the tensor is the logical matrix [[58, 64], [139, 154]]
++/// (A[2,3] x B[3,2] for the fixtures below), for any device/layout.
++macro_rules! check_ab {
++    ($c:expr) => {{
++        assert_eq!($c.shape(), &[2, 2]);
++        assert_eq!(($c[[0, 0]], $c[[0, 1]]), (58.0, 64.0));
++        assert_eq!(($c[[1, 0]], $c[[1, 1]]), (139.0, 154.0));
++    }};
++}
++
++fn a23_f(device: &DeviceCpuSerial) -> Tensor<f64, DeviceCpuSerial> {
++    // logical [[1, 2, 3], [4, 5, 6]], stored F-contiguous
++    rt::asarray((vec![1., 4., 2., 5., 3., 6.], [2, 3].f(), device))
++}
++
++fn b32_f(device: &DeviceCpuSerial) -> Tensor<f64, DeviceCpuSerial> {
++    // logical [[7, 8], [9, 10], [11, 12]], stored F-contiguous
++    rt::asarray((vec![7., 9., 11., 8., 10., 12.], [3, 2].f(), device))
++}
++
++
++#[test]
++fn test_matmul_serial_f_order() {
++    let device = col_dev();
++    let a = a23_f(&device);
++    let b = b32_f(&device);
++    let c = a.view() % b.view();
++    check_ab!(c);
++    assert!(c.f_contig()); // fresh result follows the col default
++}
++
++#[test]
++fn test_matmul_serial_c_order_inputs() {
++    let device = col_dev();
++    let a = rt::asarray((vec![1., 2., 3., 4., 5., 6.], [2, 3].c(), &device));
++    let b = rt::asarray((vec![7., 8., 9., 10., 11., 12.], [3, 2].c(), &device));
++    let c = a.view() % b.view();
++    check_ab!(c);
++}
++
++#[test]
++fn test_matmul_serial_mixed_layouts() {
++    let device = col_dev();
++    let a = a23_f(&device);
++    let b = b32_f(&device);
++    let bc = b.to_layout([3, 2].c());
++    let c = a.view() % bc.view();
++    check_ab!(c);
++}
++
++#[test]
++fn test_matmul_transposed_views() {
++    let device = col_dev();
++    // F-packed [2, 3] from buffer [7, 8, 9, 10, 11, 12] -> logical [[7, 9, 11], [8, 10, 12]];
++    // X.t() is the [3, 2] view [[7, 8], [9, 10], [11, 12]] == B of the fixture above
++    let x = rt::asarray((vec![7., 8., 9., 10., 11., 12.], [2, 3].f(), &device));
++    let a = a23_f(&device);
++    let c = a.view() % x.t();
++    check_ab!(c);
++    // A.t() ([3, 2]) x X ([2, 3]) = [3, 3]; row 0 = 1 * X[0, :] + 4 * X[1, :]
++    let c2 = a.t() % x.view();
++    assert_eq!(c2.shape(), &[3, 3]);
++    assert_eq!((c2[[0, 0]], c2[[0, 1]], c2[[0, 2]]), (39.0, 49.0, 59.0));
++}
++
++#[test]
++fn test_matmul_identity_and_noncontig_slices() {
++    let device = col_dev();
++    let tall = rt::asarray((vec![1., 2., 3., 4., 5., 6.], [3, 2].f(), &device));
++    let eye2: Tensor<f64, _> = rt::eye((2, 2, 0, &device));
++    let c = tall.view() % eye2.view();
++    assert_eq!(c.reshape(-1).to_vec(), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
++    // sliced (non-contiguous) operands: row/col blocks of a C-contig [3, 4]
++    let wide = rt::asarray((vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.], [3, 4].c(), &device));
++    let wl = wide.i((.., 0..2));
++    let wr = wide.i((.., 2..));
++    let cs = wl.view() % wr.t();
++    assert_eq!(cs.shape(), &[3, 3]);
++    assert_eq!((cs[[0, 0]], cs[[1, 0]], cs[[2, 2]]), (11.0, 39.0, 219.0));
++}
++
++#[test]
++fn test_matmul_wide() {
++    // wide: [2, 5] x [5, 3]
++    let device = col_dev();
++    let a = rt::asarray((vec![1., 6., 2., 7., 3., 8., 4., 9., 5., 10.], [2, 5].f(), &device));
++    // logical [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]]
++    let b = rt::asarray((vec![1., 4., 7., 10., 13., 2., 5., 8., 11., 14., 3., 6., 9., 12., 15.], [5, 3].f(), &device));
++    // logical [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [13, 14, 15]]
++    let c = a.view() % b.view();
++    assert_eq!(c.shape(), &[2, 3]);
++    // row 0 = [1*1+2*4+3*7+4*10+5*13, 1*2+2*5+3*8+4*11+5*14, 1*3+2*6+3*9+4*12+5*15]
++    assert_eq!((c[[0, 0]], c[[0, 1]], c[[0, 2]]), (135.0, 150.0, 165.0));
++    assert_eq!((c[[1, 0]], c[[1, 1]], c[[1, 2]]), (310.0, 350.0, 390.0));
++}
++
++#[test]
++fn test_matmul_serial_degenerate() {
++    let device = col_dev();
++    let e1 = rt::asarray((vec![2.], [1, 1].f(), &device));
++    let e2 = rt::asarray((vec![3.], [1, 1].f(), &device));
++    assert_eq!((e1.view() % e2.view()).to_scalar(), 6.0);
++    // k = 0: result is all zeros of shape [m, n]
++    let z: Tensor<f64, _> = rt::asarray((vec![], [2, 0].f(), &device));
++    let w: Tensor<f64, _> = rt::asarray((vec![], [0, 3].f(), &device));
++    let c = z.view() % w.view();
++    assert_eq!(c.shape(), &[2, 3]);
++    assert_eq!(c.iter().count(), 6);
++    assert!(c.iter().all(|x| *x == 0.0));
++    // m = 0 or n = 0: empty results
++    let a0: Tensor<f64, _> = rt::asarray((vec![], [0, 2].f(), &device));
++    let b0: Tensor<f64, _> = rt::asarray((vec![], [2, 0].f(), &device));
++    assert_eq!((a0.view() % b0.view()).shape(), &[0, 0]);
++}
++
++#[test]
++fn test_matmul_faer_matches_serial() {
++    let device = col_dev();
++    let a = a23_f(&device);
++    let b = b32_f(&device);
++    let c_serial = a.view() % b.view();
++
++    let fdevice = faer_dev();
++    let af = rt::asarray((vec![1., 4., 2., 5., 3., 6.], [2, 3].f(), &fdevice));
++    let bf = rt::asarray((vec![7., 9., 11., 8., 10., 12.], [3, 2].f(), &fdevice));
++    let c_faer = af.view() % bf.view();
++    check_ab!(c_faer);
++    assert!(c_faer.f_contig());
++
++    // agreement between devices on the same logical inputs
++    let f_a = rt::asarray((a.reshape(-1).to_vec(), [2, 3].f(), &fdevice));
++    let f_b = rt::asarray((b.reshape(-1).to_vec(), [3, 2].f(), &fdevice));
++    let c_faer2 = f_a.view() % f_b.view();
++    for i in 0..2 {
++        for j in 0..2 {
++            assert_eq!(c_serial[[i, j]], c_faer2[[i, j]]);
++        }
++    }
++}
++
++#[test]
++fn test_matmul_faer_degenerate() {
++    let fdevice = faer_dev();
++    let e1 = rt::asarray((vec![2.], [1, 1].f(), &fdevice));
++    let e2 = rt::asarray((vec![3.], [1, 1].f(), &fdevice));
++    assert_eq!((e1.view() % e2.view()).to_scalar(), 6.0);
++    let z: Tensor<f64, _> = rt::asarray((vec![], [1, 0].f(), &fdevice));
++    let w: Tensor<f64, _> = rt::asarray((vec![], [0, 1].f(), &fdevice));
++    let c = z.view() % w.view();
++    assert_eq!(c.shape(), &[1, 1]);
++    assert_eq!(c[[0, 0]], 0.0);
++    let z20: Tensor<f64, _> = rt::asarray((vec![], [2, 0].f(), &fdevice));
++    let z03: Tensor<f64, _> = rt::asarray((vec![], [0, 3].f(), &fdevice));
++    assert_eq!((z20.view() % z03.view()).shape(), &[2, 3]);
++}
++
++#[test]
++fn test_matmul_faer_transposed_views_and_slices() {
++    let fdevice = faer_dev();
++    let x = rt::asarray((vec![7., 8., 9., 10., 11., 12.], [2, 3].f(), &fdevice));
++    let af = rt::asarray((vec![1., 4., 2., 5., 3., 6.], [2, 3].f(), &fdevice));
++    let c = af.view() % x.t();
++    check_ab!(c);
++    // non-contiguous slice operands on the faer device
++    let wide = rt::asarray((vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.], [3, 4].c(), &fdevice));
++    let wl = wide.i((.., 0..2));
++    let wr = wide.i((.., 2..));
++    let cs = wl.view() % wr.t();
++    assert_eq!((cs[[0, 0]], cs[[1, 0]], cs[[2, 2]]), (11.0, 39.0, 219.0));
++}
++
++#[test]
++fn test_vecdot_col_device() {
++    // 1-D vectors are order-independent, but exercise the faer path too
++    let device = col_dev();
++    let a = rt::arange((1.0, 4.0, 1.0, &device));
++    let b = rt::arange((2.0, 8.0, 2.0, &device));
++    assert_eq!(rt::vecdot(&a, &b, None).to_scalar(), 1.0 * 2.0 + 2.0 * 4.0 + 3.0 * 6.0);
++}
+diff --git a/rstsr-core/tests/col_func/test_reduction_col.rs b/rstsr-core/tests/col_func/test_reduction_col.rs
+new file mode 100644
+index 0000000..21e8752
+--- /dev/null
++++ b/rstsr-core/tests/col_func/test_reduction_col.rs
+@@ -0,0 +1,164 @@
++//! Reductions on col-major layouts.
++//!
++//! Includes the arg* flat-index contract, which is explicitly documented
++//! (tensor/reduction.rs) as a ROW-major flat index even on a col-major
++//! device: "the all-element forms return a row-major flat index even on a
++//! [`ColMajor`] device."
++
++use super::*;
++
++#[test]
++fn test_value_reductions_f_contig() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 3]); // [[0, 2, 4], [1, 3, 5]]
++    assert_eq!(a.sum_all(), 15);
++    assert_eq!(a.min_all(), 0);
++    assert_eq!(a.max_all(), 5);
++    assert_eq!(a.prod_all(), 0);
++}
++
++#[test]
++fn test_value_reductions_c_layout() {
++    let device = col_dev();
++    // same logical tensor, C-contiguous storage
++    let a = rt::asarray((vec![0., 1., 2., 3., 4., 5.], [2, 3].c(), &device));
++    assert_eq!(a.sum_all(), 15.0);
++    assert_eq!(a.min_all(), 0.0);
++    assert_eq!(a.max_all(), 5.0);
++    assert_eq!(a.mean_all(), 2.5);
++    // mean of the integer twin fails to compile (trait bound), so only float
++    // tensors expose mean_*: pin that the C layout does not change values
++    let ai = rt::asarray((vec![0, 1, 2, 3, 4, 5], [2, 3].c(), &device));
++    assert_eq!(ai.sum_all(), 15);
++}
++
++#[test]
++fn test_axis_reductions_logical() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 3]);
++    assert_eq!(a.sum_axes(0).reshape(-1).to_vec(), vec![1, 5, 9]);
++    assert_eq!(a.sum_axes(1).reshape(-1).to_vec(), vec![6, 9]);
++    let max0 = a.max_axes(0).reshape(-1).to_vec();
++    assert_eq!(max0, vec![1, 3, 5]);
++    let min1 = a.min_axes(1).reshape(-1).to_vec();
++    assert_eq!(min1, vec![0, 1]);
++}
++
++#[test]
++fn test_argmax_flat_index_documented_contract() {
++    let device = col_dev();
++    // The documented contract: whole-tensor arg*/argmin return the ROW-major
++    // flat index even on a col-major device (tensor/reduction.rs module docs).
++    let mut a = rt::arange((6, &device)).into_shape([2, 3]).into_owned();
++    a[[1, 0]] = 100; // logical (1, 0): row-major flat 3, col-major (buffer) flat 1
++    assert_eq!(a.argmax(), 3);
++    let mut b = rt::arange((6, &device)).into_shape([2, 3]).into_owned();
++    b[[0, 2]] = 100; // logical (0, 2): row-major flat 2, col-major (buffer) flat 4
++    assert_eq!(b.argmax(), 2);
++    assert_eq!(b.argmin(), 0);
++}
++
++#[test]
++fn test_argmax_flat_index_3d_and_noncontig() {
++    let device = col_dev();
++    let mut a = rt::arange((24, &device)).into_shape([2, 3, 4]).into_owned();
++    a[[1, 1, 0]] = 100;
++    // logical (1, 1, 0): row-major flat = 1*12 + 1*4 + 0 = 16
++    // col-major (buffer) flat = 1 + 2*1 + 6*0 = 3
++    assert_eq!(a.argmax(), 16);
++    // same contract on a non-contiguous view: flat index of the LOGICAL tensor
++    let sl = a.clone().into_slice((.., 0..2, ..)); // logical [2, 2, 4], max 100 at (1, 1, 0)
++    let s_arg = sl.argmax();
++    assert_eq!(s_arg, 1 * 8 + 1 * 4 + 0); // row-major flat of [2, 2, 4] logical (1, 1, 0)
++}
++
++#[test]
++fn test_argmax_tie_first_row_major() {
++    let device = col_dev();
++    // all-equal tensor: first occurrence in ROW-major visit order wins
++    let a: Tensor<f64, _> = rt::full(([2, 3], 7.0, &device));
++    assert_eq!(a.argmax(), 0);
++    let c: Tensor<i64, _> = rt::tensor_from_nested!([[5, 5, 1], [5, 1, 5]], &device);
++    // three 5s at row-major flats 0, 1, 3 -> argmax returns 0
++    assert_eq!(c.argmax(), 0);
++    // two 1s at row-major flats 2, 4 -> argmin returns 2
++    assert_eq!(c.argmin(), 2);
++}
++
++#[test]
++fn test_argmax_axes_logical() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 3]); // [[0, 2, 4], [1, 3, 5]]
++    assert_eq!(a.argmax_axes(0).reshape(-1).to_vec(), vec![1, 1, 1]);
++    assert_eq!(a.argmax_axes(1).reshape(-1).to_vec(), vec![2, 2]);
++    assert_eq!(a.argmin_axes(0).reshape(-1).to_vec(), vec![0, 0, 0]);
++    assert_eq!(a.argmin_axes(1).reshape(-1).to_vec(), vec![0, 0]);
++}
++
++#[test]
++fn test_nanarg_col() {
++    let device = col_dev();
++    let mut a: Tensor<f64, _> = rt::arange((0.0, 6.0, 1.0, &device)).into_shape([2, 3]).into_owned();
++    a[[0, 1]] = f64::NAN; // logical (0, 1) holds NaN
++    assert_eq!(a.nanargmax(), 5); // max is 5 at logical (1, 2)
++    assert_eq!(a.nanargmin(), 0); // min is 0 at logical (0, 0)
++    // plain argmax: NaN never wins an update; first scanned position seeds
++    assert_eq!(a.argmax(), 5);
++}
++
++#[test]
++fn test_reductions_on_noncontig_col_slice() {
++    let device = col_dev();
++    let a = rt::arange((24, &device)).into_shape([2, 3, 4]);
++    let sl = a.clone().into_slice((.., 0..2, ..));
++    // slice values: 0..4, 6..10, 12..16, 18..22
++    assert_eq!(sl.sum_all(), 168);
++    assert_eq!(sl.max_all(), 21);
++    assert_eq!(sl.min_all(), 0);
++}
++
++#[test]
++fn test_count_nonzero_all_any() {
++    let device = col_dev();
++    let a = rt::arange((6, &device)).into_shape([2, 3]);
++    assert_eq!(a.count_nonzero(), 5); // values 0..5: exactly one zero
++    let t: Tensor<bool, _> = rt::tensor_from_nested!([[true, true], [true, true]], &device);
++    assert!(t.all());
++    assert!(t.any());
++    let b: Tensor<bool, _> = rt::tensor_from_nested!([[true, true, true], [true, false, false]], &device);
++    assert_eq!(b.iter().filter(|x| **x).count(), 4);
++    assert!(b.any());
++    assert!(!b.all());
++    let mut ci = rt::arange((6, &device)).into_shape([2, 3]).into_owned();
++    ci[[0, 0]] = 0;
++    assert_eq!(ci.count_nonzero(), 5);
++}
++
++#[test]
++fn test_reduction_degenerate() {
++    let device = col_dev();
++    // 0-d tensor
++    let d: Tensor<f64, _> = rt::asarray((3.5, &device));
++    assert_eq!(d.sum_all(), 3.5);
++    // size-1 dims
++    let s = rt::arange((1, &device)).into_shape([1, 1, 1]);
++    assert_eq!(s.sum_all(), 0);
++    assert_eq!(s.argmax(), 0);
++    // empty: value reductions error (documented)
++    let e = rt::arange((0, &device)).into_shape([0, 3]);
++    assert_eq!(e.sum_all(), 0);
++    assert!(e.min_all_f().is_err());
++    assert!(e.argmax_f().is_err());
++    assert!(e.nanargmax_f().is_err());
++}
++
++#[test]
++fn test_var_std_col() {
++    let device = col_dev();
++    let a = rt::arange((1.0, 7.0, 1.0, &device)).into_shape([2, 3]);
++    // values 1..6, population variance = 17.5 / 6
++    let v: f64 = a.var_all();
++    assert!((v - 17.5 / 6.0).abs() < 1e-12);
++    let s: f64 = a.std_all();
++    assert!((s - (17.5f64 / 6.0).sqrt()).abs() < 1e-12);
++}
+diff --git a/rstsr-core/tests/entry_col_cpu.rs b/rstsr-core/tests/entry_col_cpu.rs
+new file mode 100644
+index 0000000..bc1d7d5
+--- /dev/null
++++ b/rstsr-core/tests/entry_col_cpu.rs
+@@ -0,0 +1,24 @@
++// Entry binary: col-major, DeviceCpuSerial.
++// See ADR-0002 (entry-binary test matrix) and skill `test-conventions`.
++// Gated to `col_major` via [[test]] required-features in rstsr-core/Cargo.toml.
++//
++// Includes the SAME body as entry_row_cpu.rs (uniformity per ADR-0002) plus
++// the col-major track `col_func/` (CONTEXT.md "col_major body"), which is not
++// NumPy-parity and is included only from this entry.
++mod col_func;
++mod core_func;
++mod doc_draft;
++mod test_issues;
++mod test_utils;
++
++pub use rstsr::prelude::*;
++pub use std::sync::LazyLock;
++pub use test_utils::TestCfg;
++
++pub use DeviceCpuSerial as DeviceType;
++
++pub static TESTCFG: LazyLock<TestCfg<DeviceType>> = LazyLock::new(|| {
++    let mut device = DeviceType::default();
++    device.set_default_order(ColMajor);
++    TestCfg::init(device, vec![], None)
++});

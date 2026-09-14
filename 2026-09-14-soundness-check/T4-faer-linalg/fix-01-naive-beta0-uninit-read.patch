@@ -1,0 +1,150 @@
+diff --git a/rstsr-core/src/device_cpu_serial/linalg/matmul.rs b/rstsr-core/src/device_cpu_serial/linalg/matmul.rs
+index 40e4e0a..fa187d3 100644
+--- a/rstsr-core/src/device_cpu_serial/linalg/matmul.rs
++++ b/rstsr-core/src/device_cpu_serial/linalg/matmul.rs
+@@ -3,6 +3,7 @@
+ //! **This implementation is not optimized!**
+ 
+ use core::ops::{Add, Mul};
++use num::Zero;
+ 
+ use crate::prelude_dev::*;
+ 
+@@ -16,7 +17,7 @@ where
+     DC: DimAPI,
+     TA: Mul<TB, Output = TC>,
+     TB: Mul<TA, Output = TC>,
+-    TC: Mul<TC, Output = TC> + Add<TC, Output = TC>,
++    TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero,
+     Self: DeviceAPI<TA, Raw = Vec<TA>> + DeviceAPI<TB, Raw = Vec<TB>> + DeviceAPI<TC, Raw = Vec<TC>>,
+ {
+     fn matmul(
+diff --git a/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs b/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs
+index 828661a..562cf7c 100644
+--- a/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs
++++ b/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs
+@@ -39,7 +39,13 @@ where
+         (0..n).into_par_iter().for_each(|j| {
+             (0..m).into_par_iter().for_each(|i| unsafe {
+                 let ptr_c = c.as_ptr().offset(lc.index_uncheck(&[i, j])) as *mut TC;
+-                *ptr_c = (*ptr_c).clone() * beta.clone()
++                // NOTE: when `beta` is zero, `c` may be uninitialized (the
++                // caller allocates the output via `empty`); reading it would
++                // propagate NaN/Inf garbage through `0 * garbage`. This
++                // follows the BLAS GEMM contract that `C` need not be
++                // initialized when `beta == 0`.
++                let acc_c = if beta.is_zero() { TC::zero() } else { (*ptr_c).clone() * beta.clone() };
++                *ptr_c = acc_c
+                     + (0..k).fold(TC::zero(), |acc, p| {
+                         let val_a = a[la.index_uncheck(&[i, p]) as usize].clone();
+                         let val_b = b[lb.index_uncheck(&[p, j]) as usize].clone();
+@@ -88,6 +94,8 @@ where
+             .unwrap_or(TC::zero())
+     };
+     let c_innerdot = pool.map_or_else(task, |pool| pool.install(task));
+-    *c = c_innerdot * alpha + c.clone() * beta;
++    // NOTE: when `beta` is zero, `c` may be uninitialized; do not read it
++    // (same BLAS beta == 0 contract as in `gemm_ix2_naive_cpu_rayon`).
++    *c = if beta.is_zero() { c_innerdot * alpha } else { c_innerdot * alpha + c.clone() * beta };
+     Ok(())
+ }
+diff --git a/rstsr-native-impl/src/cpu_serial/matmul_naive.rs b/rstsr-native-impl/src/cpu_serial/matmul_naive.rs
+index 95e805c..082eb8f 100644
+--- a/rstsr-native-impl/src/cpu_serial/matmul_naive.rs
++++ b/rstsr-native-impl/src/cpu_serial/matmul_naive.rs
+@@ -4,6 +4,7 @@
+ 
+ use crate::prelude_dev::*;
+ use core::ops::{Add, Mul};
++use num::Zero;
+ 
+ #[allow(clippy::too_many_arguments)]
+ pub fn matmul_naive_cpu_serial<TA, TB, TC, DA, DB, DC>(
+@@ -24,7 +25,7 @@ where
+     DB: DimAPI,
+     DC: DimAPI,
+     TA: Mul<TB, Output = TC>,
+-    TC: Mul<TC, Output = TC> + Add<TC, Output = TC>,
++    TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero,
+ {
+     // NOTE: this only works for row-major layout
+     // for column-major layout, we need to transpose the input:
+@@ -90,7 +91,7 @@ where
+     TB: Clone,
+     TC: Clone,
+     TA: Mul<TB, Output = TC>,
+-    TC: Mul<TC, Output = TC> + Add<TC, Output = TC>,
++    TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero,
+ {
+     // shape check
+     let sc = lc.shape();
+@@ -106,7 +107,12 @@ where
+         for i_m in 0..m {
+             for i_n in 0..n {
+                 let idx_c = lc.index_uncheck(&[i_m, i_n]) as usize;
+-                c[idx_c] = beta.clone() * c[idx_c].clone();
++                // NOTE: when `beta` is zero, `c` may be uninitialized (the
++                // caller allocates the output via `empty`); reading it would
++                // propagate NaN/Inf garbage through `0 * garbage`. This
++                // follows the BLAS GEMM contract that `C` need not be
++                // initialized when `beta == 0`.
++                c[idx_c] = if beta.is_zero() { TC::zero() } else { beta.clone() * c[idx_c].clone() };
+             }
+             for i_k in 0..k {
+                 let idx_a = la.index_uncheck(&[i_m, i_k]) as usize;
+@@ -137,7 +143,7 @@ where
+     TB: Clone,
+     TC: Clone,
+     TA: Mul<TB, Output = TC>,
+-    TC: Mul<TC, Output = TC> + Add<TC, Output = TC>,
++    TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero,
+ {
+     // shape check
+     let sc = lc.shape();
+@@ -151,7 +157,7 @@ where
+     unsafe {
+         for i_n in 0..n {
+             let idx_c = lc.index_uncheck(&[i_n]) as usize;
+-            c[idx_c] = beta.clone() * c[idx_c].clone();
++            c[idx_c] = if beta.is_zero() { TC::zero() } else { beta.clone() * c[idx_c].clone() };
+             for i_k in 0..k {
+                 let idx_a = la.index_uncheck(&[i_n, i_k]) as usize;
+                 let idx_b = lb.index_uncheck(&[i_k]) as usize;
+@@ -178,7 +184,7 @@ where
+     TB: Clone,
+     TC: Clone,
+     TA: Mul<TB, Output = TC>,
+-    TC: Mul<TC, Output = TC> + Add<TC, Output = TC>,
++    TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero,
+ {
+     // shape check
+     let sc = lc.shape();
+@@ -192,7 +198,7 @@ where
+     unsafe {
+         for i_n in 0..n {
+             let idx_c = lc.index_uncheck(&[i_n]) as usize;
+-            c[idx_c] = beta.clone() * c[idx_c].clone();
++            c[idx_c] = if beta.is_zero() { TC::zero() } else { beta.clone() * c[idx_c].clone() };
+             for i_k in 0..k {
+                 let idx_a = la.index_uncheck(&[i_k]) as usize;
+                 let idx_b = lb.index_uncheck(&[i_k, i_n]) as usize;
+@@ -219,7 +225,7 @@ where
+     TB: Clone,
+     TC: Clone,
+     TA: Mul<TB, Output = TC>,
+-    TC: Mul<TC, Output = TC> + Add<TC, Output = TC>,
++    TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero,
+ {
+     // shape check
+     let sa = la.shape();
+@@ -230,7 +236,9 @@ where
+     // naive iteration
+     unsafe {
+         let idx_c = lc.index_uncheck(&[]) as usize;
+-        let mut sum = beta * c[idx_c].clone();
++        // NOTE: when `beta` is zero, `c` may be uninitialized; do not read
++        // it (same BLAS beta == 0 contract as in `gemm_naive_cpu_serial`).
++        let mut sum = if beta.is_zero() { TC::zero() } else { beta * c[idx_c].clone() };
+         for i in 0..n {
+             let idx_a = la.index_uncheck(&[i]) as usize;
+             let idx_b = lb.index_uncheck(&[i]) as usize;

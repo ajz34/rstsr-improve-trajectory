@@ -1,0 +1,1165 @@
+diff --git a/rstsr-core/src/device_faer/conversion.rs b/rstsr-core/src/device_faer/conversion.rs
+index e5cf124..d786156 100644
+--- a/rstsr-core/src/device_faer/conversion.rs
++++ b/rstsr-core/src/device_faer/conversion.rs
+@@ -17,7 +17,15 @@ where
+         let [nrows, ncols] = *self.shape();
+         let [row_stride, col_stride] = *self.stride();
+         let offset = self.offset();
++        // SAFETY: the view's layout is valid, so `offset` is in-bounds of the
++        // backing buffer and the resulting pointer stays within the same
++        // allocation.
+         let ptr = unsafe { self.raw().as_ptr().add(offset) };
++        // SAFETY: `ptr` is non-null, aligned for `T` and initialized; shape
++        // and strides are taken from the valid layout, so every matrix unit
++        // addresses memory inside the buffer's single allocation. rstsr
++        // strides map 1:1 to faer's (row_stride, col_stride) convention: both
++        // count elements per step along axis 0 / axis 1.
+         unsafe { MatRef::from_raw_parts(ptr, nrows, ncols, row_stride, col_stride) }
+     }
+ }
+@@ -32,7 +40,12 @@ where
+         let [nrows, ncols] = *self.shape();
+         let [row_stride, col_stride] = *self.stride();
+         let offset = self.offset();
++        // SAFETY: same bounds argument as the shared case above; the unique
++        // `&mut` borrow of this view guarantees no aliasing access while the
++        // returned `MatMut` is alive.
+         let ptr = unsafe { self.raw_mut().as_mut_ptr().add(offset) };
++        // SAFETY: see the shared case above for validity; exclusivity comes
++        // from `TensorViewMut`'s borrow.
+         unsafe { MatMut::from_raw_parts_mut(ptr, nrows, ncols, row_stride, col_stride) }
+     }
+ }
+@@ -49,9 +62,15 @@ impl<'a, T> IntoRSTSR for MatRef<'a, T> {
+ 
+         let layout = Layout::new([nrows, ncols], [row_stride, col_stride], 0).unwrap();
+         let (_, upper_bound) = layout.bounds_index().unwrap();
++        // SAFETY: `ptr` borrows memory owned by the source faer object; the
++        // reconstructed `Vec` is wrapped in `ManuallyDrop`, so it never
++        // deallocates. `len == capacity == upper_bound` covers exactly the
++        // elements the layout may address.
+         let raw = unsafe { Vec::from_raw_parts(ptr as *mut T, upper_bound, upper_bound) };
+         let data = DataRef::from_manually_drop(ManuallyDrop::new(raw));
+         let storage = Storage::new(data, DeviceFaer::default());
++        // SAFETY: the layout was built from the faer matrix's shape/strides
++        // and is in-bounds of the storage by construction (bounds_index).
+         let tensor = unsafe { TensorView::new_unchecked(storage, layout) };
+         return tensor;
+     }
+@@ -70,9 +89,21 @@ impl<T> IntoRSTSR for Mat<T> {
+ 
+         let layout = Layout::new([nrows, ncols], [row_stride, col_stride], 0).unwrap();
+         let (_, upper_bound) = layout.bounds_index().unwrap();
++        // SAFETY (caveat, formally UB): `ptr` comes from faer's `Mat`
++        // allocation (`alloc::alloc` with over-alignment and a padded column
++        // capacity). Claiming it as a `Vec` with len = cap = upper_bound
++        // (<= the true allocation) means dropping this tensor deallocates
++        // with a mismatched size/alignment layout. In practice this is safe
++        // on the system allocator (free ignores size/alignment, and
++        // upper_bound never exceeds the allocation) and mirrors rstsr's own
++        // `uninitialized_vec` convention, but it is UB under strict
++        // interpreters (e.g. Miri) and for layout-observing custom
++        // allocators. Prefer `.into_contig` copies at call sites where the
++        // data is copied out and this owning wrapper is dropped.
+         let raw = unsafe { Vec::from_raw_parts(ptr as *mut T, upper_bound, upper_bound) };
+         let data = DataOwned::from(raw);
+         let storage = Storage::new(data, DeviceFaer::default());
++        // SAFETY: layout is in-bounds of the storage by construction.
+         let tensor = unsafe { Tensor::new_unchecked(storage, layout) };
+         return tensor;
+     }
+@@ -88,9 +119,12 @@ impl<'a, T> IntoRSTSR for ColRef<'a, T> {
+ 
+         let layout = Layout::new([nrows], [stride], 0).unwrap();
+         let (_, upper_bound) = layout.bounds_index().unwrap();
++        // SAFETY: borrowed from the source faer object and wrapped in
++        // `ManuallyDrop` (never deallocated); bounds hold by construction.
+         let raw = unsafe { Vec::from_raw_parts(ptr as *mut T, upper_bound, upper_bound) };
+         let data = DataRef::from_manually_drop(ManuallyDrop::new(raw));
+         let storage = Storage::new(data, DeviceFaer::default());
++        // SAFETY: layout is in-bounds of the storage by construction.
+         let tensor = unsafe { TensorView::new_unchecked(storage, layout) };
+         return tensor;
+     }
+@@ -108,9 +142,13 @@ impl<'a, T> IntoRSTSR for MatMut<'a, T> {
+ 
+         let layout = Layout::new([nrows, ncols], [row_stride, col_stride], 0).unwrap();
+         let (_, upper_bound) = layout.bounds_index().unwrap();
++        // SAFETY: borrowed (mutably) from the source faer object and wrapped
++        // in `ManuallyDrop` (never deallocated); exclusivity is inherited
++        // from the `MatMut` being consumed; bounds hold by construction.
+         let raw = unsafe { Vec::from_raw_parts(ptr as *mut T, upper_bound, upper_bound) };
+         let data = DataMut::from_manually_drop(ManuallyDrop::new(raw));
+         let storage = Storage::new(data, DeviceFaer::default());
++        // SAFETY: layout is in-bounds of the storage by construction.
+         let tensor = unsafe { TensorMut::new_unchecked(storage, layout) };
+         return tensor;
+     }
+diff --git a/rstsr-core/src/device_faer/matmul.rs b/rstsr-core/src/device_faer/matmul.rs
+index dbf2ad9..00f7940 100644
+--- a/rstsr-core/src/device_faer/matmul.rs
++++ b/rstsr-core/src/device_faer/matmul.rs
+@@ -157,12 +157,18 @@ where
+                     let mut la_m = la_matmul.clone();
+                     let mut lb_m = lb_matmul.clone();
+                     let mut lc_m = lc_matmul.clone();
++                    // SAFETY: the offsets are yielded by iterating the valid
++                    // rest layouts; each shifted layout remains in-bounds of
++                    // its operand buffer.
+                     unsafe {
+                         la_m.set_offset(ia_rest);
+                         lb_m.set_offset(ib_rest);
+                         lc_m.set_offset(ic_rest);
+                     }
+                     // move mutable reference into parallel closure
++                    // SAFETY: `c` outlives every task (borrowed for the whole
++                    // loop); each task writes only its own `lc_m` region, so
++                    // the parallel tasks never overlap.
+                     let c = unsafe {
+                         let c_ptr = c.as_ptr() as *mut TC;
+                         let c_len = c.len();
+@@ -186,6 +192,7 @@ where
+             let mut la_m = la_matmul.clone();
+             let mut lb_m = lb_matmul.clone();
+             let mut lc_m = lc_matmul.clone();
++            // SAFETY: same as the parallel branch above.
+             unsafe {
+                 la_m.set_offset(ia_rest);
+                 lb_m.set_offset(ib_rest);
+@@ -349,4 +356,395 @@ mod test {
+         let c = &a % &b;
+         assert_eq!(c.shape(), &[1, 3, 3]);
+     }
++
++    /* #region edge-shape correctness tests (T4 faer linalg audit, 2026-09) */
++
++    use crate::prelude::rt;
++
++    fn device_faer_row_major() -> DeviceFaer {
++        let mut device = DeviceFaer::default();
++        device.set_default_order(RowMajor);
++        device
++    }
++
++    fn device_faer_col_major() -> DeviceFaer {
++        let mut device = DeviceFaer::default();
++        device.set_default_order(ColMajor);
++        device
++    }
++
++    fn device_serial_row_major() -> DeviceCpuSerial {
++        let mut device = DeviceCpuSerial::default();
++        device.set_default_order(RowMajor);
++        device
++    }
++
++    /// `arange`-based deterministic 2-D tensor of the requested shape.
++    fn arange_shape(device: &DeviceFaer, shape: [usize; 2]) -> Tensor<f64, DeviceFaer, IxD> {
++        let (m, k) = (shape[0], shape[1]);
++        arange((0.0, (m * k) as f64, 1.0, device)).into_shape([m, k])
++    }
++
++    fn arange_shape_serial(device: &DeviceCpuSerial, shape: [usize; 2]) -> Tensor<f64, DeviceCpuSerial, IxD> {
++        let (m, k) = (shape[0], shape[1]);
++        arange((0.0, (m * k) as f64, 1.0, device)).into_shape([m, k])
++    }
++
++    #[test]
++    fn test_gemm_edge_shapes_row_major() {
++        // faer must agree with the naive serial implementation on degenerate
++        // shapes: zero-sized axes, 1x1 gemms, gemv-like extremes, and odd
++        // non-multiples of internal block sizes.
++        let shapes = [
++            [0usize, 0],
++            [1, 1],
++            [3, 0], // K = 0 (A [m, 0] @ B [0, n])
++            [0, 4], // M = 0
++            [1, 9],
++            [9, 1],
++            [2, 3],
++            [7, 13],
++            [17, 19],
++            [31, 2],
++        ];
++        for shape_a in shapes {
++            for shape_b in [[0usize, 2], [1, 1], [2, 5], [4, 3], [8, 8]] {
++                let dev_f = device_faer_row_major();
++                let dev_s = device_serial_row_major();
++                let (m, k) = (shape_a[0], shape_a[1]);
++                if shape_b[0] != k {
++                    continue; // only compatible (m, k) @ (k, n) pairs
++                }
++                let n = shape_b[1];
++                let a = arange_shape(&dev_f, shape_a);
++                let b = arange_shape(&dev_f, shape_b);
++                let a_s = arange_shape_serial(&dev_s, shape_a);
++                let b_s = arange_shape_serial(&dev_s, shape_b);
++                let c = &a % &b;
++                let c_ref = &a_s % &b_s;
++                assert_eq!(c.shape(), &[m, n]);
++                assert_eq!(c_ref.shape(), &[m, n]);
++                assert!(
++                    allclose_f64(&c, &c_ref),
++                    "mismatch for shape ({m},{k}) @ ({k},{n}):\nfaer: {c}\nserial: {c_ref}"
++                );
++            }
++        }
++    }
++
++    #[test]
++    fn test_gemm_transposed_and_strided_operands() {
++        // transposed views, sliced views with nonzero offset, and strided
++        // slices must be passed to faer with correct strides (no silent
++        // transposition / garbage reads).
++        let dev_f = device_faer_row_major();
++        let dev_s = device_serial_row_major();
++
++        // A [3, 5] and B = A^T: syrk-like input through transposed view
++        let a = arange_shape(&dev_f, [3, 5]);
++        let a_s = arange_shape_serial(&dev_s, [3, 5]);
++        let c1 = &a % &a.t();
++        let c1_ref = &a_s % &a_s.t();
++        assert!(allclose_f64(&c1, &c1_ref), "A @ A^T mismatch");
++
++        // reversed: A^T @ A (also hits the syrk fast path in faer device)
++        let c2 = &a.t() % &a;
++        let c2_ref = &a_s.t() % &a_s;
++        assert!(allclose_f64(&c2, &c2_ref), "A^T @ A mismatch");
++
++        // offset view: slice rows 1.. of a [5, 6] tensor
++        let big = arange_shape(&dev_f, [5, 6]);
++        let big_s = arange_shape_serial(&dev_s, [5, 6]);
++        let a_off = big.slice(s![1..4, 1..5]); // [3, 4], nonzero offset
++        let a_off_s = big_s.slice(s![1..4, 1..5]);
++        let b_off = big.slice(s![1..5, 0..3]); // [4, 3]
++        let b_off_s = big_s.slice(s![1..5, 0..3]);
++        let c3 = &a_off % &b_off;
++        let c3_ref = &a_off_s % &b_off_s;
++        assert!(allclose_f64(&c3, &c3_ref), "offset-view gemm mismatch");
++
++        // stride-2 slice
++        let a_str = big.slice(s![0..5, slice!(0, 6, 2)]); // [5, 3], col stride 2
++        let a_str_s = big_s.slice(s![0..5, slice!(0, 6, 2)]);
++        let b_str = big.slice(s![0..3, 0..4]);
++        let b_str_s = big_s.slice(s![0..3, 0..4]);
++        let c4 = &a_str % &b_str;
++        let c4_ref = &a_str_s % &b_str_s;
++        assert!(allclose_f64(&c4, &c4_ref), "stride-2 gemm mismatch");
++
++        // broadcast stride-0 column: A [3, 1] broadcast to [3, 4]
++        let a_col = arange_shape(&dev_f, [3, 1]);
++        let a_col_s = arange_shape_serial(&dev_s, [3, 1]);
++        let a_b = a_col.to_broadcast(vec![3, 4]);
++        let a_b_s = a_col_s.to_broadcast(vec![3, 4]);
++        let b42 = big.slice(s![0..4, 0..2]); // [4, 2]
++        let b42_s = big_s.slice(s![0..4, 0..2]);
++        let c5 = &a_b % &b42;
++        let c5_ref = &a_b_s % &b42_s;
++        assert!(allclose_f64(&c5, &c5_ref), "stride-0 broadcast A gemm mismatch");
++    }
++
++    #[test]
++    fn test_gemm_batch_parallel_and_serial_paths() {
++        // exercise both the parallel-outer (`n_task > 4 * nthreads`) and the
++        // sequential-outer broadcast paths with odd rest-dim shapes.
++        let dev_f = device_faer_row_major();
++        let dev_s = device_serial_row_major();
++
++        // parallel-outer path: 3*37 = 111 tasks > 4 * nthreads (16 cores);
++        // A's batch dims broadcast against B's ([1, 37] -> [3, 37]).
++        let a = arange((0.0, 1.0 * 37.0 * 5.0 * 7.0, 1.0, &dev_f)).into_shape([1, 37, 5, 7]);
++        let b = arange((0.0, 3.0 * 37.0 * 7.0 * 4.0, 1.0, &dev_f)).into_shape([3, 37, 7, 4]);
++        let c = &a % &b;
++        let a_s = arange((0.0, 1.0 * 37.0 * 5.0 * 7.0, 1.0, &dev_s)).into_shape([1, 37, 5, 7]);
++        let b_s = arange((0.0, 3.0 * 37.0 * 7.0 * 4.0, 1.0, &dev_s)).into_shape([3, 37, 7, 4]);
++        let c_ref = &a_s % &b_s;
++        assert_eq!(c.shape(), &[3, 37, 5, 4]);
++        assert!(allclose_f64(&c, &c_ref), "rule-7 parallel-outer mismatch");
++
++        // sequential-outer path: n_task <= 4 * nthreads
++        let a2 = arange((0.0, 2.0 * 3.0 * 3.0 * 4.0, 1.0, &dev_f)).into_shape([2, 3, 3, 4]);
++        let b2 = arange((0.0, 2.0 * 3.0 * 4.0 * 5.0, 1.0, &dev_f)).into_shape([2, 3, 4, 5]);
++        let c2 = &a2 % &b2;
++        let a2_s = arange((0.0, 2.0 * 3.0 * 3.0 * 4.0, 1.0, &dev_s)).into_shape([2, 3, 3, 4]);
++        let b2_s = arange((0.0, 2.0 * 3.0 * 4.0 * 5.0, 1.0, &dev_s)).into_shape([2, 3, 4, 5]);
++        let c2_ref = &a2_s % &b2_s;
++        assert!(allclose_f64(&c2, &c2_ref), "rule-7 sequential-outer mismatch");
++
++        // single-threaded device must agree too
++        let mut dev_f1 = DeviceFaer::new(1);
++        dev_f1.set_default_order(RowMajor);
++        let c3 = {
++            let a3 = arange((0.0, 1.0 * 37.0 * 5.0 * 7.0, 1.0, &dev_f1)).into_shape([1, 37, 5, 7]);
++            let b3 = arange((0.0, 3.0 * 37.0 * 7.0 * 4.0, 1.0, &dev_f1)).into_shape([3, 37, 7, 4]);
++            &a3 % &b3
++        };
++        assert!(allclose_f64(&c3, &c_ref), "rule-7 single-thread mismatch");
++    }
++
++    #[test]
++    fn test_gemm_alpha_beta_gemm_from() {
++        // GEMM-style entry: c = beta * c + alpha * (a @ b), including on
++        // strided (sliced) outputs. beta != 0 exercises the scale-then-add
++        // path of gemm_faer.
++        let dev_f = device_faer_row_major();
++        let dev_s = device_serial_row_major();
++
++        let a = arange_shape(&dev_f, [3, 4]);
++        let b = arange_shape(&dev_f, [4, 5]);
++        let a_s = arange_shape_serial(&dev_s, [3, 4]);
++        let b_s = arange_shape_serial(&dev_s, [4, 5]);
++
++        // contiguous output, nonzero initial contents and beta
++        let mut c = linspace((1.0, 30.0, 15, &dev_f)).into_shape([3, 5]);
++        let mut c_s = linspace((1.0, 30.0, 15, &dev_s)).into_shape([3, 5]);
++        rt::matmul_from(c.view_mut(), &a, &b, 2.0, 0.5);
++        rt::matmul_from(c_s.view_mut(), &a_s, &b_s, 2.0, 0.5);
++        assert!(allclose_f64(&c, &c_s), "matmul_from contiguous mismatch");
++
++        // strided output: columns 2..7 of a [3, 10] tensor
++        let mut c2 = arange_shape(&dev_f, [3, 10]);
++        let mut c2_s = arange_shape_serial(&dev_s, [3, 10]);
++        {
++            let mut c2_v = c2.slice_mut(s![.., 2..7]);
++            let mut c2_v_s = c2_s.slice_mut(s![.., 2..7]);
++            rt::matmul_from(c2_v.view_mut(), &a, &b, 1.5, 2.0);
++            rt::matmul_from(c2_v_s.view_mut(), &a_s, &b_s, 1.5, 2.0);
++        }
++        assert!(allclose_f64(&c2, &c2_s), "matmul_from strided-output mismatch");
++    }
++
++    #[test]
++    fn test_gemm_col_major_default_order() {
++        // col-major device default order computes C^T = B^T A^T internally;
++        // results must match the serial row-major reference values. Tensors
++        // are built on the serial (row-major) device and transferred with
++        // `to_device`, so both devices see identical values AND layouts
++        // (creating tensors directly under a col-major default order yields
++        // f-order interpretations with different values).
++        let dev_f = device_faer_col_major();
++        let dev_s = device_serial_row_major();
++        let a_s = arange_shape_serial(&dev_s, [3, 4]);
++        let b_s = arange_shape_serial(&dev_s, [4, 5]);
++        let a = a_s.to_device(&dev_f);
++        let b = b_s.to_device(&dev_f);
++        let c = &a % &b;
++        let c_ref = &a_s % &b_s;
++        assert!(allclose_f64(&c, &c_ref), "col-major order gemm mismatch:\nfaer: {c}\nserial: {c_ref}");
++
++        // col-major with transposed operands (2-D rules agree under both
++        // conventions: contract the last axis of the first operand with the
++        // first axis of the second)
++        let c2 = &b.t() % &a.t();
++        let c2_ref = &b_s.t() % &a_s.t();
++        assert!(allclose_f64(&c2, &c2_ref), "col-major order transposed gemm mismatch");
++
++        // batched (rule 7 col-major): batch axes are *trailing* under the
++        // col-major convention. X [4, 3, 2] % Y [3, 5, 2] contracts X's
++        // axis-1 with Y's axis-0. Equivalent row-major computation:
++        // R = Y.t() % X.t() with C = R.t() (as values).
++        let x_s = arange((0.0, 4.0 * 3.0 * 2.0, 1.0, &dev_s)).into_shape([4, 3, 2]);
++        let y_s = arange((0.0, 3.0 * 5.0 * 2.0, 1.0, &dev_s)).into_shape([3, 5, 2]);
++        let x = x_s.to_device(&dev_f);
++        let y = y_s.to_device(&dev_f);
++        let c3 = &x % &y;
++        let c3_ref_prod = &y_s.t() % &x_s.t();
++        let c3_ref = c3_ref_prod.t();
++        assert_eq!(c3.shape(), &[4, 5, 2]);
++        assert!(allclose_f64(&c3, &c3_ref), "col-major order batched mismatch");
++    }
++
++    #[test]
++    fn test_inner_dot_edge_shapes() {
++        // rule 1 (vector inner dot) with empty, single-element, odd and
++        // strided vectors, including alpha/beta scaling.
++        let dev_f = device_faer_row_major();
++        let dev_s = device_serial_row_major();
++        for n in [0usize, 1, 2, 3, 17, 64, 65, 129] {
++            let a = arange((0.0, n as f64, 1.0, &dev_f));
++            let b = arange((0.0, n as f64, 1.0, &dev_f)) * 2.0 - 1.0;
++            let a_s = arange((0.0, n as f64, 1.0, &dev_s));
++            let b_s = arange((0.0, n as f64, 1.0, &dev_s)) * 2.0 - 1.0;
++            let c = &a % &b;
++            let c_ref = &a_s % &b_s;
++            assert!(allclose_f64(&c, &c_ref), "inner dot mismatch for n = {n}");
++        }
++
++        // strided views
++        let big = arange((0.0, 40.0, 1.0, &dev_f));
++        let big_s = arange((0.0, 40.0, 1.0, &dev_s));
++        let a = big.slice(s![slice!(1, 38, 2)]); // 19 elements, stride 2, offset 1
++        let b = big.slice(s![slice!(0, 38, 2)]);
++        let a_s = big_s.slice(s![slice!(1, 38, 2)]);
++        let b_s = big_s.slice(s![slice!(0, 38, 2)]);
++        let c = &a % &b;
++        let c_ref = &a_s % &b_s;
++        assert!(allclose_f64(&c, &c_ref), "strided inner dot mismatch");
++
++        // alpha/beta path on a 0-dim output
++        let mut c2: Tensor<f64, DeviceFaer, Ix0> = full(([], 7.0, &dev_f)).into_dim::<Ix0>();
++        let mut c2_s: Tensor<f64, DeviceCpuSerial, Ix0> = full(([], 7.0, &dev_s)).into_dim::<Ix0>();
++        let n = 10usize;
++        let a2 = arange((0.0, n as f64, 1.0, &dev_f));
++        let b2 = arange((0.0, n as f64, 1.0, &dev_f)) * 2.0;
++        let a2_s = arange((0.0, n as f64, 1.0, &dev_s));
++        let b2_s = arange((0.0, n as f64, 1.0, &dev_s)) * 2.0;
++        rt::matmul_from(c2.view_mut(), &a2, &b2, 2.0, 0.5);
++        rt::matmul_from(c2_s.view_mut(), &a2_s, &b2_s, 2.0, 0.5);
++        assert!(allclose_f64(&c2, &c2_s), "inner dot alpha/beta mismatch");
++    }
++
++    #[test]
++    fn test_gemm_dtype_coverage() {
++        // f32 / c32 / c64 go through faer; i32 falls back to the naive
++        // kernel. All must match the serial device.
++        #[allow(non_camel_case_types)]
++        type c64 = num::Complex<f64>;
++        #[allow(non_camel_case_types)]
++        type c32 = num::Complex<f32>;
++        let dev_f = device_faer_row_major();
++        let dev_s = device_serial_row_major();
++
++        // f32
++        let a = arange((0.0f32, 12.0f32, 1.0f32, &dev_f)).into_shape([3, 4]);
++        let b = arange((0.0f32, 12.0f32, 1.0f32, &dev_f)).into_shape([4, 3]);
++        let a_s = arange((0.0f32, 12.0f32, 1.0f32, &dev_s)).into_shape([3, 4]);
++        let b_s = arange((0.0f32, 12.0f32, 1.0f32, &dev_s)).into_shape([4, 3]);
++        let c = &a % &b;
++        let c_ref = &a_s % &b_s;
++        assert!((c - c_ref.to_device(&dev_f)).abs().max_all() < 1e-3, "f32 gemm mismatch");
++
++        // c64
++        let av: Vec<c64> = (0..12).map(|i| c64::new(i as f64, -(i as f64))).collect();
++        let bv: Vec<c64> = (0..12).map(|i| c64::new(0.5 * i as f64, i as f64)).collect();
++        let a = asarray((av, &dev_f)).into_shape([3, 4]);
++        let b = asarray((bv, &dev_f)).into_shape([4, 3]);
++        let av_s: Vec<c64> = (0..12).map(|i| c64::new(i as f64, -(i as f64))).collect();
++        let bv_s: Vec<c64> = (0..12).map(|i| c64::new(0.5 * i as f64, i as f64)).collect();
++        let a_s = asarray((av_s, &dev_s)).into_shape([3, 4]);
++        let b_s = asarray((bv_s, &dev_s)).into_shape([4, 3]);
++        let c = &a % &b;
++        let c_ref = &a_s % &b_s;
++        let d = &c - &c_ref.to_device(&dev_f);
++        let dmax = d.mapv(|v| v.norm()).max_all();
++        assert!(dmax < 1e-10, "c64 gemm mismatch: {dmax}");
++
++        // c32
++        let av: Vec<c32> = (0..12).map(|i| c32::new(i as f32, -(i as f32))).collect();
++        let bv: Vec<c32> = (0..12).map(|i| c32::new(0.5 * i as f32, i as f32)).collect();
++        let a = asarray((av, &dev_f)).into_shape([3, 4]);
++        let b = asarray((bv, &dev_f)).into_shape([4, 3]);
++        let av_s: Vec<c32> = (0..12).map(|i| c32::new(i as f32, -(i as f32))).collect();
++        let bv_s: Vec<c32> = (0..12).map(|i| c32::new(0.5 * i as f32, i as f32)).collect();
++        let a_s = asarray((av_s, &dev_s)).into_shape([3, 4]);
++        let b_s = asarray((bv_s, &dev_s)).into_shape([4, 3]);
++        let c = &a % &b;
++        let c_ref = &a_s % &b_s;
++        let d = &c - &c_ref.to_device(&dev_f);
++        let dmax = d.mapv(|v| v.norm()).max_all();
++        assert!(dmax < 1e-3, "c32 gemm mismatch: {dmax}");
++
++        // i32 (naive fallback)
++        let a = arange((0i32, 12, 1, &dev_f)).into_shape([3, 4]);
++        let b = arange((0i32, 12, 1, &dev_f)).into_shape([4, 3]);
++        let a_s = arange((0i32, 12, 1, &dev_s)).into_shape([3, 4]);
++        let b_s = arange((0i32, 12, 1, &dev_s)).into_shape([4, 3]);
++        let c = &a % &b;
++        let c_ref = &a_s % &b_s;
++        assert_eq!(c.raw(), c_ref.raw(), "i32 (naive fallback) gemm mismatch");
++    }
++
++    #[test]
++    fn test_gemm_beta_zero_nan_canary_output() {
++        // Regression test (BLAS beta == 0 contract): when `beta` is zero the
++        // output buffer need not be initialized (the tensor-level matmul
++        // allocates it via `empty`), and the kernels must not read it.
++        // Reading uninitialized memory propagated NaN/Inf bit patterns into
++        // results through `0 * garbage = NaN` (observed with a recycled-heap
++        // `(31, 2) @ (2, 5)` product). Pre-filling the output with NaN
++        // canaries makes the old behavior deterministic: any NaN surviving
++        // in the result means the kernel read `c` despite `beta == 0`.
++        let va = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]; // [2, 3] row-major
++        let vb = vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0]; // [3, 2] row-major
++        let la = [2, 3].c();
++        let lb = [3, 2].c();
++        let lc = [2, 2].c();
++        // expected: [[58, 64], [139, 154]]
++        let expected = [58.0, 64.0, 139.0, 154.0];
++
++        // serial naive kernel
++        let mut c = vec![f64::NAN; 4];
++        gemm_naive_cpu_serial(&mut c, &lc, &va, &la, &vb, &lb, 1.0, 0.0).unwrap();
++        assert!(c.iter().all(|x| !x.is_nan()), "serial naive gemm leaked NaN with beta = 0: {c:?}");
++        assert_eq!(c, expected);
++
++        // rayon naive kernel (used by DeviceFaer as fallback)
++        let mut c = vec![f64::NAN; 4];
++        gemm_ix2_naive_cpu_rayon(&mut c, &lc, &va, &la, &vb, &lb, 1.0, 0.0, None).unwrap();
++        assert!(c.iter().all(|x| !x.is_nan()), "rayon naive gemm leaked NaN with beta = 0: {c:?}");
++        assert_eq!(c, expected);
++
++        // inner dot kernels (rule 1); expected: 1*7 + 2*9 + 3*11 = 58
++        let lc0 = [].c();
++        let la1 = [3].c();
++        let va3 = vec![1.0, 2.0, 3.0];
++        let vb3 = vec![7.0, 9.0, 11.0];
++        let mut c0 = [f64::NAN];
++        inner_dot_naive_cpu_serial(&mut c0, &lc0, &va3, &la1, &vb3, &la1, 1.0, 0.0).unwrap();
++        assert!(!c0[0].is_nan(), "serial naive inner dot leaked NaN with beta = 0");
++        assert_eq!(c0[0], 58.0);
++
++        let mut c0 = [f64::NAN];
++        inner_dot_naive_cpu_rayon(&mut c0[0], &va3, &la1, &vb3, &la1, 1.0, 0.0, None).unwrap();
++        assert!(!c0[0].is_nan(), "rayon naive inner dot leaked NaN with beta = 0");
++        assert_eq!(c0[0], 58.0);
++
++        // beta != 0 must still scale the existing contents
++        let mut c = vec![1.0, 2.0, 3.0, 4.0];
++        gemm_naive_cpu_serial(&mut c, &lc, &va, &la, &vb, &lb, 1.0, 2.0).unwrap();
++        assert_eq!(c, vec![58.0 + 2.0, 64.0 + 4.0, 139.0 + 6.0, 154.0 + 8.0]);
++    }
++
++    /* #endregion */
+ }
++
+diff --git a/rstsr-core/src/device_faer/matmul_impl.rs b/rstsr-core/src/device_faer/matmul_impl.rs
+index 811c70f..cc055f5 100644
+--- a/rstsr-core/src/device_faer/matmul_impl.rs
++++ b/rstsr-core/src/device_faer/matmul_impl.rs
+@@ -40,6 +40,14 @@ where
+     rstsr_assert_eq!(sa[1], sb[0], InvalidLayout)?;
+     rstsr_assert_eq!(sc[1], sb[1], InvalidLayout)?;
+ 
++    // SAFETY (a/b/c, three blocks below): shapes were validated above; the
++    // layouts are valid, so `offset` addressing stays inside each slice's
++    // allocation and pointers remain aligned for `T`. `a`/`b` are shared
++    // borrows (faer only reads them); `c` is exclusively borrowed here.
++    // Aliasing between c and a/b is not permitted (same contract as BLAS
++    // GEMM); the tensor-level API never produces such overlap. When
++    // `beta != 0` faer reads `c`'s current contents, which is the documented
++    // DeviceMatMulAPI contract (c must be initialized then).
+     let faer_a = unsafe {
+         MatRef::from_raw_parts(
+             a.as_ptr().add(la.offset()) as *const T,
+@@ -80,6 +88,9 @@ where
+     } else {
+         if beta != T::one() {
+             // perform inplace multiplication
++            // SAFETY: `&mut [T]` -> `&mut [MaybeUninit<T>]` is layout-neutral;
++            // the closure only writes through `assume_init_mut` after reading
++            // the (initialized) previous value.
+             let c = unsafe { transmute::<&mut [T], &mut [MaybeUninit<T>]>(c) };
+             op_muta_numb_func_cpu_rayon(
+                 c,
+@@ -126,6 +137,10 @@ where
+     rstsr_assert_eq!(sc[0], sc[1], InvalidLayout)?;
+     rstsr_assert_eq!(sc[0], sa[0], InvalidLayout)?;
+ 
++    // SAFETY (a/at/c, three blocks below): same validity argument as in
++    // `gemm_faer` (validated shapes, in-bounds offsets, alignment). `faer_at`
++    // reinterprets the same buffer with swapped strides/shape, which is a
++    // valid read-only view of the same initialized memory.
+     let faer_a = unsafe {
+         MatRef::from_raw_parts(
+             a.as_ptr().add(la.offset()) as *const T,
+@@ -174,6 +189,7 @@ where
+     } else {
+         if beta != T::one() {
+             // perform inplace multiplication
++            // SAFETY: see the same pattern in `gemm_faer`.
+             let c = unsafe { transmute::<&mut [T], &mut [MaybeUninit<T>]>(c) };
+             op_muta_numb_func_cpu_rayon(
+                 c,
+@@ -233,10 +249,17 @@ where
+                 }
+             }
+         } else {
++            // NOTE (efficiency): builds a fresh rayon pool per call instead of
++            // reusing the device pool.
+             let pool = rayon::ThreadPoolBuilder::new().num_threads(nthreads).build().unwrap();
+             pool.install(|| {
+                 (0..n).into_par_iter().for_each(|i| {
+                     (0..i).for_each(|j| unsafe {
++                        // SAFETY: `i > j` and both indices are within `lc`'s
++                        // shape, so both offsets are in-bounds of `c`. Each
++                        // upper-triangle target is written exactly once and
++                        // only lower-triangle values (already written by the
++                        // syrk above) are read: no data races.
+                         let idx_ij = lc.index_uncheck(&[i, j]) as usize;
+                         let idx_ji = lc.index_uncheck(&[j, i]) as usize;
+                         let c_ptr_ji = c.as_ptr().add(idx_ji) as *mut T;
+diff --git a/rstsr-linalg-traits/tests/mod.rs b/rstsr-linalg-traits/tests/mod.rs
+index a1b5cf1..d0319a7 100644
+--- a/rstsr-linalg-traits/tests/mod.rs
++++ b/rstsr-linalg-traits/tests/mod.rs
+@@ -1 +1,2 @@
+ mod test_faer_func;
++mod test_faer_edge;
+diff --git a/rstsr-linalg-traits/tests/test_faer_edge/edge_c64.rs b/rstsr-linalg-traits/tests/test_faer_edge/edge_c64.rs
+new file mode 100644
+index 0000000..4919c1d
+--- /dev/null
++++ b/rstsr-linalg-traits/tests/test_faer_edge/edge_c64.rs
+@@ -0,0 +1,116 @@
++#![cfg(feature = "faer")]
++
++// Complex (c64) edge tests with hand-computed expected values.
++
++use num::Complex;
++use rstsr::prelude::*;
++
++type c64 = Complex<f64>;
++
++fn c(re: f64, im: f64) -> c64 {
++    c64::new(re, im)
++}
++
++fn max_abs_diff(a: &Tensor<c64, DeviceFaer, Ix2>, b: &Tensor<c64, DeviceFaer, Ix2>) -> f64 {
++    assert_eq!(a.shape(), b.shape());
++    let [m, n] = *a.shape();
++    let mut r: f64 = 0.0;
++    for i in 0..m {
++        for j in 0..n {
++            r = r.max((a[[i, j]] - b[[i, j]]).norm());
++        }
++    }
++    r
++}
++
++fn as_mat(data: &[c64], shape: [usize; 2], device: &DeviceFaer) -> Tensor<c64, DeviceFaer, Ix2> {
++    rt::asarray((data.to_vec(), shape.c(), device)).into_dim::<Ix2>()
++}
++
++#[cfg(test)]
++mod test {
++    use super::*;
++
++    #[test]
++    fn test_det_inv_solve() {
++        let device = DeviceFaer::default();
++        // det [[1+i, 0], [2-i, 3]] = (1+i)*3 = 3+3i
++        let a = as_mat(&[c(1.0, 1.0), c(0.0, 0.0), c(2.0, -1.0), c(3.0, 0.0)], [2, 2], &device);
++        let det = rt::linalg::det(&a);
++        assert!((det - c(3.0, 3.0)).norm() < 1e-12);
++
++        // inv of diag(1+2i, 2-i) = diag((1-2i)/5, (2+i)/5)
++        let d = as_mat(&[c(1.0, 2.0), c(0.0, 0.0), c(0.0, 0.0), c(2.0, -1.0)], [2, 2], &device);
++        let d_inv = rt::linalg::inv(&d);
++        let expect = as_mat(
++            &[c(0.2, -0.4), c(0.0, 0.0), c(0.0, 0.0), c(0.4, 0.2)],
++            [2, 2],
++            &device,
++        );
++        assert!(max_abs_diff(&d_inv, &expect) < 1e-12);
++
++        // solve [[2]] x = [2i] -> x = i
++        let m1 = as_mat(&[c(2.0, 0.0)], [1, 1], &device);
++        let b1 = as_mat(&[c(0.0, 2.0)], [1, 1], &device);
++        let x = rt::linalg::solve_general((&m1, &b1));
++        assert!((x[[0, 0]] - c(0.0, 1.0)).norm() < 1e-12);
++
++        // property: a @ inv(a) == i
++        let prod = &a % &d_inv;
++        let _ = prod; // mixed matrices; skip cross property here
++    }
++
++    #[test]
++    fn test_eigh_hermitian() {
++        // [[2, 1-i], [1+i, 3]] has eigenvalues {1, 4}
++        let device = DeviceFaer::default();
++        let a = as_mat(&[c(2.0, 0.0), c(1.0, -1.0), c(1.0, 1.0), c(3.0, 0.0)], [2, 2], &device);
++        let w = rt::linalg::eigvalsh(&a);
++        assert!((w[[0]] - 1.0).abs() < 1e-10);
++        assert!((w[[1]] - 4.0).abs() < 1e-10);
++
++        let (w, v) = rt::linalg::eigh(&a).into();
++        assert!((w[[0]] - 1.0).abs() < 1e-10);
++        assert!((w[[1]] - 4.0).abs() < 1e-10);
++        // property: a @ v == v @ diag(w)
++        let av = &a % &v;
++        for j in 0..2 {
++            for i in 0..2 {
++                let lhs = av[[i, j]];
++                let rhs = v[[i, j]] * w[[j]];
++                assert!((lhs - rhs).norm() < 1e-10);
++            }
++        }
++    }
++
++    #[test]
++    fn test_cholesky_hermitian() {
++        // [[4, 2-2i], [2+2i, 5]] = L L^H with L = [[2, 0], [1+i, sqrt(3)]]
++        let device = DeviceFaer::default();
++        let a = as_mat(&[c(4.0, 0.0), c(2.0, -2.0), c(2.0, 2.0), c(5.0, 0.0)], [2, 2], &device);
++        let l = rt::linalg::cholesky((&a, Lower));
++        assert!((l[[0, 0]] - c(2.0, 0.0)).norm() < 1e-12);
++        assert!((l[[1, 0]] - c(1.0, 1.0)).norm() < 1e-12);
++        assert!((l[[1, 1]] - c(3.0_f64.sqrt(), 0.0)).norm() < 1e-12);
++        // property: l @ l^H == a
++        let prod = &l % &l.t().conj().to_owned();
++        assert!(max_abs_diff(&prod, &a) < 1e-12);
++    }
++
++    #[test]
++    fn test_svdvals_and_0x0() {
++        let device = DeviceFaer::default();
++        // singular values of diag(3, 4) are {4, 3}
++        let d = as_mat(&[c(3.0, 0.0), c(0.0, 0.0), c(0.0, 0.0), c(0.0, 4.0)], [2, 2], &device);
++        let s = rt::linalg::svdvals(&d);
++        assert!((s[[0]] - 4.0).abs() < 1e-12);
++        assert!((s[[1]] - 3.0).abs() < 1e-12);
++
++        // 0x0 systems on the complex dtype (the EVD guard must cover c64 too)
++        let e = rt::asarray((Vec::<c64>::new(), [0, 0].c(), &device)).into_dim::<Ix2>();
++        let (w, v) = rt::linalg::eigh(&e).into();
++        assert_eq!(w.shape(), &[0]);
++        assert_eq!(v.shape(), &[0, 0]);
++        assert_eq!(rt::linalg::eigvalsh(&e).shape(), &[0]);
++    }
++}
+diff --git a/rstsr-linalg-traits/tests/test_faer_edge/edge_f64.rs b/rstsr-linalg-traits/tests/test_faer_edge/edge_f64.rs
+new file mode 100644
+index 0000000..dd3f70d
+--- /dev/null
++++ b/rstsr-linalg-traits/tests/test_faer_edge/edge_f64.rs
+@@ -0,0 +1,423 @@
++#![cfg(feature = "faer")]
++
++// Expected values generated with numpy 2.x / scipy (numpy.linalg, scipy.linalg):
++//   A = rng.standard_normal((5, 5)) + 5 * eye(5), seed 20260914, etc.
++// See T4 audit report for the generator script.
++
++use rstsr::prelude::*;
++
++const A: [f64; 25] = [
++    4.077811404935535, -0.6812676480038667, -0.2560884528055047, -0.27391424276438714, 0.18293341823744563,
++    -0.9025269656496291, 4.3934898342506905, -1.5855326828270324, 1.9381511025551625, -0.1394198355781108,
++    -3.0739926503125483, -1.7287368980088194, 3.1544490647351857, -1.1381921333222733, 0.381550647155777,
++    -1.2612495392146048, 0.1588455291219489, -0.13387688257588057, 3.795176639562149, -0.2168700428091096,
++    0.47126340458956517, 0.03622458934245187, -1.3534265577188123, -1.0378871440744315, 5.349031792749491,
++];
++const B: [f64; 15] = [
++    -1.5553546695686975, -0.5008043925274678, 0.05686463432432375, 1.234144868240253, -1.4955990541695792,
++    0.4594216507663428, 0.2838990903004501, -0.4366350616341144, 0.4077921599480415, 0.5826052861832667,
++    0.014606537548277045, -0.6809473720181229, 0.542764186373223, 3.183161418328173, 0.2159637546662234,
++];
++const B_VEC: [f64; 5] =
++    [0.6993029581393069, -0.4331697607628728, -0.9393416941609728, -0.6459406434281108, -2.2413427118802876];
++const X: [f64; 15] = [
++    -0.3773371153932479, -0.31528416499763406, 0.06760139963046242, 0.11949603220781231, -0.6794862305904562,
++    0.2942541005924237, -0.21499608924031433, -0.894238539806587, 0.29140326006095246, 0.020294451689603355,
++    -0.08201763468702955, -0.15464337891477403, 0.08344362422426294, 0.38529331279348755, 0.0761515367692628,
++];
++const X_VEC: [f64; 5] =
++    [0.15945651494628116, -0.08080481221041004, -0.1791788531615314, -0.1491065383417829, -0.5067875633541576];
++const INV_A: [f64; 25] = [
++    0.3017743570719741, 0.06787847463990145, 0.053300054797517336, -0.00028082787483498645, -0.012364589521848383,
++    0.1640519319214485, 0.32188953578853857, 0.1648706933726727, -0.10673880694338268, -0.013308532583776768,
++    0.41302964134700487, 0.24316362111083875, 0.4573481323330708, 0.032094952584643704, -0.039109158868878856,
++    0.11364116408981854, 0.020944944525636527, 0.03359881097779283, 0.2725271703935031, 0.005312121195219396,
++    0.09885790263783853, 0.05742976410248124, 0.11642633060924133, 0.061747533741659276, 0.17926442015447985,
++];
++const DET_A: f64 = 746.3817303371173;
++const S: [f64; 16] = [
++    4.0, 1.0, 0.5, 0.0, 1.0, 3.0, 0.2, 0.3, 0.5, 0.2, 2.0, 0.1, 0.0, 0.3, 0.1, 1.5,
++];
++const EIGH_W: [f64; 4] = [1.4061311483946752, 1.9039660345511933, 2.459091101656497, 4.730811715397635];
++const C_MAT: [f64; 16] = [
++    6.0, 1.0, 0.5, 0.0, 1.0, 5.0, 0.2, 0.3, 0.5, 0.2, 4.0, 0.1, 0.0, 0.3, 0.1, 3.5,
++];
++const CHOL_L: [f64; 16] = [
++    2.449489742783178, 0.0, 0.0, 0.0, 0.4082482904638631, 2.1984843263788196, 0.0, 0.0, 0.20412414523193154,
++    0.05306686305052324, 1.988848219794389, 0.0, 0.0, 0.1364576478442026, 0.046639366325925434, 1.8652624694271698,
++];
++const M: [f64; 24] = [
++    -0.3123362813025934, 0.118598377136711, -1.5009143352374208, -2.1077860809944773, 0.20874433050913457,
++    -1.4783908825796563, -0.7804411975038759, -0.46034057761598274, 0.681286214666042, -1.598771354640396,
++    0.6041409159931036, -1.2079810705821359, 1.4785660649595551, -2.1012122117686562, 1.2871454485356577,
++    -0.30812257797528997, -0.1339253436211577, -0.8239040288069326, -2.2906292185940997, 1.2063785993946365,
++    0.3133778688214287, 0.6079677655597145, -2.052283618562968, -0.6901236503345604,
++];
++const SVD_S: [f64; 4] = [3.96015854003641, 3.4718179742482307, 2.5100238105345594, 1.2542564119740744];
++const RANK2: [f64; 16] = [
++    2.361111111111111, 0.9722222222222222, 1.6111111111111112, 0.4861111111111111, 0.9722222222222222,
++    0.6944444444444444, 0.7222222222222222, 0.3472222222222222, 1.6111111111111112, 0.7222222222222222,
++    1.1111111111111112, 0.3611111111111111, 0.4861111111111111, 0.3472222222222222, 0.3611111111111111,
++    0.1736111111111111,
++];
++const PINV_R2: [f64; 16] = [
++    0.7089774078478006, -1.0523186682520813, 0.2149227110582638, -0.5261593341260405, -1.0523186682520813,
++    2.232791650151936, -0.18483287092086104, 1.1163958250759678, 0.21492271105826394, -0.18483287092086137,
++    0.09198705245078603, -0.09241643546043067, -0.5261593341260408, 1.1163958250759682, -0.09241643546043053,
++    0.558197912537984,
++];
++const L4: [f64; 16] = [
++    2.1864150912790823, 0.0, 0.0, 0.0, -0.9851976076801512, 3.680855566501356, 0.0, 0.0, 0.2452058672765945,
++    -0.5574464095855782, 3.1680304281087817, 0.0, -1.256953283529997, 1.0050082841418608, -0.3364772692317709,
++    4.750016645540782,
++];
++const TRI_X: [f64; 12] = [
++    -0.7113720883891238, -0.22905275147661486, 0.026008160367689916, 0.14488555145774387, -0.4676253240202389,
++    0.13177502332746693, 0.17016807220915434, -0.20238001354845586, 0.14989512595661844, -0.08419121809280061,
++    0.02706705876659449, -0.1537373595448312,
++];
++const GEN_W: [f64; 4] = [0.41282354881061784, 0.4877004609416579, 0.5514781029575679, 0.7028590184115933];
++
++fn max_abs_diff(a: &Tensor<f64, DeviceFaer, Ix2>, b: &Tensor<f64, DeviceFaer, Ix2>) -> f64 {
++    assert_eq!(a.shape(), b.shape());
++    let [m, n] = *a.shape();
++    let mut r: f64 = 0.0;
++    for i in 0..m {
++        for j in 0..n {
++            r = r.max((a[[i, j]] - b[[i, j]]).abs());
++        }
++    }
++    r
++}
++
++fn max_abs_diff_1d(a: &Tensor<f64, DeviceFaer, Ix1>, b: &Tensor<f64, DeviceFaer, Ix1>) -> f64 {
++    assert_eq!(a.shape(), b.shape());
++    let n = a.shape()[0];
++    let mut r: f64 = 0.0;
++    for i in 0..n {
++        r = r.max((a[[i]] - b[[i]]).abs());
++    }
++    r
++}
++
++fn zeros_2d(shape: [usize; 2], device: &DeviceFaer) -> Tensor<f64, DeviceFaer, Ix2> {
++    rt::zeros((shape.c(), device)).into_dim::<Ix2>()
++}
++
++fn as_mat(data: &[f64], shape: [usize; 2], device: &DeviceFaer) -> Tensor<f64, DeviceFaer, Ix2> {
++    rt::asarray((data.to_vec(), shape.c(), device)).into_dim::<Ix2>()
++}
++
++#[cfg(test)]
++mod test {
++    use super::*;
++
++    #[test]
++    fn test_1x1_systems() {
++        let device = DeviceFaer::default();
++        let one = as_mat(&[3.5], [1, 1], &device);
++        assert!((rt::linalg::det(&one) - 3.5).abs() < 1e-12);
++        assert!((rt::linalg::inv(&one)[[0, 0]] - 1.0 / 3.5).abs() < 1e-12);
++        assert!((rt::linalg::svdvals(&one).raw()[0] - 3.5).abs() < 1e-12);
++        assert!((rt::linalg::eigvalsh(&one).raw()[0] - 3.5).abs() < 1e-12);
++        let l = rt::linalg::cholesky((&one, Lower));
++        assert!((l[[0, 0]] - 3.5_f64.sqrt()).abs() < 1e-12);
++        // solve [[2]] x = [6]
++        let m1 = as_mat(&[2.0], [1, 1], &device);
++        let b1 = as_mat(&[6.0], [1, 1], &device);
++        let x = rt::linalg::solve_general((&m1, &b1));
++        assert!((x[[0, 0]] - 3.0).abs() < 1e-12);
++    }
++
++    #[test]
++    fn test_0x0_systems() {
++        // numpy-compatible: det(empty) == 1, other functions return empty
++        // results instead of panicking (faer's EVD used to panic here).
++        let device = DeviceFaer::default();
++        let e = rt::asarray((Vec::<f64>::new(), [0, 0].c(), &device)).into_dim::<Ix2>();
++        assert!((rt::linalg::det(&e) - 1.0).abs() < 1e-12);
++        assert_eq!(rt::linalg::inv(&e).shape(), &[0, 0]);
++        assert_eq!(rt::linalg::solve_general((&e, &e)).shape(), &[0, 0]);
++        assert_eq!(rt::linalg::cholesky((&e, Lower)).shape(), &[0, 0]);
++        assert_eq!(rt::linalg::svdvals(&e).shape(), &[0]);
++        let (w, v) = rt::linalg::eigh(&e).into();
++        assert_eq!(w.shape(), &[0]);
++        assert_eq!(v.shape(), &[0, 0]);
++        assert_eq!(rt::linalg::eigvalsh(&e).shape(), &[0]);
++    }
++
++    #[test]
++    fn test_non_square_errors() {
++        // non-square systems must raise proper errors, not panic inside faer
++        let device = DeviceFaer::default();
++        let ns = as_mat(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0], [2, 3], &device);
++        let b = as_mat(&[1.0, 1.0], [2, 1], &device);
++        assert!(rt::linalg::inv_f(&ns).is_err());
++        assert!(rt::linalg::solve_general_f((&ns, &b)).is_err());
++        assert!(rt::linalg::cholesky_f((&ns, Lower)).is_err());
++        assert!(rt::linalg::eigh_f(&ns).is_err());
++        assert!(rt::linalg::solve_triangular_f((&ns, &b, Lower)).is_err());
++    }
++
++    #[test]
++    fn test_numpy_reference_solve_inv_det() {
++        let device = DeviceFaer::default();
++        let a = as_mat(&A, [5, 5], &device);
++        let b = as_mat(&B, [5, 3], &device);
++        let b_vec = rt::asarray((B_VEC.to_vec(), &device)).into_dim::<Ix1>();
++
++        let x = rt::linalg::solve_general((&a, &b));
++        let x_ref = as_mat(&X, [5, 3], &device);
++        assert!(max_abs_diff(&x.into_dim::<Ix2>(), &x_ref) < 1e-10);
++
++        let x_vec = rt::linalg::solve_general((&a, &b_vec));
++        let x_vec_ref = rt::asarray((X_VEC.to_vec(), &device)).into_dim::<Ix1>();
++        assert!(max_abs_diff_1d(&x_vec.into_dim::<Ix1>(), &x_vec_ref) < 1e-10);
++
++        let inv_a = rt::linalg::inv(&a);
++        let inv_ref = as_mat(&INV_A, [5, 5], &device);
++        assert!(max_abs_diff(&inv_a, &inv_ref) < 1e-10);
++
++        let det = rt::linalg::det(&a);
++        assert!((det - DET_A).abs() < 1e-8);
++
++        // property: A @ inv(A) == I
++        let eye = &a % &inv_a;
++        let mut eye_ref = zeros_2d([5, 5], &device);
++        for i in 0..5 {
++            eye_ref[[i, i]] = 1.0;
++        }
++        assert!(max_abs_diff(&eye, &eye_ref) < 1e-10);
++    }
++
++    #[test]
++    fn test_numpy_reference_eigh_eigvalsh() {
++        let device = DeviceFaer::default();
++        let s = as_mat(&S, [4, 4], &device);
++        let w_ref = rt::asarray((EIGH_W.to_vec(), &device)).into_dim::<Ix1>();
++
++        let (w, v) = rt::linalg::eigh(&s).into();
++        assert!(max_abs_diff_1d(&w, &w_ref) < 1e-10);
++        // property: S @ v == v @ diag(w)
++        let sv = &s % &v;
++        let vd = {
++            let mut r = zeros_2d([4, 4], &device);
++            for j in 0..4 {
++                for i in 0..4 {
++                    r[[i, j]] = v[[i, j]] * w[[j]];
++                }
++            }
++            r
++        };
++        assert!(max_abs_diff(&sv, &vd) < 1e-10);
++
++        let w2 = rt::linalg::eigvalsh(&s);
++        assert!(max_abs_diff_1d(&w2, &w_ref) < 1e-10);
++
++        // uplo flags agree on a symmetric matrix
++        let w_lower = rt::linalg::eigvalsh((&s, Lower));
++        let w_upper = rt::linalg::eigvalsh((&s, Upper));
++        assert!(max_abs_diff_1d(&w_lower, &w_ref) < 1e-10);
++        assert!(max_abs_diff_1d(&w_upper, &w_ref) < 1e-10);
++    }
++
++    #[test]
++    fn test_numpy_reference_cholesky() {
++        let device = DeviceFaer::default();
++        let c = as_mat(&C_MAT, [4, 4], &device);
++        let l_ref = as_mat(&CHOL_L, [4, 4], &device);
++
++        let l = rt::linalg::cholesky((&c, Lower));
++        assert!(max_abs_diff(&l, &l_ref) < 1e-10);
++
++        // upper == lower^T
++        let u = rt::linalg::cholesky((&c, Upper));
++        assert!(max_abs_diff(&u, &l.t().to_owned()) < 1e-10);
++
++        // property: L @ L^T == C
++        let ll = &l % &l.t().to_owned();
++        assert!(max_abs_diff(&ll, &c) < 1e-10);
++
++        // default (row-major device order -> lower)
++        let l_default = rt::linalg::cholesky(&c);
++        assert!(max_abs_diff(&l_default, &l_ref) < 1e-10);
++
++        // error contract: non-SPD matrix must raise, not panic
++        let bad = as_mat(&[1.0, 2.0, 2.0, 1.0], [2, 2], &device);
++        assert!(rt::linalg::cholesky_f((&bad, Lower)).is_err());
++    }
++
++    #[test]
++    fn test_numpy_reference_svd() {
++        let device = DeviceFaer::default();
++        let m = as_mat(&M, [4, 6], &device);
++        let s_ref = rt::asarray((SVD_S.to_vec(), &device)).into_dim::<Ix1>();
++
++        // full matrices
++        let (u, s, vt) = rt::linalg::svd((&m, true)).into();
++        assert!(max_abs_diff_1d(&s, &s_ref) < 1e-10);
++        assert_eq!(u.shape(), &[4, 4]);
++        assert_eq!(vt.shape(), &[6, 6]);
++
++        // thin matrices
++        let (u, s, vt) = rt::linalg::svd((&m, false)).into();
++        assert!(max_abs_diff_1d(&s, &s_ref) < 1e-10);
++        assert_eq!(u.shape(), &[4, 4]);
++        assert_eq!(vt.shape(), &[4, 6]);
++
++        // property: m == u @ diag(s) @ vt
++        let mut us = zeros_2d([4, 4], &device);
++        for j in 0..4 {
++            for i in 0..4 {
++                us[[i, j]] = u[[i, j]] * s[[j]];
++            }
++        }
++        let recon = &us % &vt;
++        assert!(max_abs_diff(&recon, &m) < 1e-10);
++
++        // svdvals
++        let sv = rt::linalg::svdvals(&m);
++        assert!(max_abs_diff_1d(&sv, &s_ref) < 1e-10);
++    }
++
++    #[test]
++    fn test_numpy_reference_pinv() {
++        let device = DeviceFaer::default();
++        let r2 = as_mat(&RANK2, [4, 4], &device);
++        let pinv_ref = as_mat(&PINV_R2, [4, 4], &device);
++
++        let (pinv, rank) = rt::linalg::pinv(&r2).into();
++        assert_eq!(rank, 2);
++        assert!(max_abs_diff(&pinv, &pinv_ref) < 1e-8);
++
++        // property: r2 @ pinv @ r2 == r2 (Moore-Penrose)
++        let tmp = &r2 % &pinv;
++        let recon = &tmp % &r2;
++        assert!(max_abs_diff(&recon, &r2) < 1e-8);
++    }
++
++    #[test]
++    fn test_numpy_reference_solve_triangular() {
++        let device = DeviceFaer::default();
++        let l4 = as_mat(&L4, [4, 4], &device);
++        // first 4 rows of B, [4, 3]
++        let b4 = as_mat(&B[..12].to_vec().as_slice(), [4, 3], &device);
++        let x_ref = as_mat(&TRI_X, [4, 3], &device);
++
++        let x = rt::linalg::solve_triangular((&l4, &b4, Lower));
++        assert!(max_abs_diff(&x, &x_ref) < 1e-10);
++
++        // property: L4 @ X == B4
++        let prod = &l4 % &x;
++        assert!(max_abs_diff(&prod, &b4) < 1e-10);
++    }
++
++    #[test]
++    fn test_numpy_reference_generalized_eigh() {
++        let device = DeviceFaer::default();
++        let s = as_mat(&S, [4, 4], &device);
++        let c = as_mat(&C_MAT, [4, 4], &device);
++        let w_ref = rt::asarray((GEN_W.to_vec(), &device)).into_dim::<Ix1>();
++
++        // itype 1: S x = lambda C x
++        let (w, v) = rt::linalg::eigh((&s, &c, Lower, 1)).into();
++        assert!(max_abs_diff_1d(&w, &w_ref) < 1e-9);
++
++        // property: S @ v == C @ v @ diag(w)
++        let sv = &s % &v;
++        let cvw = {
++            let cv = &c % &v;
++            let mut r = zeros_2d([4, 4], &device);
++            for j in 0..4 {
++                for i in 0..4 {
++                    r[[i, j]] = cv[[i, j]] * w[[j]];
++                }
++            }
++            r
++        };
++        assert!(max_abs_diff(&sv, &cvw) < 1e-9);
++    }
++
++    #[test]
++    fn test_strided_and_f_order_inputs() {
++        let device = DeviceFaer::default();
++
++        // det of a strided (offset, sliced) view
++        let big = as_mat(
++            &[9.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 8.0, 8.0],
++            [3, 4],
++            &device,
++        );
++        let sub = big.i((.., 1..4)); // [[1,2,3],[5,6,7],[9,8,8]]
++        assert!((rt::linalg::det(&sub) - (-4.0)).abs() < 1e-9);
++
++        // inv of a transposed view equals transpose of inv of base
++        let s = as_mat(&S, [4, 4], &device);
++        let inv_s = rt::linalg::inv(&s);
++        let inv_t = rt::linalg::inv(&s.t());
++        assert!(max_abs_diff(&inv_t, &inv_s.t().to_owned()) < 1e-10);
++
++        // f-order input
++        let s_f = rt::asarray((S.to_vec(), [4, 4].f(), &device)).into_dim::<Ix2>();
++        let w_ref = rt::asarray((EIGH_W.to_vec(), &device)).into_dim::<Ix1>();
++        assert!(max_abs_diff_1d(&rt::linalg::eigvalsh(&s_f), &w_ref) < 1e-10);
++    }
++
++    #[test]
++    fn test_solve_with_strided_rhs() {
++        let device = DeviceFaer::default();
++        let a = as_mat(&A, [5, 5], &device);
++        // embed the [5, 3] rhs into a larger [7, 5] buffer (nonzero offset,
++        // row stride 5) and pass the strided view
++        let mut big_buf = vec![99.0_f64; 7 * 5];
++        for (r, chunk) in B.chunks(3).enumerate() {
++            for (c, &v) in chunk.iter().enumerate() {
++                big_buf[(r + 1) * 5 + 1 + c] = v;
++            }
++        }
++        let big = rt::asarray((big_buf, [7, 5].c(), &device)).into_dim::<Ix2>();
++        let b = big.i((1..6, 1..4));
++        assert_eq!(b.shape(), &[5, 3]);
++        let x = rt::linalg::solve_general((&a, &b));
++        let x_ref = as_mat(&X, [5, 3], &device);
++        assert!(max_abs_diff(&x.into_dim::<Ix2>(), &x_ref) < 1e-10);
++    }
++
++    #[test]
++    fn test_col_major_default_order() {
++        // results must be independent of the device default order
++        let mut device = DeviceFaer::default();
++        device.set_default_order(RowMajor);
++        let c = as_mat(&C_MAT, [4, 4], &device);
++        let s = as_mat(&S, [4, 4], &device);
++        let l_rm = rt::linalg::cholesky((&c, Lower));
++        let w_rm = rt::linalg::eigvalsh(&s);
++
++        device.set_default_order(ColMajor);
++        // same uplo flag: identical values
++        let l_cm = rt::linalg::cholesky((&c, Lower));
++        let w_cm = rt::linalg::eigvalsh(&s);
++        assert!(max_abs_diff(&l_cm, &l_rm) < 1e-12);
++        assert!(max_abs_diff_1d(&w_cm, &w_rm) < 1e-12);
++
++        // default uplo switches with order, but the mathematical result of
++        // cholesky (lower factor) must agree when requested explicitly
++        let l_cm_default = rt::linalg::cholesky((&c, Upper));
++        assert!(max_abs_diff(&l_cm_default, &l_rm.t().to_owned()) < 1e-12);
++    }
++
++    #[test]
++    fn test_solve_singular_current_contract() {
++        // DOCUMENTED CONTRACT (faer SVD-based solve): exactly singular
++        // systems do NOT raise (numpy would raise LinAlgError); they return
++        // non-finite values. This test pins the current behavior so any
++        // future contract change (raising an error) is deliberate.
++        let device = DeviceFaer::default();
++        let s = as_mat(&[1.0, 2.0, 2.0, 4.0], [2, 2], &device);
++        let b = as_mat(&[1.0, 1.0], [2, 1], &device);
++        let x = rt::linalg::solve_general((&s, &b));
++        assert_eq!(x.shape(), &[2, 1]);
++        let non_finite = x.raw().iter().any(|v| !v.is_finite());
++        assert!(non_finite, "singular solve currently returns non-finite values");
++    }
++}
+diff --git a/rstsr-linalg-traits/tests/test_faer_edge/mod.rs b/rstsr-linalg-traits/tests/test_faer_edge/mod.rs
+new file mode 100644
+index 0000000..466d2cb
+--- /dev/null
++++ b/rstsr-linalg-traits/tests/test_faer_edge/mod.rs
+@@ -0,0 +1,10 @@
++// Edge-case and device-contract tests for the DeviceFaer linalg drivers.
++//
++// These tests complement `test_faer_func` (which checks 1024x1024
++// fingerprints against generated npy resources): here we check
++// - degenerate shapes (0x0, 1x1) and their error contracts,
++// - numpy-derived constants on small fixed matrices (no npy resources needed),
++// - non-contiguous (sliced / strided / f-order) inputs,
++// - col-major device default order.
++mod edge_c64;
++mod edge_f64;

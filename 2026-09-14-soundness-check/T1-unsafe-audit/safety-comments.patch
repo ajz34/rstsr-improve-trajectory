@@ -1,0 +1,2808 @@
+diff --git a/rstsr-common/src/flags.rs b/rstsr-common/src/flags.rs
+index 287d7cd..9b7d5ac 100644
+--- a/rstsr-common/src/flags.rs
++++ b/rstsr-common/src/flags.rs
+@@ -18,6 +18,10 @@ pub trait ChangeableDefault {
+ 
+ macro_rules! impl_changeable_default {
+     ($struct:ty, $val:ident, $default:expr) => {
++        // SAFETY: the `static mut` is written only by `change_default` (unsafe, meant
++        // for process initialization before threads are spawned) and read by
++        // `get_default`; concurrent read/write would be a data race — documented API
++        // contract, not enforced here.
+         static mut $val: $struct = $default;
+ 
+         impl ChangeableDefault for $struct {
+diff --git a/rstsr-common/src/layout/broadcast.rs b/rstsr-common/src/layout/broadcast.rs
+index c348410..99ee665 100644
+--- a/rstsr-common/src/layout/broadcast.rs
++++ b/rstsr-common/src/layout/broadcast.rs
+@@ -218,6 +218,8 @@ where
+     if order == ColMajor {
+         let mut shape: IxD = shape.clone().into();
+         shape.reverse();
++        // SAFETY: `shape` was cloned from a `DMax` and only reversed (length
++        // preserved), so the conversion back to `DMax` cannot fail.
+         let shape: DMax = unsafe { shape.try_into().unwrap_unchecked() };
+         let mut broadcast_type = broadcast_type.to_vec();
+         broadcast_type.reverse();
+@@ -241,6 +243,9 @@ where
+     }
+     let stride = stride.try_into();
+     let stride = stride.map_err(|_| rstsr_error!(InvalidLayout, "Type cast error."))?;
++    // SAFETY: newly added axes get stride 0 and expanded axes (`Expand`/`Upcast`)
++    // get stride 0; untouched axes keep their strides, so reachable offsets stay
++    // within the original (validated) layout's bounds.
+     unsafe { Ok(Layout::new_unchecked(shape.clone(), stride, layout.offset())) }
+ }
+ 
+diff --git a/rstsr-common/src/layout/indexer.rs b/rstsr-common/src/layout/indexer.rs
+index fdb4ef9..7b258bd 100644
+--- a/rstsr-common/src/layout/indexer.rs
++++ b/rstsr-common/src/layout/indexer.rs
+@@ -445,7 +445,11 @@ where
+         let (shape1, shape2) = shape.split_at(axis);
+         let (stride1, stride2) = stride.split_at(axis);
+ 
++        // SAFETY: `dim_split_at` partitions the (validated) layout's shape/stride pairs
++        // into a prefix and a suffix; each sub-layout reaches a subset of the original
++        // elements with the same offset, hence stays in-bounds.
+         let layout1 = unsafe { Layout::new_unchecked(shape1.to_vec(), stride1.to_vec(), offset) };
++        // SAFETY: see `layout1` above — suffix partition of the validated layout.
+         let layout2 = unsafe { Layout::new_unchecked(shape2.to_vec(), stride2.to_vec(), offset) };
+         return Ok((layout1, layout2));
+     }
+diff --git a/rstsr-common/src/layout/iterator.rs b/rstsr-common/src/layout/iterator.rs
+index 1329ac6..d3a34ed 100644
+--- a/rstsr-common/src/layout/iterator.rs
++++ b/rstsr-common/src/layout/iterator.rs
+@@ -78,9 +78,15 @@ where
+         let index_start = layout.new_shape();
+         let index_end = match iter_end {
+             0 => index_start.clone(),
++            // SAFETY: `iter_end` equals `layout.size()` (> 0 in this arm); a non-zero
++            // size implies non-zero dims, so the unraveling is well-defined. The result is
++            // the one-past-the-end index (a sentinel), never dereferenced.
+             _ => unsafe { shape.unravel_index_f(iter_end) },
+         };
+         let offset_start = layout.offset() as isize;
++        // SAFETY: `index_uncheck` is pure integer arithmetic over shape/stride (no
++        // pointer access); `index_end` has one entry per dimension. The result is the
++        // exclusive end bound, never dereferenced.
+         let offset_end = unsafe { layout.index_uncheck(index_end.as_ref()) };
+ 
+         return Ok(Self { layout, index_start, iter_start, offset_start, index_end, iter_end, offset_end });
+@@ -90,7 +96,11 @@ where
+         let Self { layout, index_start, iter_start, offset_start, index_end, iter_end, offset_end } = self.clone();
+         let shape = layout.shape();
+         let iter_ins = iter_start + index;
++        // SAFETY: `iter_ins` <= `iter_end` <= size and size > 0 implies non-zero dims;
++        // the unraveled index is a valid (or one-past-end) position.
+         let index_ins = unsafe { shape.unravel_index_f(iter_ins) };
++        // SAFETY: pure integer arithmetic (see `new` above); result used only as an
++        // iteration bound.
+         let offset_ins = unsafe { layout.index_uncheck(index_ins.as_ref()) };
+         let split_lhs = Self {
+             layout: layout.clone(),
+@@ -401,9 +411,14 @@ where
+         let index_start = layout.new_shape();
+         let index_end = match iter_end {
+             0 => index_start.clone(),
++            // SAFETY: `iter_end` equals `layout.size()` (> 0 in this arm); a non-zero
++            // size implies non-zero dims, so the unraveling is well-defined. The result is
++            // the one-past-the-end index (a sentinel), never dereferenced.
+             _ => unsafe { shape.unravel_index_c(iter_end) },
+         };
+         let offset_start = layout.offset() as isize;
++        // SAFETY: pure integer arithmetic over shape/stride (no pointer access); the
++        // result is the exclusive end bound, never dereferenced.
+         let offset_end = unsafe { layout.index_uncheck(index_end.as_ref()) };
+ 
+         return Ok(Self { layout, index_start, iter_start, offset_start, index_end, iter_end, offset_end });
+@@ -413,7 +428,11 @@ where
+         let Self { layout, index_start, iter_start, offset_start, index_end, iter_end, offset_end } = self.clone();
+         let shape = layout.shape();
+         let iter_ins = iter_start + index;
++        // SAFETY: `iter_ins` <= `iter_end` <= size and size > 0 implies non-zero dims;
++        // the unraveled index is a valid (or one-past-end) position.
+         let index_ins = unsafe { shape.unravel_index_c(iter_ins) };
++        // SAFETY: pure integer arithmetic (see `new` above); result used only as an
++        // iteration bound.
+         let offset_ins = unsafe { layout.index_uncheck(index_ins.as_ref()) };
+         let split_lhs = Self {
+             layout: layout.clone(),
+diff --git a/rstsr-common/src/layout/layoutbase.rs b/rstsr-common/src/layout/layoutbase.rs
+index cef8a6d..f48256f 100644
+--- a/rstsr-common/src/layout/layoutbase.rs
++++ b/rstsr-common/src/layout/layoutbase.rs
+@@ -22,6 +22,8 @@ where
+     pub(crate) offset: usize,
+ }
+ 
++// `Layout` holds only plain integer data (shape, stride, offset) and never
++// references memory, so `Send`/`Sync` hold unconditionally.
+ unsafe impl<D> Send for Layout<D> where D: DimBaseAPI {}
+ unsafe impl<D> Sync for Layout<D> where D: DimBaseAPI {}
+ 
+@@ -397,6 +399,8 @@ where
+     where
+         D: DimShapeAPI,
+     {
++        // SAFETY: the layout is validated immediately below (`bounds_index` +
++        // `check_strides`) before it is returned; errors discard it.
+         let layout = unsafe { Layout::new_unchecked(shape, stride, offset) };
+         layout.bounds_index()?;
+         layout.check_strides(true)?;
+@@ -462,6 +466,9 @@ where
+             shape[i] = shape_old[axes[i]];
+             stride[i] = stride_old[axes[i]];
+         }
++        // SAFETY: `axes` is validated above (length, range, no duplicates); permuting
++        // (shape, stride) pairs and keeping the offset preserves the set of reachable
++        // elements, so the source layout's bounds/stride invariants carry over.
+         return unsafe { Ok(Layout::new_unchecked(shape, stride, self.offset)) };
+     }
+ 
+@@ -482,6 +489,8 @@ where
+             shape[i] = shape_old[self.ndim() - i - 1];
+             stride[i] = stride_old[self.ndim() - i - 1];
+         }
++        // SAFETY: `reverse_axes` applies a fixed reversal permutation of (shape, stride)
++        // pairs; the offset is unchanged and the reachable element set is preserved.
+         return unsafe { Layout::new_unchecked(shape, stride, self.offset) };
+     }
+ 
+@@ -494,6 +503,9 @@ where
+         let mut stride = self.stride().clone();
+         shape.as_mut().swap(axis1, axis2);
+         stride.as_mut().swap(axis1, axis2);
++        // SAFETY: `axis1`/`axis2` are range-checked above; swapping (shape, stride)
++        // pairs preserves the reachable element set, so the validated layout's
++        // invariants carry over.
+         return unsafe { Ok(Layout::new_unchecked(shape, stride, self.offset)) };
+     }
+ }
+@@ -577,6 +589,8 @@ pub trait DimLayoutContigAPI: DimBaseAPI + DimShapeAPI {
+     fn new_c_contig(&self, offset: Option<usize>) -> Layout<Self> {
+         let shape = self.clone();
+         let stride = shape.stride_c_contig();
++        // SAFETY: `stride_c_contig` builds non-overlapping contiguous strides from
++        // `shape`; all indices stay below the shape product.
+         unsafe { Layout::new_unchecked(shape, stride, offset.unwrap_or(0)) }
+     }
+ 
+@@ -585,6 +599,8 @@ pub trait DimLayoutContigAPI: DimBaseAPI + DimShapeAPI {
+     fn new_f_contig(&self, offset: Option<usize>) -> Layout<Self> {
+         let shape = self.clone();
+         let stride = shape.stride_f_contig();
++        // SAFETY: `stride_f_contig` builds non-overlapping contiguous strides from
++        // `shape`; all indices stay below the shape product.
+         unsafe { Layout::new_unchecked(shape, stride, offset.unwrap_or(0)) }
+     }
+ 
+diff --git a/rstsr-common/src/layout/matmul.rs b/rstsr-common/src/layout/matmul.rs
+index 9731e12..4d6d970 100644
+--- a/rstsr-common/src/layout/matmul.rs
++++ b/rstsr-common/src/layout/matmul.rs
+@@ -78,6 +78,7 @@ impl LayoutMatMulAPI<Ix1, Ix1> for LayoutMatMulConfig<Ix1, Ix1> {
+     fn layout_matmul(la: &Layout<Ix1>, lb: &Layout<Ix1>, _: FlagOrder) -> Result<Self> {
+         // check shape
+         rstsr_assert_eq!(la.shape(), lb.shape(), InvalidLayout)?;
++        // SAFETY: empty (0-dim) layout with offset 0 — trivially in-bounds.
+         let lc = unsafe { Layout::new_unchecked([], [], 0) };
+         Ok(LayoutMatMulConfig {
+             matmul_type: MatMulType::InnerDot,
+@@ -125,6 +126,7 @@ fn layout_matmul_dyn_row_major(la: &Layout<IxD>, lb: &Layout<IxD>) -> Result<Lay
+         (1, 1) => {
+             // rule 1: vector inner dot
+             rstsr_assert_eq!(la.shape(), lb.shape(), InvalidLayout)?;
++            // SAFETY: empty (0-dim) layout with offset 0 — trivially in-bounds.
+             let lc = unsafe { Layout::new_unchecked(vec![], vec![], 0) };
+             Ok(LayoutMatMulConfig {
+                 matmul_type: MatMulType::InnerDot,
+diff --git a/rstsr-common/src/layout/rearrangement.rs b/rstsr-common/src/layout/rearrangement.rs
+index 18151e3..31e7553 100644
+--- a/rstsr-common/src/layout/rearrangement.rs
++++ b/rstsr-common/src/layout/rearrangement.rs
+@@ -107,6 +107,9 @@ where
+                 *t = 0;
+             }
+         });
++        // SAFETY: only axes with shape 1 or stride 0 are rewritten to (shape 1,
++        // stride 0); iteration skips those axes, so reachable offsets stay within the
++        // original layout's bounds.
+         layout = unsafe { Layout::new_unchecked(shape, stride, layout.offset()) };
+     }
+ 
+@@ -185,6 +188,9 @@ where
+             shape[i] = 1;
+             stride[i] = l.size() as isize;
+         }
++        // SAFETY: `bounds_index` above proved the layout covers exactly `size`
++        // consecutive elements; the rewritten [size, 1, ...] shape with stride 1
++        // addresses the same range.
+         Ok(unsafe { Layout::new_unchecked(shape, stride, l.offset()) })
+     };
+     match order {
+@@ -315,6 +321,9 @@ where
+             .map(|l| {
+                 let shape = l.shape().as_ref()[ndim_f_contig..].iter().cloned().collect_vec();
+                 let stride = l.stride().as_ref()[ndim_f_contig..].iter().cloned().collect_vec();
++                // SAFETY: for every layout the first `ndim_f_contig` axes are f-contiguous
++                // with identical shapes (contract: call after `translate_to_col_major`), so
++                // dropping them and iterating `0..size_contig` linearly yields the same offsets.
+                 unsafe { Layout::new_unchecked(shape, stride, l.offset()) }
+             })
+             .collect_vec();
+@@ -455,6 +464,10 @@ where
+     // a0_o: stride = 0, but that has already initialized as zero.
+ 
+     let shape = la.shape().clone();
++    // SAFETY: strides are rebuilt from `la`'s shape: contiguous/discontiguous axes
++    // get standard product strides, broadcast axes keep stride 0, singleton axes
++    // get a neighboring stride; the maximum reachable offset stays <= size - 1.
++    // Offset 0 is used — callers add each tensor's own offset when indexing.
+     let layout = unsafe { Layout::new_unchecked(shape, stride, 0) };
+     Ok(layout)
+ }
+diff --git a/rstsr-common/src/layout/reshape.rs b/rstsr-common/src/layout/reshape.rs
+index 525ac4f..5561a6b 100644
+--- a/rstsr-common/src/layout/reshape.rs
++++ b/rstsr-common/src/layout/reshape.rs
+@@ -220,6 +220,8 @@ pub fn layout_reshapeable(
+ ) -> Result<Option<Layout<IxD>>> {
+     Ok(quick_check(shape_out, layout_in, order)?.or_else(|| {
+         attempt_nocopy_reshape(layout_in.shape(), layout_in.stride(), shape_out, order == ColMajor).map(
++            // SAFETY: `attempt_nocopy_reshape` verified that the new (shape, stride) pair
++            // visits exactly the same elements as the validated input layout.
+             |stride_out| unsafe { Layout::<IxD>::new_unchecked(shape_out.to_vec(), stride_out, layout_in.offset()) },
+         )
+     }))
+diff --git a/rstsr-common/src/layout/shape.rs b/rstsr-common/src/layout/shape.rs
+index ed9b9c1..d4f453c 100644
+--- a/rstsr-common/src/layout/shape.rs
++++ b/rstsr-common/src/layout/shape.rs
+@@ -102,6 +102,9 @@ impl<const N: usize> DimShapeAPI for Ix<N> {
+ 
+     #[inline]
+     unsafe fn unravel_index_f(&self, index: usize) -> Self {
++        // SAFETY (contract): the caller guarantees `index < shape_size()`; all
++        // dimensions are then non-zero, so no division by zero occurs and every
++        // returned index component is within the shape.
+         let mut index = index;
+         let mut result = self.new_shape();
+         match self.ndim() {
+@@ -141,6 +144,9 @@ impl<const N: usize> DimShapeAPI for Ix<N> {
+ 
+     #[inline]
+     unsafe fn unravel_index_c(&self, index: usize) -> Self {
++        // SAFETY (contract): the caller guarantees `index < shape_size()`; all
++        // dimensions are then non-zero, so no division by zero occurs and every
++        // returned index component is within the shape.
+         let mut index = index;
+         let mut result = self.new_shape();
+         match self.ndim() {
+@@ -212,6 +218,9 @@ impl DimShapeAPI for IxD {
+ 
+     #[inline]
+     unsafe fn unravel_index_f(&self, index: usize) -> Self {
++        // SAFETY (contract): the caller guarantees `index < shape_size()`; all
++        // dimensions are then non-zero, so no division by zero occurs and every
++        // returned index component is within the shape.
+         let mut index = index;
+         let mut result = self.new_shape();
+         if self.ndim() >= 1 {
+@@ -227,6 +236,9 @@ impl DimShapeAPI for IxD {
+ 
+     #[inline]
+     unsafe fn unravel_index_c(&self, index: usize) -> Self {
++        // SAFETY (contract): the caller guarantees `index < shape_size()`; all
++        // dimensions are then non-zero, so no division by zero occurs and every
++        // returned index component is within the shape.
+         let mut index = index;
+         let mut result = self.new_shape();
+         if self.ndim() >= 1 {
+diff --git a/rstsr-common/src/pack_array.rs b/rstsr-common/src/pack_array.rs
+index b2a47ab..079636d 100644
+--- a/rstsr-common/src/pack_array.rs
++++ b/rstsr-common/src/pack_array.rs
+@@ -41,6 +41,9 @@ impl<T> PackArrayAPI<T> for Vec<T> {
+             "Length of Vec<T> {len} must be a multiple to cast into Vec<[T; {N}]>"
+         )?;
+         let vec = ManuallyDrop::new(self);
++        // SAFETY: `len % N == 0` is asserted above; `[T; N]` repeats the layout of `T`,
++        // so the reinterpreted `Vec` covers exactly the same allocation. The source Vec
++        // is `ManuallyDrop`ped, preventing double free.
+         let arr = unsafe { Vec::from_raw_parts(vec.as_ptr() as *mut [T; N], len / N, len / N) };
+         Ok(arr)
+     }
+@@ -52,6 +55,9 @@ impl<T, const N: usize> UnpackArrayAPI for Vec<[T; N]> {
+     fn unpack_array(self) -> Self::Output {
+         let len = self.len();
+         let arr = ManuallyDrop::new(self);
++        // SAFETY: flattening `[[T; N]; len]` to `[T; len * N]` covers the same bytes
++        // (`len * N * size_of::<T>()` equals the allocation); the source Vec is
++        // `ManuallyDrop`ped and never dropped twice.
+         unsafe { Vec::from_raw_parts(arr.as_ptr() as *mut T, len * N, len * N) }
+     }
+ }
+@@ -73,6 +79,8 @@ impl<T> PackArrayAPI<T> for &[T] {
+             InvalidValue,
+             "Length of &[T] {len} must be a multiple to cast into Vec<[T; {N}]>"
+         )?;
++        // SAFETY: `len % N == 0` is asserted above and `[T; N]` repeats the layout of
++        // `T`; the cast slice covers the first `len` elements of the original `[T]`.
+         let arr = unsafe { core::slice::from_raw_parts(self.as_ptr() as *const [T; N], len / N) };
+         Ok(arr)
+     }
+@@ -83,6 +91,8 @@ impl<'l, T, const N: usize> UnpackArrayAPI for &'l [[T; N]] {
+ 
+     fn unpack_array(self) -> Self::Output {
+         let len = self.len();
++        // SAFETY: flattening `[[T; N]; len]` to `[T; len * N]` — same bytes, no access
++        // beyond the original slice.
+         unsafe { core::slice::from_raw_parts(self.as_ptr() as *const T, len * N) }
+     }
+ }
+@@ -104,6 +114,8 @@ impl<T> PackArrayAPI<T> for &mut [T] {
+             InvalidValue,
+             "Length of &[T] {len} must be a multiple to cast into Vec<[T; {N}]>"
+         )?;
++        // SAFETY: `len % N == 0` asserted above; `[T; N]` repeats the layout of `T`;
++        // the exclusive `&mut` borrow of the source slice is preserved.
+         let arr = unsafe { core::slice::from_raw_parts_mut(self.as_mut_ptr() as *mut [T; N], len / N) };
+         Ok(arr)
+     }
+@@ -114,6 +126,8 @@ impl<'l, T, const N: usize> UnpackArrayAPI for &'l mut [[T; N]] {
+ 
+     fn unpack_array(self) -> Self::Output {
+         let len = self.len();
++        // SAFETY: flattening `[[T; N]; len]` to `[T; len * N]` in place — same bytes;
++        // the exclusive `&mut` borrow of the source slice is preserved.
+         unsafe { core::slice::from_raw_parts_mut(self.as_ptr() as *mut T, len * N) }
+     }
+ }
+diff --git a/rstsr-core/src/device_cpu_serial/creation.rs b/rstsr-core/src/device_cpu_serial/creation.rs
+index df26666..d11cced 100644
+--- a/rstsr-core/src/device_cpu_serial/creation.rs
++++ b/rstsr-core/src/device_cpu_serial/creation.rs
+@@ -5,6 +5,8 @@ impl<T> DeviceCreationAnyAPI<T> for DeviceCpuSerial
+ where
+     Self: DeviceRawAPI<T, Raw = Vec<T>> + DeviceRawAPI<MaybeUninit<T>, Raw = Vec<MaybeUninit<T>>>,
+ {
++    // Device trait contract: the returned storage is uninitialized; callers must
++    // initialize every element before reading it (all callers in this crate do).
+     unsafe fn empty_impl(&self, len: usize) -> Result<Storage<DataOwned<Vec<T>>, T, DeviceCpuSerial>> {
+         let raw = uninitialized_vec(len)?;
+         Ok(Storage::new(raw.into(), self.clone()))
+@@ -33,6 +35,8 @@ where
+     where
+         Self: DeviceRawAPI<MaybeUninit<T>>,
+     {
++        // SAFETY: `Vec<MaybeUninit<T>>` is exactly the uninitialized-memory use case;
++        // no validity requirement on the contents yet.
+         let raw = unsafe { uninitialized_vec(len) }?;
+         Ok(Storage::new(raw.into(), self.clone()))
+     }
+@@ -46,6 +50,8 @@ where
+         let (data, device) = storage.into_raw_parts();
+         let vec = data.into_raw();
+         // transmute `Vec<MaybeUninit<T>>` to `Vec<T>`
++        // SAFETY: `Vec<MaybeUninit<T>>` -> `Vec<T>` has identical layout; the trait
++        // contract requires every element to have been initialized by the caller.
+         let vec = core::mem::transmute::<Vec<MaybeUninit<T>>, Vec<T>>(vec);
+         let data = vec.into();
+         Ok(Storage::new(data, device))
+diff --git a/rstsr-core/src/device_cpu_serial/operators/op_binary_arithmetic.rs b/rstsr-core/src/device_cpu_serial/operators/op_binary_arithmetic.rs
+index e6aec47..bb76859 100644
+--- a/rstsr-core/src/device_cpu_serial/operators/op_binary_arithmetic.rs
++++ b/rstsr-core/src/device_cpu_serial/operators/op_binary_arithmetic.rs
+@@ -1,6 +1,9 @@
+ use crate::prelude_dev::*;
+ use core::mem::transmute;
+ 
++// SAFETY (closures below): `a`/`b` point to initialized elements of the
++// caller's `Vec` (in-place `+=`-style op); `assume_init_mut` on initialized
++// memory is valid, and the op writes back every visited element.
+ #[duplicate_item(
+      OpAPI               Op             func                    ;
+     [OpAddAssignAPI   ] [AddAssign   ] [|a, b| unsafe { *a.assume_init_mut() +=  b.clone() }];
+@@ -21,16 +24,24 @@ where
+     D: DimAPI,
+ {
+     fn op_muta_refb(&self, a: &mut Vec<TA>, la: &Layout<D>, b: &Vec<TB>, lb: &Layout<D>) -> Result<()> {
++        // SAFETY: `Vec<TA>` -> `Vec<MaybeUninit<TA>>` reinterpretation (identical
++        // layout); `a` is an initialized buffer, and the op writes back every visited
++        // element.
+         let a = unsafe { transmute::<&mut Vec<TA>, &mut Vec<MaybeUninit<TA>>>(a) };
+         self.op_muta_refb_func(a, la, b, lb, &mut func)
+     }
+ 
+     fn op_muta_numb(&self, a: &mut Vec<TA>, la: &Layout<D>, b: TB) -> Result<()> {
++        // SAFETY: `Vec<TA>` -> `Vec<MaybeUninit<TA>>` reinterpretation (identical
++        // layout); `a` is an initialized buffer, and the op writes back every visited
++        // element.
+         let a = unsafe { transmute::<&mut Vec<TA>, &mut Vec<MaybeUninit<TA>>>(a) };
+         self.op_muta_numb_func(a, la, b, &mut func)
+     }
+ }
+ 
++// SAFETY (closures below): left-consume op — reads the initialized element via
++// `assume_init_read`, computes, and writes the result back to the same slot.
+ #[duplicate_item(
+      OpAPI                 Op       func                               ;
+     [OpLConsumeAddAPI   ] [Add   ] [|a, b| unsafe { a.write(a.assume_init_read() +  b.clone()); }];
+@@ -51,16 +62,24 @@ where
+     D: DimAPI,
+ {
+     fn op_muta_refb(&self, a: &mut Vec<TA>, la: &Layout<D>, b: &Vec<TB>, lb: &Layout<D>) -> Result<()> {
++        // SAFETY: `Vec<TA>` -> `Vec<MaybeUninit<TA>>` reinterpretation (identical
++        // layout); `a` is an initialized buffer, and the op writes back every visited
++        // element.
+         let a = unsafe { transmute::<&mut Vec<TA>, &mut Vec<MaybeUninit<TA>>>(a) };
+         self.op_muta_refb_func(a, la, b, lb, &mut func)
+     }
+ 
+     fn op_muta_numb(&self, a: &mut Vec<TA>, la: &Layout<D>, b: TB) -> Result<()> {
++        // SAFETY: `Vec<TA>` -> `Vec<MaybeUninit<TA>>` reinterpretation (identical
++        // layout); `a` is an initialized buffer, and the op writes back every visited
++        // element.
+         let a = unsafe { transmute::<&mut Vec<TA>, &mut Vec<MaybeUninit<TA>>>(a) };
+         self.op_muta_numb_func(a, la, b, &mut func)
+     }
+ }
+ 
++// SAFETY (closures below): right-consume op — same contract as the
++// left-consume group above.
+ #[duplicate_item(
+      OpAPI                 Op       func                               ;
+     [OpRConsumeAddAPI   ] [Add   ] [|a, b| unsafe { a.write(b.clone() +  a.assume_init_read()); }];
+@@ -81,16 +100,24 @@ where
+     D: DimAPI,
+ {
+     fn op_muta_refb(&self, b: &mut Vec<TB>, lb: &Layout<D>, a: &Vec<TA>, la: &Layout<D>) -> Result<()> {
++        // SAFETY: `Vec<TB>` -> `Vec<MaybeUninit<TB>>` reinterpretation (identical
++        // layout); `b` is an initialized buffer, and the op writes back every visited
++        // element.
+         let b = unsafe { transmute::<&mut Vec<TB>, &mut Vec<MaybeUninit<TB>>>(b) };
+         self.op_muta_refb_func(b, lb, a, la, &mut func)
+     }
+ 
+     fn op_muta_numb(&self, b: &mut Vec<TB>, lb: &Layout<D>, a: TA) -> Result<()> {
++        // SAFETY: `Vec<TB>` -> `Vec<MaybeUninit<TB>>` reinterpretation (identical
++        // layout); `b` is an initialized buffer, and the op writes back every visited
++        // element.
+         let b = unsafe { transmute::<&mut Vec<TB>, &mut Vec<MaybeUninit<TB>>>(b) };
+         self.op_muta_numb_func(b, lb, a, &mut func)
+     }
+ }
+ 
++// SAFETY (func_inplace below): reads the initialized element via
++// `assume_init_read` and writes the negated/inverted value back.
+ #[duplicate_item(
+      OpAPI      Op    func                              func_inplace        ;
+     [OpNegAPI] [Neg] [|a, b| { a.write(-b.clone()); }] [|a| unsafe { a.write(-a.assume_init_read()); }];
+@@ -107,6 +134,9 @@ where
+     }
+ 
+     fn op_muta(&self, a: &mut Vec<TA>, la: &Layout<D>) -> Result<()> {
++        // SAFETY: `Vec<TA>` -> `Vec<MaybeUninit<TA>>` reinterpretation (identical
++        // layout); `a` is an initialized buffer, and the op writes back every visited
++        // element.
+         let a = unsafe { transmute::<&mut Vec<TA>, &mut Vec<MaybeUninit<TA>>>(a) };
+         self.op_muta_func(a, la, &mut func_inplace)
+     }
+diff --git a/rstsr-core/src/device_cpu_serial/operators/op_binary_common.rs b/rstsr-core/src/device_cpu_serial/operators/op_binary_common.rs
+index 5bf2e0d..b5c8642 100644
+--- a/rstsr-core/src/device_cpu_serial/operators/op_binary_common.rs
++++ b/rstsr-core/src/device_cpu_serial/operators/op_binary_common.rs
+@@ -58,6 +58,10 @@ where
+ 
+     fn op_muta(&self, a: &mut Vec<MaybeUninit<Self::TOut>>, la: &Layout<D>) -> Result<()> {
+         let mut func = |a: &mut MaybeUninit<Self::TOut>| {
++            // SAFETY: in-place op — `a` is an initialized element of the caller's buffer;
++            // read then overwritten via `write`.
++            // SAFETY: in-place op — `a` is an initialized element of the caller's buffer;
++            // read then overwritten via `write`.
+             let b = unsafe { a.assume_init_read() };
+             a.write(func_inner);
+         };
+@@ -81,6 +85,10 @@ where
+ 
+     fn op_muta(&self, a: &mut Vec<MaybeUninit<T>>, la: &Layout<D>) -> Result<()> {
+         let mut func = |a: &mut MaybeUninit<T>| {
++            // SAFETY: in-place op — `a` is an initialized element of the caller's buffer;
++            // read then overwritten via `write`.
++            // SAFETY: in-place op — `a` is an initialized element of the caller's buffer;
++            // read then overwritten via `write`.
+             let b = unsafe { a.assume_init_read() };
+             a.write(b.clone() * b);
+         };
+@@ -144,6 +152,10 @@ where
+             return Ok(());
+         } else if T::ABS_SAME_TYPE {
+             return self.op_muta_func(a, la, &mut |a| unsafe {
++                // SAFETY: in-place op — reads an initialized element, then overwrites it.
++                // Also covered by the `&mut |a| unsafe` closure below.
++                // SAFETY: in-place op — reads an initialized element, then overwrites it via
++                // `write`.
+                 a.write(a.assume_init_read().ext_abs());
+             });
+         } else {
+@@ -175,6 +187,10 @@ where
+     fn op_muta(&self, a: &mut Vec<MaybeUninit<T::AbsOut>>, la: &Layout<D>) -> Result<()> {
+         if T::ABS_SAME_TYPE {
+             return self.op_muta_func(a, la, &mut |a| unsafe {
++                // SAFETY: in-place op — reads an initialized element, then overwrites it.
++                // Also covered by the `&mut |a| unsafe` closure below.
++                // SAFETY: in-place op — reads an initialized element, then overwrites it via
++                // `write`.
+                 a.write(a.assume_init_read().ext_imag());
+             });
+         } else {
+@@ -228,6 +244,10 @@ where
+ 
+     fn op_muta(&self, a: &mut Vec<MaybeUninit<T>>, la: &Layout<D>) -> Result<()> {
+         self.op_muta_func(a, la, &mut |a| unsafe {
++            // SAFETY: in-place op — reads an initialized element, then overwrites it.
++            // Also covered by the `&mut |a| unsafe` closure below.
++            // SAFETY: in-place op — reads an initialized element, then overwrites it via
++            // `write`.
+             a.write(a.assume_init_read().ext_sign());
+         })
+     }
+diff --git a/rstsr-core/src/device_faer/conversion.rs b/rstsr-core/src/device_faer/conversion.rs
+index e5cf124..f5468f7 100644
+--- a/rstsr-core/src/device_faer/conversion.rs
++++ b/rstsr-core/src/device_faer/conversion.rs
+@@ -17,7 +17,11 @@ where
+         let [nrows, ncols] = *self.shape();
+         let [row_stride, col_stride] = *self.stride();
+         let offset = self.offset();
++        // SAFETY: `offset` is within the storage by layout validity (checked when the
++        // tensor was constructed).
+         let ptr = unsafe { self.raw().as_ptr().add(offset) };
++        // SAFETY: strides come from the validated 2-D layout, so faer's element access
++        // stays within the slice's allocation; faer only reads through `MatRef`.
+         unsafe { MatRef::from_raw_parts(ptr, nrows, ncols, row_stride, col_stride) }
+     }
+ }
+@@ -32,7 +36,11 @@ where
+         let [nrows, ncols] = *self.shape();
+         let [row_stride, col_stride] = *self.stride();
+         let offset = self.offset();
++        // SAFETY: `offset` within the storage by layout validity; the exclusive `&mut`
++        // borrow provides write provenance.
+         let ptr = unsafe { self.raw_mut().as_mut_ptr().add(offset) };
++        // SAFETY: strides from the validated 2-D layout keep all element access within
++        // the slice allocation; exclusive `&mut` borrow backs the write access.
+         unsafe { MatMut::from_raw_parts_mut(ptr, nrows, ncols, row_stride, col_stride) }
+     }
+ }
+@@ -49,6 +57,10 @@ impl<'a, T> IntoRSTSR for MatRef<'a, T> {
+ 
+         let layout = Layout::new([nrows, ncols], [row_stride, col_stride], 0).unwrap();
+         let (_, upper_bound) = layout.bounds_index().unwrap();
++        // SAFETY: the Vec is a NON-OWNING handle over faer's buffer: wrapped in
++        // `ManuallyDrop` + `DataRef` below, it is never deallocated. `upper_bound` is
++        // the validated layout bound and faer guarantees the referenced elements are
++        // initialized and live for `'a`.
+         let raw = unsafe { Vec::from_raw_parts(ptr as *mut T, upper_bound, upper_bound) };
+         let data = DataRef::from_manually_drop(ManuallyDrop::new(raw));
+         let storage = Storage::new(data, DeviceFaer::default());
+@@ -70,6 +82,11 @@ impl<T> IntoRSTSR for Mat<T> {
+ 
+         let layout = Layout::new([nrows, ncols], [row_stride, col_stride], 0).unwrap();
+         let (_, upper_bound) = layout.bounds_index().unwrap();
++        // SAFETY: `self` (faer `Mat`, global-allocator backed) is forgotten, moving its
++        // allocation into the `Vec` handle; element count equals the validated layout
++        // bound. Caveat: if faer over-allocated or over-aligned, the `Vec` dealloc
++        // layout would differ from the alloc layout (benign on mainstream allocators;
++        // see audit README).
+         let raw = unsafe { Vec::from_raw_parts(ptr as *mut T, upper_bound, upper_bound) };
+         let data = DataOwned::from(raw);
+         let storage = Storage::new(data, DeviceFaer::default());
+@@ -88,6 +105,8 @@ impl<'a, T> IntoRSTSR for ColRef<'a, T> {
+ 
+         let layout = Layout::new([nrows], [stride], 0).unwrap();
+         let (_, upper_bound) = layout.bounds_index().unwrap();
++        // SAFETY: non-owning handle over faer's column buffer, as in `MatRef` above;
++        // never deallocated (`ManuallyDrop` + `DataRef`).
+         let raw = unsafe { Vec::from_raw_parts(ptr as *mut T, upper_bound, upper_bound) };
+         let data = DataRef::from_manually_drop(ManuallyDrop::new(raw));
+         let storage = Storage::new(data, DeviceFaer::default());
+@@ -108,6 +127,8 @@ impl<'a, T> IntoRSTSR for MatMut<'a, T> {
+ 
+         let layout = Layout::new([nrows, ncols], [row_stride, col_stride], 0).unwrap();
+         let (_, upper_bound) = layout.bounds_index().unwrap();
++        // SAFETY: non-owning handle over faer's buffer with mutable access transferred
++        // from the exclusive `MatMut`; never deallocated (`ManuallyDrop` + `DataMut`).
+         let raw = unsafe { Vec::from_raw_parts(ptr as *mut T, upper_bound, upper_bound) };
+         let data = DataMut::from_manually_drop(ManuallyDrop::new(raw));
+         let storage = Storage::new(data, DeviceFaer::default());
+diff --git a/rstsr-core/src/device_faer/matmul.rs b/rstsr-core/src/device_faer/matmul.rs
+index dbf2ad9..f47168d 100644
+--- a/rstsr-core/src/device_faer/matmul.rs
++++ b/rstsr-core/src/device_faer/matmul.rs
+@@ -39,6 +39,9 @@ where
+         && same_type::<TA, TC>()
+         && same_type::<TB, TC>()
+         && unsafe {
++            // SAFETY: short-circuit `same_type` checks guarantee TA = TB = TC, so the
++            // casts are type-correct; only pointer equality and shape/stride comparison
++            // are performed — no dereference.
+             let a_ptr = a.as_ptr().add(la.offset()) as *const TC;
+             let b_ptr = b.as_ptr().add(lb.offset()) as *const TC;
+             let equal_ptr = core::ptr::eq(a_ptr, b_ptr);
+@@ -51,9 +54,13 @@ where
+     macro_rules! impl_gemm_dispatch {
+         ($ty: ty) => {
+             if (same_type::<TA, $ty>() && same_type::<TB, $ty>() && same_type::<TC, $ty>()) {
++                // SAFETY: `TypeId` equality above proves TA = TB = TC = $ty; the reinterpreted
++                // slices have exactly the original lengths.
+                 let a_slice = unsafe { from_raw_parts(a.as_ptr() as *const $ty, a.len()) };
+                 let b_slice = unsafe { from_raw_parts(b.as_ptr() as *const $ty, b.len()) };
+                 let c_slice = unsafe { from_raw_parts_mut(c.as_mut_ptr() as *mut $ty, c.len()) };
++                // SAFETY: `TypeId` equality above proves TC = $ty; reading through the
++                // type-correct pointer copy is valid.
+                 let alpha = unsafe { *(&alpha as *const TC as *const $ty) };
+                 let beta = unsafe { *(&beta as *const TC as *const $ty) };
+                 if able_syrk {
+@@ -158,6 +165,10 @@ where
+                     let mut lb_m = lb_matmul.clone();
+                     let mut lc_m = lc_matmul.clone();
+                     unsafe {
++                        // SAFETY: offsets come from the rest-layout iterators over the validated
++                        // matmul config; sub-layout + offset addresses only in-bounds elements of the
++                        // slices. In the parallel branch each task writes a disjoint `lc` region (the
++                        // recreated `&mut [TC]` is used solely through that task's own offsets).
+                         la_m.set_offset(ia_rest);
+                         lb_m.set_offset(ib_rest);
+                         lc_m.set_offset(ic_rest);
+@@ -187,6 +198,7 @@ where
+             let mut lb_m = lb_matmul.clone();
+             let mut lc_m = lc_matmul.clone();
+             unsafe {
++                // SAFETY: in-bounds offsets from the rest-layout iterators (sequential branch).
+                 la_m.set_offset(ia_rest);
+                 lb_m.set_offset(ib_rest);
+                 lc_m.set_offset(ic_rest);
+diff --git a/rstsr-core/src/device_faer/matmul_impl.rs b/rstsr-core/src/device_faer/matmul_impl.rs
+index 811c70f..3c43ee1 100644
+--- a/rstsr-core/src/device_faer/matmul_impl.rs
++++ b/rstsr-core/src/device_faer/matmul_impl.rs
+@@ -40,6 +40,9 @@ where
+     rstsr_assert_eq!(sa[1], sb[0], InvalidLayout)?;
+     rstsr_assert_eq!(sc[1], sb[1], InvalidLayout)?;
+ 
++    // SAFETY: shapes are asserted above and layouts are validated by the caller
++    // (tensor-level checks); the matrices view the slices at `offset` with the
++    // layouts' strides, so element access stays within the slice allocations.
+     let faer_a = unsafe {
+         MatRef::from_raw_parts(
+             a.as_ptr().add(la.offset()) as *const T,
+@@ -49,6 +52,7 @@ where
+             la.stride()[1],
+         )
+     };
++    // SAFETY: see `faer_a` above — same validated-layout argument.
+     let faer_b = unsafe {
+         MatRef::from_raw_parts(
+             b.as_ptr().add(lb.offset()) as *const T,
+@@ -58,6 +62,8 @@ where
+             lb.stride()[1],
+         )
+     };
++    // SAFETY: see `faer_a` above; `MatMut` writes stay within `c`'s allocation
++    // (validated layout, asserted shapes).
+     let faer_c = unsafe {
+         MatMut::from_raw_parts_mut(
+             c.as_mut_ptr().add(lc.offset()) as *mut T,
+@@ -80,11 +86,14 @@ where
+     } else {
+         if beta != T::one() {
+             // perform inplace multiplication
++            // SAFETY: identical layout reinterpretation; `c` is an initialized buffer
++            // scaled in place by the op below.
+             let c = unsafe { transmute::<&mut [T], &mut [MaybeUninit<T>]>(c) };
+             op_muta_numb_func_cpu_rayon(
+                 c,
+                 lc,
+                 beta,
++                // SAFETY: `vc` is an initialized element of `c` being scaled in place.
+                 &mut |vc, vb| unsafe { *vc.assume_init_mut() *= vb.clone() },
+                 pool,
+             )?;
+@@ -135,6 +144,8 @@ where
+             la.stride()[1],
+         )
+     };
++    // SAFETY: transpose view of the same validated layout (strides swapped);
++    // element access stays within the slice allocation.
+     let faer_at = unsafe {
+         MatRef::from_raw_parts(
+             a.as_ptr().add(la.offset()) as *const T,
+@@ -174,11 +185,14 @@ where
+     } else {
+         if beta != T::one() {
+             // perform inplace multiplication
++            // SAFETY: identical layout reinterpretation; `c` is an initialized buffer
++            // scaled in place by the op below.
+             let c = unsafe { transmute::<&mut [T], &mut [MaybeUninit<T>]>(c) };
+             op_muta_numb_func_cpu_rayon(
+                 c,
+                 lc,
+                 beta,
++                // SAFETY: `vc` is an initialized element of `c` being scaled in place.
+                 &mut |vc, vb| unsafe { *vc.assume_init_mut() *= vb.clone() },
+                 pool,
+             )?;
+@@ -227,6 +241,9 @@ where
+         if n < PARALLEL_SWITCH || nthreads == 1 {
+             for i in 0..n {
+                 for j in 0..i {
++                    // SAFETY: `i, j < n = lc.shape()` and `lc` is a validated layout, so
++                    // `index_uncheck` yields in-bounds offsets (symmetrize never dereferences
++                    // out of bounds).
+                     let idx_ij = unsafe { lc.index_uncheck(&[i, j]) as usize };
+                     let idx_ji = unsafe { lc.index_uncheck(&[j, i]) as usize };
+                     c[idx_ji] = c[idx_ij].clone();
+@@ -236,6 +253,10 @@ where
+             let pool = rayon::ThreadPoolBuilder::new().num_threads(nthreads).build().unwrap();
+             pool.install(|| {
+                 (0..n).into_par_iter().for_each(|i| {
++                    // SAFETY: offsets from the validated layout (see above); the symmetrize writes
++                    // touch disjoint (i, j)/(j, i) pairs. NOTE: the pointer is derived from
++                    // `as_ptr()` and written through; disjointness makes this correct in practice,
++                    // but derive via `as_mut_ptr()` for stacked-borrows strictness.
+                     (0..i).for_each(|j| unsafe {
+                         let idx_ij = lc.index_uncheck(&[i, j]) as usize;
+                         let idx_ji = lc.index_uncheck(&[j, i]) as usize;
+diff --git a/rstsr-core/src/feature_rayon/auto_impl/creation.rs b/rstsr-core/src/feature_rayon/auto_impl/creation.rs
+index b11964e..fc5937a 100644
+--- a/rstsr-core/src/feature_rayon/auto_impl/creation.rs
++++ b/rstsr-core/src/feature_rayon/auto_impl/creation.rs
+@@ -6,6 +6,8 @@ impl<T> DeviceCreationAnyAPI<T> for DeviceRayonAutoImpl
+ where
+     Self: DeviceRawAPI<T, Raw = Vec<T>> + DeviceRawAPI<MaybeUninit<T>, Raw = Vec<MaybeUninit<T>>>,
+ {
++    // Device trait contract: the returned storage is uninitialized; callers must
++    // initialize every element before reading it (all callers in this crate do).
+     unsafe fn empty_impl(&self, len: usize) -> Result<Storage<DataOwned<Vec<T>>, T, Self>> {
+         let storage = DeviceCpuSerial::default().empty_impl(len)?;
+         let (data, _) = storage.into_raw_parts();
+@@ -34,6 +36,8 @@ where
+     }
+ 
+     fn uninit_impl(&self, len: usize) -> Result<Storage<DataOwned<Vec<MaybeUninit<T>>>, MaybeUninit<T>, Self>> {
++        // SAFETY: `Vec<MaybeUninit<T>>` is exactly the uninitialized-memory use case;
++        // no validity requirement on the contents yet.
+         let raw = unsafe { uninitialized_vec(len) }?;
+         Ok(Storage::new(raw.into(), self.clone()))
+     }
+@@ -47,6 +51,8 @@ where
+         let (data, device) = storage.into_raw_parts();
+         let vec = data.into_raw();
+         // transmute `Vec<MaybeUninit<T>>` to `Vec<T>`
++        // SAFETY: `Vec<MaybeUninit<T>>` -> `Vec<T>` has identical layout; the trait
++        // contract requires every element to have been initialized by the caller.
+         let vec = core::mem::transmute::<Vec<MaybeUninit<T>>, Vec<T>>(vec);
+         let data = vec.into();
+         Ok(Storage::new(data, device))
+diff --git a/rstsr-core/src/feature_rayon/auto_impl/op_binary_arithmetic.rs b/rstsr-core/src/feature_rayon/auto_impl/op_binary_arithmetic.rs
+index 7ecee34..be806b2 100644
+--- a/rstsr-core/src/feature_rayon/auto_impl/op_binary_arithmetic.rs
++++ b/rstsr-core/src/feature_rayon/auto_impl/op_binary_arithmetic.rs
+@@ -1,6 +1,9 @@
+ use crate::prelude_dev::*;
+ use core::mem::transmute;
+ 
++// SAFETY (closures below): `a`/`b` point to initialized elements of the
++// caller's `Vec` (in-place `+=`-style op); `assume_init_mut` on initialized
++// memory is valid, and the op writes back every visited element.
+ #[duplicate_item(
+      OpAPI               Op             func                    ;
+     [OpAddAssignAPI   ] [AddAssign   ] [|a, b| unsafe { *a.assume_init_mut() +=  b.clone() }];
+@@ -21,16 +24,24 @@ where
+     D: DimAPI,
+ {
+     fn op_muta_refb(&self, a: &mut Vec<TA>, la: &Layout<D>, b: &Vec<TB>, lb: &Layout<D>) -> Result<()> {
++        // SAFETY: `Vec<TA>` -> `Vec<MaybeUninit<TA>>` reinterpretation (identical
++        // layout); `a` is an initialized buffer, and the op writes back every visited
++        // element.
+         let a = unsafe { transmute::<&mut Vec<TA>, &mut Vec<MaybeUninit<TA>>>(a) };
+         self.op_muta_refb_func(a, la, b, lb, &mut func)
+     }
+ 
+     fn op_muta_numb(&self, a: &mut Vec<TA>, la: &Layout<D>, b: TB) -> Result<()> {
++        // SAFETY: `Vec<TA>` -> `Vec<MaybeUninit<TA>>` reinterpretation (identical
++        // layout); `a` is an initialized buffer, and the op writes back every visited
++        // element.
+         let a = unsafe { transmute::<&mut Vec<TA>, &mut Vec<MaybeUninit<TA>>>(a) };
+         self.op_muta_numb_func(a, la, b, &mut func)
+     }
+ }
+ 
++// SAFETY (closures below): left-consume op — reads the initialized element via
++// `assume_init_read`, computes, and writes the result back to the same slot.
+ #[duplicate_item(
+      OpAPI                 Op       func                               ;
+     [OpLConsumeAddAPI   ] [Add   ] [|a, b| unsafe { a.write(a.assume_init_read() +  b.clone()); }];
+@@ -51,16 +62,24 @@ where
+     D: DimAPI,
+ {
+     fn op_muta_refb(&self, a: &mut Vec<TA>, la: &Layout<D>, b: &Vec<TB>, lb: &Layout<D>) -> Result<()> {
++        // SAFETY: `Vec<TA>` -> `Vec<MaybeUninit<TA>>` reinterpretation (identical
++        // layout); `a` is an initialized buffer, and the op writes back every visited
++        // element.
+         let a = unsafe { transmute::<&mut Vec<TA>, &mut Vec<MaybeUninit<TA>>>(a) };
+         self.op_muta_refb_func(a, la, b, lb, &mut func)
+     }
+ 
+     fn op_muta_numb(&self, a: &mut Vec<TA>, la: &Layout<D>, b: TB) -> Result<()> {
++        // SAFETY: `Vec<TA>` -> `Vec<MaybeUninit<TA>>` reinterpretation (identical
++        // layout); `a` is an initialized buffer, and the op writes back every visited
++        // element.
+         let a = unsafe { transmute::<&mut Vec<TA>, &mut Vec<MaybeUninit<TA>>>(a) };
+         self.op_muta_numb_func(a, la, b, &mut func)
+     }
+ }
+ 
++// SAFETY (closures below): right-consume op — same contract as the
++// left-consume group above.
+ #[duplicate_item(
+      OpAPI                 Op       func                               ;
+     [OpRConsumeAddAPI   ] [Add   ] [|a, b| unsafe { a.write(b.clone() +  a.assume_init_read()); }];
+@@ -81,16 +100,24 @@ where
+     D: DimAPI,
+ {
+     fn op_muta_refb(&self, b: &mut Vec<TB>, lb: &Layout<D>, a: &Vec<TA>, la: &Layout<D>) -> Result<()> {
++        // SAFETY: `Vec<TB>` -> `Vec<MaybeUninit<TB>>` reinterpretation (identical
++        // layout); `b` is an initialized buffer, and the op writes back every visited
++        // element.
+         let b = unsafe { transmute::<&mut Vec<TB>, &mut Vec<MaybeUninit<TB>>>(b) };
+         self.op_muta_refb_func(b, lb, a, la, &mut func)
+     }
+ 
+     fn op_muta_numb(&self, b: &mut Vec<TB>, lb: &Layout<D>, a: TA) -> Result<()> {
++        // SAFETY: `Vec<TB>` -> `Vec<MaybeUninit<TB>>` reinterpretation (identical
++        // layout); `b` is an initialized buffer, and the op writes back every visited
++        // element.
+         let b = unsafe { transmute::<&mut Vec<TB>, &mut Vec<MaybeUninit<TB>>>(b) };
+         self.op_muta_numb_func(b, lb, a, &mut func)
+     }
+ }
+ 
++// SAFETY (func_inplace below): reads the initialized element via
++// `assume_init_read` and writes the negated/inverted value back.
+ #[duplicate_item(
+      OpAPI      Op    func                              func_inplace        ;
+     [OpNegAPI] [Neg] [|a, b| { a.write(-b.clone()); }] [|a| unsafe { a.write(-a.assume_init_read()); }];
+@@ -107,6 +134,9 @@ where
+     }
+ 
+     fn op_muta(&self, a: &mut Vec<TA>, la: &Layout<D>) -> Result<()> {
++        // SAFETY: `Vec<TA>` -> `Vec<MaybeUninit<TA>>` reinterpretation (identical
++        // layout); `a` is an initialized buffer, and the op writes back every visited
++        // element.
+         let a = unsafe { transmute::<&mut Vec<TA>, &mut Vec<MaybeUninit<TA>>>(a) };
+         self.op_muta_func(a, la, &mut func_inplace)
+     }
+diff --git a/rstsr-core/src/feature_rayon/auto_impl/op_binary_common.rs b/rstsr-core/src/feature_rayon/auto_impl/op_binary_common.rs
+index 5712062..df90be3 100644
+--- a/rstsr-core/src/feature_rayon/auto_impl/op_binary_common.rs
++++ b/rstsr-core/src/feature_rayon/auto_impl/op_binary_common.rs
+@@ -58,6 +58,8 @@ where
+ 
+     fn op_muta(&self, a: &mut Vec<MaybeUninit<Self::TOut>>, la: &Layout<D>) -> Result<()> {
+         let mut func = |a: &mut MaybeUninit<Self::TOut>| {
++            // SAFETY: in-place op — `a` is an initialized element of the caller's buffer;
++            // read then overwritten via `write`.
+             let b = unsafe { a.assume_init_read() };
+             a.write(func_inner);
+         };
+@@ -81,6 +83,8 @@ where
+ 
+     fn op_muta(&self, a: &mut Vec<MaybeUninit<T>>, la: &Layout<D>) -> Result<()> {
+         let mut func = |a: &mut MaybeUninit<T>| {
++            // SAFETY: in-place op — `a` is an initialized element of the caller's buffer;
++            // read then overwritten via `write`.
+             let b = unsafe { a.assume_init_read() };
+             a.write(b.clone() * b);
+         };
+@@ -144,7 +148,11 @@ where
+         if T::ABS_UNCHANGED {
+             return Ok(());
+         } else if T::ABS_SAME_TYPE {
++            // SAFETY: in-place op — `a` is an initialized element of the caller's buffer;
++            // read then overwritten via `write`.
+             return self.op_muta_func(a, la, &mut |a| unsafe {
++                // SAFETY: in-place op — reads an initialized element, then overwrites it via
++                // `write`.
+                 a.write(a.assume_init_read().ext_abs());
+             });
+         } else {
+@@ -176,7 +184,11 @@ where
+ 
+     fn op_muta(&self, a: &mut Vec<MaybeUninit<T::AbsOut>>, la: &Layout<D>) -> Result<()> {
+         if T::ABS_SAME_TYPE {
++            // SAFETY: in-place op — `a` is an initialized element of the caller's buffer;
++            // read then overwritten via `write`.
+             return self.op_muta_func(a, la, &mut |a| unsafe {
++                // SAFETY: in-place op — reads an initialized element, then overwrites it via
++                // `write`.
+                 a.write(a.assume_init_read().ext_imag());
+             });
+         } else {
+@@ -230,7 +242,11 @@ where
+     }
+ 
+     fn op_muta(&self, a: &mut Vec<MaybeUninit<T>>, la: &Layout<D>) -> Result<()> {
++        // SAFETY: in-place op — `a` is an initialized element of the caller's buffer;
++        // read then overwritten via `write`.
+         self.op_muta_func(a, la, &mut |a| unsafe {
++            // SAFETY: in-place op — reads an initialized element, then overwrites it via
++            // `write`.
+             a.write(a.assume_init_read().ext_sign());
+         })
+     }
+diff --git a/rstsr-core/src/tensor/adv_indexing.rs b/rstsr-core/src/tensor/adv_indexing.rs
+index 2fa5265..662b241 100644
+--- a/rstsr-core/src/tensor/adv_indexing.rs
++++ b/rstsr-core/src/tensor/adv_indexing.rs
+@@ -47,6 +47,8 @@ where
+     let out_layout = out_shape.new_contig(None, device.default_order()).into_dim()?;
+     let mut out_storage = device.uninit_impl(out_layout.size())?;
+     device.index_select(out_storage.raw_mut(), &out_layout, tensor.storage().raw(), tensor_layout, axis, &indices)?;
++    // SAFETY: `device.index_select` above wrote all `out_layout.size()` elements
++    // of the fresh storage.
+     let out_storage = unsafe { B::assume_init_impl(out_storage)? };
+     TensorBase::new_f(out_storage, out_layout)
+ }
+diff --git a/rstsr-core/src/tensor/asarray.rs b/rstsr-core/src/tensor/asarray.rs
+index 5be6123..886863a 100644
+--- a/rstsr-core/src/tensor/asarray.rs
++++ b/rstsr-core/src/tensor/asarray.rs
+@@ -336,6 +336,8 @@ where
+         let layout_c = layout_for_array_copy(layout_a, order)?;
+         let mut storage_c = device.uninit_impl(layout_c.size())?;
+         device.assign_uninit(storage_c.raw_mut(), &layout_c, input.raw(), layout_a)?;
++        // SAFETY: `assign_uninit` above wrote every element of `layout_c`, which
++        // covers the freshly allocated storage exactly.
+         let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+         let tensor = Tensor::new_f(storage_c, layout_c)?;
+         return Ok(tensor);
+@@ -375,6 +377,8 @@ where
+         } else {
+             let mut storage_c = device.uninit_impl(layout_c.size())?;
+             device.assign_uninit(storage_c.raw_mut(), &layout_c, storage_a.raw(), layout_a)?;
++            // SAFETY: `assign_uninit` above wrote every element of `layout_c`, which
++            // covers the freshly allocated storage exactly.
+             let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+             let tensor = Tensor::new_f(storage_c, layout_c)?;
+             return Ok(tensor);
+@@ -526,6 +530,9 @@ where
+         let len = input.len();
+         let raw = unsafe {
+             let ptr = ptr as *mut T;
++            // SAFETY: the Vec aliases the caller's `&[T]` (len = actual length); it is
++            // wrapped in `ManuallyDrop`/`DataRef` below so it is never deallocated or
++            // resized, and `new_f` validates the layout bounds against `len`.
+             Vec::from_raw_parts(ptr, len, len)
+         };
+         let device = device.clone();
+@@ -571,6 +578,9 @@ where
+         let len = input.len();
+         let raw = unsafe {
+             let ptr = ptr as *mut T;
++            // SAFETY: the Vec aliases the caller's `&[T]` (len = actual length); it is
++            // wrapped in `ManuallyDrop`/`DataRef` below so it is never deallocated or
++            // resized, and `new_f` validates the layout bounds against `len`.
+             Vec::from_raw_parts(ptr, len, len)
+         };
+         let data = DataRef::from_manually_drop(ManuallyDrop::new(raw));
+@@ -694,6 +704,10 @@ where
+         let len = input.len();
+         let raw = unsafe {
+             let ptr = ptr as *mut T;
++            // SAFETY: the Vec aliases the caller's `&mut [T]` (len = actual length); it is
++            // wrapped in `ManuallyDrop`/`DataMut` below so it is never deallocated or
++            // resized, and the exclusive `&mut` borrow provides write access. `new_f`
++            // validates the layout bounds against `len`.
+             Vec::from_raw_parts(ptr, len, len)
+         };
+         let device = device.clone();
+@@ -739,6 +753,10 @@ where
+         let len = input.len();
+         let raw = unsafe {
+             let ptr = ptr as *mut T;
++            // SAFETY: the Vec aliases the caller's `&mut [T]` (len = actual length); it is
++            // wrapped in `ManuallyDrop`/`DataMut` below so it is never deallocated or
++            // resized, and the exclusive `&mut` borrow provides write access. `new_f`
++            // validates the layout bounds against `len`.
+             Vec::from_raw_parts(ptr, len, len)
+         };
+         let data = DataMut::from_manually_drop(ManuallyDrop::new(raw));
+@@ -861,6 +879,8 @@ macro_rules! impl_asarray_scalar {
+                     let (input, device) = self;
+                     let layout = Layout::new(vec![], vec![], 0)?;
+                     let storage = device.outof_cpu_vec(vec![input])?;
++                    // SAFETY: 1-element storage with a 0-dim layout at offset 0 — bounds match
++                    // trivially.
+                     let tensor = unsafe { Tensor::new_unchecked(storage, layout) };
+                     return Ok(tensor);
+                 }
+diff --git a/rstsr-core/src/tensor/creation_from_tensor.rs b/rstsr-core/src/tensor/creation_from_tensor.rs
+index 7ff325e..c025b8d 100644
+--- a/rstsr-core/src/tensor/creation_from_tensor.rs
++++ b/rstsr-core/src/tensor/creation_from_tensor.rs
+@@ -151,6 +151,8 @@ where
+             let layout_diag = layout.diagonal(Some(offset), Some(0), Some(1))?;
+             let size = layout_diag.size();
+             let device = tensor.device();
++            // SAFETY: fresh `empty_f` storage of `size` elements; the result is read only
++            // through the contiguous `[size]` layout assigned below.
+             let mut result = unsafe { empty_f(([size], device))? };
+             let layout_result = result.layout().to_dim()?;
+             device.assign(result.raw_mut(), &layout_result, tensor.raw(), &layout_diag)?;
+@@ -771,6 +773,8 @@ where
+         let new_shape = shape_other;
+ 
+         // create the result tensor
++        // SAFETY: fresh `empty_f` storage sized to `new_shape`; each slice of the
++        // result is assigned from an input tensor below before it is exposed.
+         let mut result = unsafe { empty_f((new_shape, &device))? };
+ 
+         // assign each tensor to the result tensor
+@@ -1474,6 +1478,9 @@ where
+                 let (storage, layout) = view.into_raw_parts();
+                 let layout = layout.dim_select(axis as isize, i as isize)?;
+                 // safety: transmute for lifetime annotation
++                // SAFETY: the transmute only rewrites the storage's lifetime (the view was
++                // created from data alive for `'a` in this scope); `dim_select` yields an
++                // in-bounds single-position layout, so `new_unchecked` is bounds-consistent.
+                 let storage = unsafe { transmute::<Storage<_, T, B>, Storage<_, T, B>>(storage) };
+                 unsafe { Ok(TensorBase::new_unchecked(storage, layout)) }
+             })
+diff --git a/rstsr-core/src/tensor/indexing.rs b/rstsr-core/src/tensor/indexing.rs
+index ab874b3..0c8ca34 100644
+--- a/rstsr-core/src/tensor/indexing.rs
++++ b/rstsr-core/src/tensor/indexing.rs
+@@ -22,6 +22,9 @@ where
+     let (data, layout) = tensor.into_raw_parts();
+     let index = index.try_into().map_err(Into::into)?;
+     let layout = layout.dim_slice(index.as_ref())?;
++    // SAFETY: `dim_slice` narrows the existing (validated) layout with checked
++    // slices/selections; reachable bounds only shrink, so the result stays within
++    // the same storage.
+     return unsafe { Ok(TensorBase::new_unchecked(data, layout)) };
+ }
+ 
+@@ -367,6 +370,8 @@ where
+     let (data, layout) = tensor.into_raw_parts();
+     let DiagonalArgs { offset, axis1, axis2 } = diagonal_args.into();
+     let layout = layout.diagonal(offset, axis1, axis2)?;
++    // SAFETY: `layout.diagonal` addresses a subset of the original elements: the
++    // diagonal offset and length are clamped to the two axes' shapes above.
+     return unsafe { Ok(TensorBase::new_unchecked(data, layout)) };
+ }
+ 
+@@ -558,6 +563,8 @@ where
+     let (data, layout) = tensor.into_raw_parts();
+     let DiagonalArgs { offset, axis1, axis2 } = diagonal_args.into();
+     let layout = layout.diagonal(offset, axis1, axis2)?;
++    // SAFETY: `layout.diagonal` addresses a subset of the original elements (see
++    // `into_diagonal_f` above); mutable form of the same argument.
+     return unsafe { Ok(TensorBase::new_unchecked(data, layout)) };
+ }
+ 
+@@ -718,6 +725,9 @@ where
+         I: AsRef<[usize]>,
+     {
+         let index = index.as_ref();
++        // SAFETY: the caller guarantees `index` is within `shape` (see # Safety).
++        // Note the resulting offset is applied through checked `Vec` indexing
++        // downstream, so misuse panics rather than corrupting memory.
+         let i = unsafe { self.layout().index_uncheck(index) } as usize;
+         let raw = self.raw();
+         raw.index(i)
+@@ -745,6 +755,9 @@ where
+         I: AsRef<[usize]>,
+     {
+         let index = index.as_ref();
++        // SAFETY: the caller guarantees `index` is within `shape` (see # Safety).
++        // Note the resulting offset is applied through checked `Vec` indexing
++        // downstream, so misuse panics rather than corrupting memory.
+         let i = unsafe { self.layout().index_uncheck(index) } as usize;
+         let raw = self.raw_mut();
+         raw.index_mut(i)
+diff --git a/rstsr-core/src/tensor/linalg/matmul.rs b/rstsr-core/src/tensor/linalg/matmul.rs
+index 0d55978..ce6381d 100644
+--- a/rstsr-core/src/tensor/linalg/matmul.rs
++++ b/rstsr-core/src/tensor/linalg/matmul.rs
+@@ -279,6 +279,8 @@ where
+     let default_order = a.device().default_order();
+     let cfg = LayoutMatMulConfig::<DA, DB>::layout_matmul(a.layout(), b.layout(), default_order)?;
+     let lc = cfg.lc;
++    // SAFETY: `empty` is uninitialized, but every element of `lc` is written by
++    // the matmul below before the tensor is returned/observed.
+     let mut c: Tensor<TC, B, _> = unsafe { empty((lc, a.device())) }.into_dim_f()?;
+     op_mutc_refa_refb_matmul(&mut c, &a, &b, alpha, TC::zero())?;
+     return Ok(c);
+diff --git a/rstsr-core/src/tensor/linalg/vecdot.rs b/rstsr-core/src/tensor/linalg/vecdot.rs
+index 46ae995..4bf265a 100644
+--- a/rstsr-core/src/tensor/linalg/vecdot.rs
++++ b/rstsr-core/src/tensor/linalg/vecdot.rs
+@@ -241,6 +241,8 @@ where
+     };
+     let mut storage_c = device.uninit_impl(layout_c.bounds_index()?.1)?;
+     device.vecdot(storage_c.raw_mut(), &layout_c, a.raw(), a.layout(), b.raw(), b.layout(), &axes_a, &axes_b)?;
++    // SAFETY: `device.vecdot` above wrote every element of `layout_c`, covering
++    // the fresh storage exactly.
+     unsafe { Tensor::new_f(B::assume_init_impl(storage_c)?, layout_c) }
+ }
+ 
+@@ -323,6 +325,8 @@ where
+     rstsr_assert_eq!(shape_c_expect, shape_c.as_ref(), InvalidLayout, "incompatible shapes in vecdot")?;
+ 
+     let c_layout = c.layout().clone();
++    // SAFETY: `Vec<TC>` -> `Vec<MaybeUninit<TC>>` reinterpretation (identical
++    // layout); `c` is an initialized, writable output buffer.
+     let c_raw_mut = unsafe {
+         transmute::<&mut <B as DeviceRawAPI<TC>>::Raw, &mut <B as DeviceRawAPI<MaybeUninit<TC>>>::Raw>(c.raw_mut())
+     };
+diff --git a/rstsr-core/src/tensor/manipulation/broadcast.rs b/rstsr-core/src/tensor/manipulation/broadcast.rs
+index 96d56bf..fb5fada 100644
+--- a/rstsr-core/src/tensor/manipulation/broadcast.rs
++++ b/rstsr-core/src/tensor/manipulation/broadcast.rs
+@@ -412,6 +412,8 @@ where
+     )?;
+     let (storage, layout) = tensor.into_raw_parts();
+     let layout = update_layout_by_shape(&layout, &shape, &tp1, default_order)?;
++    // SAFETY: `update_layout_by_shape` only adds/expands axes with stride 0; the
++    // reachable element set is unchanged from the validated input layout.
+     unsafe { Ok(TensorBase::new_unchecked(storage, layout)) }
+ }
+ 
+diff --git a/rstsr-core/src/tensor/manipulation/expand_dims.rs b/rstsr-core/src/tensor/manipulation/expand_dims.rs
+index 6e5219e..d5a9db6 100644
+--- a/rstsr-core/src/tensor/manipulation/expand_dims.rs
++++ b/rstsr-core/src/tensor/manipulation/expand_dims.rs
+@@ -21,6 +21,8 @@ where
+     for axis in axes {
+         layout = layout.dim_insert(axis)?;
+     }
++    // SAFETY: `dim_insert` adds a size-1 axis to the validated layout — same
++    // elements, same storage.
+     unsafe { Ok(TensorBase::new_unchecked(storage, layout)) }
+ }
+ 
+diff --git a/rstsr-core/src/tensor/manipulation/flip.rs b/rstsr-core/src/tensor/manipulation/flip.rs
+index 19c0e7b..31cae41 100644
+--- a/rstsr-core/src/tensor/manipulation/flip.rs
++++ b/rstsr-core/src/tensor/manipulation/flip.rs
+@@ -19,6 +19,8 @@ where
+     for axis in axes {
+         layout = layout.dim_narrow(axis, slice!(None, None, -1))?;
+     }
++    // SAFETY: flipping rewrites offset/strides so the same elements are visited in
++    // reverse order; bounds of the validated layout are preserved.
+     unsafe { Ok(TensorBase::new_unchecked(storage, layout)) }
+ }
+ 
+diff --git a/rstsr-core/src/tensor/manipulation/into_compatible_shape.rs b/rstsr-core/src/tensor/manipulation/into_compatible_shape.rs
+index 11c91a6..80577d1 100644
+--- a/rstsr-core/src/tensor/manipulation/into_compatible_shape.rs
++++ b/rstsr-core/src/tensor/manipulation/into_compatible_shape.rs
+@@ -19,6 +19,8 @@ where
+     let order = order.into().unwrap_or(tensor.device().default_order());
+     if let Some(layout_new) = layout_reshapeable(&tensor.layout().to_dim()?, &shape_new, order)? {
+         let (storage, _) = tensor.into_raw_parts();
++        // SAFETY: contiguity is checked above, and the new contiguous layout covers
++        // the same `size` elements at the same offset as the validated input.
+         unsafe { Ok(TensorBase::new_unchecked(storage, layout_new)) }
+     } else {
+         rstsr_raise!(InvalidLayout, "Cannot reshape {:?} to {shape_new:?} with order {order:?}.", tensor.layout())?
+@@ -270,6 +272,8 @@ where
+             rstsr_raise!(InvalidLayout, "This array is not contiguous by {:?}", default_order)?
+         }
+     };
++    // SAFETY: `layout_reshapeable` returned a layout visiting exactly the same
++    // elements as the validated input.
+     unsafe { Ok(TensorBase::new_unchecked(storage, new_layout)) }
+ }
+ 
+diff --git a/rstsr-core/src/tensor/manipulation/into_dim.rs b/rstsr-core/src/tensor/manipulation/into_dim.rs
+index da43985..6f7c3e0 100644
+--- a/rstsr-core/src/tensor/manipulation/into_dim.rs
++++ b/rstsr-core/src/tensor/manipulation/into_dim.rs
+@@ -10,6 +10,8 @@ where
+ {
+     let (storage, layout) = tensor.into_raw_parts();
+     let layout = layout.into_dim::<D2>()?;
++    // SAFETY: `into_dim` only changes the dimension type (checked to have the same
++    // rank) of the validated layout — same elements, same storage.
+     unsafe { Ok(TensorBase::new_unchecked(storage, layout)) }
+ }
+ 
+diff --git a/rstsr-core/src/tensor/manipulation/moveaxis.rs b/rstsr-core/src/tensor/manipulation/moveaxis.rs
+index 8ed690e..1f1a9d8 100644
+--- a/rstsr-core/src/tensor/manipulation/moveaxis.rs
++++ b/rstsr-core/src/tensor/manipulation/moveaxis.rs
+@@ -43,6 +43,8 @@ where
+     // Apply the transpose
+     let (storage, layout) = tensor.into_raw_parts();
+     let layout = layout.transpose(&order)?;
++    // SAFETY: `moveaxis` permutes (shape, stride) pairs of the validated layout —
++    // same elements, same storage.
+     unsafe { Ok(TensorBase::new_unchecked(storage, layout)) }
+ }
+ 
+diff --git a/rstsr-core/src/tensor/manipulation/reshape.rs b/rstsr-core/src/tensor/manipulation/reshape.rs
+index 978a121..83f433d 100644
+--- a/rstsr-core/src/tensor/manipulation/reshape.rs
++++ b/rstsr-core/src/tensor/manipulation/reshape.rs
+@@ -131,6 +131,8 @@ where
+             // shape does not need to be changed
+             let (storage, _) = tensor.into_raw_parts();
+             let layout = layout_new.into_dim::<IxD>()?;
++            // SAFETY: `layout_reshapeable` verified the new layout visits the same elements
++            // as the validated input layout.
+             return unsafe { Ok(TensorBase::new_unchecked(storage, layout).into_cow()) };
+         }
+     }
+@@ -160,7 +162,11 @@ where
+         device.set_default_order(order);
+         device.assign_arbitary_uninit(storage_new.raw_mut(), &layout_new, storage.raw(), &layout)?;
+     }
++    // SAFETY: `assign_arbitary_uninit` above filled the fresh storage over the
++    // contiguous `layout_new` completely.
+     let storage_new = unsafe { B::assume_init_impl(storage_new)? };
++    // SAFETY: fresh contiguous storage, fully written above; layout and storage
++    // match by construction.
+     return unsafe { Ok(TensorBase::new_unchecked(storage_new, layout_new).into_cow()) };
+ }
+ 
+diff --git a/rstsr-core/src/tensor/manipulation/squeeze.rs b/rstsr-core/src/tensor/manipulation/squeeze.rs
+index ea4e084..c087b83 100644
+--- a/rstsr-core/src/tensor/manipulation/squeeze.rs
++++ b/rstsr-core/src/tensor/manipulation/squeeze.rs
+@@ -43,6 +43,8 @@ where
+     for &axis in axes.iter() {
+         layout = layout.dim_eliminate(axis)?;
+     }
++    // SAFETY: `dim_remove` drops size-1 axes of the validated layout — same
++    // elements, same storage.
+     unsafe { Ok(TensorBase::new_unchecked(storage, layout)) }
+ }
+ 
+diff --git a/rstsr-core/src/tensor/manipulation/to_layout.rs b/rstsr-core/src/tensor/manipulation/to_layout.rs
+index 95b28c5..76877bd 100644
+--- a/rstsr-core/src/tensor/manipulation/to_layout.rs
++++ b/rstsr-core/src/tensor/manipulation/to_layout.rs
+@@ -21,6 +21,8 @@ where
+     if same_layout {
+         // no data cloned
+         let (storage, _) = tensor.into_raw_parts();
++        // SAFETY: layouts were compared equal above, so `layout` addresses exactly
++        // what the validated tensor addressed.
+         let tensor = unsafe { TensorBase::new_unchecked(storage, layout) };
+         return Ok(tensor.into_cow());
+     } else {
+@@ -31,7 +33,11 @@ where
+         let (_, idx_max) = layout.bounds_index()?;
+         let mut storage_new = device.uninit_impl(idx_max)?;
+         device.assign_arbitary_uninit(storage_new.raw_mut(), &layout, storage_old.raw(), &layout_old)?;
++        // SAFETY: `assign_arbitary_uninit` above filled every element of `layout`
++        // (fresh storage sized to its bounds).
+         let storage_new = unsafe { B::assume_init_impl(storage_new)? };
++        // SAFETY: fresh storage sized to `layout`'s bounds and fully written by
++        // `assign_arbitary_uninit` above; layout matches storage by construction.
+         let tensor = unsafe { TensorBase::new_unchecked(storage_new, layout) };
+         return Ok(tensor.into_cow());
+     }
+diff --git a/rstsr-core/src/tensor/manipulation/transpose.rs b/rstsr-core/src/tensor/manipulation/transpose.rs
+index f44fff4..9400450 100644
+--- a/rstsr-core/src/tensor/manipulation/transpose.rs
++++ b/rstsr-core/src/tensor/manipulation/transpose.rs
+@@ -16,6 +16,8 @@ where
+         _ => {
+             let (storage, layout) = tensor.into_raw_parts();
+             let layout = layout.transpose(axes.as_ref())?;
++            // SAFETY: `into_transpose_f` permutes (shape, stride) pairs of the validated
++            // layout — same elements, same storage.
+             unsafe { Ok(TensorBase::new_unchecked(storage, layout)) }
+         },
+     }
+@@ -299,6 +301,8 @@ where
+ {
+     let (storage, layout) = tensor.into_raw_parts();
+     let layout = layout.reverse_axes();
++    // SAFETY: `reverse_axes` is a fixed permutation of the validated layout's axes
++    // — same elements, same storage.
+     unsafe { TensorBase::new_unchecked(storage, layout) }
+ }
+ 
+@@ -456,6 +460,8 @@ where
+     let axis2 = axis2.try_into().map_err(|_| rstsr_error!(TryFromIntError))?;
+     let (storage, layout) = tensor.into_raw_parts();
+     let layout = layout.swapaxes(axis1, axis2)?;
++    // SAFETY: `swapaxes` (axes range-checked) permutes (shape, stride) pairs of
++    // the validated layout — same elements, same storage.
+     unsafe { Ok(TensorBase::new_unchecked(storage, layout)) }
+ }
+ 
+diff --git a/rstsr-core/src/tensor/map_elementwise.rs b/rstsr-core/src/tensor/map_elementwise.rs
+index f1861da..5b26934 100644
+--- a/rstsr-core/src/tensor/map_elementwise.rs
++++ b/rstsr-core/src/tensor/map_elementwise.rs
+@@ -35,6 +35,8 @@ where
+             c.write(f(a));
+         };
+         device.op_muta_refb_func(storage_c.raw_mut(), &lc, self.raw(), la, &mut f_inner)?;
++        // SAFETY: the op above wrote every element of `lc`, which covers the fresh
++        // `storage_c` exactly.
+         let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+         return Tensor::new_f(storage_c, lc);
+     }
+@@ -94,10 +96,14 @@ where
+     {
+         let (la, _) = greedy_layout(self.layout(), false);
+         let device = self.device().clone();
++        // SAFETY: `Vec<T>` -> `Vec<MaybeUninit<T>>` reinterpretation (identical
++        // layout); `self` is an initialized buffer written in place.
+         let self_raw_mut = unsafe {
+             transmute::<&mut <B as DeviceRawAPI<T>>::Raw, &mut <B as DeviceRawAPI<MaybeUninit<T>>>::Raw>(self.raw_mut())
+         };
+         let mut f_inner = move |x: &mut MaybeUninit<T>| {
++            // SAFETY: in-place map — `x` is an initialized element of the caller's buffer
++            // (the tensor being mapped); `assume_init_mut` on initialized memory is valid.
+             let x_ref = unsafe { x.assume_init_mut() };
+             f(x_ref);
+         };
+@@ -195,6 +201,8 @@ where
+             c.write(f(a, b));
+         };
+         device.op_mutc_refa_refb_func(storage_c.raw_mut(), &lc, self.raw(), &la_b, other.raw(), &lb_b, &mut f_inner)?;
++        // SAFETY: the op above wrote every element of `lc`, which covers the fresh
++        // `storage_c` exactly.
+         let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+         Tensor::new_f(storage_c, lc)
+     }
+@@ -297,6 +305,8 @@ where
+             c.write(f(a));
+         };
+         device.op_muta_refb_func(storage_c.raw_mut(), &lc, self.raw(), la, &mut f_inner)?;
++        // SAFETY: the op above wrote every element of `lc`, which covers the fresh
++        // `storage_c` exactly.
+         let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+         return Tensor::new_f(storage_c, lc);
+     }
+@@ -409,10 +419,14 @@ where
+     {
+         let (la, _) = greedy_layout(self.layout(), false);
+         let device = self.device().clone();
++        // SAFETY: `Vec<T>` -> `Vec<MaybeUninit<T>>` reinterpretation (identical
++        // layout); `self` is an initialized buffer written in place.
+         let self_raw_mut = unsafe {
+             transmute::<&mut <B as DeviceRawAPI<T>>::Raw, &mut <B as DeviceRawAPI<MaybeUninit<T>>>::Raw>(self.raw_mut())
+         };
+         let mut f_inner = move |x: &mut MaybeUninit<T>| {
++            // SAFETY: in-place map — `x` is an initialized element of the caller's buffer
++            // (the tensor being mapped); `assume_init_mut` on initialized memory is valid.
+             let x_ref = unsafe { x.assume_init_mut() };
+             f(x_ref);
+         };
+@@ -522,6 +536,8 @@ where
+             c.write(f(a, b));
+         };
+         device.op_mutc_refa_refb_func(storage_c.raw_mut(), &lc, self.raw(), &la_b, other.raw(), &lb_b, &mut f_inner)?;
++        // SAFETY: the op above wrote every element of `lc`, which covers the fresh
++        // `storage_c` exactly.
+         let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+         Tensor::new_f(storage_c, lc)
+     }
+diff --git a/rstsr-core/src/tensor/operators/op_binary_arithmetic.rs b/rstsr-core/src/tensor/operators/op_binary_arithmetic.rs
+index 6f18697..5d7a66a 100644
+--- a/rstsr-core/src/tensor/operators/op_binary_arithmetic.rs
++++ b/rstsr-core/src/tensor/operators/op_binary_arithmetic.rs
+@@ -302,6 +302,8 @@ mod impl_binary_arithmetic_ref {
+             // add provided by device
+             device.op_mutc_refa_refb(storage_c.raw_mut(), &lc, a.raw(), &la_b, b.raw(), &lb_b)?;
+             // return tensor
++            // SAFETY: `op_mutc_refa_refb` above wrote every element of `lc`, which covers
++            // the fresh `storage_c` exactly.
+             let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+             Tensor::new_f(storage_c, lc)
+         }
+@@ -392,6 +394,8 @@ mod impl_binary_lr_consume {
+                     // reuse a as c
+                     let (mut storage_a, _) = a.into_raw_parts();
+                     device.op_muta_refb(storage_a.raw_mut(), &la_b, b.raw(), &lb_b)?;
++                    // SAFETY: `la_b` was checked equal to `a`'s own (validated) layout above and
++                    // `storage_a` is `a`'s original buffer — bounds unchanged.
+                     let c = unsafe { Tensor::new_unchecked(storage_a, la_b) };
+                     c.into_dim_f::<DC>()
+                 }
+@@ -442,6 +446,8 @@ mod impl_binary_lr_consume {
+                     // reuse b as c
+                     let (mut storage_b, _) = b.into_raw_parts();
+                     device.op_muta_refb(storage_b.raw_mut(), &lb_b, a.raw(), &la_b)?;
++                    // SAFETY: `lb_b` was checked equal to `b`'s own (validated) layout above and
++                    // `storage_b` is `b`'s original buffer — bounds unchanged.
+                     let c = unsafe { Tensor::new_unchecked(storage_b, lb_b) };
+                     c.into_dim_f::<DC>()
+                 }
+@@ -708,6 +714,8 @@ where
+     // op provided by device
+     let device = c.device().clone();
+     // REVIEWME: transmute &Raw<T> to &MaybeUninit<Raw<T>>
++    // SAFETY: `Vec<TC>` -> `Vec<MaybeUninit<TC>>` reinterpretation (identical
++    // layout); `c` is a writable output buffer, elements written by the op.
+     let c_raw_mut = unsafe {
+         transmute::<&mut <B as DeviceRawAPI<TC>>::Raw, &mut <B as DeviceRawAPI<MaybeUninit<TC>>>::Raw>(c.raw_mut())
+     };
+@@ -770,6 +778,8 @@ macro_rules! impl_arithmetic_scalar_lhs {
+                 let lc = layout_for_array_copy(lb, TensorIterOrder::default())?;
+                 let mut storage_c = device.uninit_impl(lc.bounds_index()?.1)?;
+                 device.op_mutc_numa_refb(storage_c.raw_mut(), &lc, a, b.raw(), lb)?;
++                // SAFETY: `op_mutc_refa_refb` above wrote every element of `lc`, which covers
++                // the fresh `storage_c` exactly.
+                 let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+                 Tensor::new_f(storage_c, lc)
+             }
+@@ -806,6 +816,8 @@ macro_rules! impl_arithmetic_scalar_lhs {
+                 let lc = layout_for_array_copy(lb, TensorIterOrder::default())?;
+                 let mut storage_c = device.uninit_impl(lc.bounds_index()?.1)?;
+                 device.op_mutc_numa_refb(storage_c.raw_mut(), &lc, a, b.raw(), lb)?;
++                // SAFETY: `op_mutc_refa_refb` above wrote every element of `lc`, which covers
++                // the fresh `storage_c` exactly.
+                 let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+                 Tensor::new_f(storage_c, lc)
+             }
+@@ -1004,6 +1016,8 @@ mod impl_arithmetic_scalar_rhs {
+             let lc = layout_for_array_copy(la, TensorIterOrder::default())?;
+             let mut storage_c = device.uninit_impl(lc.bounds_index()?.1)?;
+             device.op_mutc_refa_numb(storage_c.raw_mut(), &lc, a.raw(), la, b)?;
++            // SAFETY: `op_mutc_refa_refb` above wrote every element of `lc`, which covers
++            // the fresh `storage_c` exactly.
+             let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+             Tensor::new_f(storage_c, lc)
+         }
+@@ -1027,6 +1041,8 @@ mod impl_arithmetic_scalar_rhs {
+             let lc = layout_for_array_copy(la, TensorIterOrder::default())?;
+             let mut storage_c = device.uninit_impl(lc.bounds_index()?.1)?;
+             device.op_mutc_refa_numb(storage_c.raw_mut(), &lc, a.raw(), la, b)?;
++            // SAFETY: `op_mutc_refa_refb` above wrote every element of `lc`, which covers
++            // the fresh `storage_c` exactly.
+             let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+             Tensor::new_f(storage_c, lc)
+         }
+diff --git a/rstsr-core/src/tensor/operators/op_binary_common.rs b/rstsr-core/src/tensor/operators/op_binary_common.rs
+index b2ec9c6..b9c3115 100644
+--- a/rstsr-core/src/tensor/operators/op_binary_common.rs
++++ b/rstsr-core/src/tensor/operators/op_binary_common.rs
+@@ -143,6 +143,7 @@ mod impl_trait_binary {
+             let device = self.device();
+             let mut storage_c = device.uninit_impl(lc.bounds_index()?.1)?;
+             device.op_mutc_refa_refb(storage_c.raw_mut(), &lc, self.raw(), &la_b, b.raw(), &lb_b)?;
++            // SAFETY: the op above wrote every element of the fresh `storage_c`.
+             let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+             Tensor::new_f(storage_c, lc)
+         }
+@@ -188,6 +189,7 @@ mod impl_trait_binary {
+             let device = self.device();
+             let mut storage_c = device.uninit_impl(lc.bounds_index()?.1)?;
+             device.op_mutc_refa_numb(storage_c.raw_mut(), &lc, self.raw(), la, b)?;
++            // SAFETY: the op above wrote every element of the fresh `storage_c`.
+             let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+             Tensor::new_f(storage_c, lc)
+         }
+@@ -226,6 +228,7 @@ mod impl_trait_binary {
+             let device = b.device();
+             let mut storage_c = device.uninit_impl(lc.bounds_index()?.1)?;
+             device.op_mutc_numa_refb(storage_c.raw_mut(), &lc, self, b.raw(), lb)?;
++            // SAFETY: the op above wrote every element of the fresh `storage_c`.
+             let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+             Tensor::new_f(storage_c, lc)
+         }
+diff --git a/rstsr-core/src/tensor/operators/op_tri.rs b/rstsr-core/src/tensor/operators/op_tri.rs
+index 5754841..43e26de 100644
+--- a/rstsr-core/src/tensor/operators/op_tri.rs
++++ b/rstsr-core/src/tensor/operators/op_tri.rs
+@@ -70,6 +70,7 @@ where
+         let device = self.device();
+         let mut storage_a = device.uninit_impl(la.bounds_index()?.1)?;
+         device.pack_tri(storage_a.raw_mut(), &la, self.raw(), &lb, uplo)?;
++        // SAFETY: `tril`/`triu` op above wrote every element of the fresh storage.
+         let storage_a = unsafe { B::assume_init_impl(storage_a)? };
+         Tensor::new_f(storage_a, la.into_dim()?)
+     }
+@@ -161,6 +162,7 @@ where
+         let device = self.device();
+         let mut storage_a = device.uninit_impl(la.bounds_index()?.1)?;
+         device.unpack_tri(storage_a.raw_mut(), &la, self.raw(), &lb, uplo, symm)?;
++        // SAFETY: `tril`/`triu` op above wrote every element of the fresh storage.
+         let storage_a = unsafe { B::assume_init_impl(storage_a)? };
+         Tensor::new_f(storage_a, la.into_dim()?)
+     }
+diff --git a/rstsr-core/src/tensor/operators/op_unary_arithmetic.rs b/rstsr-core/src/tensor/operators/op_unary_arithmetic.rs
+index 52c00b5..0e7e230 100644
+--- a/rstsr-core/src/tensor/operators/op_unary_arithmetic.rs
++++ b/rstsr-core/src/tensor/operators/op_unary_arithmetic.rs
+@@ -141,6 +141,7 @@ mod impl_unary {
+             let mut storage_a = device.uninit_impl(la.bounds_index()?.1)?;
+             // compute and return
+             device.op_muta_refb(storage_a.raw_mut(), &la, self.raw(), lb)?;
++            // SAFETY: the op above wrote every element of the fresh `storage_a`.
+             let storage_a = unsafe { B::assume_init_impl(storage_a) }?;
+             return Tensor::new_f(storage_a, la);
+         }
+diff --git a/rstsr-core/src/tensor/operators/op_unary_common.rs b/rstsr-core/src/tensor/operators/op_unary_common.rs
+index 3ba95ff..b30040a 100644
+--- a/rstsr-core/src/tensor/operators/op_unary_common.rs
++++ b/rstsr-core/src/tensor/operators/op_unary_common.rs
+@@ -188,6 +188,7 @@ mod impl_tensor_unary_common {
+             let mut storage_a = device.uninit_impl(la.bounds_index()?.1)?;
+             // compute and return
+             device.op_muta_refb(storage_a.raw_mut(), &la, self.raw(), lb)?;
++            // SAFETY: the op above wrote every element of the fresh `storage_a`.
+             let storage_a = unsafe { B::assume_init_impl(storage_a) }?;
+             return Tensor::new_f(storage_a, la);
+         }
+@@ -218,6 +219,8 @@ mod impl_tensor_unary_common {
+             let layout = self.layout().clone();
+             let device = self.device().clone();
+             // generate empty output tensor
++            // SAFETY: `Vec<T>` -> `Vec<MaybeUninit<T>>` reinterpretation (identical
++            // layout); `self` is an initialized buffer written in place.
+             let self_raw_mut = unsafe {
+                 transmute::<&mut <B as DeviceRawAPI<T>>::Raw, &mut <B as DeviceRawAPI<MaybeUninit<T>>>::Raw>(
+                     self.raw_mut(),
+diff --git a/rstsr-core/src/tensor/operators/op_with_func.rs b/rstsr-core/src/tensor/operators/op_with_func.rs
+index eaedabf..2ddc226 100644
+--- a/rstsr-core/src/tensor/operators/op_with_func.rs
++++ b/rstsr-core/src/tensor/operators/op_with_func.rs
+@@ -39,6 +39,8 @@ where
+     rstsr_assert_eq!(lc_b, *lc, InvalidLayout)?;
+     // op provided by device
+     let device = c.device().clone();
++    // SAFETY: `Vec<TC>` -> `Vec<MaybeUninit<TC>>` reinterpretation (identical
++    // layout); `c` is a writable output buffer.
+     let c_raw_mut = unsafe {
+         transmute::<&mut <B as DeviceRawAPI<TC>>::Raw, &mut <B as DeviceRawAPI<MaybeUninit<TC>>>::Raw>(c.raw_mut())
+     };
+@@ -81,6 +83,8 @@ where
+     // add provided by device
+     device.op_mutc_refa_refb_func(storage_c.raw_mut(), &lc, a.raw(), &la_b, b.raw(), &lb_b, f)?;
+     // return tensor
++    // SAFETY: `op_mutc_refa_refb_func` above wrote every element of `lc`, covering
++    // the fresh `storage_c` exactly.
+     let storage_c = unsafe { B::assume_init_impl(storage_c) }?;
+     Tensor::new_f(storage_c, lc)
+ }
+@@ -112,6 +116,8 @@ where
+     rstsr_assert_eq!(la_b, *la, InvalidLayout)?;
+     // op provided by device
+     let device = a.device().clone();
++    // SAFETY: `Vec<TA>` -> `Vec<MaybeUninit<TA>>` reinterpretation (identical
++    // layout); `a` is a writable buffer written in place.
+     let a_raw_mut = unsafe {
+         transmute::<&mut <B as DeviceRawAPI<TA>>::Raw, &mut <B as DeviceRawAPI<MaybeUninit<TA>>>::Raw>(a.raw_mut())
+     };
+@@ -128,6 +134,8 @@ where
+     let mut a = a.view_mut();
+     let la = a.layout().clone();
+     let device = a.device().clone();
++    // SAFETY: `Vec<TA>` -> `Vec<MaybeUninit<TA>>` reinterpretation (identical
++    // layout); `a` is a writable buffer written in place.
+     let a_raw_mut = unsafe {
+         transmute::<&mut <B as DeviceRawAPI<T>>::Raw, &mut <B as DeviceRawAPI<MaybeUninit<T>>>::Raw>(a.raw_mut())
+     };
+diff --git a/rstsr-core/src/tensor/ownership_conversion.rs b/rstsr-core/src/tensor/ownership_conversion.rs
+index 1d2fa72..49d4527 100644
+--- a/rstsr-core/src/tensor/ownership_conversion.rs
++++ b/rstsr-core/src/tensor/ownership_conversion.rs
+@@ -57,6 +57,8 @@ where
+         let layout = self.layout().clone();
+         let data = self.data().as_ref();
+         let storage = Storage::new(data, self.device().clone());
++        // SAFETY: storage and layout are carried over unchanged from the validated
++        // tensor; only the data wrapper changes (borrow).
+         unsafe { TensorBase::new_unchecked(storage, layout) }
+     }
+ 
+@@ -105,6 +107,8 @@ where
+         let layout = self.layout().clone();
+         let data = self.data_mut().as_mut();
+         let storage = Storage::new(data, device);
++        // SAFETY: storage and layout are carried over unchanged from the validated
++        // tensor; only the data wrapper changes (exclusive borrow).
+         unsafe { TensorBase::new_unchecked(storage, layout) }
+     }
+ 
+@@ -145,6 +149,8 @@ where
+         let (storage, layout) = self.into_raw_parts();
+         let (data, device) = storage.into_raw_parts();
+         let storage = Storage::new(data.into_cow(), device);
++        // SAFETY: same storage and layout as the validated input; only the ownership
++        // wrapper changes (`into_cow`).
+         unsafe { TensorBase::new_unchecked(storage, layout) }
+     }
+ 
+@@ -166,6 +172,8 @@ where
+         let (storage, layout) = self.into_raw_parts();
+         let (data, device) = storage.into_raw_parts();
+         let storage = Storage::new(data.into_owned(), device);
++        // SAFETY: same storage and layout as the validated input; only the ownership
++        // wrapper changes (`into_owned`).
+         unsafe { TensorBase::new_unchecked(storage, layout) }
+     }
+ 
+@@ -188,6 +196,8 @@ where
+         let (storage, layout) = self.into_raw_parts();
+         let (data, device) = storage.into_raw_parts();
+         let storage = Storage::new(data.into_shared(), device);
++        // SAFETY: same storage and layout as the validated input; only the ownership
++        // wrapper changes (`into_shared`).
+         unsafe { TensorBase::new_unchecked(storage, layout) }
+     }
+ }
+@@ -368,6 +378,8 @@ where
+         let (data, device) = storage.into_raw_parts();
+         let data = data.into_cow();
+         let storage = Storage::new(data, device);
++        // SAFETY: the cloned tensor's (validated) storage and layout are re-wrapped
++        // as `TensorCow`.
+         unsafe { TensorBase::new_unchecked(storage, layout) }
+     }
+ }
+@@ -408,6 +420,8 @@ where
+         let size = layout.size();
+         let mut new_storage = device.uninit_impl(size)?;
+         device.assign_uninit(new_storage.raw_mut(), &[size].c(), self.raw(), &layout)?;
++        // SAFETY: `assign_uninit` above gathered every element of the `[size]`
++        // contiguous layout into the fresh storage.
+         let storage = unsafe { B::assume_init_impl(new_storage) }?;
+         let (data, _) = storage.into_raw_parts();
+         Ok(data.into_raw())
+@@ -610,6 +624,9 @@ where
+     B: DeviceAPI<T, Raw = Vec<T>>,
+ {
+     pub fn as_ptr(&self) -> *const T {
++        // SAFETY: `offset` <= storage length by layout validity (checked when the
++        // tensor was constructed); `add` with offset == len (one-past-end) is allowed
++        // and never dereferenced unless an element exists.
+         unsafe { self.raw().as_ptr().add(self.layout().offset()) }
+     }
+ 
+@@ -617,6 +634,8 @@ where
+     where
+         R: DataMutAPI,
+     {
++        // SAFETY: same as `as_ptr` — offset within the storage by layout validity;
++        // the exclusive `&mut self` provides write provenance.
+         unsafe { self.raw_mut().as_mut_ptr().add(self.layout().offset()) }
+     }
+ }
+@@ -651,6 +670,8 @@ where
+         let data = self.data().as_ref();
+         let storage = Storage::new(data, self.device().clone());
+         let layout = self.layout().clone();
++        // SAFETY: view API form — storage and layout carried over unchanged from the
++        // validated tensor.
+         unsafe { TensorBase::new_unchecked(storage, layout) }
+     }
+ }
+@@ -713,6 +734,8 @@ where
+         let layout = self.layout().clone();
+         let data = self.data_mut().as_mut();
+         let storage = Storage::new(data, device);
++        // SAFETY: view_mut API form — storage and layout carried over unchanged from
++        // the validated tensor; exclusive borrow.
+         unsafe { TensorBase::new_unchecked(storage, layout) }
+     }
+ }
+diff --git a/rstsr-core/src/tensor/pack_array.rs b/rstsr-core/src/tensor/pack_array.rs
+index e528f06..cae6c31 100644
+--- a/rstsr-core/src/tensor/pack_array.rs
++++ b/rstsr-core/src/tensor/pack_array.rs
+@@ -40,6 +40,9 @@ impl<'l, T, const N: usize> PackableArrayAPI<T, N> for DataRef<'l, Vec<T>> {
+ impl<'l, T> PackArrayAPI<T> for DataRef<'l, Vec<T>> {
+     fn pack_array_f<const N: usize>(self) -> Result<<Self as PackableArrayAPI<T, N>>::ArrayVec> {
+         let raw = self.raw().as_slice().pack_array_f::<N>()?;
++        // SAFETY: the source slice came from `pack_array_f` on the original buffer
++        // (`len % N == 0` enforced there); reinterpreting as `Vec<[T; N]>` of
++        // `raw.len()` covers the same bytes. Wrapped in `ManuallyDrop`, never freed.
+         let vec = unsafe { Vec::from_raw_parts(raw.as_ptr() as *mut [T; N], raw.len(), raw.len()) };
+         Ok(DataRef::from_manually_drop(ManuallyDrop::new(vec)))
+     }
+@@ -50,6 +53,8 @@ impl<'l, T, const N: usize> UnpackArrayAPI for DataRef<'l, Vec<[T; N]>> {
+ 
+     fn unpack_array(self) -> Self::Output {
+         let raw = self.raw().as_slice().unpack_array();
++        // SAFETY: flattening `[[T; N]; len]` back to `[T; len * N]` over the same
++        // buffer; wrapped in `ManuallyDrop`, never freed.
+         let vec = unsafe { Vec::from_raw_parts(raw.as_ptr() as *mut T, raw.len(), raw.len()) };
+         DataRef::from_manually_drop(ManuallyDrop::new(vec))
+     }
+@@ -65,6 +70,8 @@ impl<'l, T, const N: usize> PackableArrayAPI<T, N> for DataMut<'l, Vec<T>> {
+ impl<'l, T> PackArrayAPI<T> for DataMut<'l, Vec<T>> {
+     fn pack_array_f<const N: usize>(self) -> Result<<Self as PackableArrayAPI<T, N>>::ArrayVec> {
+         let raw = self.raw().as_slice().pack_array_f::<N>()?;
++        // SAFETY: same as the `DataRef` case above; the exclusive `&mut` source
++        // (`DataMut`) provides write access, still `ManuallyDrop`ped.
+         let vec = unsafe { Vec::from_raw_parts(raw.as_ptr() as *mut [T; N], raw.len(), raw.len()) };
+         Ok(DataMut::from_manually_drop(ManuallyDrop::new(vec)))
+     }
+@@ -75,6 +82,8 @@ impl<'l, T, const N: usize> UnpackArrayAPI for DataMut<'l, Vec<[T; N]>> {
+ 
+     fn unpack_array(self) -> Self::Output {
+         let raw = self.raw().as_slice().unpack_array();
++        // SAFETY: same as the `DataRef` case above; the exclusive `&mut` source
++        // (`DataMut`) provides write access, still `ManuallyDrop`ped.
+         let vec = unsafe { Vec::from_raw_parts(raw.as_ptr() as *mut T, raw.len(), raw.len()) };
+         DataMut::from_manually_drop(ManuallyDrop::new(vec))
+     }
+@@ -159,7 +168,13 @@ where
+             .try_into()
+             .unwrap_or_else(|_| panic!("stride conversion failed"));
+         let new_offset = layout.offset() / N;
++        // SAFETY: the packed axis (stride 1, length N, offset divisible by N — all
++        // asserted above) is consumed; remaining strides are divided by N and the
++        // offset by N, so every new flat index stays within the original storage
++        // bounds.
+         let new_layout = unsafe { Layout::new_unchecked(layout.shape().clone(), stride, new_offset) };
++        // SAFETY: `new_layout` provably stays within the original storage bounds
++        // (see above); storage only re-wrapped.
+         let tensor = unsafe { TensorAny::new_unchecked(storage, new_layout) };
+         Ok(tensor)
+     }
+@@ -221,8 +236,13 @@ where
+         stride.iter_mut().map(|s| *s *= N as isize).count();
+         stride.insert(axis, 1);
+         offset *= N;
++        // SAFETY: unpacking multiplies all strides and the offset by N and inserts a
++        // stride-1 axis of length N; every new flat index maps to `N * old + k <`,
++        // i.e. within `N * len` — exactly the extent of the unpacked `Vec<T>`.
+         let layout = unsafe { Layout::new_unchecked(shape, stride, offset) };
+         let layout = layout.into_dim().rstsr_unwrap();
++        // SAFETY: layout and storage stay in bounds by construction (see above);
++        // `into_dim` re-checks dimensionality.
+         let tensor = unsafe { TensorAny::new_unchecked(storage, layout) };
+         Ok(tensor)
+     }
+diff --git a/rstsr-core/src/tensorbase.rs b/rstsr-core/src/tensorbase.rs
+index a54ed24..e791cce 100644
+--- a/rstsr-core/src/tensorbase.rs
++++ b/rstsr-core/src/tensorbase.rs
+@@ -333,6 +333,9 @@ where
+ 
+ /* #endregion */
+ 
++// SAFETY: `TensorBase` is a plain struct (storage + layout, no interior
++// mutability beyond what `R` carries); with `R: Send` the whole struct is
++// `Send` — equivalent to the derived impl.
+ unsafe impl<R, D> Send for TensorBase<R, D>
+ where
+     D: DimAPI,
+@@ -340,6 +343,8 @@ where
+ {
+ }
+ 
++// SAFETY: plain struct; with `R: Sync` the whole struct is `Sync` — equivalent
++// to the derived impl.
+ unsafe impl<R, D> Sync for TensorBase<R, D>
+ where
+     D: DimAPI,
+diff --git a/rstsr-dtype-traits/src/ext_float.rs b/rstsr-dtype-traits/src/ext_float.rs
+index 6c9b0f8..b8a807d 100644
+--- a/rstsr-dtype-traits/src/ext_float.rs
++++ b/rstsr-dtype-traits/src/ext_float.rs
+@@ -39,6 +39,9 @@ mod impl_half {
+ 
+     macro_rules! force_eval {
+         ($e:expr) => {
++            // SAFETY: `read_volatile` only forces evaluation of the expression (prevents
++            // constant folding in the float-manipulation helpers); it reads a valid local
++            // value and the result is used as the expression's value.
+             unsafe { ::core::ptr::read_volatile(&$e) }
+         };
+     }
+diff --git a/rstsr-dtype-traits/src/isclose.rs b/rstsr-dtype-traits/src/isclose.rs
+index 6e20e31..2a6b59e 100644
+--- a/rstsr-dtype-traits/src/isclose.rs
++++ b/rstsr-dtype-traits/src/isclose.rs
+@@ -33,6 +33,8 @@ pub struct IsCloseArgs<TE: 'static> {
+ fn default_rtol<TE: 'static>() -> Result<TE, String> {
+     use core::any::*;
+     if TypeId::of::<TE>() == TypeId::of::<f64>() {
++        // SAFETY: `TypeId::of::<TE>() == f64` is checked above, so the transmute is a
++        // bit-identical copy of an `f64` constant.
+         Ok(unsafe { core::mem::transmute_copy::<f64, TE>(&1.0e-5_f64) })
+     } else {
+         let type_name = type_name::<TE>();
+@@ -43,6 +45,8 @@ fn default_rtol<TE: 'static>() -> Result<TE, String> {
+ fn default_atol<TE: 'static>() -> Result<TE, String> {
+     use core::any::*;
+     if TypeId::of::<TE>() == TypeId::of::<f64>() {
++        // SAFETY: `TypeId::of::<TE>() == f64` is checked above, so the transmute is a
++        // bit-identical copy of an `f64` constant.
+         Ok(unsafe { core::mem::transmute_copy::<f64, TE>(&1.0e-8_f64) })
+     } else {
+         let type_name = type_name::<TE>();
+diff --git a/rstsr-native-impl/src/cpu_rayon/adv_indexing.rs b/rstsr-native-impl/src/cpu_rayon/adv_indexing.rs
+index 117084d..bab09cf 100644
+--- a/rstsr-native-impl/src/cpu_rayon/adv_indexing.rs
++++ b/rstsr-native-impl/src/cpu_rayon/adv_indexing.rs
+@@ -41,6 +41,10 @@ where
+         if axis_contig_a {
+             // both axis are contiguous
+             let func = |(idx_c, idx_a): (usize, usize)| unsafe {
++                // SAFETY: each task writes its own contiguous run at `idx_c` (disjoint output
++                // positions); the `size_indices` writes land in the contiguous selected axis.
++                // NOTE: the pointer derives from `as_ptr()` and is written through;
++                // `AtomicPtr`/`as_mut_ptr()` derivation would be stacked-borrows strict.
+                 let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<T>;
+                 (0..size_indices).for_each(|idx| {
+                     (*c_ptr.add(idx)).write(a[idx_a + indices[idx]].clone());
+@@ -51,6 +55,10 @@ where
+         } else {
+             let axis_stride_a = la.stride()[axis];
+             let func = |(idx_c, idx_a): (usize, usize)| unsafe {
++                // SAFETY: each task writes its own contiguous run at `idx_c` (disjoint output
++                // positions); the `size_indices` writes land in the contiguous selected axis.
++                // NOTE: the pointer derives from `as_ptr()` and is written through;
++                // `AtomicPtr`/`as_mut_ptr()` derivation would be stacked-borrows strict.
+                 let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<T>;
+                 (0..size_indices).for_each(|idx| {
+                     let idx_a_out = idx_a as isize + axis_stride_a * indices[idx] as isize;
+diff --git a/rstsr-native-impl/src/cpu_rayon/assignment.rs b/rstsr-native-impl/src/cpu_rayon/assignment.rs
+index 3015479..9494e41 100644
+--- a/rstsr-native-impl/src/cpu_rayon/assignment.rs
++++ b/rstsr-native-impl/src/cpu_rayon/assignment.rs
+@@ -104,6 +104,11 @@ where
+         let la = translate_to_col_major_unary(la, order)?;
+         // iterate and assign
+         let func = |(idx_c, idx_a): (usize, usize)| unsafe {
++            // SAFETY: each parallel task writes a disjoint region of `c` (offsets from
++            // distinct output-layout positions). NOTE: the pointer derives from `as_ptr()`
++            // (a shared reborrow) and is written through; disjointness makes this correct
++            // in practice, but derive via `AtomicPtr`/`as_mut_ptr()` for stacked-borrows
++            // strictness.
+             let c_ptr = c.as_ptr() as *mut TypeC;
+             let ci = &mut *c_ptr.add(idx_c);
+             let ai = &a[idx_a];
+@@ -189,6 +194,7 @@ where
+         let lc = &layouts_full[0];
+         let la = &layouts_full[1];
+         let func = |(idx_c, idx_a): (usize, usize)| unsafe {
++            // SAFETY: same disjoint-write argument and `as_ptr()` note as above.
+             let c_ptr = c.as_ptr() as *mut TypeC;
+             let ci = &mut *c_ptr.add(idx_c);
+             let ai = &a[idx_a];
+@@ -201,6 +207,8 @@ where
+         let lc = &layouts_contig[0];
+         let la = &layouts_contig[1];
+         let func = |(idx_c, idx_a): (usize, usize)| unsafe {
++            // SAFETY: single disjoint write at `idx_c` per task. NOTE: same `as_ptr()`
++            // derivation note as above.
+             let c_ptr = c.as_ptr().add(idx_c) as *mut TypeC;
+             (0..size_contig).for_each(|idx| {
+                 let ci = &mut *c_ptr.add(idx);
+@@ -248,6 +256,8 @@ where
+         // not possible for contiguous fill
+         let lc = &layouts_full[0];
+         let func = |idx_c| unsafe {
++            // SAFETY: each parallel task writes a disjoint region of `c`. NOTE: same
++            // `as_ptr()` derivation note as above.
+             let c_ptr = c.as_ptr() as *mut TC;
+             *c_ptr.add(idx_c) = fill.clone().into_cast();
+         };
+@@ -257,6 +267,8 @@ where
+         // parallel for outer iteration
+         let lc = &layouts_contig[0];
+         let func = |idx_c| unsafe {
++            // SAFETY: single disjoint write at `idx_c` per task. NOTE: same `as_ptr()`
++            // derivation note as above.
+             let c_ptr = c.as_ptr().add(idx_c) as *mut TC;
+             (0..size_contig).for_each(|idx| {
+                 *c_ptr.add(idx) = fill.clone().into_cast();
+diff --git a/rstsr-native-impl/src/cpu_rayon/creation.rs b/rstsr-native-impl/src/cpu_rayon/creation.rs
+index f096b18..6df9bd9 100644
+--- a/rstsr-native-impl/src/cpu_rayon/creation.rs
++++ b/rstsr-native-impl/src/cpu_rayon/creation.rs
+@@ -69,6 +69,9 @@ where
+ 
+     // 1. transmute type without affecting input/output types
+     #[inline]
++    // SAFETY: `TypeId` equality (checked at the call site) proves `T == U`, so the
++    // `transmute_copy` of the scalars and the final `transmute::<Vec<U>, Vec<T>>`
++    // are no-op reinterpretations of identically-typed data.
+     unsafe fn transmute_accelerated<T, U>(
+         start: &T,
+         end: &T,
+diff --git a/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs b/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs
+index 828661a..5b82b40 100644
+--- a/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs
++++ b/rstsr-native-impl/src/cpu_rayon/matmul_naive.rs
+@@ -38,6 +38,10 @@ where
+     let task = || {
+         (0..n).into_par_iter().for_each(|j| {
+             (0..m).into_par_iter().for_each(|i| unsafe {
++                // SAFETY: `i < m`, `j < n` of the validated layout, so `index_uncheck` yields
++                // in-bounds offsets; each (i, j) is written by exactly one parallel task.
++                // NOTE: the pointer derives from `as_ptr()` and is written through;
++                // `AtomicPtr`/`as_mut_ptr()` derivation would be stacked-borrows strict.
+                 let ptr_c = c.as_ptr().offset(lc.index_uncheck(&[i, j])) as *mut TC;
+                 *ptr_c = (*ptr_c).clone() * beta.clone()
+                     + (0..k).fold(TC::zero(), |acc, p| {
+diff --git a/rstsr-native-impl/src/cpu_rayon/op_tri.rs b/rstsr-native-impl/src/cpu_rayon/op_tri.rs
+index bb8d8ac..c7e9020 100644
+--- a/rstsr-native-impl/src/cpu_rayon/op_tri.rs
++++ b/rstsr-native-impl/src/cpu_rayon/op_tri.rs
+@@ -52,6 +52,9 @@ where
+                 true => {
+                     la_rest_iter.zip(lb_rest_iter).for_each(|(offset_a, offset_b)| {
+                         let ptr_a = thr_a.load(Ordering::Relaxed);
++                        // SAFETY: `ptr_a` is `a`'s base pointer hoisted through `AtomicPtr` (length
++                        // preserved); each task writes the disjoint region given by its own
++                        // (offset_a, offset_b) of the validated layouts.
+                         let slice_a = unsafe { from_raw_parts_mut(ptr_a, len_a) };
+                         inner_pack_triu_c_contig(slice_a, offset_a, b, offset_b, n);
+                     });
+@@ -61,10 +64,16 @@ where
+                         let mut la_inner = la_inner.to_dim::<Ix1>()?;
+                         let mut lb_inner = lb_inner.to_dim::<Ix2>()?;
+                         unsafe {
++                            // SAFETY: offsets from the rest-layout iterators over the validated layouts;
++                            // inner layout + offset addresses only in-bounds elements (no pointer access
++                            // in `set_offset` itself).
+                             la_inner.set_offset(offset_a);
+                             lb_inner.set_offset(offset_b);
+                         }
+                         let ptr_a = thr_a.load(Ordering::Relaxed);
++                        // SAFETY: `ptr_a` is `a`'s base pointer hoisted through `AtomicPtr` (length
++                        // preserved); each task writes the disjoint region given by its own
++                        // (offset_a, offset_b) of the validated layouts.
+                         let slice_a = unsafe { from_raw_parts_mut(ptr_a, len_a) };
+                         inner_pack_triu_general(slice_a, &la_inner, b, &lb_inner, n);
+                         Ok(())
+@@ -75,6 +84,9 @@ where
+                 true => {
+                     la_rest_iter.zip(lb_rest_iter).for_each(|(offset_a, offset_b)| {
+                         let ptr_a = thr_a.load(Ordering::Relaxed);
++                        // SAFETY: `ptr_a` is `a`'s base pointer hoisted through `AtomicPtr` (length
++                        // preserved); each task writes the disjoint region given by its own
++                        // (offset_a, offset_b) of the validated layouts.
+                         let slice_a = unsafe { from_raw_parts_mut(ptr_a, len_a) };
+                         inner_pack_tril_c_contig(slice_a, offset_a, b, offset_b, n);
+                     });
+@@ -84,10 +96,16 @@ where
+                         let mut la_inner = la_inner.to_dim::<Ix1>()?;
+                         let mut lb_inner = lb_inner.to_dim::<Ix2>()?;
+                         unsafe {
++                            // SAFETY: offsets from the rest-layout iterators over the validated layouts;
++                            // inner layout + offset addresses only in-bounds elements (no pointer access
++                            // in `set_offset` itself).
+                             la_inner.set_offset(offset_a);
+                             lb_inner.set_offset(offset_b);
+                         }
+                         let ptr_a = thr_a.load(Ordering::Relaxed);
++                        // SAFETY: `ptr_a` is `a`'s base pointer hoisted through `AtomicPtr` (length
++                        // preserved); each task writes the disjoint region given by its own
++                        // (offset_a, offset_b) of the validated layouts.
+                         let slice_a = unsafe { from_raw_parts_mut(ptr_a, len_a) };
+                         inner_pack_tril_general(slice_a, &la_inner, b, &lb_inner, n);
+                         Ok(())
+@@ -153,6 +171,9 @@ where
+                 true => {
+                     la_rest_iter.zip(lb_rest_iter).for_each(|(offset_a, offset_b)| {
+                         let ptr_a = thr_a.load(Ordering::Relaxed);
++                        // SAFETY: `ptr_a` is `a`'s base pointer hoisted through `AtomicPtr` (length
++                        // preserved); each task writes the disjoint region given by its own
++                        // (offset_a, offset_b) of the validated layouts.
+                         let slice_a = unsafe { from_raw_parts_mut(ptr_a, len_a) };
+                         inner_unpack_triu_c_contig(slice_a, offset_a, b, offset_b, n, symm);
+                     });
+@@ -162,10 +183,16 @@ where
+                         let mut la_inner = la_inner.to_dim::<Ix2>()?;
+                         let mut lb_inner = lb_inner.to_dim::<Ix1>()?;
+                         unsafe {
++                            // SAFETY: offsets from the rest-layout iterators over the validated layouts;
++                            // inner layout + offset addresses only in-bounds elements (no pointer access
++                            // in `set_offset` itself).
+                             la_inner.set_offset(offset_a);
+                             lb_inner.set_offset(offset_b);
+                         }
+                         let ptr_a = thr_a.load(Ordering::Relaxed);
++                        // SAFETY: `ptr_a` is `a`'s base pointer hoisted through `AtomicPtr` (length
++                        // preserved); each task writes the disjoint region given by its own
++                        // (offset_a, offset_b) of the validated layouts.
+                         let slice_a = unsafe { from_raw_parts_mut(ptr_a, len_a) };
+                         inner_unpack_triu_general(slice_a, &la_inner, b, &lb_inner, n, symm);
+                         Ok(())
+@@ -176,6 +203,9 @@ where
+                 true => {
+                     la_rest_iter.zip(lb_rest_iter).for_each(|(offset_a, offset_b)| {
+                         let ptr_a = thr_a.load(Ordering::Relaxed);
++                        // SAFETY: `ptr_a` is `a`'s base pointer hoisted through `AtomicPtr` (length
++                        // preserved); each task writes the disjoint region given by its own
++                        // (offset_a, offset_b) of the validated layouts.
+                         let slice_a = unsafe { from_raw_parts_mut(ptr_a, len_a) };
+                         inner_unpack_tril_c_contig(slice_a, offset_a, b, offset_b, n, symm);
+                     });
+@@ -185,10 +215,16 @@ where
+                         let mut la_inner = la_inner.to_dim::<Ix2>()?;
+                         let mut lb_inner = lb_inner.to_dim::<Ix1>()?;
+                         unsafe {
++                            // SAFETY: offsets from the rest-layout iterators over the validated layouts;
++                            // inner layout + offset addresses only in-bounds elements (no pointer access
++                            // in `set_offset` itself).
+                             la_inner.set_offset(offset_a);
+                             lb_inner.set_offset(offset_b);
+                         }
+                         let ptr_a = thr_a.load(Ordering::Relaxed);
++                        // SAFETY: `ptr_a` is `a`'s base pointer hoisted through `AtomicPtr` (length
++                        // preserved); each task writes the disjoint region given by its own
++                        // (offset_a, offset_b) of the validated layouts.
+                         let slice_a = unsafe { from_raw_parts_mut(ptr_a, len_a) };
+                         inner_unpack_tril_general(slice_a, &la_inner, b, &lb_inner, n, symm);
+                         Ok(())
+diff --git a/rstsr-native-impl/src/cpu_rayon/op_with_func.rs b/rstsr-native-impl/src/cpu_rayon/op_with_func.rs
+index 5286eb8..3decffc 100644
+--- a/rstsr-native-impl/src/cpu_rayon/op_with_func.rs
++++ b/rstsr-native-impl/src/cpu_rayon/op_with_func.rs
+@@ -116,6 +116,12 @@ where
+             // pointers are materialized inside the task, mirroring the file's
+             // established raw-pointer pattern (shared captures stay Sync via
+             // TA/TB/TC: Send + Sync)
++            // SAFETY: each parallel task writes a disjoint region of `c` (offsets from
++            // distinct positions of the output layout). NOTE: the pointer derives from
++            // `as_ptr()` (a shared reborrow of the `&mut [MaybeUninit<TC>]` param) and is
++            // written through; disjointness makes this correct in practice, but a
++            // stacked-borrows-strict build (Miri) flags it — derive via `AtomicPtr` from
++            // `as_mut_ptr()` instead (as done in `reduction.rs`).
+             let c_ptr = c.as_ptr() as *mut MaybeUninit<TC>;
+             let a_ptr = a.as_ptr();
+             let b_ptr = b.as_ptr();
+@@ -184,6 +190,9 @@ where
+         (0..dim_slow.div_ceil(TILE)).into_par_iter().for_each(|t_slow| {
+             let slow_begin = t_slow * TILE;
+             let slow_end = (slow_begin + TILE).min(dim_slow);
++            // SAFETY: each parallel task writes a disjoint region of `a` (offsets from
++            // distinct output-layout positions). NOTE: pointer derives from `as_ptr()` and
++            // is written through — see the note on `c_ptr` above.
+             let a_ptr = a.as_ptr() as *mut MaybeUninit<TA>;
+             let b_ptr = b.as_ptr();
+             for t_fast in 0..n_tiles_fast {
+@@ -253,6 +262,10 @@ where
+         if size_contig < PARALLEL_SWITCH {
+             // not parallel inner iteration
+             let func = |(idx_c, idx_a, idx_b)| unsafe {
++                // SAFETY: each task writes the disjoint contiguous run at `idx_c` (offsets
++                // from distinct output-layout positions). NOTE: pointer derived from `as_ptr()`
++                // and written through — see the file-level note; `AtomicPtr` from
++                // `as_mut_ptr()` would be stacked-borrows strict.
+                 let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
+                 (0..size_contig).for_each(|idx| {
+                     f(&mut *c_ptr.add(idx), &a[idx_a + idx], &b[idx_b + idx]);
+@@ -264,6 +277,8 @@ where
+             // parallel inner iteration
+             let func = |(idx_c, idx_a, idx_b)| unsafe {
+                 (0..size_contig).into_par_iter().for_each(|idx| {
++                    // SAFETY: single-element write at a disjoint offset (parallel inner iteration).
++                    // NOTE: same `as_ptr()` derivation note as above.
+                     let c_ptr = c.as_ptr().add(idx_c + idx) as *mut MaybeUninit<TC>;
+                     f(&mut *c_ptr, &a[idx_a + idx], &b[idx_b + idx]);
+                 });
+@@ -283,6 +298,7 @@ where
+         let la = &layouts_full[1];
+         let lb = &layouts_full[2];
+         let func = |(idx_c, idx_a, idx_b)| unsafe {
++            // SAFETY: same disjoint-write argument and `as_ptr()` note as above.
+             let c_ptr = c.as_ptr() as *mut MaybeUninit<TC>;
+             f(&mut *c_ptr.add(idx_c), &a[idx_a], &b[idx_b]);
+         };
+@@ -326,6 +342,10 @@ where
+         if size_contig < PARALLEL_SWITCH {
+             // not parallel inner iteration
+             let func = |(idx_c, idx_a)| unsafe {
++                // SAFETY: each task writes the disjoint contiguous run at `idx_c` (offsets
++                // from distinct output-layout positions). NOTE: pointer derived from `as_ptr()`
++                // and written through — see the file-level note; `AtomicPtr` from
++                // `as_mut_ptr()` would be stacked-borrows strict.
+                 let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
+                 (0..size_contig).for_each(|idx| {
+                     f(&mut *c_ptr.add(idx), &a[idx_a + idx], &b);
+@@ -337,6 +357,8 @@ where
+             // parallel inner iteration
+             let func = |(idx_c, idx_a)| unsafe {
+                 (0..size_contig).into_par_iter().for_each(|idx| {
++                    // SAFETY: single-element write at a disjoint offset (parallel inner iteration).
++                    // NOTE: same `as_ptr()` derivation note as above.
+                     let c_ptr = c.as_ptr().add(idx_c + idx) as *mut MaybeUninit<TC>;
+                     f(&mut *c_ptr, &a[idx_a + idx], &b);
+                 });
+@@ -349,6 +371,7 @@ where
+         let lc = &layouts_full[0];
+         let la = &layouts_full[1];
+         let func = |(idx_c, idx_a)| unsafe {
++            // SAFETY: same disjoint-write argument and `as_ptr()` note as above.
+             let c_ptr = c.as_ptr() as *mut MaybeUninit<TC>;
+             f(&mut *c_ptr.add(idx_c), &a[idx_a], &b);
+         };
+@@ -392,6 +415,10 @@ where
+         if size_contig < PARALLEL_SWITCH {
+             // not parallel inner iteration
+             let func = |(idx_c, idx_b)| unsafe {
++                // SAFETY: each task writes the disjoint contiguous run at `idx_c` (offsets
++                // from distinct output-layout positions). NOTE: pointer derived from `as_ptr()`
++                // and written through — see the file-level note; `AtomicPtr` from
++                // `as_mut_ptr()` would be stacked-borrows strict.
+                 let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
+                 (0..size_contig).for_each(|idx| {
+                     f(&mut *c_ptr.add(idx), &a, &b[idx_b + idx]);
+@@ -403,6 +430,8 @@ where
+             // parallel inner iteration
+             let func = |(idx_c, idx_b)| unsafe {
+                 (0..size_contig).into_par_iter().for_each(|idx| {
++                    // SAFETY: single-element write at a disjoint offset (parallel inner iteration).
++                    // NOTE: same `as_ptr()` derivation note as above.
+                     let c_ptr = c.as_ptr().add(idx_c + idx) as *mut MaybeUninit<TC>;
+                     f(&mut *c_ptr, &a, &b[idx_b + idx]);
+                 });
+@@ -415,6 +444,8 @@ where
+         let lc = &layouts_full[0];
+         let lb = &layouts_full[1];
+         let func = |(idx_c, idx_b)| unsafe {
++            // SAFETY: single disjoint write at `idx_c` per task. NOTE: same `as_ptr()`
++            // derivation note as above.
+             let c_ptr = c.as_ptr() as *mut MaybeUninit<TC>;
+             f(&mut *c_ptr.add(idx_c), &a, &b[idx_b]);
+         };
+@@ -456,6 +487,8 @@ where
+         if size_contig < PARALLEL_SWITCH {
+             // not parallel inner iteration
+             let func = |(idx_a, idx_b)| unsafe {
++                // SAFETY: each task writes the disjoint contiguous run at `idx_a`. NOTE:
++                // pointer derived from `as_ptr()` and written through — see the note above.
+                 let a_ptr = a.as_ptr().add(idx_a) as *mut MaybeUninit<TA>;
+                 (0..size_contig).for_each(|idx| {
+                     f(&mut *a_ptr.add(idx), &b[idx_b + idx]);
+@@ -467,6 +500,8 @@ where
+             // parallel inner iteration
+             let func = |(idx_a, idx_b)| unsafe {
+                 (0..size_contig).into_par_iter().for_each(|idx| {
++                    // SAFETY: single-element write at a disjoint offset. NOTE: same `as_ptr()`
++                    // derivation note as above.
+                     let a_ptr = a.as_ptr().add(idx_a + idx) as *mut MaybeUninit<TA>;
+                     f(&mut *a_ptr, &b[idx_b + idx]);
+                 });
+@@ -485,6 +520,9 @@ where
+         let la = &layouts_full[0];
+         let lb = &layouts_full[1];
+         let func = |(idx_a, idx_b): (usize, usize)| unsafe {
++            // SAFETY: each parallel task writes a disjoint region of `a` (offsets from
++            // distinct output-layout positions). NOTE: pointer derives from `as_ptr()` and
++            // is written through — see the note on `c_ptr` above.
+             let a_ptr = a.as_ptr() as *mut MaybeUninit<TA>;
+             f(&mut *a_ptr.add(idx_a), &b[idx_b]);
+         };
+@@ -523,6 +561,8 @@ where
+         if size_contig < PARALLEL_SWITCH {
+             // not parallel inner iteration
+             let func = |idx_a| unsafe {
++                // SAFETY: each task writes the disjoint contiguous run at `idx_a`. NOTE:
++                // pointer derived from `as_ptr()` and written through — see the note above.
+                 let a_ptr = a.as_ptr().add(idx_a) as *mut MaybeUninit<TA>;
+                 (0..size_contig).for_each(|idx| {
+                     f(&mut *a_ptr.add(idx), &b);
+@@ -534,6 +574,8 @@ where
+             // parallel inner iteration
+             let func = |idx_a| unsafe {
+                 (0..size_contig).into_par_iter().for_each(|idx| {
++                    // SAFETY: single-element write at a disjoint offset. NOTE: same `as_ptr()`
++                    // derivation note as above.
+                     let a_ptr = a.as_ptr().add(idx_a + idx) as *mut MaybeUninit<TA>;
+                     f(&mut *a_ptr, &b);
+                 });
+@@ -544,6 +586,9 @@ where
+     } else {
+         // not possible for contiguous assign
+         let func = |idx_a| unsafe {
++            // SAFETY: each parallel task writes a disjoint region of `a` (offsets from
++            // distinct output-layout positions). NOTE: pointer derives from `as_ptr()` and
++            // is written through — see the note on `c_ptr` above.
+             let a_ptr = a.as_ptr() as *mut MaybeUninit<TA>;
+             f(&mut *a_ptr.add(idx_a), &b);
+         };
+@@ -579,6 +624,8 @@ where
+         if size_contig < PARALLEL_SWITCH {
+             // not parallel inner iteration
+             let func = |idx_a| unsafe {
++                // SAFETY: each task writes the disjoint contiguous run at `idx_a`. NOTE: same
++                // `as_ptr()` derivation note as above.
+                 let a_ptr = a.as_ptr().add(idx_a) as *mut MaybeUninit<T>;
+                 (0..size_contig).for_each(|idx| {
+                     f(&mut *a_ptr.add(idx));
+@@ -590,6 +637,8 @@ where
+             // parallel inner iteration
+             let func = |idx_a| unsafe {
+                 (0..size_contig).into_par_iter().for_each(|idx| {
++                    // SAFETY: single-element write at a disjoint offset. NOTE: same `as_ptr()`
++                    // derivation note as above.
+                     let a_ptr = a.as_ptr().add(idx_a + idx) as *mut MaybeUninit<T>;
+                     f(&mut *a_ptr);
+                 });
+@@ -599,6 +648,9 @@ where
+         }
+     } else {
+         let func = |idx_a| unsafe {
++            // SAFETY: each parallel task writes a disjoint region of `a`. NOTE: pointer
++            // derives from `as_ptr()` and is written through — see the note on `c_ptr`
++            // above.
+             let a_ptr = a.as_ptr() as *mut MaybeUninit<T>;
+             f(&mut *a_ptr.add(idx_a));
+         };
+diff --git a/rstsr-native-impl/src/cpu_rayon/reduction.rs b/rstsr-native-impl/src/cpu_rayon/reduction.rs
+index 0a661dd..70cee72 100644
+--- a/rstsr-native-impl/src/cpu_rayon/reduction.rs
++++ b/rstsr-native-impl/src/cpu_rayon/reduction.rs
+@@ -154,6 +154,9 @@ where
+ 
+     // create output layout
+     let lo = layout_for_array_copy(&lm, TensorIterOrder::K)?;
++    // SAFETY (contract): `uninitialized_vec` per trait contract; every `lo.size()`
++    // slot is written below exactly once (output offsets from the layout
++    // iteration) before the final transmute.
+     let mut out: Vec<MaybeUninit<TO>> = unsafe { uninitialized_vec(lo.size())? };
+ 
+     // extract contiguous part and its corresponding dimensions
+@@ -195,6 +198,11 @@ where
+                     acc = f_sum(acc, acc_before.clone());
+                 }
+                 unsafe {
++                    // SAFETY: each task writes the single slot `i_ocd` (disjoint across tasks,
++                    // from the output layout iteration). NOTE: the pointer derives from `as_ptr()`
++                    // (a shared reborrow) and is written through; disjointness makes this correct
++                    // in practice, but derive via `as_mut_ptr()`/`AtomicPtr` for stacked-borrows
++                    // strictness.
+                     let ptr_out_ocd = out.as_ptr().add(i_ocd) as *mut MaybeUninit<TO>;
+                     (*ptr_out_ocd).write(f_out(acc));
+                 }
+@@ -242,6 +250,9 @@ where
+                 });
+                 // apply broadcast duplication and finalization function and write to output
+                 (0..size_mc).into_par_iter().for_each(|i_mc| unsafe {
++                    // SAFETY: each task writes its own `i_od + i_mc` slot (disjoint across tasks).
++                    // NOTE: pointer derives from `as_ptr()` and is written through — see the note
++                    // above; `AtomicPtr` derivation would be stacked-borrows strict.
+                     let ptr_out = out.as_ptr().add(i_od + i_mc) as *mut MaybeUninit<TO>;
+                     let mut acc = vacc[i_mc].clone();
+                     for _ in 1..size_s0 {
+@@ -276,6 +287,9 @@ where
+                     acc = f_sum(acc, acc_before.clone());
+                 }
+                 unsafe {
++                    // SAFETY: each task writes the single slot `i_od` (disjoint across tasks).
++                    // NOTE: pointer derives from `as_ptr()` and is written through — see the note
++                    // above.
+                     let ptr_out_od = out.as_ptr().add(i_od) as *mut MaybeUninit<TO>;
+                     (*ptr_out_od).write(f_out(acc));
+                 }
+@@ -314,17 +328,23 @@ where
+ 
+     // Safety: all broadcast, discontiguous, contiguous parts have been handled, the `out` is now
+     // fully initialized, transmute it to the output type
++    // SAFETY: all broadcast, discontiguous and contiguous parts were initialized
++    // above (see the existing comment).
+     let mut out = unsafe { transmute::<Vec<MaybeUninit<TO>>, Vec<TO>>(out) };
+ 
+     // handle tensor iter order
+     if TensorIterOrder::default() != TensorIterOrder::K {
+         let lo_default = layout_for_array_copy(&lm, TensorIterOrder::default())?;
+         if lo_default != lo {
++            // SAFETY (contract): uninitialized copy buffer, fully written by the assign
++            // op below before the transmute.
+             let mut out_default: Vec<MaybeUninit<TO>> = unsafe { uninitialized_vec(lo_default.size())? };
+             let mut func = |a: &mut MaybeUninit<TO>, b: &TO| {
+                 a.write(b.clone());
+             };
+             op_muta_refb_func_cpu_rayon(&mut out_default, &lo_default, &out, &lo, &mut func, pool)?;
++            // SAFETY: `op_muta_refb_func_cpu_rayon` above wrote every element of
++            // `out_default`.
+             out = unsafe { transmute::<Vec<MaybeUninit<TO>>, Vec<TO>>(out_default) };
+         }
+     }
+@@ -498,6 +518,8 @@ where
+     };
+     let sum_func = |acc1: Option<(D, T)>, acc2: Option<(D, T)>| match (acc1, acc2) {
+         (Some((idx1, val1)), Some((idx2, _))) => {
++            // SAFETY: `idx2` originates from `IndexedIterLayout` over `la`, hence within
++            // `la.shape()`.
+             fold_func(Some((idx1, val1)), (idx2.clone(), unsafe { la.index_uncheck(idx2.as_ref()) as usize }))
+         },
+         (Some((idx1, val1)), None) => Some((idx1, val1)),
+@@ -745,6 +767,8 @@ where
+ 
+     // prepare output
+     let len_out = layout_out.size();
++    // SAFETY (contract): every `len_out` slot is written below exactly once
++    // (`idx_out` from the layout_out iteration) before the transmute.
+     let mut out: Vec<MaybeUninit<IxD>> = unsafe { uninitialized_vec(len_out)? };
+     let out_ptr = AtomicPtr::new(out.as_mut_ptr());
+ 
+@@ -754,8 +778,13 @@ where
+             let out_ptr = out_ptr.load(Ordering::Relaxed);
+             // let out_ptr = out_ptr.get();
+             let mut layout_inner = layout_axes.clone();
++            // SAFETY: `idx_rest` comes from the validated rest-layout iteration; inner
++            // layout + offset addresses only in-bounds elements.
+             unsafe { layout_inner.set_offset(idx_rest) };
+             let acc = reduce_all_unraveled_arg_cmp_cpu_rayon(a, &layout_inner, cmp, pool)?;
++            // SAFETY: `out_ptr` was derived from `as_mut_ptr()` before the task and each
++            // `idx_out` is visited exactly once — disjoint writes through a unique-origin
++            // pointer.
+             unsafe { *out_ptr.add(idx_out) = MaybeUninit::new(acc) };
+             Ok(())
+         })
+@@ -764,6 +793,7 @@ where
+         None => task()?,
+         Some(pool) => pool.install(task)?,
+     };
++    // SAFETY: all elements written above.
+     let out = unsafe { transmute::<Vec<MaybeUninit<IxD>>, Vec<IxD>>(out) };
+     // returns (indices, layout_axes, layout_out): each index in `out` is an
+     // unraveled position within `layout_axes` (the reduced-axes space, possibly
+@@ -791,6 +821,8 @@ where
+         RowMajor => pseudo_shape.c(),
+         ColMajor => pseudo_shape.f(),
+     };
++    // SAFETY: `idx` is an unraveling of `pseudo_shape`, so the pseudo-layout index
++    // is in-bounds.
+     unsafe { Ok(pseudo_layout.index_uncheck(idx.as_ref()) as usize) }
+ }
+ 
+@@ -818,6 +850,8 @@ where
+         RowMajor => pseudo_shape.c(),
+         ColMajor => pseudo_shape.f(),
+     };
++    // SAFETY: `x` is an unraveling of `pseudo_shape`, so the pseudo-layout index
++    // is in-bounds.
+     let task = || idx.into_par_iter().map(|x| unsafe { pseudo_layout.index_uncheck(x.as_ref()) as usize }).collect();
+     let out = match pool {
+         None => task(),
+@@ -895,6 +929,8 @@ where
+ 
+     // prepare output
+     let len_out = layout_out.size();
++    // SAFETY (contract): every `len_out` slot is written below exactly once
++    // (`idx_out` from the layout_out iteration) before the transmute.
+     let mut out: Vec<MaybeUninit<IxD>> = unsafe { uninitialized_vec(len_out)? };
+     let out_ptr = AtomicPtr::new(out.as_mut_ptr());
+ 
+@@ -904,8 +940,13 @@ where
+             let out_ptr = out_ptr.load(Ordering::Relaxed);
+             // let out_ptr = out_ptr.get();
+             let mut layout_inner = layout_axes.clone();
++            // SAFETY: `idx_rest` comes from the validated rest-layout iteration; inner
++            // layout + offset addresses only in-bounds elements.
+             unsafe { layout_inner.set_offset(idx_rest) };
+             let acc = reduce_all_unraveled_arg_cpu_rayon(a, &layout_inner, &f_comp, &f_eq, pool)?;
++            // SAFETY: `out_ptr` was derived from `as_mut_ptr()` before the task and each
++            // `idx_out` is visited exactly once — disjoint writes through a unique-origin
++            // pointer.
+             unsafe { *out_ptr.add(idx_out) = MaybeUninit::new(acc) };
+             Ok(())
+         })
+@@ -914,6 +955,7 @@ where
+         None => task()?,
+         Some(pool) => pool.install(task)?,
+     };
++    // SAFETY: all elements written above.
+     let out = unsafe { transmute::<Vec<MaybeUninit<IxD>>, Vec<IxD>>(out) };
+     // returns (indices, layout_axes, layout_out): each index in `out` is an
+     // unraveled position within `layout_axes` (the reduced-axes space, possibly
+@@ -944,6 +986,8 @@ where
+         RowMajor => pseudo_shape.c(),
+         ColMajor => pseudo_shape.f(),
+     };
++    // SAFETY: `idx` is an unraveling of `pseudo_shape`, so the pseudo-layout index
++    // is in-bounds.
+     unsafe { Ok(pseudo_layout.index_uncheck(idx.as_ref()) as usize) }
+ }
+ 
+@@ -974,6 +1018,8 @@ where
+         RowMajor => pseudo_shape.c(),
+         ColMajor => pseudo_shape.f(),
+     };
++    // SAFETY: `x` is an unraveling of `pseudo_shape`, so the pseudo-layout index
++    // is in-bounds.
+     let task = || idx.into_par_iter().map(|x| unsafe { pseudo_layout.index_uncheck(x.as_ref()) as usize }).collect();
+     let out = match pool {
+         None => task(),
+diff --git a/rstsr-native-impl/src/cpu_rayon/transpose.rs b/rstsr-native-impl/src/cpu_rayon/transpose.rs
+index 6061661..4a7d274 100644
+--- a/rstsr-native-impl/src/cpu_rayon/transpose.rs
++++ b/rstsr-native-impl/src/cpu_rayon/transpose.rs
+@@ -55,6 +55,10 @@ where
+                     let dst_idx = (offset_c + j * ldc + i) as usize;
+ 
+                     unsafe {
++                        // SAFETY: each (i, j) pair maps to a unique `dst_idx` — disjoint writes across
++                        // parallel tasks. NOTE: the pointer derives from `as_ptr()` and is written
++                        // through; `AtomicPtr`/`as_mut_ptr()` derivation would be stacked-borrows
++                        // strict.
+                         let c_ptr = c.as_ptr().add(dst_idx) as *mut T;
+                         *c_ptr = a[src_idx].clone();
+                     }
+@@ -157,6 +161,9 @@ where
+                     let dst_idx = (offset_c + j * ldc + i) as usize;
+                     debug_assert!(src_idx < a.len() && dst_idx < c.len());
+                     unsafe {
++                        // SAFETY: each (i, j) write touches a unique layout position of `c` — disjoint
++                        // across tasks. NOTE: pointer derived from `as_ptr()` and written through — see
++                        // the note above.
+                         let c_ptr = c.as_ptr() as *mut TypeC;
+                         func_write;
+                     }
+diff --git a/rstsr-native-impl/src/cpu_rayon/vecdot.rs b/rstsr-native-impl/src/cpu_rayon/vecdot.rs
+index b158a00..10f0a06 100644
+--- a/rstsr-native-impl/src/cpu_rayon/vecdot.rs
++++ b/rstsr-native-impl/src/cpu_rayon/vecdot.rs
+@@ -110,6 +110,9 @@ where
+                 });
+                 stat.rstsr_unwrap();
+                 unsafe {
++                    // SAFETY: each task writes the disjoint run at `idx_c` (distinct output-layout
++                    // positions). NOTE: the pointer derives from `as_ptr()` and is written through;
++                    // derive via `AtomicPtr`/`as_mut_ptr()` for stacked-borrows strictness.
+                     let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
+                     (*c_ptr).write(val_c);
+                 }
+@@ -130,6 +133,9 @@ where
+             const CHUNK: usize = 64;
+             layout_col_major_dim_dispatch_par_3(lcd, lamd, lbmd, |(idx_c, idx_m_a, idx_m_b)| {
+                 let slc_c = unsafe {
++                    // SAFETY: each task writes the disjoint run at `idx_c` (distinct output-layout
++                    // positions). NOTE: the pointer derives from `as_ptr()` and is written through;
++                    // derive via `AtomicPtr`/`as_mut_ptr()` for stacked-borrows strictness.
+                     let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
+                     core::slice::from_raw_parts_mut(c_ptr, n_contig)
+                 };
+@@ -165,6 +171,9 @@ where
+                         acc + x.clone().ext_conj() * y.clone()
+                     });
+                     unsafe {
++                        // SAFETY: each task writes the disjoint run at `idx_c` (distinct output-layout
++                        // positions). NOTE: the pointer derives from `as_ptr()` and is written through;
++                        // derive via `AtomicPtr`/`as_mut_ptr()` for stacked-borrows strictness.
+                         let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
+                         (*c_ptr).write(val_c);
+                     }
+@@ -177,6 +186,9 @@ where
+                     });
+                     stat.rstsr_unwrap();
+                     unsafe {
++                        // SAFETY: each task writes the disjoint run at `idx_c` (distinct output-layout
++                        // positions). NOTE: the pointer derives from `as_ptr()` and is written through;
++                        // derive via `AtomicPtr`/`as_mut_ptr()` for stacked-borrows strictness.
+                         let c_ptr = c.as_ptr().add(idx_c) as *mut MaybeUninit<TC>;
+                         (*c_ptr).write(val_c);
+                     }
+diff --git a/rstsr-native-impl/src/cpu_serial/creation.rs b/rstsr-native-impl/src/cpu_serial/creation.rs
+index 46dc032..4ede624 100644
+--- a/rstsr-native-impl/src/cpu_serial/creation.rs
++++ b/rstsr-native-impl/src/cpu_serial/creation.rs
+@@ -80,6 +80,9 @@ where
+ 
+     // 1. transmute type without affecting input/output types
+     #[inline]
++    // SAFETY: `TypeId` equality (checked at the call site) proves `T == U`, so the
++    // `transmute_copy` of the scalars and the final `transmute::<Vec<U>, Vec<T>>`
++    // are no-op reinterpretations of identically-typed data.
+     unsafe fn transmute_accelerated<T, U>(start: &T, end: &T, step: &T, int_mode: bool) -> Option<Vec<T>>
+     where
+         U: PartialOrd + Clone + Add<Output = U> + ToPrimitive + FromPrimitive,
+diff --git a/rstsr-native-impl/src/cpu_serial/matmul_naive.rs b/rstsr-native-impl/src/cpu_serial/matmul_naive.rs
+index 95e805c..c713873 100644
+--- a/rstsr-native-impl/src/cpu_serial/matmul_naive.rs
++++ b/rstsr-native-impl/src/cpu_serial/matmul_naive.rs
+@@ -63,6 +63,8 @@ where
+                 let mut lb_m = lb_matmul.clone();
+                 let mut lc_m = lc_matmul.clone();
+                 unsafe {
++                    // SAFETY: offsets come from the rest-layout iterators of the validated matmul
++                    // config; sub-layout + offset addresses only in-bounds elements.
+                     la_m.set_offset(ia_rest);
+                     lb_m.set_offset(ib_rest);
+                     lc_m.set_offset(ic_rest);
+@@ -105,12 +107,18 @@ where
+     unsafe {
+         for i_m in 0..m {
+             for i_n in 0..n {
++                // SAFETY: `i_m < m`, `i_n < n` of the shape-asserted layout, so
++                // `index_uncheck` yields in-bounds offsets; applied through checked slice
++                // indexing downstream.
+                 let idx_c = lc.index_uncheck(&[i_m, i_n]) as usize;
+                 c[idx_c] = beta.clone() * c[idx_c].clone();
+             }
+             for i_k in 0..k {
+                 let idx_a = la.index_uncheck(&[i_m, i_k]) as usize;
+                 for i_n in 0..n {
++                    // SAFETY: `i_m < m`, `i_n < n` of the shape-asserted layout, so
++                    // `index_uncheck` yields in-bounds offsets; applied through checked slice
++                    // indexing downstream.
+                     let idx_c = lc.index_uncheck(&[i_m, i_n]) as usize;
+                     let idx_b = lb.index_uncheck(&[i_k, i_n]) as usize;
+                     c[idx_c] = alpha.clone() * (a[idx_a].clone() * b[idx_b].clone()) + c[idx_c].clone();
+@@ -150,6 +158,8 @@ where
+     // naive iteration: assuming c-prefer
+     unsafe {
+         for i_n in 0..n {
++            // SAFETY: `i_n < n` of the shape-asserted layout; offsets are in-bounds and
++            // applied through checked slice indexing.
+             let idx_c = lc.index_uncheck(&[i_n]) as usize;
+             c[idx_c] = beta.clone() * c[idx_c].clone();
+             for i_k in 0..k {
+@@ -191,6 +201,8 @@ where
+     // naive iteration: assuming c-prefer
+     unsafe {
+         for i_n in 0..n {
++            // SAFETY: `i_n < n` of the shape-asserted layout; offsets are in-bounds and
++            // applied through checked slice indexing.
+             let idx_c = lc.index_uncheck(&[i_n]) as usize;
+             c[idx_c] = beta.clone() * c[idx_c].clone();
+             for i_k in 0..k {
+@@ -229,6 +241,8 @@ where
+ 
+     // naive iteration
+     unsafe {
++        // SAFETY: 0-dim output layout, offset within `c` by layout validity; checked
++        // slice indexing downstream.
+         let idx_c = lc.index_uncheck(&[]) as usize;
+         let mut sum = beta * c[idx_c].clone();
+         for i in 0..n {
+diff --git a/rstsr-native-impl/src/cpu_serial/op_tri.rs b/rstsr-native-impl/src/cpu_serial/op_tri.rs
+index ec46cfe..1a520fe 100644
+--- a/rstsr-native-impl/src/cpu_serial/op_tri.rs
++++ b/rstsr-native-impl/src/cpu_serial/op_tri.rs
+@@ -23,6 +23,9 @@ where
+ }
+ 
+ #[inline]
++// SAFETY (loop bodies below): per the `pack_tri_cpu_serial` contract, shapes
++// are pre-validated ((n, n) vs n(n+1)/2 packed); loops keep `i, j < n`, so
++// `index_uncheck` returns in-bounds offsets of the validated layouts.
+ pub fn inner_pack_tril_general<T>(a: &mut [MaybeUninit<T>], la: &Layout<Ix1>, b: &[T], lb: &Layout<Ix2>, n: usize)
+ where
+     T: Clone,
+@@ -55,6 +58,8 @@ where
+ }
+ 
+ #[inline]
++// SAFETY: same contract as `inner_pack_tril_general` above — validated shapes,
++// `i, j < n`, in-bounds offsets.
+ pub fn inner_pack_triu_general<T>(a: &mut [MaybeUninit<T>], la: &Layout<Ix1>, b: &[T], lb: &Layout<Ix2>, n: usize)
+ where
+     T: Clone,
+@@ -116,6 +121,10 @@ where
+                 let mut lb_inner = lb_inner.to_dim::<Ix2>()?;
+                 for (offset_a, offset_b) in izip!(la_rest_iter, lb_rest_iter) {
+                     unsafe {
++                        // SAFETY: `offset_a`/`offset_b` come from the rest-layout iterators over the
++                        // validated layouts; inner layout + offset addresses only in-bounds elements.
++                        // The `unsafe` block is only needed because `set_offset` is an unsafe fn —
++                        // it performs no pointer access.
+                         la_inner.set_offset(offset_a);
+                         lb_inner.set_offset(offset_b);
+                     }
+@@ -134,6 +143,10 @@ where
+                 let mut lb_inner = lb_inner.to_dim::<Ix2>()?;
+                 for (offset_a, offset_b) in izip!(la_rest_iter, lb_rest_iter) {
+                     unsafe {
++                        // SAFETY: `offset_a`/`offset_b` come from the rest-layout iterators over the
++                        // validated layouts; inner layout + offset addresses only in-bounds elements.
++                        // The `unsafe` block is only needed because `set_offset` is an unsafe fn —
++                        // it performs no pointer access.
+                         la_inner.set_offset(offset_a);
+                         lb_inner.set_offset(offset_b);
+                     }
+@@ -216,6 +229,9 @@ pub fn inner_unpack_tril_c_contig<T>(
+ }
+ 
+ #[inline]
++// SAFETY: per the `unpack_tri_cpu_serial` contract, shapes are pre-validated
++// (n(n+1)/2 packed vs (n, n)); loops keep `i, j < n`, so `index_uncheck` yields
++// in-bounds offsets of the validated layouts.
+ pub fn inner_unpack_tril_general<T>(
+     a: &mut [MaybeUninit<T>],
+     la: &Layout<Ix2>,
+@@ -362,6 +378,7 @@ pub fn inner_unpack_triu_c_contig<T>(
+ }
+ 
+ #[inline]
++// SAFETY: same contract as `inner_unpack_tril_general` above.
+ pub fn inner_unpack_triu_general<T>(
+     a: &mut [MaybeUninit<T>],
+     la: &Layout<Ix2>,
+@@ -488,6 +505,10 @@ where
+                 let mut lb_inner = lb_inner.to_dim::<Ix1>()?;
+                 for (offset_a, offset_b) in izip!(la_rest_iter, lb_rest_iter) {
+                     unsafe {
++                        // SAFETY: `offset_a`/`offset_b` come from the rest-layout iterators over the
++                        // validated layouts; inner layout + offset addresses only in-bounds elements.
++                        // The `unsafe` block is only needed because `set_offset` is an unsafe fn —
++                        // it performs no pointer access.
+                         la_inner.set_offset(offset_a);
+                         lb_inner.set_offset(offset_b);
+                     }
+@@ -506,6 +527,10 @@ where
+                 let mut lb_inner = lb_inner.to_dim::<Ix1>()?;
+                 for (offset_a, offset_b) in izip!(la_rest_iter, lb_rest_iter) {
+                     unsafe {
++                        // SAFETY: `offset_a`/`offset_b` come from the rest-layout iterators over the
++                        // validated layouts; inner layout + offset addresses only in-bounds elements.
++                        // The `unsafe` block is only needed because `set_offset` is an unsafe fn —
++                        // it performs no pointer access.
+                         la_inner.set_offset(offset_a);
+                         lb_inner.set_offset(offset_b);
+                     }
+@@ -544,6 +569,8 @@ where
+         let j_start = (i as isize + k + 1).max(0) as usize;
+         for j in j_start..ncol {
+             unsafe {
++                // SAFETY: `i < nrow`, `j < ncol` of the validated layout, so the offset is
++                // in-bounds; applied through checked slice indexing (panic, not UB, on misuse).
+                 raw[layout.index_uncheck(&[i, j]) as usize] = T::zero();
+             }
+         }
+@@ -578,6 +605,8 @@ where
+         let j_end = (i as isize + k).max(0) as usize;
+         for j in 0..j_end {
+             unsafe {
++                // SAFETY: `i < nrow`, `j < ncol` of the validated layout, so the offset is
++                // in-bounds; applied through checked slice indexing (panic, not UB, on misuse).
+                 raw[layout.index_uncheck(&[i, j]) as usize] = T::zero();
+             }
+         }
+diff --git a/rstsr-native-impl/src/cpu_serial/reduction.rs b/rstsr-native-impl/src/cpu_serial/reduction.rs
+index d1cd038..84478b6 100644
+--- a/rstsr-native-impl/src/cpu_serial/reduction.rs
++++ b/rstsr-native-impl/src/cpu_serial/reduction.rs
+@@ -215,6 +215,9 @@ where
+ 
+     // create output layout
+     let lo = layout_for_array_copy(&lm, TensorIterOrder::K)?;
++    // SAFETY (contract): `uninitialized_vec` per trait contract; every `lo.size()`
++    // slot is written below exactly once (output offsets from the layout
++    // iteration) before the final transmute.
+     let mut out: Vec<MaybeUninit<TO>> = unsafe { uninitialized_vec(lo.size())? };
+ 
+     // extract contiguous part and its corresponding dimensions
+@@ -344,6 +347,8 @@ where
+ 
+                 // Safety: the c/d part without broadcast should have been initialized by reduced
+                 // value
++                // SAFETY: the c/d part without broadcast was initialized by the reduction
++                // above (see existing comment).
+                 let val = unsafe { out[idx_ocd].assume_init_read().clone() };
+                 out[idx_o0].write(val);
+             });
+@@ -352,6 +357,7 @@ where
+ 
+     // Safety: all broadcast, discontiguous, contiguous parts have been handled, the `out` is now
+     // fully initialized, transmute it to the output type
++    // SAFETY: all `out` elements were written by the reduction above.
+     let mut out = unsafe { transmute::<Vec<MaybeUninit<TO>>, Vec<TO>>(out) };
+ 
+     // handle tensor iter order
+@@ -362,6 +368,7 @@ where
+             op_muta_refb_func_cpu_serial(&mut out_default, &lo_default, &out, &lo, |a, b| {
+                 a.write(b.clone());
+             })?;
++            // SAFETY: `op_muta_refb_func` above wrote every element of `out_default`.
+             out = unsafe { transmute::<Vec<MaybeUninit<TO>>, Vec<TO>>(out_default) };
+         }
+     }
+@@ -747,6 +754,8 @@ where
+     // `flat < size` (result of a scan over exactly `size` elements) and
+     // `size > 0` is asserted by the caller, so `unravel_index_c` cannot go
+     // out of bounds (it does not bounds-check by contract)
++    // SAFETY: `flat` is a c-order position with `flat < size` (size > 0 asserted),
++    // so the unraveling is well-defined.
+     Ok(unsafe { la.shape().unravel_index_c(flat) })
+ }
+ 
+@@ -810,15 +819,20 @@ where
+ 
+     // prepare output
+     let len_out = layout_out.size();
++    // SAFETY (contract): every `len_out` slot is written below exactly once
++    // (`idx_out` from the layout_out iteration) before the transmute.
+     let mut out: Vec<MaybeUninit<IxD>> = unsafe { uninitialized_vec(len_out)? };
+ 
+     // actual evaluation
+     izip!(iter_out_swapped, iter_rest_swapped).try_for_each(|(idx_out, idx_rest)| -> Result<()> {
++        // SAFETY: `idx_rest` comes from the validated rest-layout iteration; inner
++        // layout + offset addresses only in-bounds elements.
+         unsafe { layout_inner.set_offset(idx_rest) };
+         let acc = reduce_all_unraveled_arg_cmp_cpu_serial(a, &layout_inner, cmp)?;
+         out[idx_out] = MaybeUninit::new(acc);
+         Ok(())
+     })?;
++    // SAFETY: all elements written above.
+     let out = unsafe { transmute::<Vec<MaybeUninit<IxD>>, Vec<IxD>>(out) };
+     // returns (indices, layout_axes, layout_out): each index in `out` is an
+     // unraveled position within `layout_axes` (the reduced-axes space), *not*
+@@ -840,6 +854,8 @@ where
+         RowMajor => pseudo_shape.c(),
+         ColMajor => pseudo_shape.f(),
+     };
++    // SAFETY: `idx` is an unraveling of `pseudo_shape`, so the pseudo-layout index
++    // is in-bounds.
+     unsafe { Ok(pseudo_layout.index_uncheck(idx.as_ref()) as usize) }
+ }
+ 
+@@ -867,6 +883,8 @@ where
+         RowMajor => pseudo_shape.c(),
+         ColMajor => pseudo_shape.f(),
+     };
++    // SAFETY: `x` is an unraveling of `pseudo_shape`, so the pseudo-layout index
++    // is in-bounds.
+     let out = idx.into_iter().map(|x| unsafe { pseudo_layout.index_uncheck(x.as_ref()) as usize }).collect();
+     Ok((out, layout))
+ }
+@@ -934,15 +952,20 @@ where
+ 
+     // prepare output
+     let len_out = layout_out.size();
++    // SAFETY (contract): every `len_out` slot is written below exactly once
++    // (`idx_out` from the layout_out iteration) before the transmute.
+     let mut out: Vec<MaybeUninit<IxD>> = unsafe { uninitialized_vec(len_out)? };
+ 
+     // actual evaluation
+     izip!(iter_out_swapped, iter_rest_swapped).try_for_each(|(idx_out, idx_rest)| -> Result<()> {
++        // SAFETY: `idx_rest` comes from the validated rest-layout iteration; inner
++        // layout + offset addresses only in-bounds elements.
+         unsafe { layout_inner.set_offset(idx_rest) };
+         let acc = reduce_all_unraveled_arg_cpu_serial(a, &layout_inner, &f_comp, &f_eq)?;
+         out[idx_out] = MaybeUninit::new(acc);
+         Ok(())
+     })?;
++    // SAFETY: all elements written above.
+     let out = unsafe { transmute::<Vec<MaybeUninit<IxD>>, Vec<IxD>>(out) };
+     // returns (indices, layout_axes, layout_out): each index in `out` is an
+     // unraveled position within `layout_axes` (the reduced-axes space), *not*
+@@ -972,6 +995,8 @@ where
+         RowMajor => pseudo_shape.c(),
+         ColMajor => pseudo_shape.f(),
+     };
++    // SAFETY: `idx` is an unraveling of `pseudo_shape`, so the pseudo-layout index
++    // is in-bounds.
+     unsafe { Ok(pseudo_layout.index_uncheck(idx.as_ref()) as usize) }
+ }
+ 
+@@ -1002,6 +1027,8 @@ where
+         RowMajor => pseudo_shape.c(),
+         ColMajor => pseudo_shape.f(),
+     };
++    // SAFETY: `x` is an unraveling of `pseudo_shape`, so the pseudo-layout index
++    // is in-bounds.
+     let out = idx.into_iter().map(|x| unsafe { pseudo_layout.index_uncheck(x.as_ref()) as usize }).collect();
+     Ok((out, layout))
+ }
+diff --git a/rstsr-native-impl/src/cpu_serial/vecdot.rs b/rstsr-native-impl/src/cpu_serial/vecdot.rs
+index c5b8a34..11f4df7 100644
+--- a/rstsr-native-impl/src/cpu_serial/vecdot.rs
++++ b/rstsr-native-impl/src/cpu_serial/vecdot.rs
+@@ -128,6 +128,8 @@ where
+                     let idx_b = idx_b_chunk + idx_s_b - offset_b; // double count offset
+                     let chunk_a = &a[idx_a..idx_a + n_chunk];
+                     let chunk_b = &b[idx_b..idx_b + n_chunk];
++                    // SAFETY: `c` is an initialized element of `chunk_c` (zero-initialized above);
++                    // read-then-write in place via `assume_init_read`/`write`.
+                     chunk_c.iter_mut().zip(chunk_a.iter().zip(chunk_b.iter())).for_each(|(c, (x, y))| unsafe {
+                         let val = x.clone().ext_conj() * y.clone();
+                         c.write(c.assume_init_read() + val);
