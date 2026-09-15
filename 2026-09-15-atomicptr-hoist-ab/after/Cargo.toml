@@ -1,0 +1,10 @@
+[package]
+name = "aptr-ab-after"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+rstsr-core = { path = "/home/a/rstsr_pack/rstsr/rstsr-core", features = ["faer"] }
+rstsr-sci-traits = { path = "/home/a/rstsr_pack/rstsr/rstsr-sci-traits", features = ["faer"] }

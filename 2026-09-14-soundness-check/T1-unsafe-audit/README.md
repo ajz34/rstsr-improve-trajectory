@@ -143,6 +143,14 @@ Before the audit only ~32 lines mentioned Safety/SAFETY anywhere.
    is why the pattern exists) and `load()` inside the closure. Each flagged site
    carries a NOTE comment; touching ~30 hot-loop sites was judged beyond a
    "minimal fix" for this audit.
+   **Status 2026-09-15: remediated.** All 36 native-impl sites plus 4 further
+   sites in `rstsr-sci-traits/src/distance/native_impl.rs` (`cdist_rayon`/
+   `cdist_weighted_rayon`, same pattern, found when re-grepping the workspace)
+   were converted to the `AtomicPtr` hoist on branch `260915-unsafe-soundness-3`
+   (uncommitted at time of writing). A-B benchmark: no regression on any
+   affected kernel; cdist family −24%, in-place blocked-2D −5%, naive matmul
+   −2%, everything else within noise; geometric mean 0.968 — see
+   `../../2026-09-15-atomicptr-hoist-ab/README.md`.
 2. **Multiple live `&mut` views from one iterator**
    (`iterator_axes.rs` `IterAxesMut`/`IndexedIterAxesMut`, `iterator_elem.rs`
    `split_at`): items are produced by lifetime-rewriting `transmute`s from a
