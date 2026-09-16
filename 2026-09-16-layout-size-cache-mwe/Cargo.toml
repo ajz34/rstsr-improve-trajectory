@@ -1,0 +1,26 @@
+[package]
+name = "size-cache-mwe"
+version = "0.1.0"
+edition = "2021"
+
+# MWE: efficiency effect of caching `Layout::size()` (T1 audit §4.5).
+# Models rstsr Layout<D> at commit aa24643 (rstsr-common/src/layout/layoutbase.rs):
+# shape/stride are either inline arrays (DimBaseAPI for [usize; N]) or heap
+# Vecs (DimBaseAPI for Vec<usize>); size() = shape product, currently recomputed.
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "sizes"
+path = "src/main.rs"
+
+[[bench]]
+name = "bench"
+harness = false
+
+[dev-dependencies]
+criterion = "0.5"
+
+[profile.bench]
+debug = false

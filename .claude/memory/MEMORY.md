@@ -1,5 +1,6 @@
 # Memory Index
 
+- [Layout size cache T1-4.5](rstsr-layout-size-cache-t1.md) - §4.5 answered NO: size() recompute is 0.4-0.7 ns, all call sites once-per-op, cached field costs +8 B and slower construction; fix the false "cached size" doc only; hoist locally if a per-element caller ever appears.
 - [Broadcast write gates T1-4.2](rstsr-broadcast-write-gates-t1.md) - §4.2 resolved via capability model: TensorMut with stride-0 stays legal, all write paths gate on `is_broadcasted()` (6ad5e84); unary owned falls back to fresh output; check_strides zero-alloc rewrite 33.5→8.0 ns; don't "fix" the unary fallback to error.
 - [AtomicPtr hoist T1-4.1](rstsr-atomicptr-hoist-t1.md) - §4.1 UB remediated (40 sites) + A-B bench: geomean 0.968, cdist −24%, zero regressions; DeviceFaer is the tensor rayon device; closure Sync gotchas.
 - [rstsr & machine benchmark context](rstsr-bench-context.md) - machine specs (9950X3D, AVX-512/BF16), rstsr has NO bench harness yet, criterion declared but unused, nightly toolchain.
