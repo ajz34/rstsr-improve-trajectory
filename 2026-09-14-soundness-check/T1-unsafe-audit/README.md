@@ -187,14 +187,28 @@ Before the audit only ~32 lines mentioned Safety/SAFETY anywhere.
    `change_default` is now a safe fn; `#[repr(u8)]` added to
    `TensorIterOrder` for the discriminant round-trip. Round-trip regression
    test added in `flags.rs`.
-4. **faer `Mat` → owned `Tensor` ownership transfer**
-   (`device_faer/conversion.rs::IntoRSTSR for Mat`): `mem::forget(self)` +
-   `Vec::from_raw_parts(ptr, upper_bound, upper_bound)` re-homes faer's
-   allocation into a `Vec` that will be freed with `Vec`'s layout. If faer
-   ever over-allocates or over-aligns (SIMD-friendly alignment), the dealloc
-   layout mismatches the alloc layout (UB by GlobalAlloc contract, benign on
-   glibc today). A custom allocator-handle type (no `Vec`) would be exact.
-   The `MatRef`/`ColRef`/`MatMut` variants are fine (ManuallyDrop, never freed).
+4. **RESOLVED 2026-09-16 — faer `Mat` → owned `Tensor` ownership transfer**
+   (`device_faer/conversion.rs::IntoRSTSR for Mat`): the original code
+   `mem::forget(self)` + `Vec::from_raw_parts(...)` re-homed faer's allocation
+   into a `Vec`. Verified against the faer 0.22.6 source: the dealloc-layout
+   mismatch happened on **every** numeric conversion, not hypothetically —
+   `align_for` over-aligns power-of-two-sized, drop-free element types to
+   `max(align, 64)` and pads row capacity to the alignment multiple, while the
+   `Vec` deallocs with `align_of::<T>` and the logical length (e.g. a 5×1
+   `Mat<f64>`: alloc (64 B, align 64) vs dealloc (40 B, align 8); UB by the
+   GlobalAlloc contract, benign only because glibc's `free` ignores the
+   layout). Resolution (owner decision, audit "option 2"): `into_rstsr` now
+   **copies** the logical elements column-wise (`Mat::col_as_slice`; safe code,
+   new `T: Clone` bound) into a fresh contiguous column-major buffer (stride
+   `[1, nrows]`, not faer's padded strides) and lets faer drop its own
+   allocation. The impl docstring documents the copy behavior, the reason, and
+   the zero-copy alternative (`mat.as_ref().into_rstsr()` → non-owning
+   `TensorView`); the reference conversions (`MatRef`/`ColRef`/`MatMut` —
+   ManuallyDrop, never freed, already sound) got one-line ownership docs, and
+   `IntoRSTSR` is now exported via prelude `rstsr_traits` (facade users
+   previously could not name it). Tests: `test_mat_owned_into_rstsr`
+   (incl. padded 5×1 case) + doctest. The custom allocator-handle alternative
+   (audit "option 1") was not taken.
 5. **`Layout::size()` doc/impl mismatch** (`rstsr-common/src/layout/layoutbase.rs`):
    doc says "uses cached size" but the product is recomputed (and could silently
    wrap for shapes whose product exceeds `usize`, e.g. `[2^32, 2^32]`) on every
