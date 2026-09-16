@@ -180,6 +180,13 @@ Before the audit only ~32 lines mentioned Safety/SAFETY anywhere.
    unsafe-fn contract ("set at init time before threads") is now documented in
    a comment; a `AtomicU8`-backed or `OnceLock` representation would remove the
    hazard entirely.
+   **Resolved 2026-09-16** on branch `260915-unsafe-soundness-3`: the macro
+   (single instantiation, `TensorIterOrder`) was replaced by an
+   `AtomicU8`-backed static with `Relaxed` ordering (`core` primitive, so
+   `no_std` is unaffected — rstsr-common is `#![cfg_attr(not(test), no_std)]`);
+   `change_default` is now a safe fn; `#[repr(u8)]` added to
+   `TensorIterOrder` for the discriminant round-trip. Round-trip regression
+   test added in `flags.rs`.
 4. **faer `Mat` → owned `Tensor` ownership transfer**
    (`device_faer/conversion.rs::IntoRSTSR for Mat`): `mem::forget(self)` +
    `Vec::from_raw_parts(ptr, upper_bound, upper_bound)` re-homes faer's
