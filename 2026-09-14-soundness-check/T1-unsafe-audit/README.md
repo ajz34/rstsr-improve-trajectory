@@ -220,6 +220,15 @@ Before the audit only ~32 lines mentioned Safety/SAFETY anywhere.
    `for i in 0..axes_check.len() - 1` underflows `0usize - 1` in release and
    then panics on the slice index — should yield a single whole-tensor view
    (NumPy semantics) or a clean error. Panic, not UB.
+   **Resolved 2026-09-16** (rstsr branch `260915-unsafe-soundness-3`, commit
+   `58a62c5`): duplicate-check rewritten as an adjacent-pairs `windows(2)`
+   scan at all 4 constructor sites; no new code path needed — the existing
+   0-d `layout_axes` / full `layout_inner` machinery already yields exactly
+   one whole-tensor view, matching NumPy `ndindex()` (product over an empty
+   axes set is 1; `()` and `vec![]` both spell "no axes" via
+   `From<()> for AxesIndex`). Regression tests `test_axes_iter_empty_axes` /
+   `test_axes_iter_mut_empty_axes`; verified under row_major and
+   col_major+rayon feature sets.
 7. **`uninitialized_vec` family** (`rstsr-common/src/alloc_vec.rs`): the
    `set_len`-on-uninitialized pattern is technically UB until each element is
    written (already documented by the owners); all in-crate callers initialize
