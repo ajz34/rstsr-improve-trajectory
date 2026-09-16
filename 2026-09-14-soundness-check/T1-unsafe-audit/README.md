@@ -162,6 +162,19 @@ Before the audit only ~32 lines mentioned Safety/SAFETY anywhere.
    aliasing `&mut`s to the same element. Consider either rejecting stride-0
    axes in mutable-view constructors or building items from raw pointers with
    per-item provenance (ndarray-style).
+   **Status 2026-09-16: resolved — capability model.** Holding a `TensorMut`
+   with a stride-0 layout stays legal (it is inert); every *write path* now
+   rejects `layout.is_broadcasted()` — the same predicate `assign`/`fill`
+   already enforced. Gated: the `add_assign` family (tensor and scalar
+   impls), `mapi_f`/`mapi_fnmut_f`, the matmul output driver,
+   `iter_mut`/`indexed_iter_mut`, and `axes_iter_mut`/`indexed_axes_iter_mut`
+   (guard on the *iterated* axes only — items keep non-iterated broadcast
+   axes as inert views, and writes through them are caught by the item-level
+   gates). `index_mut` needs no gate (single-element `&mut` is
+   borrow-checked). Unary owned in-place ops fall back to a fresh output
+   instead of erroring, matching the binary-op reuse policy. Committed as
+   `6ad5e84` on `260915-unsafe-soundness-3` (9 files, +254/−8, all suites
+   green).
 3. **`flags.rs` `static mut` defaults** (`ChangeableDefault`):
    `get_default()`/`change_default()` racing would be a data race (UB). The
    unsafe-fn contract ("set at init time before threads") is now documented in
@@ -202,6 +215,15 @@ Before the audit only ~32 lines mentioned Safety/SAFETY anywhere.
   that call it repeatedly (e.g. `reduce_*`) pay a re-multiply each time.
 - `Layout::check_strides` allocates two `Vec`s and sorts on every `Layout::new`
   — measurable on many small tensor creations.
+  **Status 2026-09-16: fixed** (same commit as §4.2, `6ad5e84`): insertion sort
+  into an 8-pair stack buffer (heap fallback for higher dimensionality), no
+  allocation in the common case, and checked cumulative-span arithmetic
+  (overflow raises `InvalidLayout` instead of wrapping in release mode —
+  ties into §4.5). Semantics unchanged. Informal timing of `Layout::new`:
+  3-D 33.5 → 8.0 ns/call, 10-D 75.9 → 46.4 ns. Possible follow-up (not done):
+  cached-validity flag to skip the double check (`Layout::new` +
+  `TensorAny::new_f` both call it) — informal numbers suggest the rewrite
+  already removed most of the cost.
 - `IterAxesView::next` clones the view struct (storage + device handle) per
   step; fine for axis iteration, but worth knowing before using it inner-loop.
 - `cpu_rayon/op_with_func.rs` materializes `c.as_ptr()` **per task**; an
