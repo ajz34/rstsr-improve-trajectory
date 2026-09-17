@@ -355,3 +355,87 @@ git apply --check --reverse ../rstsr-improve-trajectory/2026-09-14-soundness-che
 git apply --check --reverse ../rstsr-improve-trajectory/2026-09-14-soundness-check/T1-unsafe-audit/safety-comments.patch
 cargo check --workspace && cargo test -p rstsr-core --release
 ```
+
+## 8. Full-workspace recheck (2026-09-17)
+
+Recheck base: branch `260915-unsafe-soundness-3` at `31ccac4` (clean tree);
+R1/R2 fixes below committed as `fb45e78` on the same branch. The recheck
+extended coverage to everything T1 never audited — `rstsr-blas-traits`
+(~42 sites), `rstsr-tblis` (2), the five `crates-device/*` (~44 each),
+`rstsr-sci-traits` follow-up, plus a pattern re-scan of the T1 crates to
+confirm the remediations — via four parallel audit agents with all findings
+hand-verified against source. All ten branch commits (b700fc8..31ccac4)
+re-verified sound by direct diff review.
+
+### Fixed in the recheck (rstsr commit `fb45e78`, 14 files, +158/−44)
+
+- **R1 — §4.1-class residue in the never-audited crates.** The batched
+  broadcast gemm "parallel outer" branch fabricated a per-task full-length
+  `&mut [TC]` from `c.as_ptr()` (shared reborrow) in
+  `rstsr-core/src/device_faer/matmul.rs` and all five
+  `crates-device/*/src/matmul.rs`; the syrk lower-triangle write-back wrote
+  through `c.as_ptr().add(idx) as *mut` in all five
+  `crates-device/*/src/matmul_impl.rs`. Both reachable from `matmul` and
+  `matmul_uninit` on multithreaded pools. Fixed with the §4.1 AtomicPtr
+  hoist of `as_mut_ptr()`; the device_faer site carried a **wrong T1-era
+  SAFETY comment** (argued disjointness only — provenance was the defect),
+  rewritten. Residual caveat: per-task overlapping `&mut` reborrows from one
+  unique base are Tree-Borrows-sound / Stacked-Borrows-theoretical — same
+  acceptance class as §4.1; full raw-pointer plumbing through the leaf
+  staging paths deferred.
+- **R2 — §4.2 gate gaps.** Five public write entry points accepted
+  broadcast output layouts without the gate:
+  `op_mutc_refa_refb` (backs all 11 `*_with_output` ops), the three
+  `op_with_func` drivers (`op_mutc_refa_refb_func`, `op_muta_refb_func`,
+  `op_muta_func`), and `vecdot_from_f`. Under rayon, stride-0 outputs handed
+  overlapping offsets to different threads (data race). All five now carry
+  the `is_broadcasted()` assert.
+- Tests: broadcast-rejection next to each gate;
+  `test_matmul_rule7_broadcast_parallel_outer` (DeviceFaer, 64 batches —
+  deterministically crosses the parallel-outer threshold; `matmul` and
+  `matmul_from` with beta ≠ 0). Core lib 129 pass (default and `--features
+  faer`); workspace check green. Device-crate tests not runnable here (no
+  system cblas link) — compile-checked only.
+
+### Open findings (owner review pending — not fixed)
+
+- **R3 — rstsr-blas-traits / rstsr-tblis bugs** (never audited before):
+  1. BLAS3 wrappers (`gemm.rs`/`syhemm.rs`/`trsm.rs`) pass allocation-base
+     `raw().as_ptr()` ignoring `layout.offset()` and hard-code `ldc/ldb = m`
+     — silent wrong results on offset/padded views (in-bounds, no UB; the
+     LAPACK wrappers in the same crate do it correctly with offset-aware
+     `as_ptr`/`as_mut_ptr` + `ld(order)`). In-tree caller
+     (`rstsr-linalg-traits/src/ref_impl_blas.rs`, pinv/trsm) feeds benign
+     contiguous inputs, so latent there; the public builder API is affected.
+  2. `getri` never validates `ipiv.len() >= n` — OOB read (and possibly
+     write via garbage pivots) reachable from the safe builder API.
+  3. `getrf` allocates `ipiv[n]` but LAPACK defines only `min(m,n)` entries;
+     `ipiv -= 1` reads the uninitialized tail for wide matrices (m < n) —
+     violates the alloc_vec contract's "callee fully defines the buffer".
+  4. tblis einsum output is written through a shared-derived pointer
+     (`einsum_impl.rs` `as_ptr().offset(..) as *mut T`) — same provenance
+     class as R1.
+  5. Minors: gesvd order selection inverted vs gesdd (forces a transpose
+     copy; perf only); gesvd `superb` length `minmn - 1` underflows for
+     empty matrices; `usize as blas_int` truncation ≥ 2^31 unguarded;
+     blis/aocl/kml `threading.rs` mutate vendor-global thread state without
+     synchronization (openblas is Mutex-guarded, mkl thread-local).
+- **R4 — notes:** `aligned_uninitialized_vec` (aligned_alloc feature)
+  deallocates with `Layout::array::<T>` while the allocation is 64-aligned —
+  dealloc-layout mismatch, same class as the faer fix of §4.4 (benign under
+  glibc); the `Raw<T> → Raw<MaybeUninit<T>>` handle transmutes assume
+  layout identity (true for all current devices — a static assertion would
+  pin it); stale `REVIEWME` marker in `op_binary_arithmetic.rs`.
+
+### Trajectory-independence check (owner requirement, 2026-09-17)
+
+rstsr / rstsr-book / rstsr-agents **working trees are clean** — zero
+references to this repository or its contents in any file type (including
+defensive comments). Git *history* does carry references: `b700fc8`'s
+message cites this repo's `2026-09-15-atomicptr-hoist-ab` bench with
+numbers, and `6554364`/`1bc2c39`/`215ca02` say "T1 unsafe-audit". Branch
+unpushed (rewritable); master's #104 already carries "T1 unsafe-soundness
+audit" wording, so the owner's isolation bar evidently tolerates
+audit-provenance wording but was not explicitly ruled on — flagged, no
+action taken. The new commit `fb45e78` was written without any reference to
+this repository.

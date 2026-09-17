@@ -1,6 +1,6 @@
 ---
 name: rstsr-soundness-t1-unsafe-audit
-description: T1 unsafe-soundness audit at acfa93e - 4 real bugs found (full() OOB, iterator lifetime UAF, alloc overflow, DataRef Send bounds); as_ptr-write rayon pattern flagged
+description: T1 unsafe-soundness audit at acfa93e + 2026-09-17 full-workspace recheck - 5 bugs then R1/R2 residue fixed (fb45e78); R3 blas-traits/tblis bugs OPEN (BLAS3 offset/ld wrong results, getri ipiv OOB, getrf uninit tail, tblis shared-ptr output)
 metadata:
   type: project
 ---
@@ -24,3 +24,40 @@ Campaign dir: `2026-09-14-soundness-check/T1-unsafe-audit/` (README + fixes.patc
 
 ## Lesson
 `unsafe impl Send for Wrapper<C> where C: Send` over an enum that can hold `&C` is the classic bound bug; and any `transmute` extending a borrow past an impl-generic lifetime is unsound whenever R (data repr) has no lifetime parameter.
+
+## Full-workspace recheck 2026-09-17 (branch 260915-unsafe-soundness-3, base 31ccac4)
+
+Extended to the never-audited crates (blas-traits, tblis, 5x crates-device,
+sci-traits follow-up) via 4 parallel audit agents, findings hand-verified.
+README §8 is the full record.
+
+- **Fixed, rstsr commit fb45e78** (14 files, +158/-44): R1 = §4.1-class
+  residue — parallel-outer batched gemm fabricated per-task full-length `&mut`
+  from `c.as_ptr()` in device_faer + all 5 device crates, syrk write-back
+  wrote through `as_ptr().add() as *mut` x5; AtomicPtr(as_mut_ptr) hoist
+  applied (device_faer's T1 SAFETY comment there was WRONG — argued
+  disjointness only). R2 = §4.2 gate gaps — `*_with_output` family
+  (op_mutc_refa_refb), op_with_func drivers x3, vecdot_from_f lacked the
+  `is_broadcasted()` gate; all gated. Core lib 129 green both feature sets;
+  device-crate tests compile-checked only (no cblas link on this machine).
+- **R3 OPEN (blas-traits/tblis, owner pending)**: BLAS3 wrappers pass
+  allocation-BASE pointers ignoring layout offset + hardcode ldc=m → silent
+  wrong results on offset/padded views (LAPACK wrappers in same crate are
+  correct — pattern to copy: offset-aware as_ptr/as_mut_ptr + ld(order));
+  getri no ipiv.len()>=n check (OOB from safe API); getrf ipiv[n] vs LAPACK
+  min(m,n) → uninit tail read for m<n; tblis output through shared-derived
+  ptr; minors: gesvd order inversion (perf), superb underflow on empty,
+  blas_int truncation, blis/aocl/kml unguarded vendor-global thread state.
+- **R4 notes**: aligned_uninitialized_vec dealloc-layout mismatch under
+  aligned_alloc feature (faer-§4.4 class); Raw<T>→Raw<MaybeUninit<T>>
+  transmutes assume layout identity; stale REVIEWME in op_binary_arithmetic.
+- **Trajectory-independence**: rstsr/book/agents working trees CLEAN (all
+  file types); git history carries refs (b700fc8 cites the hoist A-B bench;
+  4 commits say "T1 unsafe-audit") — owner informed, no rewrite requested;
+  fb45e78 written without trajectory references.
+- **Test-writing gotcha hit**: rstsr-core `#[cfg(test)]` mods using
+  `use rstsr::prelude::*` (facade dev-dep) get "multiple versions of crate
+  rstsr_core in the dependency graph" when calling INTERNAL fns with
+  facade-typed views — use `crate::prelude_dev::*` + a separate test mod
+  instead. Also: `into_shape` yields IxD, `Layout::new([a,b],..)` yields Ix2
+  — align dims explicitly or DimMaxAPI inference fails.
