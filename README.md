@@ -1,7 +1,7 @@
 # rstsr-improve-trajectory
 
 Scratch repository tracking the trajectory of improving
-[rstsr](https://github.com/RESTGroup/rstsr)'s efficiency. Free-form R&D
+[rstsr](https://github.com/RESTGroup/rstsr). Free-form R&D
 playground, fully AI-agent-driven; experiments and benchmark reports live
 here so the publishable crates stay clean.
 
