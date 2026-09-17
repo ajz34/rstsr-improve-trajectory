@@ -10,3 +10,11 @@ unrelated to other directories, each representing rstsr as of that date.
 
 See [CLAUDE.md](CLAUDE.md) for the conventions (agent memory, benchmarks,
 handoff to main rstsr).
+
+## LICENSE
+
+This project is licensed to WTFPL.
+
+It is simply joke to have any license to protect any opensource knowledge in an era of artifical intelligence.
+
+**Fuck the AI and Fuck up the opensource.**
