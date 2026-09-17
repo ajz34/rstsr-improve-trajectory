@@ -39,7 +39,7 @@ rstsr-linalg-traits 0). 513 are on code lines (rest are doc/comment mentions).
 | OK — already documented by owners (`# Safety` sections, existing `safety:` comments) | ~30 | left as-is |
 | Test-code sites (`#[cfg(test)]`) | ~14 | not commented (no production impact) |
 | UNCLEAR / design-level, flagged for owner review | 7 (see §4) | flagged only |
-| Real bugs | 4 (see §3) | fixed + regression tests |
+| Real bugs | 4 (see §3) + 1 post-audit find (BUG 5, from the §4.7 follow-up test) | fixed + regression tests |
 
 After the audit, 303/513 unsafe-bearing code lines have a SAFETY justification
 within a 6-line window (the remainder are lines inside groups whose
@@ -126,6 +126,49 @@ Before the audit only ~32 lines mentioned Safety/SAFETY anywhere.
   is exactly the semantic requirement for shipping views to other threads).
 - No regression test (the fix is a compile-time bound; misuse now fails to
   compile).
+
+### BUG 5 — allocating `rt::matmul` read its uninitialized output (found *after* the audit)
+
+Not found during the original audit — surfaced 2026-09-16 by the §4.7 follow-up
+integration test (`tests/allocatable_dtype.rs`, `BigInt` dtype), then verified
+by hand.
+
+- **Files**: `rstsr-core/src/tensor/linalg/matmul.rs` (`op_refa_refb_matmul`,
+  ~line 286), `rstsr-native-impl/src/cpu_serial/matmul_naive.rs` (4 kernels),
+  `rstsr-native-impl/src/cpu_rayon/matmul_naive.rs` (2 kernels).
+- **Trigger**: any allocating `rt::matmul`/`rt::matmul_f`/`a.matmul(&b)`. The
+  wrapper allocated its output with `unsafe { empty(...) }` (plain `TC`, the
+  `uninitialized_vec` raw path), but the naive kernels scale the existing output
+  first — `c[idx_c] = beta * c[idx_c]` unconditionally, even at `beta = 0`.
+- **Why it fails**: reading uninitialized memory. For allocatable dtypes
+  (admitted by the public `TC: Zero + One` bound) this reads and *drops* a
+  garbage value — UB; empirically a 2×2 `BigInt` matmul aborted with
+  `free(): invalid pointer` after heap churn. For `f64`, `0.0 * NaN-garbage`
+  silently contaminates the result. It also violated the BLAS convention that
+  at `beta = 0` the output is *not read* (the very convention the audit's BLAS
+  buffer argument rests on). `vecdot`'s wrapper was checked and is clean
+  (`uninit_impl` + beta-free kernel); BLAS-device gemm staging is clean;
+  DeviceFaer already branched on `beta == 0`.
+- **Fix (2026-09-16, owner-approved; final design after an intermediate
+  `full`-zero-fill version)**: two-function dispatch on `beta`. The trait
+  gained `DeviceMatMulAPI::matmul_uninit` — write-only `c = alpha * (a @ b)`
+  into `MaybeUninit` storage, never reading `c` — and the allocating wrapper
+  allocates via `uninit_impl`, calls it, and finalizes with one `assume_init`
+  (same shape as the vecdot wrapper). `beta`-scaling (`matmul`,
+  `matmul_from`, `matmul_with_output`) keeps caller-initialized `c`; the six
+  naive kernels additionally skip the beta-scaling read at `beta.is_zero()`.
+  POD dtypes ride BLAS/faer at `beta = 0` (non-read convention); other dtypes
+  run new write-only naive kernels (cpu_serial: gemm/gemv/gevm/inner-dot +
+  dispatcher; cpu_rayon: gemm/inner-dot + dispatcher, the BLAS crates'
+  exotic fallback). Implemented for all 7 `DeviceMatMulAPI` impls.
+- **Tests**: `test_matmul_allocating_exact` (allocating `rt::matmul`, method
+  form, and batched branch, exact `BigInt` values) in
+  `rstsr-core/tests/allocatable_dtype.rs`. Full suites green
+  (core 125+8+302+2+185, common 40+4, workspace check).
+- The former follow-up option (`MaybeUninit` fresh-output path) was
+  implemented the same day per owner direction — see the fix above; a
+  half-finished earlier attempt (device-crate side only) had been reverted
+  and was rebuilt complete.
 
 ## 4. UNCLEAR / design-level findings — need owner review (not patched)
 
@@ -234,6 +277,36 @@ Before the audit only ~32 lines mentioned Safety/SAFETY anywhere.
    written (already documented by the owners); all in-crate callers initialize
    via ops/`assign*` before any read. A `Vec<MaybeUninit<T>>`-based API would
    be the clean fix (partially exists via `uninit_impl`).
+   **Status 2026-09-17: remediated.** The family now carries a written safety
+   contract (`rstsr-common/src/alloc_vec_contract.md`, rustdoc-included on all
+   three functions). The allocating matmul was rerouted through a write-only
+   `DeviceMatMulAPI::matmul_uninit` on `MaybeUninit` storage (no `beta`-scaling
+   read of uninitialized values; all naive kernels gained a `beta.is_zero()`
+   guard); sci-traits distance kernels allocate `Vec<MaybeUninit<M::Out>>` and
+   re-view after full initialization. Guarded by `allocatable_dtype.rs` (BigInt
+   exact values, DropGuard `created == dropped`) and in-crate cdist tests.
+   Follow-up (same day): the last internal generic-`T` `empty` users, `diag` /
+   `concatenate` (`creation_from_tensor.rs`), were migrated to `uninit_impl` +
+   `assign_uninit` + `assume_init_impl` with **no trait-bound changes**.
+   Motivation: `assign` writes with drop-of-old semantics (`*c = a.clone()`),
+   so over `empty` storage it dropped uninitialized memory as `T` on *every*
+   call for non-POD types (not merely on unwind); `assign_uninit` writes
+   (`ci.write(ai.clone())`). rstsr-core non-test code now contains no internal
+   `empty` users. Guarded by `test_diag_concat_allocatable_exact` and
+   `test_diag_concat_drop_guard`.
+   **Resolution 2026-09-16 (owner: Option A — accept and document, not
+   migrate)**: written up as ADR-0008 (rstsr-book). The contract
+   (`rstsr-common/src/alloc_vec_contract.md`, included via `include_str!` in
+   the rustdoc of all three functions) blesses exactly three instantiations:
+   `Vec<MaybeUninit<T>>` via `uninit_impl`+`assume_init_impl` for all generic
+   code; statically-POD FFI buffers fully defined by the BLAS/LAPACK callee
+   (`beta = 0` outputs, workspaces, operand packs; per-file NOTE comments
+   were tried and removed the same day — owner prefers the central contract
+   only); and by-contract-unspecified
+   `empty`/`empty_like` (stay `pub unsafe fn`). Allocatable `Drop` types are
+   forbidden as plain `T`; guarded by a new standalone rstsr-core integration
+   test (`tests/allocatable_dtype.rs`) running a `BigInt` dtype through the
+   safe API surface with exact-value assertions.
 
 ## 5. Efficiency notes (not chased)
 
