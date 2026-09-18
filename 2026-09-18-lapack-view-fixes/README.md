@@ -11,7 +11,7 @@
 
 Split into multiple commits on `260918/lapack-fix`:
 
-1. **`blas3_view_layout`** (commit `2075878`) — GEMM/SYHEMM/TRSM passed
+1. **`issue_blas3_view_layout`** (commit `acfe875`) — GEMM/SYHEMM/TRSM passed
    `raw().as_ptr()` (allocation base, layout offset ignored) and hard-coded
    `ldc`/`ldb = m`. Any f-prefer view with non-zero offset or padded ld got
    silently wrong results, and output writes landed in parent elements
@@ -45,13 +45,13 @@ Moved into the issues harness (`crates-device/rstsr-openblas/tests/issues/`)
 with word names instead of issue numbers, each carrying run notes that record
 the exact wrong values produced by the unfixed code:
 
-- `blas3_view_layout.rs` — gemm operand offset (`[[0,3],[1,4]]` instead of
+- `issue_blas3_view_layout.rs` — gemm operand offset (`[[0,3],[1,4]]` instead of
   `[[1,4],[2,5]]`), gemm output offset+padded-ld with parent-integrity check
   (stale `112.0` in `c[0,1]`, parent column 0 corrupted), trsm padded
   read-modify-write view.
-- `getrf_getri.rs` (pending commit) — wide-matrix LU exact values + pivot
+- `issue_getrf_getri.rs` (pending commit) — wide-matrix LU exact values + pivot
   contract; short-ipiv rejection.
-- `gesvd_empty.rs` (pending commit) — empty-matrix SVD on both drivers.
+- `issue_gesvd_empty.rs` (pending commit) — empty-matrix SVD on both drivers.
 
 ## Environment and validation
 
