@@ -1,6 +1,6 @@
 ---
 name: rstsr-soundness-t1-unsafe-audit
-description: T1 unsafe-soundness audit at acfa93e + 2026-09-17 full-workspace recheck - 5 bugs then R1/R2 residue fixed (fb45e78); R3 blas-traits/tblis bugs OPEN (BLAS3 offset/ld wrong results, getri ipiv OOB, getrf uninit tail, tblis shared-ptr output)
+description: T1 unsafe-soundness audit at acfa93e + 2026-09-17 full-workspace recheck - 5 bugs then R1/R2 residue fixed (fb45e78); R3 BLAS3/getrf/getri/gesvd fixed via PR #106 (2026-09-21); still open tblis shared-ptr output + vendor thread state
 metadata:
   type: project
 ---
@@ -40,14 +40,14 @@ README §8 is the full record.
   (op_mutc_refa_refb), op_with_func drivers x3, vecdot_from_f lacked the
   `is_broadcasted()` gate; all gated. Core lib 129 green both feature sets;
   device-crate tests compile-checked only (no cblas link on this machine).
-- **R3 OPEN (blas-traits/tblis, owner pending)**: BLAS3 wrappers pass
-  allocation-BASE pointers ignoring layout offset + hardcode ldc=m → silent
-  wrong results on offset/padded views (LAPACK wrappers in same crate are
-  correct — pattern to copy: offset-aware as_ptr/as_mut_ptr + ld(order));
-  getri no ipiv.len()>=n check (OOB from safe API); getrf ipiv[n] vs LAPACK
-  min(m,n) → uninit tail read for m<n; tblis output through shared-derived
-  ptr; minors: gesvd order inversion (perf), superb underflow on empty,
-  blas_int truncation, blis/aocl/kml unguarded vendor-global thread state.
+- **R3 MOSTLY FIXED (PR RESTGroup/rstsr#106, branch 260918/lapack-fix,
+  2026-09-21, awaiting review)**: BLAS3 offset/ld (acfe875), getrf ipiv
+  min(m,n) + getri len check, gesvd order inversion, empty-matrix
+  superb underflow (wrapper + driver), gesvd driver RowMajor path
+  (404ee21) — see 2026-09-18-lapack-view-fixes/README.md. STILL OPEN:
+  tblis output through shared-derived ptr; blas_int truncation;
+  blis/aocl/kml unguarded vendor-global thread state; syhemm dead-API
+  slot/n convention bugs (no driver, untestable).
 - **R4 notes**: aligned_uninitialized_vec dealloc-layout mismatch under
   aligned_alloc feature (faer-§4.4 class); Raw<T>→Raw<MaybeUninit<T>>
   transmutes assume layout identity; stale REVIEWME in op_binary_arithmetic.

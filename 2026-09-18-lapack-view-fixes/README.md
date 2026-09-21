@@ -5,7 +5,7 @@
   wrappers (the wrapper layer above `driver_impl`), triggered by the
   2026-09-14 soundness check's note that BLAS3 wrappers pass allocation-base
   pointers. This task covers wrong-results bugs, not memory unsafety.
-- **Date**: 2026-09-17/18
+- **Date**: 2026-09-17/18 (PR + CI 2026-09-21)
 
 ## Findings and fixes
 
@@ -18,11 +18,11 @@ Split into multiple commits on `260918/lapack-fix`:
    outside the view. Fixed with offset-aware `as_ptr`/`as_mut_ptr` and the
    output's real `ld_col()`. SYHEMM fixed in the same way (no driver impl
    exists for it in any backend, so untested).
-2. **getrf/getri** (pending) — getrf allocated `ipiv` of length `n` but
+2. **getrf/getri** (commit `404ee21`) — getrf allocated `ipiv` of length `n` but
    LAPACK defines `min(m, n)` entries, so wide matrices returned
    nondeterministic garbage in the tail (`ipiv -= 1` reads it); getri never
    validated `ipiv.len() >= n` (OOB read from the public builder).
-3. **gesvd/gesdd** (pending) — wrapper `superb` sized `minmn - 1`
+3. **gesvd/gesdd** (commit `404ee21`) — wrapper `superb` sized `minmn - 1`
    underflowed for empty matrices (bogus allocation failure); gesvd's order
    mapping was inverted relative to gesdd (forced transpose-copies); the
    gesvd driver's RowMajor path queried LAPACK with the row-major `lda`
@@ -35,9 +35,9 @@ Split into multiple commits on `260918/lapack-fix`:
 
 Deferred (flagged, not fixed): syhemm computes `n = a.ncol()` (wrong for
 `side=Left` with rectangular `b`) and its side=Right operand slots do not
-match the CBLAS convention — dead API (no driver), untestable; the gesvd
-driver's `min_mn - 1` superb backup loop still underflows for *direct*
-driver calls with empty dims (unreachable via wrappers after fix 3).
+match the CBLAS convention — dead API (no driver), untestable. (The gesvd
+driver's `min_mn - 1` superb backup loop, also flagged, got the same
+`saturating_sub` treatment in `404ee21`.)
 
 ## Tests
 
@@ -49,9 +49,9 @@ the exact wrong values produced by the unfixed code:
   `[[1,4],[2,5]]`), gemm output offset+padded-ld with parent-integrity check
   (stale `112.0` in `c[0,1]`, parent column 0 corrupted), trsm padded
   read-modify-write view.
-- `issue_getrf_getri.rs` (pending commit) — wide-matrix LU exact values + pivot
+- `issue_getrf_getri.rs` (commit `404ee21`) — wide-matrix LU exact values + pivot
   contract; short-ipiv rejection.
-- `issue_gesvd_empty.rs` (pending commit) — empty-matrix SVD on both drivers.
+- `issue_gesvd_empty.rs` (commit `404ee21`) — empty-matrix SVD on both drivers.
 
 ## Environment and validation
 
@@ -67,3 +67,23 @@ the exact wrong values produced by the unfixed code:
   `git stash push --keep-index` before committing.
 - Note: the manifest-based suites were previously believed "env-broken"
   locally; they run fine once fixtures are generated.
+
+## PR and CI (2026-09-21)
+
+- Branch pushed to the `ajz34` fork; **PR RESTGroup/rstsr#106** opened
+  (title "rstsr (fix): LAPACK GESVD/GESDD empty-matrix handling and
+  BLAS3/LAPACK view-layout contracts"), body in the #105 changelog style.
+  Follow-up commits: `39a1df9` (rustfmt-only) and `74b7df7` (CI-only clippy
+  fix). Awaiting review, not merged.
+- **CI-only clippy fix (`74b7df7`)**: CI builds rstsr-openblas against an
+  ILP64 OpenBLAS (`blas_int = i64`), where the test's `v as i64` pivot cast
+  tripped `clippy::unnecessary_cast` under `-D warnings`; the local 32-bit
+  build needed the cast, so it compiled clean locally. Tests must compare
+  `blas_int` values in their native dtype (`ipiv.raw().to_vec()`), never via
+  fixed-width casts.
+- Final CI: **12/12 green** (clippy, rustfmt, doctests, integration-tests,
+  unittests ×3, col-major, faer-linalg, pthread, no-std ×2).
+- Local linking of the test target currently fails (`undefined symbol:
+  dgetri_` on default features; `omp_set_num_threads` with
+  `--features="openmp linalg"`), unlike 2026-09-18 when the full suite ran
+  green — local link-env drift, not chased; CI is the gate that matters.
