@@ -1,0 +1,90 @@
+reduce2d/small_64x64-serial_f64/sum_axis0
+                        time:   [1.5589 µs 1.5595 µs 1.5600 µs]
+reduce2d/small_64x64-serial_f64/sum_axis1
+                        time:   [1.7841 µs 1.7850 µs 1.7859 µs]
+reduce2d/small_64x64-serial_f64/sum_all
+                        time:   [375.11 ns 375.17 ns 375.22 ns]
+reduce2d/medium_512x512-serial_f64/sum_axis0
+                        time:   [42.318 µs 42.338 µs 42.358 µs]
+reduce2d/medium_512x512-serial_f64/sum_axis1
+                        time:   [20.672 µs 20.687 µs 20.703 µs]
+reduce2d/medium_512x512-serial_f64/sum_all
+                        time:   [15.419 µs 15.434 µs 15.457 µs]
+reduce2d/medium_512x512-serial_f64/min_axis0
+                        time:   [47.161 µs 47.169 µs 47.179 µs]
+reduce2d/medium_512x512-serial_f64/max_axis0
+                        time:   [44.413 µs 44.430 µs 44.450 µs]
+reduce2d/large_2048x2048-serial_f64/sum_axis0
+                        time:   [1.8263 ms 1.8327 ms 1.8390 ms]
+reduce2d/large_2048x2048-serial_f64/sum_axis1
+                        time:   [422.23 µs 422.86 µs 423.60 µs]
+reduce2d/large_2048x2048-serial_f64/sum_all
+                        time:   [403.36 µs 404.72 µs 405.98 µs]
+reduce2d/large_2048x2048-serial_f64/min_axis0
+                        time:   [2.0896 ms 2.0999 ms 2.1103 ms]
+reduce2d/large_2048x2048-serial_f64/max_axis0
+                        time:   [2.0635 ms 2.0724 ms 2.0816 ms]
+reduce2d/odd_1000x777-serial_f64/sum_axis0
+                        time:   [124.82 µs 124.89 µs 125.00 µs]
+reduce2d/odd_1000x777-serial_f64/sum_axis1
+                        time:   [57.821 µs 57.833 µs 57.847 µs]
+reduce2d/odd_1000x777-serial_f64/sum_all
+                        time:   [48.998 µs 49.004 µs 49.011 µs]
+reduce2d/small_64x64-faer16_f64/sum_axis0
+                        time:   [12.313 µs 12.321 µs 12.329 µs]
+reduce2d/small_64x64-faer16_f64/sum_axis1
+                        time:   [20.562 µs 20.578 µs 20.595 µs]
+reduce2d/small_64x64-faer16_f64/sum_all
+                        time:   [6.2923 µs 6.4280 µs 6.5556 µs]
+reduce2d/medium_512x512-faer16_f64/sum_axis0
+                        time:   [39.500 µs 41.778 µs 44.079 µs]
+reduce2d/medium_512x512-faer16_f64/sum_axis1
+                        time:   [43.689 µs 43.732 µs 43.780 µs]
+reduce2d/medium_512x512-faer16_f64/sum_all
+                        time:   [16.118 µs 16.130 µs 16.142 µs]
+reduce2d/medium_512x512-faer16_f64/min_axis0
+                        time:   [33.956 µs 35.211 µs 36.536 µs]
+reduce2d/medium_512x512-faer16_f64/max_axis0
+                        time:   [35.729 µs 37.303 µs 38.962 µs]
+reduce2d/large_2048x2048-faer16_f64/sum_axis0
+                        time:   [312.34 µs 316.52 µs 320.59 µs]
+reduce2d/large_2048x2048-faer16_f64/sum_axis1
+                        time:   [92.003 µs 92.168 µs 92.354 µs]
+reduce2d/large_2048x2048-faer16_f64/sum_all
+                        time:   [54.189 µs 54.240 µs 54.290 µs]
+reduce2d/large_2048x2048-faer16_f64/min_axis0
+                        time:   [258.19 µs 263.08 µs 267.90 µs]
+reduce2d/large_2048x2048-faer16_f64/max_axis0
+                        time:   [248.76 µs 254.49 µs 260.40 µs]
+reduce2d/odd_1000x777-faer16_f64/sum_axis0
+                        time:   [81.407 µs 85.424 µs 89.503 µs]
+reduce2d/odd_1000x777-faer16_f64/sum_axis1
+                        time:   [57.015 µs 57.060 µs 57.109 µs]
+reduce2d/odd_1000x777-faer16_f64/sum_all
+                        time:   [24.228 µs 24.248 µs 24.268 µs]
+reduce1d/large_1e7-serial_f64/sum_all
+                        time:   [1.1460 ms 1.1474 ms 1.1491 ms]
+reduce1d/large_1e7-serial_f64/min_all
+                        time:   [9.9150 ms 9.9205 ms 9.9261 ms]
+reduce1d/large_1e7-serial_f64/max_all
+                        time:   [9.9242 ms 9.9304 ms 9.9372 ms]
+reduce1d/large_1e7-faer16_f64/sum_all
+                        time:   [151.39 µs 152.17 µs 153.07 µs]
+reduce1d/large_1e7-faer16_f64/min_all
+                        time:   [355.32 µs 357.64 µs 360.28 µs]
+reduce1d/large_1e7-faer16_f64/max_all
+                        time:   [359.31 µs 363.23 µs 367.63 µs]
+reduce2d_f32/large_2048x2048-serial_f32/sum_axis0
+                        time:   [350.00 µs 350.14 µs 350.29 µs]
+reduce2d_f32/large_2048x2048-serial_f32/sum_axis1
+                        time:   [251.51 µs 251.58 µs 251.69 µs]
+reduce2d_f32/large_2048x2048-serial_f32/sum_all
+                        time:   [238.95 µs 238.99 µs 239.04 µs]
+reduce2d_f32/large_2048x2048-serial_f32/min_axis0
+                        time:   [476.67 µs 476.89 µs 477.15 µs]
+reduce2d_f32/large_2048x2048-faer16_f32/sum_axis0
+                        time:   [97.356 µs 98.333 µs 99.253 µs]
+reduce2d_f32/large_2048x2048-faer16_f32/sum_axis1
+                        time:   [82.889 µs 82.969 µs 83.053 µs]
+reduce2d_f32/large_1e7-serial_f32/sum_all
+                        time:   [704.40 µs 704.86 µs 705.39 µs]

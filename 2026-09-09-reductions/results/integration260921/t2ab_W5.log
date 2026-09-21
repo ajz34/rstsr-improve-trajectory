@@ -1,0 +1,12 @@
+reduce2d/medium_512x512-faer16_f64/min_axis0
+                        time:   [36.583 µs 37.491 µs 38.317 µs]
+reduce2d/medium_512x512-faer16_f64/max_axis0
+                        time:   [31.942 µs 32.953 µs 34.001 µs]
+reduce2d/large_2048x2048-faer16_f64/min_axis0
+                        time:   [198.08 µs 199.86 µs 201.61 µs]
+reduce2d/large_2048x2048-faer16_f64/max_axis0
+                        time:   [200.75 µs 201.87 µs 202.90 µs]
+reduce1d/large_1e7-faer16_f64/min_all
+                        time:   [354.50 µs 356.50 µs 358.64 µs]
+reduce1d/large_1e7-faer16_f64/max_all
+                        time:   [354.14 µs 357.43 µs 361.57 µs]

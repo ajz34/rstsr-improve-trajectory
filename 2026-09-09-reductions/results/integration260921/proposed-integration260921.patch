@@ -1,0 +1,284 @@
+diff --git a/rstsr-core/src/device_cpu_serial/reduction.rs b/rstsr-core/src/device_cpu_serial/reduction.rs
+index c549874..3059071 100644
+--- a/rstsr-core/src/device_cpu_serial/reduction.rs
++++ b/rstsr-core/src/device_cpu_serial/reduction.rs
+@@ -38,7 +38,7 @@ where
+ 
+ impl<T, D> OpMinAPI<T, D> for DeviceCpuSerial
+ where
+-    T: ExtReal,
++    T: ExtReal + PartialOrd,
+     D: DimAPI,
+ {
+     type TOut = T;
+@@ -49,8 +49,15 @@ where
+         }
+ 
+         let f_init = T::ext_max_value;
+-        let f = |acc: T, x: T| acc.ext_min(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_min(acc2);
++        // strict-compare accumulate (instead of `acc.ext_min(x)`): identical
++        // values for all inputs on the ±ext_max_value seed (NaN candidates
++        // never pass the strict comparison, all-NaN keeps the seed), but the
++        // form auto-vectorizes (vminpd) where the `minnum` intrinsic shape
++        // does not — see the T2' reduction study. Known nuance: on ±0.0 ties
++        // the incumbent is kept (value-equal; the old `f64::min` form could
++        // return either operand's zero).
++        let f = |acc: T, x: T| if x < acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 < acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+         reduce_all_cpu_serial(a, la, f_init, f, f_sum, f_out)
+     }
+@@ -66,8 +73,8 @@ where
+         }
+ 
+         let f_init = T::ext_max_value;
+-        let f = |acc: T, x: T| acc.ext_min(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_min(acc2);
++        let f = |acc: T, x: T| if x < acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 < acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+ 
+         let (out, layout_out) = reduce_axes_cpu_serial(a, &la.to_dim()?, axes, f_init, f, f_sum, f_out)?;
+@@ -77,7 +84,7 @@ where
+ 
+ impl<T, D> OpMaxAPI<T, D> for DeviceCpuSerial
+ where
+-    T: ExtReal,
++    T: ExtReal + PartialOrd,
+     D: DimAPI,
+ {
+     type TOut = T;
+@@ -88,8 +95,9 @@ where
+         }
+ 
+         let f_init = T::ext_min_value;
+-        let f = |acc: T, x: T| acc.ext_max(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_max(acc2);
++        // strict-compare accumulate: see the OpMinAPI note above (max symmetric).
++        let f = |acc: T, x: T| if x > acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 > acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+ 
+         reduce_all_cpu_serial(a, la, f_init, f, f_sum, f_out)
+@@ -106,8 +114,8 @@ where
+         }
+ 
+         let f_init = T::ext_min_value;
+-        let f = |acc: T, x: T| acc.ext_max(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_max(acc2);
++        let f = |acc: T, x: T| if x > acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 > acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+ 
+         let (out, layout_out) = reduce_axes_cpu_serial(a, &la.to_dim()?, axes, f_init, f, f_sum, f_out)?;
+diff --git a/rstsr-core/src/feature_rayon/auto_impl/reduction.rs b/rstsr-core/src/feature_rayon/auto_impl/reduction.rs
+index 8d32d84..023d010 100644
+--- a/rstsr-core/src/feature_rayon/auto_impl/reduction.rs
++++ b/rstsr-core/src/feature_rayon/auto_impl/reduction.rs
+@@ -42,7 +42,7 @@ where
+ 
+ impl<T, D> OpMinAPI<T, D> for DeviceRayonAutoImpl
+ where
+-    T: ExtReal + Send + Sync,
++    T: ExtReal + PartialOrd + Send + Sync,
+     D: DimAPI,
+ {
+     type TOut = T;
+@@ -55,8 +55,15 @@ where
+         let pool = self.get_current_pool();
+ 
+         let f_init = T::ext_max_value;
+-        let f = |acc: T, x: T| acc.ext_min(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_min(acc2);
++        // strict-compare accumulate (instead of `acc.ext_min(x)`): identical
++        // values for all inputs on the ±ext_max_value seed (NaN candidates
++        // never pass the strict comparison, all-NaN keeps the seed), but the
++        // form auto-vectorizes (vminpd) where the `minnum` intrinsic shape
++        // does not — see the T2' reduction study. Known nuance: on ±0.0 ties
++        // the incumbent is kept (value-equal; the old `f64::min` form could
++        // return either operand's zero).
++        let f = |acc: T, x: T| if x < acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 < acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+ 
+         reduce_all_cpu_rayon(a, la, f_init, f, f_sum, f_out, pool)
+@@ -75,8 +82,8 @@ where
+         let pool = self.get_current_pool();
+ 
+         let f_init = T::ext_max_value;
+-        let f = |acc: T, x: T| acc.ext_min(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_min(acc2);
++        let f = |acc: T, x: T| if x < acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 < acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+ 
+         let (out, layout_out) = reduce_axes_cpu_rayon(a, &la.to_dim()?, axes, f_init, f, f_sum, f_out, pool)?;
+@@ -86,7 +93,7 @@ where
+ 
+ impl<T, D> OpMaxAPI<T, D> for DeviceRayonAutoImpl
+ where
+-    T: ExtReal + Send + Sync,
++    T: ExtReal + PartialOrd + Send + Sync,
+     D: DimAPI,
+ {
+     type TOut = T;
+@@ -99,8 +106,9 @@ where
+         let pool = self.get_current_pool();
+ 
+         let f_init = T::ext_min_value;
+-        let f = |acc: T, x: T| acc.ext_max(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_max(acc2);
++        // strict-compare accumulate: see the OpMinAPI note above (max symmetric).
++        let f = |acc: T, x: T| if x > acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 > acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+ 
+         reduce_all_cpu_rayon(a, la, f_init, f, f_sum, f_out, pool)
+@@ -119,8 +127,8 @@ where
+         let pool = self.get_current_pool();
+ 
+         let f_init = T::ext_min_value;
+-        let f = |acc: T, x: T| acc.ext_max(x);
+-        let f_sum = |acc1: T, acc2: T| acc1.ext_max(acc2);
++        let f = |acc: T, x: T| if x > acc { x } else { acc };
++        let f_sum = |acc1: T, acc2: T| if acc2 > acc1 { acc2 } else { acc1 };
+         let f_out = |acc| acc;
+ 
+         let (out, layout_out) = reduce_axes_cpu_rayon(a, &la.to_dim()?, axes, f_init, f, f_sum, f_out, pool)?;
+diff --git a/rstsr-native-impl/src/cpu_serial/reduction.rs b/rstsr-native-impl/src/cpu_serial/reduction.rs
+index 337a857..ccf68cc 100644
+--- a/rstsr-native-impl/src/cpu_serial/reduction.rs
++++ b/rstsr-native-impl/src/cpu_serial/reduction.rs
+@@ -177,6 +177,73 @@ where
+     }
+ }
+ 
++/// Original iterator-walk band accumulation (the pre-rewrite code path of
++/// [`reduce_axes_cpu_serial`]'s `size_mc > 1` branch), kept as the fallback
++/// for summed spaces outside the offsets guards. Out-of-line for code-layout
++/// hygiene, mirroring [`reduce_axes_band_walk_cpu_serial`].
++#[inline(never)]
++fn reduce_axes_band_walk_iter_cpu_serial<TI, TS, F>(
++    a: &[TI],
++    vacc: &mut [TS],
++    it_scd: &IterLayoutColMajor<Vec<usize>>,
++    idx_md: usize,
++    offset: usize,
++    f: &F,
++) where
++    TI: Clone,
++    TS: Clone,
++    F: Fn(TS, TI) -> TS,
++{
++    const CHUNK: usize = 48;
++    vacc.chunks_mut(CHUNK).enumerate().for_each(|(i_chunk, vacc_chunk)| {
++        let start = i_chunk * CHUNK;
++        let nchunk = vacc_chunk.len();
++        it_scd.clone().for_each(|i_scd| {
++            let idx_in = idx_md + i_scd - offset; // double-counted offset
++            let slc = &a[idx_in + start..idx_in + start + nchunk];
++            vacc_chunk.iter_mut().zip(slc).for_each(|(acc, x)| {
++                *acc = f(acc.clone(), x.clone());
++            });
++        });
++    });
++}
++
++/// Contiguous-chunk band accumulation for the `size_mc > 1` branch of
++/// [`reduce_axes_cpu_serial`]: for every chunk of the accumulator vector,
++/// add (via `f`) the summed-axes slabs addressed by the pre-materialized
++/// `scd_offsets` (each entry is one summed-axes position offset; the slab
++/// `[idx + start .. idx + start + len]` covers the contiguous output band).
++///
++/// Kept out-of-line so the remaining branches of `reduce_axes_cpu_serial`
++/// (and the rest of the crate) compile exactly like the pre-rewrite code
++/// (code-layout hygiene; same reasoning as the arg* contiguous fast path).
++#[inline(never)]
++fn reduce_axes_band_walk_cpu_serial<TI, TS, F>(
++    a: &[TI],
++    vacc: &mut [TS],
++    scd_offsets: &[usize],
++    idx_md: usize,
++    offset: usize,
++    f: &F,
++) where
++    TI: Clone,
++    TS: Clone,
++    F: Fn(TS, TI) -> TS,
++{
++    const CHUNK: usize = 48;
++    vacc.chunks_mut(CHUNK).enumerate().for_each(|(i_chunk, vacc_chunk)| {
++        let start = i_chunk * CHUNK;
++        let nchunk = vacc_chunk.len();
++        scd_offsets.iter().for_each(|&i_scd| {
++            let idx_in = idx_md + i_scd - offset; // double-counted offset
++            let slc = &a[idx_in + start..idx_in + start + nchunk];
++            vacc_chunk.iter_mut().zip(slc).for_each(|(acc, x)| {
++                *acc = f(acc.clone(), x.clone());
++            });
++        });
++    });
++}
++
+ pub fn reduce_axes_cpu_serial<TI, TS, TO, I, F, FSum, FOut>(
+     a: &[TI],
+     la: &Layout<IxD>,
+@@ -279,25 +346,42 @@ where
+             "probably internal bug: the contiguous part of input must be the same applied to output"
+         )?;
+ 
++        // The summed-axes offsets do not depend on the remaining-axes position,
++        // so they are materialized once here instead of re-walking the layout
++        // iterator (`it_scd.clone()`; one `IterLayoutColMajor::next` per row
++        // per output chunk) for every contiguous chunk band. That per-chunk
++        // iterator walk was the dominant cost of this branch (measured in the
++        // T2' reduction study, dir 2026-09-09-reductions). Visit order (and
++        // thus accumulation order) is unchanged: `scd_offsets` lists exactly
++        // the positions `it_scd` would yield, in the same order.
++        // Guards, above which the ORIGINAL iterator walk is kept
++        // (byte-identical fallback; neither case is covered by this study's
++        // bench matrix): (a) gigantic summed spaces, where the offsets buffer
++        // could outsize the streamed input; (b) tiny total work, where the
++        // one-off offsets allocation is not worth it.
++        const SCD_OFFSETS_CAP: usize = 1 << 17; // 128k offsets = 1 MiB of usize
++        const SCD_OFFSETS_FLOOR: usize = 1 << 14; // 16k accumulated elements
++        let size_scd = asc.iter().chain(asd.iter()).map(|&i| ls.shape()[i]).product::<usize>();
++        let scd_offsets = if size_scd <= SCD_OFFSETS_CAP && size_scd * size_mc >= SCD_OFFSETS_FLOOR {
++            Some(it_scd.clone().collect_vec())
++        } else {
++            None
++        };
++
+         // iterate the discontiguous remain parts
+         it_md.zip(it_od).for_each(|(i_md, i_od)| {
+             // initialize sequential parts
+             let mut vacc = vec![init(); size_mc];
+-            // iterate the reduction parts
+-            // - chunk to contiguous output (current chunk size is small, but applicable to most
+-            //   situations)
+-            const CHUNK: usize = 48;
+-            vacc.chunks_mut(CHUNK).enumerate().for_each(|(i_chunk, vacc_chunk)| {
+-                let start = i_chunk * CHUNK;
+-                let nchunk = vacc_chunk.len();
+-                it_scd.clone().for_each(|i_scd| {
+-                    let idx_in = i_md + i_scd - offset; // double-counted offset
+-                    let slc = &a[idx_in + start..idx_in + start + nchunk];
+-                    vacc_chunk.iter_mut().zip(slc).for_each(|(acc, x)| {
+-                        *acc = f(acc.clone(), x.clone());
+-                    });
+-                });
+-            });
++            match &scd_offsets {
++                Some(scd_offsets) => {
++                    reduce_axes_band_walk_cpu_serial(a, &mut vacc, scd_offsets, i_md, offset, &f);
++                },
++                None => {
++                    // fallback (guards above): the original iterator walk,
++                    // unchanged from before the rewrite
++                    reduce_axes_band_walk_iter_cpu_serial(a, &mut vacc, &it_scd, i_md, offset, &f);
++                },
++            }
+             // apply broadcast duplication and finalization function and write to output
+             out[i_od..i_od + size_mc].iter_mut().zip(vacc).for_each(|(val, mut acc)| {
+                 let acc_before = acc.clone();
