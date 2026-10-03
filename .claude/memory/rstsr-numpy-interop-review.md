@@ -7,11 +7,13 @@ metadata:
 
 On 2026-10-03 a full review of rust-numpy (v0.29.0+8 `da6bf5be`), NumPy 2.5 DLPack support,
 DLPack v1.3 and the rstsr-side gaps was written to `2026-10-03-rust-numpy-review/`
-(REVIEW.md + questions/answers/response + notes/ + experiments/). Status after R1 (same day):
-**Q1 (c) both directions; Q2 (c) DLPack primary + copy fallback, two interchange layers
-(light = DLPack, heavy = rust-numpy traits/ndarray); Q3 (a) new workspace crate with
-`rstsr-cpu-*` naming; Q7/Q10(a)/Q12 accepted; Q4 (Python-facing deliverable) still open** —
-see `RESPONSE-discussion-R1.md` §5 for the five R2 points. No implementation yet.
+(REVIEW.md + questions/answers/response/decisions + notes/ + experiments/). Status after R1 (same day):
+**Q1 (c) both directions; Q2 (c) DLPack primary + copy fallback; Q3 (a) new workspace crate with
+`rstsr-cpu-*` naming; Q7/Q10(a)/Q12 accepted; Q4 open.** After R2 (same day, `DECISIONS-R2.md`):
+**the heavy rust-numpy/ndarray layer is deferred; the deliverable is the pure `rstsr-cpu-dlpack`
+crate (dlpack-ffi + rstsr-core, no pyo3); the Python-side `PyCapsule` holder stays a ~30-line
+documented shim (`examples/`), because PyCapsule is CPython-only.** Next artifact: the design
+document; no implementation yet.
 
 Key durable facts from it:
 - `np.from_dlpack` requires an object with `__dlpack__` (bare capsules rejected); NumPy calls

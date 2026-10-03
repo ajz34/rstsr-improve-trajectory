@@ -3,7 +3,7 @@
 - **Date**: 2026-10-03
 - **Task dir**: `2026-10-03-rust-numpy-review/`
 - **Status**: draft for discussion (no implementation intended; see `QUESTIONS-discussion-R1.md`)
-- **Discussion trail**: `QUESTIONS-discussion-R1.md` (Q1–Q14) → `ANSWERS-discussion-R1.md` (maintainer, 2026-10-03) → `RESPONSE-discussion-R1.md` (verification, corrections, Q4 still open). Claims corrected by R1 are marked “(corrected in `RESPONSE-discussion-R1.md` V#/C#)”.
+- **Discussion trail**: `QUESTIONS-discussion-R1.md` (Q1–Q14) → `ANSWERS-discussion-R1.md` (maintainer, 2026-10-03) → `RESPONSE-discussion-R1.md` (verification, corrections, Q4 still open) → `DECISIONS-R2.md` (scope closed: pure `rstsr-cpu-dlpack`, heavy layer deferred). Claims corrected by R1 are marked “(corrected in `RESPONSE-discussion-R1.md` V#/C#)”.
 - **Pinned revisions (everything below is relative to these)**:
   - rust-numpy `da6bf5be05d4053cf0c51afa12efc018a984ca7f` = v0.29.0 + 8 commits (2026-08-28), `numpy` crate 0.29.0
   - numpy reference checkout `~/Git-Others/numpy` at tag **v2.5.2** (`48fecee545`); installed numpy for probes **2.5.1** (conda env `torch`)
