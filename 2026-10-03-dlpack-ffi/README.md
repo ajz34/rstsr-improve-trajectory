@@ -4,7 +4,7 @@
 - **Target repos**: `dlpack-ffi` (redesign + generation script), `rstsr-agents` (new update skill) — per the round-1 Q7 answer, *not* a new member of the rstsr-ffi workspace
 - **Base**: rstsr-ffi master `2731f7c` ("rstsr-aocl-ffi: update to AOCL 5.3.0"); rstsr master `f179c46` (context only — this task does not modify rstsr)
 - **Origin prompt**: [initial-prompt.md](./initial-prompt.md)
-- **Status**: **implemented** 2026-10-03 ([REPORT.md](./REPORT.md)); G2 review passed; the dlpack-ffi and rstsr-agents changes are left **uncommitted** for human review / commit / release.
+- **Status**: **delivered** 2026-10-03 ([REPORT.md](./REPORT.md)); dlpack-ffi committed and PR open (`RESTGroup/dlpack-ffi#1`); rstsr-agents committed locally (unpushed); 1.3.0 release pending human dispatch.
 
 ## Mission
 
@@ -31,5 +31,5 @@ C-ABI surface whose API survives DLPack minor-version enum additions without bre
 - [dlpack-ffi.patch](./dlpack-ffi.patch), [rstsr-agents.patch](./rstsr-agents.patch) — the
   uncommitted changes exported as patches (2026-10-03).
 
-Implementation complete 2026-10-03; G2 passed; the two target repos are left uncommitted for
-human review, commit, and release.
+Implementation complete 2026-10-03; G2 passed; dlpack-ffi committed and PR opened;
+rstsr-agents committed locally, pending push.

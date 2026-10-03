@@ -69,3 +69,12 @@
   repository URL is the expected org identity.
 - Benchmark/experiment character: this campaign is a binding-maintenance task, so no benchmark
   numbers apply; the verification table above is the evidence record.
+
+## Execution update (2026-10-03)
+
+- **dlpack-ffi**: committed on `261003/v1.3` as `e71bea0` (vendor v1.3 header), `1f6adf9`
+  (newtype regeneration), `8d58a61` (tests + metadata for 1.3.0); pushed to the new fork
+  `ajz34/dlpack-ffi`; **PR opened: https://github.com/RESTGroup/dlpack-ffi/pull/1**.
+- **rstsr-agents**: skill + index/map edits committed on `main` as `e3a61b6` (ahead of
+  `origin/main` by 1, **not pushed** — push on instruction).
+- The 1.3.0 release remains a human-dispatched release-plz `workflow_dispatch` after the PR merges.
