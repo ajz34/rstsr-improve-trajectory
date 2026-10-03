@@ -8,7 +8,9 @@
   redirected implementation into the rstsr repo ("why not directly implement in rstsr repo? Just
   create a new branch on that"). The Python end-to-end harness stays here, under `prototype/`.
   **Nothing is committed in the rstsr repo** (its no-auto-commit policy): the work is the branch's
-  working tree.
+  working tree. Open follow-ups from the post-implementation review conversation (zero-copy
+  adoption draft; basic-indexed view export design) are recorded in
+  [FOLLOWUPS.md](./FOLLOWUPS.md) — not implemented yet.
 - **Inputs**: [`../2026-10-03-rust-numpy-review/DECISIONS-R2.md`](../2026-10-03-rust-numpy-review/DECISIONS-R2.md)
   (scope, assumptions A1–A4) and `RESPONSE-discussion-R1.md` (verifications V1–V5).
 - **Pinned sources**: rstsr `f179c46` (v0.9.0); `dlpack-ffi` 1.3.0 (crates.io, published 2026-10-03);
@@ -20,6 +22,7 @@
 |---|---|
 | `../../../rstsr/crates-interop/rstsr-cpu-dlpack` (branch `261003/rstsr-cpu-dlpack`) | the crate: `src/` + `tests/` (18 tests) + workspace wiring in `rstsr/Cargo.toml` |
 | [DESIGN.md](./DESIGN.md) | the design: API surface, the `DataDlpack` repr and its safety contract, flags/ownership policy, validation checklist, error taxonomy, test plan, open questions, prototype results |
+| [FOLLOWUPS.md](./FOLLOWUPS.md) | open threads after the review conversation: unsafe zero-copy adoption (decision pending), shared-view export design (deferred), decision log |
 | `prototype/` | the harness: `demo-ffi/` (cdylib host with a Rust-written `PyCapsule` destructor), `python/` (reference capsule holder + end-to-end suite + captured output), `rstsr-cpu-dlpack/` (archival snapshot of the crate at move time) |
 | `prototype/README.md` | how to run the Rust tests and the Python end-to-end suite |
 

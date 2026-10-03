@@ -47,3 +47,8 @@ Gotchas that cost time (worth remembering for bridge crates):
 - The `PyCapsule` destructor can be written in **Rust** (`PyCapsule_GetName`/`GetPointer` resolve
   from the CPython process at dlopen); the name check (`dltensor_versioned` vs `used_*`) is what
   prevents a double free.
+
+Follow-ups from the post-implementation review (2026-10-03): the unsafe zero-copy *adoption*
+draft (`from_dlpack_*_adopt_f`, decision pending) and the *shared-view export* design
+(`to_dlpack_shared_view_f`, deferred) are in [[rstsr-cpu-dlpack-followups]] and
+`2026-10-03-rstsr-cpu-dlpack/FOLLOWUPS.md`.
