@@ -124,3 +124,34 @@ now work; the owned-base case stays `into_shared_dlpack_f` (consume) as designed
 - Q1 flags (`IS_COPIED` on move export): the cross-framework probes support keeping flags
   advisory — NumPy keys writeability off `READ_ONLY` alone, and torch ignores `READ_ONLY`
   entirely (writes through a read-only NumPy array's buffer).
+- `kDLBool` import payloads — **validated, not rejected wholesale** (maintainer, 2026-10-04):
+  every element readable through the layout must be 0 or 1, else the import raises
+  `InvalidValue`. Keeps NumPy bool arrays zero-copy while closing a Miri-reproduced UB (a
+  producer may declare `kDLBool` over non-canonical bytes).
+- `DlpackDtype` / `DlpackSharedBaseAPI` — **kept safe traits** (maintainer, 2026-10-04): the
+  obligations of an implementation are documented in each trait ("Implementor's contract")
+  instead of switching to `unsafe trait`.
+
+## 5. Adversarial review fix batch (2026-10-04) — rstsr commit `6a40c97`
+
+An independent adversarial pass over the whole branch (full diff read, Miri probes already in
+this session, strict-provenance Miri) produced one high- and six lower-severity findings; the
+fixes landed as rstsr commit `6a40c97` (on top of the prelude wiring `6eb3d90`):
+
+- **`kDLBool` import UB (high, Miri-reproduced)**: a producer may declare `kDLBool` over bytes
+  that are not 0/1 (NumPy: `.view(np.bool_)` over arbitrary bytes); reading them as Rust `bool`
+  was UB. The import now walks the *visible* elements only (interleaved bytes are not part of
+  the tensor — a full-span scan would false-reject) and rejects non-canonical payloads.
+- **strict provenance**: `data + byte_offset` no longer round-trips through `usize`; the
+  address check stays, the pointer is advanced with pointer arithmetic. The crate passes
+  `-Zmiri-strict-provenance` now (the old `as *mut T` aborted there).
+- **empty imports**: the zero-length fabricated span starts from `NonNull::<T>::dangling()`
+  (aligned for `T`), not address 1.
+- **col-major doctest**: the `to_dlpack_shared_view` example asserted a row-major offset (`+8`);
+  it now asserts through `view.layout().offset()` and passes in both orders.
+- **documented corners**: two empty buffers are indistinguishable by base address (harmless —
+  the export is empty); whole-`TensorArc` export goes through `to_dlpack_shared_view`.
+- **safe-trait contracts**: see the decision log above.
+- Verified after the batch: 30 bridge tests + 3 doctests green row/col; Miri default and
+  strict-provenance green; CI-exact clippy and fmt clean; Python/NumPy E2E (8 cases / 64
+  checks) re-run against the live crate and green.

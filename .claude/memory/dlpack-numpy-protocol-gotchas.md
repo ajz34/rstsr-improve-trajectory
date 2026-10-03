@@ -64,4 +64,10 @@ Verified against NumPy v2.5.2 source + NumPy 2.5.1 probes; full evidence in
   signals `READ_ONLY` in the versioned capsule, but torch imports it and writes through — a
   consumer without a read-only concept cannot enforce it.
 
+- `kDLBool` carries no byte-value guarantee: NumPy exports `np.bool_` arrays as `kDLBool`
+  (`PyDataType_ISBOOL`), but `.view(np.bool_)` over arbitrary bytes yields a bool array whose
+  elements are not 0/1 — an importer that materialises logical `bool`s from those bytes has UB.
+  `rstsr-cpu-dlpack` validates the visible elements on import (see
+  [[rstsr-cpu-dlpack-implementation]]).
+
 See [[rstsr-numpy-interop-review]] for what rstsr intends to do with this.

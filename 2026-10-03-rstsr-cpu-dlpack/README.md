@@ -14,7 +14,10 @@
   additions it needed). The crate is also surfaced through the main `rstsr` prelude — cargo
   feature `rstsr/dlpack`, `rt::dlpack::*` — via a new bridge `prelude` module following the
   member-crate pattern (rstsr commit `6eb3d90`); that pattern and the prelude conventions are
-  documented in the `rstsr-agents` skill `prelude-conventions` (commit `b8828bd`).
+  documented in the `rstsr-agents` skill `prelude-conventions` (commit `b8828bd`). A
+  post-commit adversarial review (2026-10-04) produced a fix batch (rstsr commit `6a40c97`):
+  `kDLBool` import validation, strict-provenance import pointer arithmetic, col-major doctest,
+  trait contracts — see [FOLLOWUPS.md](./FOLLOWUPS.md) §5.
 - **Inputs**: [`../2026-10-03-rust-numpy-review/DECISIONS-R2.md`](../2026-10-03-rust-numpy-review/DECISIONS-R2.md)
   (scope, assumptions A1–A4) and `RESPONSE-discussion-R1.md` (verifications V1–V5).
 - **Pinned sources**: rstsr `f179c46` (v0.9.0); `dlpack-ffi` 1.3.0 (crates.io, published 2026-10-03);

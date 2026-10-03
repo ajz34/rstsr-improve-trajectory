@@ -64,3 +64,11 @@ the `rstsr_traits`/`rstsr_structs`/`rstsr_funcs` groups (the member-crate patter
 forwards behind `#[cfg(feature = "dlpack")]`. The pattern + the prelude conventions (including the
 deviations that exist in the tree) are codified in the `rstsr-agents` skill `prelude-conventions`
 (commit `b8828bd`).
+
+A post-commit adversarial review (2026-10-04) produced fix batch rstsr `6a40c97`: `kDLBool`
+payloads are now validated on import (0/1 only — NumPy `.view(np.bool_)` can declare non-canonical
+bytes and reading them as Rust `bool` was UB, Miri-reproduced); the import no longer round-trips
+the pointer through `usize` (crate is `-Zmiri-strict-provenance` clean now); empty imports dangle
+aligned for `T`; the col-major doctest asserts through the view offset; `DlpackDtype` /
+`DlpackSharedBaseAPI` stay **safe traits** with documented implementor contracts (maintainer
+call). See `2026-10-03-rstsr-cpu-dlpack/FOLLOWUPS.md` §5.
