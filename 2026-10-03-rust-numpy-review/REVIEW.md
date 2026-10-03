@@ -2,7 +2,8 @@
 
 - **Date**: 2026-10-03
 - **Task dir**: `2026-10-03-rust-numpy-review/`
-- **Status**: draft for discussion (no implementation intended; see `QUESTIONS.md`)
+- **Status**: draft for discussion (no implementation intended; see `QUESTIONS-discussion-R1.md`)
+- **Discussion trail**: `QUESTIONS-discussion-R1.md` (Q1–Q14) → `ANSWERS-discussion-R1.md` (maintainer, 2026-10-03) → `RESPONSE-discussion-R1.md` (verification, corrections, Q4 still open). Claims corrected by R1 are marked “(corrected in `RESPONSE-discussion-R1.md` V#/C#)”.
 - **Pinned revisions (everything below is relative to these)**:
   - rust-numpy `da6bf5be05d4053cf0c51afa12efc018a984ca7f` = v0.29.0 + 8 commits (2026-08-28), `numpy` crate 0.29.0
   - numpy reference checkout `~/Git-Others/numpy` at tag **v2.5.2** (`48fecee545`); installed numpy for probes **2.5.1** (conda env `torch`)
@@ -26,9 +27,9 @@
 5. **Byte-order is never silently reinterpreted and never silently converted**: dtype extraction requires "no-casting" equivalence, so a `>f8` array fails `PyArray<f64>` extraction instead of being misinterpreted (verified in numpy 2.5.1: `np.can_cast('>f8','<f8','no') == False`). The cost is that the caller must byteswap explicitly.
 6. **rust-numpy has no DLPack support at all** (grep over `src/`, `tests/`, `examples/`, `benches/` is empty; §5). NumPy 2.x, by contrast, both produces and consumes DLPack capsules, and this is the natural third-party-facing interface — a much smaller surface than the C-API (one versioned struct + capsule rules vs. hundreds of slots + struct layouts + per-version branches).
 7. **DLPack is not a superset of the C-API bridge.** It has no byteorder field, no dtype for datetime64/timedelta64/strings/structured/object, no writeability out-of-band semantics before v1.0 flags, and no import-time casting story. Anything nontrivial beyond "strided numeric/boolean buffers, zero-copy, native-endian, CPU/GPU device" falls back to copy-with-conversion paths.
-8. **rstsr is closer than it looks, but the owning path and the Python layer are absent.** Zero-copy *views* of foreign memory are already expressible with the existing `DataRef` + non-owning-`Vec` pattern that `asarray` itself uses (§8.2); *owning* a NumPy buffer is documented UB today (§8.2, G1); there is no runtime dtype tag (G2), no device id (G3), and no pyo3/capsule/DLPack code anywhere (G4/G7). Notably, rstsr's array-API docs currently record `from_dlpack` as impossible for other languages — a decision this review asks to revisit (§8.7). MSRV 1.82 vs pyo3 0.29's 1.83 is a packaging question (Q10).
+8. **rstsr is closer than it looks, but the owning path and the Python layer are absent.** Zero-copy *views* of foreign memory are already expressible with the existing `DataRef` + non-owning-`Vec` pattern that `asarray` itself uses (§8.2); *owning* a NumPy buffer needs a storage repr that carries the owner, definable in the bridge crate without a core change — the in-repo UB note is faer-specific (corrected in `RESPONSE-discussion-R1.md` V1/V2); there is no runtime dtype tag (G2), no device id (G3), and no pyo3/capsule/DLPack code anywhere (G4/G7). Notably, rstsr's array-API docs currently record `from_dlpack` as impossible for other languages — a decision this review asks to revisit (§8.7). The declared MSRV 1.82 is stale under default features (faer 0.22.6 requires 1.84), so pyo3 0.29's 1.83 raises nothing (Q10; `RESPONSE-discussion-R1.md` V3).
 9. The strategic question is therefore not "rust-numpy or DLPack" but **which boundary each direction of travel uses**: NumPy→rstsr can be a DLPack import (zero-copy view or owned adoption) plus an `np.asarray`-style copy path for exotic dtypes; rstsr→NumPy can be a DLPack export (zero-copy, needs a Python object to hang `__dlpack__` on) or a NumPy-C-API write (via rust-numpy as a dependency, giving `.npy`-in-memory + exotic dtype support).
-10. **Decision points are collected in `QUESTIONS.md`**; none of them require implementing anything yet.
+10. **Decision points are collected in `QUESTIONS-discussion-R1.md`** (maintainer answers in `ANSWERS-discussion-R1.md`, R1 response in `RESPONSE-discussion-R1.md`); none of them require implementing anything yet.
 
 ---
 
@@ -303,7 +304,7 @@ Full evidence with citations: `notes/rstsr-state.md` (1216 lines, sections A–H
 
 - *NumPy → rstsr view*: fabricate a non-owning `Vec` over the foreign pointer (`Vec::from_raw_parts(ptr, len, len)`), wrap it in `DataRef::from_manually_drop(ManuallyDrop::new(raw))` (`storage/data.rs:98`), `Storage::new` it, and build a `TensorView` via `TensorView::new_f` (`tensor/tensorbase.rs:195`) or `TensorBase::new_unchecked` (`:115`). This is exactly the pattern rstsr already uses for foreign slices: the `asarray` slice overloads (`tensor/asarray.rs:519-543`, mutable at `:693-718`, gated `B: DeviceAPI<T, Raw = Vec<T>>`) and `IntoRSTSR for MatRef/ColRef/MatMut` (`device_faer/conversion.rs:53-75`).
 - *rstsr → foreign view*: `TensorAny::as_ptr()/as_mut_ptr()` already return offset-adjusted pointers (`tensor/ownership_conversion.rs:629/636`) and `layout()` exposes shape/stride/offset in **elements**.
-- **Hard limit (documented in-repo)**: an *owned* foreign allocation must not be re-homed into a `Vec` — dealloc alignment/padding mismatch is UB (`device_faer/conversion.rs:85-94`). Owning a NumPy buffer in rstsr therefore requires either a new storage variant (owner + deleter) or accepting the view-only model (owner stays on the Python side, rstsr must not outlive it).
+- **The documented limit is narrower than it reads** *(corrected in `RESPONSE-discussion-R1.md` V1)*: an *owned* **faer** allocation must not be re-homed into a `Vec` — faer over-aligns (64 B) and pads its row capacity, so a `Vec`'s dealloc layout would differ (`device_faer/conversion.rs:85-94`; verified against faer 0.22.6 `src/mat/matown.rs:9-13, 83-85`). The transferable rule is: **never let a *deallocating* `Vec<T>` own foreign memory** — the repo's `ManuallyDrop` + external-owner pattern is the sound alternative. Owning a NumPy buffer therefore needs a storage repr that carries the owner (pointer + fabricated `Vec` + deleter/Python reference), and that repr can be defined **in the bridge crate with public API — no core change** (`RESPONSE-discussion-R1.md` V2: `Storage::new`, `DataAPI`/`DataMutAPI`, `TensorAny::new_f` are all public; core impls are generic over `R`).
 
 **8.3 Layout units.** `Layout<D>` = `{shape, stride, offset}` with `stride: D::Stride` where `type Stride: AsMut<[isize]>` (`rstsr-common/src/layout/dim.rs:37`) — **signed, element-unit strides** — and `offset: usize` (element units) (`rstsr-common/src/layout/layoutbase.rs:15-23`). So: strides map to DLPack's element strides **without conversion**; `offset` maps to DLPack's **byte** `byte_offset` (× itemsize); a negative *offset* is not representable (negative *strides* are).
 
@@ -323,7 +324,7 @@ The nuance: that rationale is **correct for `rstsr-core` as a pure-Rust array-AP
 
 | # | Gap | Needed for | Effort/notes |
 |---|---|---|---|
-| G1 | foreign-owner storage (own pointer + deleter) | owned adoption of NumPy/DLPack buffers; safe "storable" imports | new storage variant; view-only alternative needs no core change |
+| G1 | foreign-owner storage (own pointer + deleter) | owned adoption of NumPy/DLPack buffers; safe "storable" imports | new storage **repr** (fabricated `Vec` + owner) — definable in the bridge crate; **no core change** (corrected in `RESPONSE-discussion-R1.md` V2) |
 | G2 | runtime dtype dispatch for import | NumPy → rstsr for arbitrary dtype | macro-generated `(code,bits) → T` table; export needs only trait consts |
 | G3 | device kind/id mapping | `DLDevice` production/validation | one trait method + CPU value now; extensible later |
 | G4 | capsule + protocol layer (`__dlpack__`, rename rules, versioning) | both directions | pyo3-based; must be a new crate (G7) |
@@ -435,7 +436,8 @@ and gives no safe ownership story; the export side still needs a Python object w
 ## 10. What rstsr would need to build (work items, not a plan)
 
 Derived from the §8 gap list and the §6.4 constraints. Each item lists its acceptance
-evidence; per `QUESTIONS.md` Q13, none of this starts before Q1–Q4 are answered.
+evidence; per `QUESTIONS-discussion-R1.md` Q13, none of this starts before the direction questions
+are settled (R1 answered Q1–Q3/Q7/Q10/Q12; Q4 remains open — see `RESPONSE-discussion-R1.md` §5).
 
 | # | Work item | Depends on | Acceptance evidence |
 |---|---|---|---|
@@ -445,23 +447,24 @@ evidence; per `QUESTIONS.md` Q13, none of this starts before Q1–Q4 are answere
 | W4 | device mapping trait (`DLDevice` + `__dlpack_device__`) with `kDLCPU/0` only | Q12 | device tuple round-trip |
 | W5 | export protocol: pyclass with `__dlpack__` (kwargs, idempotence, clamping, `READ_ONLY`, `IS_COPIED`, `copy=True`), capsule creation, deleter keeping the tensor alive | §6.4 (1–5) | `np.from_dlpack(obj)` shares memory and survives Rust scope; double-call test |
 | W6 | import protocol: consumer logic (call with `max_version=(1,0)`, capsule-name/version/device/dtype validation, rename-once, deleter-once) + foreign view via the existing `DataRef` pattern | §6.4 (6–8) | view aliases writes; GC of the NumPy array with the view alive behaves per policy |
-| W7 | ownership storage for adopted buffers (only if Q6 says "owned") | G1, Q6 | deleter runs exactly once on last drop; no UB under borrow-checker tests |
+| W7 | ownership repr for adopted buffers (only if Q6 says "owned"; **lives in the bridge crate, not core** — `RESPONSE-discussion-R1.md` V2) | G1, Q6 | deleter runs exactly once on last drop; no UB under borrow-checker tests |
 | W8 | cross-language test harness (Python + NumPy in CI; round-trip, refcount/lifetime, error paths, idempotence) | Q13 | test list from §6.1–6.4 executed green |
 | W9 | fallback copy path for non-expressible dtypes (bytes or `.npy`) | Q2, Q7 | explicit per-dtype error vs opt-in cast tests |
 
-Open core-touching items are limited to **W7 (foreign-owner storage)**; everything else can
-live entirely in the bridge crate. That is the smallest possible footprint on rstsr-core, and
-it is a direct consequence of the §8.2 finding that foreign *views* are already expressible.
+As verified in R1, the bridge design has **no core-touching items**: even W7's foreign-owner repr
+can live in the bridge crate (`RESPONSE-discussion-R1.md` V2). Any rstsr-core change would be
+surface-only (a public `TensorForeign` alias, a `from_dlpack` entry point) if it is ever wanted.
 
 ---
 
 ## 11. Open questions
 
-The decision points this review feeds are collected in **[QUESTIONS.md](./QUESTIONS.md)**
-(Q1–Q14, with recommendations). Q1–Q4 gate: direction and scope, mechanism, code home, and
-the Python-facing deliverable. **No implementation or detailed design should start before
-Q1–Q4 are answered**, and the fact base of this review (§6–§8 in particular) should be
-accepted or corrected first.
+The decision points this review feeds are collected in **[QUESTIONS-discussion-R1.md](./QUESTIONS-discussion-R1.md)**
+(Q1–Q14, with recommendations), answered in **[ANSWERS-discussion-R1.md](./ANSWERS-discussion-R1.md)** and
+processed in **[RESPONSE-discussion-R1.md](./RESPONSE-discussion-R1.md)** (verifications V1–V5, corrections
+C1–C5, Q4 redux). R1 settled all questions except **Q4 (the Python-facing deliverable)**, which stays open
+pending the five points in `RESPONSE-discussion-R1.md` §5. **No implementation or detailed design should
+start before those are answered.**
 
 ---
 
