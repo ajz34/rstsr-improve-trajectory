@@ -2,7 +2,7 @@
 
 - **Date**: 2026-10-03
 - **Origin prompt**: [initial-prompt.md](./initial-prompt.md)
-- **Status**: **OPEN** — posed at the end of the 2026-10-03 grilling session; written here before any answers arrived.
+- **Status**: **ANSWERED** (2026-10-03) — see [round-1-answers.md](./round-1-answers.md). Kept as the question record.
 - **How to answer**: by question number, free text, partial answers fine. Q1's recommendation was revised mid-session (repo policy, noted in Q1); the versions below are the consolidated set and supersede everything said earlier in the session.
 
 ## Fact base (condensed)

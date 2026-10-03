@@ -4,7 +4,7 @@
 - **Target repos**: `rstsr-ffi` (new crate + generation scripts), `rstsr-agents` (new update skill)
 - **Base**: rstsr-ffi master `2731f7c` ("rstsr-aocl-ffi: update to AOCL 5.3.0"); rstsr master `f179c46` (context only — this task does not modify rstsr)
 - **Origin prompt**: [initial-prompt.md](./initial-prompt.md)
-- **Status**: design grilling in progress — round-1 questions **open** ([round-1-questions.md](./round-1-questions.md)); no implementation started.
+- **Status**: round-1 **answered** 2026-10-03 ([round-1-answers.md](./round-1-answers.md)); task relocated to the `RESTGroup/dlpack-ffi` repo (Q7); round 2 open; no implementation started.
 
 ## Mission
 
@@ -15,8 +15,10 @@ plus an `update-ffi-dlpack` skill (check/upgrade on upstream release) in the `up
 ## Files
 
 - [initial-prompt.md](./initial-prompt.md) — the user's verbatim prompt and session follow-ups.
-- [round-1-questions.md](./round-1-questions.md) — open design questions Q1–Q9 with recommendations,
-  the condensed fact base, and evidence quotes. Answer by question number; partial answers fine.
+- [round-1-questions.md](./round-1-questions.md) — design questions Q1–Q9 with recommendations,
+  the condensed fact base, and evidence quotes (answered; kept as the question record).
+- [round-1-answers.md](./round-1-answers.md) — the answers, resolved decisions, and the Q7 reshape
+  (task moves into the dlpack-ffi repo).
 
 Answers will be folded into a round-2 pass (if the tree is not yet closed) and eventually a `PLAN.md`
 for the implementation.
