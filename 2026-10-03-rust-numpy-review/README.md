@@ -2,7 +2,7 @@
 
 - **Date**: 2026-10-03
 - **Task**: comprehensively read rust-numpy (and the NumPy-DLPack / DLPack-v1.3 layers) to see what rstsr needs for a future *bi-directional* rstsr ↔ NumPy bridge — **review and consensus input only, no implementation**.
-- **Status**: **review complete** (REVIEW + evidence + probes); **scope decided** — R1 answers processed (`ANSWERS-discussion-R1.md` → `RESPONSE-discussion-R1.md`) and R2 closed the scope on the pure `rstsr-cpu-dlpack` crate (`DECISIONS-R2.md`). Next artifact: the design document. Nothing was changed outside this directory; no implementation started.
+- **Status**: **review complete** (REVIEW + evidence + probes); **scope decided** — R1 answers processed (`ANSWERS-discussion-R1.md` → `RESPONSE-discussion-R1.md`) and R2 closed the scope on the pure `rstsr-cpu-dlpack` crate (`DECISIONS-R2.md`). Follow-up (same day): the design + implementation moved to the task directory `../2026-10-03-rstsr-cpu-dlpack/`, with the crate itself now developed in the rstsr repo on branch `261003/rstsr-cpu-dlpack` (see the addendum in `DECISIONS-R2.md` §5). Nothing in *this* directory was changed by that work; no rstsr repo was modified from here.
 - **Round 1 outcome**: Q1 (c), Q2 (c) + two-layer interchange, Q3 (a) `rstsr-cpu-*` named crate, Q7/Q10/Q12 accepted; Q4 re-opened; Q6's `device_faer` UB note verified correct-and-faer-specific (V1); a bridge storage repr needs **no** rstsr-core change (V2).
 - **Round 2 outcome**: the heavy rust-numpy/ndarray layer is deferred; the pure `rstsr-cpu-dlpack` (DLPack + rstsr-core, no pyo3) is the deliverable; the Python-side capsule holder remains a small documented shim (`DECISIONS-R2.md`).
 - **Pinned revisions** (everything in this directory is relative to these):

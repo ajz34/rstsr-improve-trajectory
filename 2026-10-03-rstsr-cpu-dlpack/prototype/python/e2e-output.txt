@@ -1,0 +1,84 @@
+demo-ffi: rstsr-cpu-dlpack-demo-ffi/0.1
+python: 3.13.14 numpy: 2.5.1
+
+CASE: shared export: zero-copy, read-only, repeatable
+OK: dtype/shape preserved
+OK: values match the Rust tensor
+OK: shared export is read-only in NumPy
+OK: zero copy (same pointer)
+OK: Rust still reads while NumPy holds the array
+OK: repeat __dlpack__ shares the buffer
+OK: buffer intact after the second array dies
+
+CASE: move export + NumPy->Rust round trip
+OK: move export is writeable (sole ownership, IS_COPIED)
+OK: Rust sees the NumPy mutation
+OK: sum reflects the mutation
+
+CASE: __dlpack__(copy=True) deep copy
+OK: copy=True export is writeable
+OK: copy=True shares nothing
+OK: writing the copy leaves the original untouched
+
+CASE: import layouts (strided / reversed / 2-D / dtypes)
+OK: float64: element count
+OK: float64: ndim
+OK: float64(6,) values
+OK: zero copy (same pointer)
+OK: float64: element count
+OK: float64: ndim
+OK: float64(3,) values
+OK: zero copy (same pointer)
+OK: float64: element count
+OK: float64: ndim
+OK: float64(6,) values
+OK: zero copy (same pointer)
+OK: float64: element count
+OK: float64: ndim
+OK: float64(4,) values
+OK: zero copy (same pointer)
+OK: float64: element count
+OK: float64: ndim
+OK: float64(3, 2) values
+OK: zero copy (same pointer)
+OK: float32: element count
+OK: float32: ndim
+OK: float32(6,) values
+OK: zero copy (same pointer)
+OK: int64: element count
+OK: int64: ndim
+OK: int64(6,) values
+OK: zero copy (same pointer)
+OK: int32: element count
+OK: int32: ndim
+OK: int32(6,) values
+OK: zero copy (same pointer)
+
+CASE: import keeps the producer alive until freed
+OK: producer array kept alive by the imported tensor
+OK: values readable through the import
+OK: freeing the import released the producer (deleter ran)
+
+CASE: legacy (unversioned) capsule import
+OK: legacy (unversioned) tensor imported
+
+CASE: failure injection: malignant managed tensors
+OK: version 2.0 rejected
+OK: version 2.0 carries an error message: import failed: Error { inner: UnImplemented("DLPack version 2.0 is not supported (major version must be 1)"), backtrace: None }
+OK: CUDA device rejected
+OK: CUDA device carries an error message: import failed: Error { inner: UnImplemented("DLPack device type 2 is not supported by rstsr-cpu-dlpack (only kDLCPU)"), backtrace: None }
+OK: vector lanes rejected
+OK: vector lanes carries an error message: unsupported dtype (2, 64, 2)
+OK: sub-byte float rejected
+OK: sub-byte float carries an error message: unsupported dtype (10, 8, 1)
+OK: NULL data rejected
+OK: NULL data carries an error message: import failed: Error { inner: InvalidValue("DLPack data pointer is NULL for a non-empty tensor"), backtrace: None }
+OK: unaligned data rejected
+OK: unaligned data carries an error message: import failed: Error { inner: InvalidValue("DLPack data pointer 0xcec674dc471 is not aligned for the element type (alignment 8)"), backtrace: None }
+OK: negative shape rejected
+OK: negative shape carries an error message: import failed: Error { inner: InvalidValue("negative DLPack shape entry -4"), backtrace: None }
+
+CASE: unconsumed capsules are freed
+OK: 2000 unconsumed capsules freed without affecting the source
+
+ALL CASES PASSED

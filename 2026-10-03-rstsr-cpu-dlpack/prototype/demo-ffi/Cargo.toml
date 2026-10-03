@@ -1,0 +1,16 @@
+[package]
+name = "rstsr-cpu-dlpack-demo-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Prototype cdylib host driving the rstsr-cpu-dlpack Python end-to-end tests"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+rstsr-cpu-dlpack = { workspace = true }
+rstsr-core = { workspace = true }
+rstsr-common = { workspace = true }
+dlpack-ffi = { workspace = true }

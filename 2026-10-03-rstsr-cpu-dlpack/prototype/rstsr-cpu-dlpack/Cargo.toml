@@ -1,0 +1,23 @@
+[workspace]
+
+[package]
+name = "rstsr-cpu-dlpack"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "DLPack interchange for rstsr CPU tensors (pure Rust, no Python bindings)"
+rust-version = "1.84.0"
+
+[dependencies]
+dlpack-ffi = { path = "../../../../dlpack-ffi" }
+rstsr-core = { path = "../../../../rstsr/rstsr-core", default-features = false, features = ["row_major", "std"] }
+rstsr-common = { path = "../../../../rstsr/rstsr-common", default-features = false, features = ["row_major", "std"] }
+half = { version = "2.7", default-features = false, features = ["alloc"] }
+num-complex = { version = "0.4", default-features = false }
+
+[features]
+default = ["row_major", "std"]
+row_major = ["rstsr-core/row_major", "rstsr-common/row_major"]
+col_major = ["rstsr-core/col_major", "rstsr-common/col_major"]
+std = ["rstsr-core/std", "rstsr-common/std"]

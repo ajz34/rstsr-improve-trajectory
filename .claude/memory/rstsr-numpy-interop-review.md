@@ -1,6 +1,6 @@
 ---
 name: rstsr-numpy-interop-review
-description: 2026-10-03 consensus review of rstsr↔NumPy interop (rust-numpy code literature review; DLPack as the likely mechanism); decisions pending in 2026-10-03-rust-numpy-review/QUESTIONS.md.
+description: 2026-10-03 consensus review of rstsr↔NumPy interop (rust-numpy code literature review; DLPack chosen) — led to the rstsr-cpu-dlpack crate, see [[rstsr-cpu-dlpack-implementation]].
 metadata:
   type: project
 ---
@@ -12,8 +12,10 @@ DLPack v1.3 and the rstsr-side gaps was written to `2026-10-03-rust-numpy-review
 `rstsr-cpu-*` naming; Q7/Q10(a)/Q12 accepted; Q4 open.** After R2 (same day, `DECISIONS-R2.md`):
 **the heavy rust-numpy/ndarray layer is deferred; the deliverable is the pure `rstsr-cpu-dlpack`
 crate (dlpack-ffi + rstsr-core, no pyo3); the Python-side `PyCapsule` holder stays a ~30-line
-documented shim (`examples/`), because PyCapsule is CPython-only.** Next artifact: the design
-document; no implementation yet.
+documented shim, because PyCapsule is CPython-only.** Follow-up the same day: the design was written
+and the maintainer redirected implementation into the rstsr repo — the crate now exists at
+`crates-interop/rstsr-cpu-dlpack` on branch `261003/rstsr-cpu-dlpack` (see
+[[rstsr-cpu-dlpack-implementation]]); the Python host harness and the design stay in the task dir.
 
 Key durable facts from it:
 - `np.from_dlpack` requires an object with `__dlpack__` (bare capsules rejected); NumPy calls

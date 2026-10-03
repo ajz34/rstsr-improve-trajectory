@@ -36,10 +36,15 @@ re-verified cheaply.
 
 ## 2. Crate identity
 
+**Location**: `crates-interop/rstsr-cpu-dlpack` of the **rstsr workspace**, developed on branch
+`261003/rstsr-cpu-dlpack` (maintainer instruction: implement directly in the rstsr repo; the
+prototype in this task directory was moved there). The task dir keeps an archival snapshot
+(`prototype/rstsr-cpu-dlpack/`) plus the Python host harness.
+
 ```toml
 [package]
 name = "rstsr-cpu-dlpack"
-version = "0.1.0"          # placeholder; rstsr workspace version at port time
+version.workspace = true   # 0.9.0, like every workspace member
 edition = "2021"
 rust-version = "1.84.0"    # honest MSRV: faer 0.22.6 needs 1.84 (V3); workspace's 1.82 is stale
 
@@ -171,7 +176,7 @@ Field policy, all matching what NumPy's consumer reads (`dlpack.c:630-660, 745-7
 | `dtype` | `T::DLTYPE` | §4.1 |
 | `shape` | layout shape as `i64` | error if a dim > `i64::MAX`; NumPy caps `ndim ≤ NPY_MAXDIMS` on import (`dlpack.c:662`) |
 | `strides` | layout strides in **elements** (may be negative) | same unit as rstsr; NumPy multiplies by itemsize on import (`dlpack.c:757`) |
-| `data` | base + `bounds_index().0` elements; `NULL` if size 0 | byte offset is baked into the pointer, `byte_offset = 0`, exactly like NumPy's producer (`dlpack.c:359-371`) |
+| `data` | base + `layout.offset()` elements (element-zero address); `NULL` if size 0 | byte offset is baked into the pointer, `byte_offset = 0`, exactly like NumPy's producer (`dlpack.c:359-371`) |
 | `flags` | move/copy export: `IS_COPIED`; shared export: `READ_ONLY` | table below |
 
 Flag policy (the one place where this design deviates from a letter of A1 — flagged for veto):
@@ -211,17 +216,16 @@ One repr serves both directions; `C = Vec<T>` and `O` is the keep-alive owner:
 pub struct DataDlpack<C, O> { span: ManuallyDrop<C>, owner: O }
 
 pub struct DlpackForeignOwner { /* ptr + deleter (versioned or legacy) */ }   // import
-pub struct OwnedArc<C> { raw: Arc<C> }                                       // export share
+// export share: the owner is a plain `Arc<Vec<T>>`
 
 pub type TensorDlpack<T, B, D>        = ...DataDlpack<Vec<T>, DlpackForeignOwner>...;  // import
-pub type TensorDlpackShared<T, B, D>  = ...DataDlpack<Vec<T>, OwnedArc<Vec<T>>>...;    // shareable
+pub type TensorDlpackShared<T, B, D>  = ...DataDlpack<Vec<T>, Arc<Vec<T>>>...;         // shareable
 ```
 
-`OwnedArc` exists because **rstsr's `DataArc` has no `Clone` and no accessor to its inner `Arc`**
-(`storage/data.rs:34, 257-268` — only `strong_count`/`weak_count`) — a `TensorArc` cannot be
-duplicated from `&TensorArc`, so sharing must go through an owner the bridge crate can clone.
-`OwnedArc` is where a `SimpleArcTensor`-style shareable repr would also live if rstsr ever grows one
-(§9 Q3).
+The `Arc` owner exists because **rstsr's `DataArc` has no `Clone` and no accessor to its inner
+`Arc`** (`storage/data.rs:34, 257-268` — only `strong_count`/`weak_count`): a `TensorArc` cannot be
+duplicated from `&TensorArc`, so sharing must go through an owner the bridge crate can clone. This
+is where a `SimpleArcTensor`-style shareable repr would also live if rstsr ever grows one (§9 Q3).
 
 Trait surface:
 
@@ -358,17 +362,42 @@ directory reuses that shape. The prototype's `demo-ffi` crate provides the host-
 
 ```
 prototype/
-  Cargo.toml            # workspace: rstsr-cpu-dlpack + demo-ffi, path deps to ../../../../rstsr, ../../../../dlpack-ffi
-  rust-toolchain.toml   # nightly, mirroring rstsr
-  rstsr-cpu-dlpack/     # the deliverable crate
-  demo-ffi/             # cdylib host: handle table + extern "C" entry points for the shim
-  python/               # shim + end-to-end suite (reuses the probe's capsule machinery)
+  Cargo.toml            # scratch workspace: demo-ffi only, path deps into the rstsr checkout
+  demo-ffi/             # cdylib host: handle table, extern "C" entry points, Rust capsule destructor
+  python/
+    rstsr_dlpack.py     # the reference capsule holder (DlpackExporter, dlpack_from_object)
+    dlpack_ctypes.py    # ctypes structs + hand-made (malignant) producers
+    rstsr_demo.py       # ctypes bindings for the cdylib
+    test_e2e.py         # the end-to-end suite; e2e-output.txt is its captured output
+  rstsr-cpu-dlpack/     # archival snapshot of the crate at the moment it moved into rstsr
 ```
 
-Path dependency note: `rstsr-core` is consumed as a plain path dep (workspace-inherited fields
-resolve through the rstsr workspace root); the prototype's own `Cargo.lock` is independent of
-rstsr's. The port into the rstsr workspace (a patch, per this repo's charter) swaps the paths for
-`workspace = true` entries — that is also where the stale `rstsr-*-ffi` version specs in the
-workspace manifest can be refreshed (the `rstsr-ffi` repo is ahead of `rstsr/Cargo.toml`:
-openblas 0.6.1 vs `"0.5"`, mkl 0.3.0 vs `"0.2"`, blis 0.2.1 vs `"0.2"`, aocl 0.3.0 vs `"0.2"`,
-kml 0.2.1 vs `"0.2"`, cblas-base 0.1.2 vs `"0.1"`).
+The deliverable crate lives in the rstsr checkout (`crates-interop/rstsr-cpu-dlpack`, branch
+`261003/rstsr-cpu-dlpack`); `demo-ffi` depends on it by path, so the scratch harness always tests
+the in-repo crate. `dlpack-ffi` comes from crates.io (1.3.0, published 2026-10-03) in both places,
+so both resolve to the same crate instance.
+
+## 12. Prototype results (2026-10-03)
+
+`cargo test -p rstsr-cpu-dlpack` — 18 tests green (3 dtype, 6 export, 9 import) + the lib doctest;
+`cargo +nightly miri test -p rstsr-cpu-dlpack` — same suite green (no UB, no leaks reported), which
+is the real check on the fabricated-span repr and the deleter-exactly-once paths.
+`cargo clippy` clean; `cargo fmt` applied.
+
+`conda run -n torch python prototype/python/test_e2e.py` (Python 3.13 + NumPy 2.5.1, real
+`PyCapsule`s) — all 8 cases pass, 64 assertions:
+
+- shared export: zero-copy (same pointer as Rust), `read_only` honoured by NumPy, repeatable
+  `__dlpack__`, Rust reads while NumPy holds the array;
+- move export: writeable in NumPy, mutation round-trips back into Rust through `arr.__dlpack__()`;
+- `copy=True`: writeable copy sharing nothing with the source;
+- import: contiguous / sliced / reversed / transposed / f32 / i64 / i32 arrays, zero-copy pointer
+  equality, correct logical values (negative strides and the 2-D transpose included);
+- lifetime: a NumPy array stays alive while the imported tensor holds it and is released (weakref
+  dies) when the import is freed;
+- legacy (`dltensor`) capsule import works;
+- 7 malignant managed tensors rejected with proper error messages and no crash;
+- 2000 unconsumed capsules destroyed through the Rust destructor without incident.
+
+The Rust-side delimiters that remain open are the design's §9 questions; nothing in the prototype
+contradicts them.

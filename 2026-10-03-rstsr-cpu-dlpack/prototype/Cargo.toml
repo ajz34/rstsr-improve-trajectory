@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = ["demo-ffi"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+# The crate under test lives in the rstsr checkout (branch 261003/rstsr-cpu-dlpack).
+rstsr-cpu-dlpack = { path = "../../../rstsr/crates-interop/rstsr-cpu-dlpack" }
+rstsr-core = { path = "../../../rstsr/rstsr-core", default-features = false }
+rstsr-common = { path = "../../../rstsr/rstsr-common", default-features = false }
+dlpack-ffi = { version = "1.3" }

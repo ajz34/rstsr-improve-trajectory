@@ -58,3 +58,14 @@ functions), the foreign-owner repr and its safety contract, dtype dispatch table
 device mapping seam, and the test plan (deleter-exactly-once, capsule reuse, double call, the
 view/owned/read-only matrix, the failure-injection producer built on the ctypes harness) — followed by
 a prototype in a new task directory. No code before the design is on paper.
+
+## 5. Addendum (later on 2026-10-03)
+
+The maintainer redirected implementation into the rstsr repo (*"why not directly implement in rstsr
+repo? Just create a new branch on that"*), superseding A4's "prototype in this repo first":
+
+- the crate now lives at `crates-interop/rstsr-cpu-dlpack` of the **rstsr workspace**, on branch
+  `261003/rstsr-cpu-dlpack`, with `rstsr/Cargo.toml` gaining the member, the workspace dependency
+  and `dlpack-ffi = "1.3"` (1.3.0 was published to crates.io the same day);
+- the design and the Python host harness remain in the task directory
+  `../2026-10-03-rstsr-cpu-dlpack/`; nothing is committed in the rstsr repo (no-auto-commit policy).
