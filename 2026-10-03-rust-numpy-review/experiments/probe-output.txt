@@ -1,0 +1,282 @@
+$ conda run -n torch python probe_numpy_dlpack.py
+
+==============================================================================
+command: conda run -n torch python probe_numpy_dlpack.py
+python: 3.13.14 | packaged by Anaconda, Inc. | (main, Jun 17 2026, 20:12:46) [GCC 14.3.0]
+numpy: 2.5.1 /home/a/miniconda3/envs/torch/lib/python3.13/site-packages/numpy/__init__.py
+torch: 2.14.0+rocm7.2
+==============================================================================
+
+################ PART 1: ndarray.__dlpack__ (producer) ################
+
+CASE: np.from_dlpack(arr) round-trip and raw capsule
+OK: np.from_dlpack(a) -> ('<f8', (2, 3), [[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]], True)
+ERR: AttributeError: 'PyCapsule' object has no attribute '__dlpack__'
+OK: capsule type -> <class 'PyCapsule'>
+OK: bare capsule name (no max_version) -> 'dltensor'
+ERR: AttributeError: 'PyCapsule' object has no attribute '__dlpack__'
+
+CASE: __dlpack__ default vs max_version: capsule flavor
+OK: max_version=None -> dltensor ndim=2 dtype=(code=2,bits=64,lanes=1) dev=(1,0) byte_offset=0
+OK: max_version=(0, 0) -> dltensor ndim=2 dtype=(code=2,bits=64,lanes=1) dev=(1,0) byte_offset=0
+OK: max_version=(0, 8) -> dltensor ndim=2 dtype=(code=2,bits=64,lanes=1) dev=(1,0) byte_offset=0
+OK: max_version=(1, 0) -> dltensor_versioned version=1.0 flags=0
+OK: max_version=(2, 0) -> dltensor_versioned version=1.0 flags=0
+OK: max_version=(100, 3) -> dltensor_versioned version=1.0 flags=0
+OK: max_version=(True, False) -> dltensor_versioned version=1.0 flags=0
+
+CASE: __dlpack__ max_version malformed
+ERR: TypeError: max_version must be None or a tuple with two elements.
+ERR: TypeError: max_version must be None or a tuple with two elements.
+ERR: TypeError: max_version must be None or a tuple with two elements.
+ERR: TypeError: max_version must be None or a tuple with two elements.
+ERR: TypeError: 'float' object cannot be interpreted as an integer
+OK: max_version=(-1, 0) -> accepted, name=dltensor
+ERR: TypeError: 'NoneType' object cannot be interpreted as an integer
+
+CASE: __dlpack__ stream
+OK: stream=None -> 'dltensor'
+ERR: ValueError: NumPy only supports stream=None.
+ERR: ValueError: NumPy only supports stream=None.
+
+CASE: __dlpack__ dl_device
+OK: dl_device=None -> 'dltensor'
+OK: dl_device=(1, 0) -> 'dltensor'
+ERR: BufferError: unsupported device requested
+ERR: TypeError: dl_device must be a tuple
+ERR: TypeError: function takes exactly 2 arguments (1 given)
+ERR: TypeError: dl_device must be a tuple
+
+CASE: __dlpack__ copy flag (capsule flags byte)
+OK: copy=True  flags=2 (IS_COPIED bit=2)
+OK: copy=False flags=0
+OK: copy=None  flags=0
+ERR: ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+
+CASE: export: strides / byte_offset of a non-contiguous view
+OK: view shape=(2, 2) numpy strides=(64, 16) -> dl shape=[2, 2] strides=[8, 2] byte_offset=0
+OK: C-contig 3x4 -> dl strides=[4, 1]
+OK: a[::-1] -> dl strides=[-1] (negative stride exported)
+OK: broadcast 2x3 -> dl strides=[0, 1]
+
+CASE: export: size-1 dims with stride not a multiple of itemsize
+OK: shape=(10,5,1) strides=(8,80,4) -> dl strides=[1, 10, 0]
+ERR: BufferError: DLPack only supports strides which are a multiple of itemsize.
+
+CASE: export: 0-d, size-0, F-order
+OK: 0-d: ndim=0 shape ptr null? True strides ptr null? True
+OK: size-0 (0,3): ndim=2 shape=[0, 3] strides=[0, 0] data ptr null? False (numpy strides=(0, 0))
+OK: F-order 2x3 -> strides=[1, 2]
+
+CASE: export: dtypes
+OK: dtype float32        export -> code=2 bits=32 lanes=1
+OK: dtype float32        np.from_dlpack(arr) -> ok
+OK: dtype float64        export -> code=2 bits=64 lanes=1
+OK: dtype float64        np.from_dlpack(arr) -> ok
+OK: dtype float16        export -> code=2 bits=16 lanes=1
+OK: dtype float16        np.from_dlpack(arr) -> ok
+OK: dtype bool           export -> code=6 bits=8 lanes=1
+OK: dtype bool           np.from_dlpack(arr) -> ok
+OK: dtype int8           export -> code=0 bits=8 lanes=1
+OK: dtype int8           np.from_dlpack(arr) -> ok
+OK: dtype uint8          export -> code=1 bits=8 lanes=1
+OK: dtype uint8          np.from_dlpack(arr) -> ok
+OK: dtype complex64      export -> code=5 bits=64 lanes=1
+OK: dtype complex64      np.from_dlpack(arr) -> ok
+OK: dtype complex128     export -> code=5 bits=128 lanes=1
+OK: dtype complex128     np.from_dlpack(arr) -> ok
+ERR: dtype longdouble     export -> BufferError: DLPack only supports IEEE floating point types without padding (longdouble typically is not IEEE).
+ERR: dtype longdouble     np.from_dlpack(arr) -> BufferError: DLPack only supports IEEE floating point types without padding (longdouble typically is not IEEE).
+ERR: dtype clongdouble    export -> BufferError: DLPack only supports IEEE floating point types without padding (longdouble typically is not IEEE).
+ERR: dtype clongdouble    np.from_dlpack(arr) -> BufferError: DLPack only supports IEEE floating point types without padding (longdouble typically is not IEEE).
+ERR: dtype datetime64[ns] export -> BufferError: DLPack only supports signed/unsigned integers, float and complex dtypes (or dtypes registered by third-party packages).
+ERR: dtype datetime64[ns] np.from_dlpack(arr) -> BufferError: DLPack only supports signed/unsigned integers, float and complex dtypes (or dtypes registered by third-party packages).
+ERR: dtype timedelta64[s] export -> BufferError: DLPack only supports signed/unsigned integers, float and complex dtypes (or dtypes registered by third-party packages).
+ERR: dtype timedelta64[s] np.from_dlpack(arr) -> BufferError: DLPack only supports signed/unsigned integers, float and complex dtypes (or dtypes registered by third-party packages).
+ERR: dtype U3             export -> BufferError: DLPack only supports signed/unsigned integers, float and complex dtypes (or dtypes registered by third-party packages).
+ERR: dtype U3             np.from_dlpack(arr) -> BufferError: DLPack only supports signed/unsigned integers, float and complex dtypes (or dtypes registered by third-party packages).
+ERR: dtype S3             export -> BufferError: DLPack only supports signed/unsigned integers, float and complex dtypes (or dtypes registered by third-party packages).
+ERR: dtype S3             np.from_dlpack(arr) -> BufferError: DLPack only supports signed/unsigned integers, float and complex dtypes (or dtypes registered by third-party packages).
+ERR: dtype V8             export -> BufferError: DLPack only supports signed/unsigned integers, float and complex dtypes (or dtypes registered by third-party packages).
+ERR: dtype V8             np.from_dlpack(arr) -> BufferError: DLPack only supports signed/unsigned integers, float and complex dtypes (or dtypes registered by third-party packages).
+ERR: dtype object         export -> BufferError: DLPack only supports signed/unsigned integers, float and complex dtypes (or dtypes registered by third-party packages).
+ERR: dtype object         np.from_dlpack(arr) -> BufferError: DLPack only supports signed/unsigned integers, float and complex dtypes (or dtypes registered by third-party packages).
+OK: dtype int64          export -> code=0 bits=64 lanes=1
+OK: dtype int64          np.from_dlpack(arr) -> ok
+
+CASE: export: byteswapped dtype
+ERR: BufferError: DLPack only supports native byte order.
+ERR: BufferError: DLPack only supports native byte order.
+
+CASE: export: writeable=False
+ERR: BufferError: Cannot export readonly array since signalling readonly is unsupported by DLPack (supported by newer DLPack version).
+OK: ro.__dlpack__(max_version=(1,0)) -> 'dltensor_versioned'
+OK: readonly exported flags=1 (READ_ONLY bit=1)
+OK: readonly copy=True flags=2 data==orig? False
+OK: readonly copy=False -> ok name=dltensor_versioned
+OK: np.from_dlpack(readonly) -> writeable=False
+
+CASE: export keeps the array alive (refcount)
+OK: refcount after __dlpack__: start+1
+OK: refcount after capsule del: start+0
+
+CASE: __dlpack_device__
+OK: np.arange(5).__dlpack_device__() -> (1, 0)
+ERR: AttributeError: 'numpy.float32' object has no attribute '__dlpack_device__'
+
+################ PART 2: np.from_dlpack (consumer) ################
+
+CASE: from_dlpack: accepted input objects
+OK: old-style __dlpack__(stream=None) only -> [0, 1, 2, 3]
+OK: object without __dlpack_device__ -> [0, 1, 2, 3]
+ERR: AttributeError: 'NoneType' object has no attribute '__dlpack__'
+ERR: AttributeError: 'int' object has no attribute '__dlpack__'
+ERR: ValueError: PyCapsule_GetPointer called with invalid PyCapsule object
+ERR: ValueError: PyCapsule_GetPointer called with invalid PyCapsule object
+
+CASE: from_dlpack: exact kwargs numpy passes to obj.__dlpack__
+OK: plain np.from_dlpack(obj) -> args=() kwargs={'dl_device': None, 'copy': None, 'max_version': (1, 0)}
+OK: np.from_dlpack(obj, device='cpu', copy=True) -> kwargs={'dl_device': (1, 0), 'copy': True, 'max_version': (1, 0)}
+OK: old-style exporter: attempts recorded by exporter = [(None, {'dl_device': None, 'copy': None, 'max_version': (1, 0)}), (None, {})]
+
+CASE: from_dlpack: device= kwarg
+OK: device=None -> [0, 1, 2]
+OK: device='cpu' -> [0, 1, 2]
+ERR: ValueError: Device not understood. Only "cpu" is allowed, but received: gpu
+ERR: ValueError: Device not understood. Only "cpu" is allowed, but received: 1
+ERR: ValueError: Device not understood. Only "cpu" is allowed, but received: CPU
+
+CASE: from_dlpack: copy= kwarg
+OK: copy=None shares memory -> True
+OK: copy=False shares memory -> True
+OK: copy=True  shares memory -> False
+ERR: ValueError: strings are not allowed for 'copy' keyword. Use True/False/None instead.
+OK: copy=1 (int) -> False
+
+CASE: capsule reuse: same capsule consumed twice
+OK: first import -> [0, 1, 2, 3, 4], capsule name now used_dltensor_versioned
+ERR: ValueError: PyCapsule_GetPointer called with incorrect name
+
+CASE: capsule reuse: unversioned capsule consumed twice
+OK: first -> [0, 1, 2, 3, 4], name now used_dltensor
+ERR: ValueError: PyCapsule_GetPointer called with incorrect name
+
+CASE: from_dlpack: writes are forbidden when importing an unversioned capsule
+OK: unversioned import writeable=False
+ERR: ValueError: assignment destination is read-only
+
+CASE: from_dlpack: versioned capsule without READ_ONLY -> writeable
+OK: versioned import writeable=True
+OK: write ok -> [100, 1, 2, 3, 4]
+
+CASE: from_dlpack: version major/minor handling
+OK: capsule version (1, 0) -> imported [0.0, 0.0]
+OK: capsule version (1, 99) -> imported [0.0, 0.0]
+OK: capsule version (0, 9) -> imported [0.0, 0.0]
+ERR: BufferError: from_dlpack(): the exported DLPack major version is too high to be imported by this version of NumPy.
+ERR: BufferError: from_dlpack(): the exported DLPack major version is too high to be imported by this version of NumPy.
+
+CASE: from_dlpack: device acceptance
+OK: device (1, 0) -> imported; __dlpack_device__=(1, 0)
+ERR: BufferError: Unsupported device in DLTensor.
+OK: device (3, 0) -> imported; __dlpack_device__=(3, 0)
+ERR: BufferError: Unsupported device in DLTensor.
+OK: device (11, 0) -> imported; __dlpack_device__=(11, 0)
+OK: device (13, 0) -> imported; __dlpack_device__=(13, 0)
+ERR: BufferError: Unsupported device in DLTensor.
+ERR: BufferError: Unsupported device in DLTensor.
+
+CASE: from_dlpack: device_id handling (device_type accepted, id ignored?)
+OK: device (1, 5) -> imported; reports (1, 5)
+OK: device (13, 7) -> imported; reports (13, 7)
+OK: device (3, 2) -> imported; reports (3, 2)
+
+CASE: from_dlpack: __dlpack__ raising TypeError leads to a silent retry
+ERR: TypeError: boom from exporter
+OK: exporter __dlpack__ called 2 time(s) before the error surfaced
+
+CASE: from_dlpack: dtype code/bits mapping
+OK: code=0 bits=  8 (int8     ) -> dtype int8
+OK: code=0 bits= 16 (int16    ) -> dtype int16
+OK: code=0 bits= 32 (int32    ) -> dtype int32
+OK: code=0 bits= 64 (int64    ) -> dtype int64
+ERR: BufferError: Unsupported dtype in DLTensor.
+OK: code=1 bits=  8 (uint8    ) -> dtype uint8
+OK: code=1 bits= 64 (uint64   ) -> dtype uint64
+ERR: BufferError: Unsupported dtype in DLTensor.
+OK: code=2 bits= 16 (float16  ) -> dtype float16
+OK: code=2 bits= 32 (float32  ) -> dtype float32
+OK: code=2 bits= 64 (float64  ) -> dtype float64
+ERR: BufferError: Unsupported dtype in DLTensor.
+ERR: BufferError: Unsupported dtype in DLTensor.
+ERR: BufferError: Unsupported dtype in DLTensor.
+OK: code=5 bits= 64 (complex64) -> dtype complex64
+OK: code=5 bits=128 (complex128) -> dtype complex128
+ERR: BufferError: Unsupported dtype in DLTensor.
+OK: code=6 bits=  8 (bool8    ) -> dtype bool
+ERR: BufferError: Unsupported dtype in DLTensor.
+ERR: BufferError: Unsupported dtype in DLTensor.
+ERR: BufferError: Unsupported dtype in DLTensor.
+
+CASE: from_dlpack: lanes != 1
+OK: lanes=1 -> dtype float64
+ERR: BufferError: Unsupported lanes in DLTensor dtype.
+ERR: BufferError: Unsupported lanes in DLTensor dtype.
+
+CASE: from_dlpack: ndim limit
+OK: ndim=0 -> shape ()
+OK: ndim=1 -> shape (1,)
+OK: ndim=32 -> shape (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+OK: ndim=64 -> shape (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+ERR: BufferError: maxdims of DLPack tensor is higher than the supported maxdims.
+
+CASE: from_dlpack: strides == NULL / negative / zero
+OK: strides==NULL (2,3) -> flags C_CONTIGUOUS=True, arr=
+[[0. 1. 2.]
+ [3. 4. 5.]]
+OK: negative stride (-1) -> [2.0, 1.0, 0.0], itemsize=8
+OK: zero stride (broadcast) -> [0.0, 0.0, 0.0]
+OK: write through broadcast view -> [999.0, 999.0, 999.0]
+OK: F-ish strides (1,2) -> strides=(8, 16)
+
+CASE: from_dlpack: byte_offset honored
+OK: byte_offset=16 -> [2.0, 3.0, 4.0] (pool[2:5])
+
+CASE: from_dlpack: misaligned data pointer
+OK: misaligned (+1 byte) float64 import -> OK, flags.aligned=False, writeable=True, dump=array([0., 0.])
+OK: numpy unaligned array export -> ok, aligned flag=False
+OK: numpy unaligned array from_dlpack -> ok
+
+CASE: from_dlpack: capsule names
+OK: capsule name b'dltensor' -> imported [999.0, 1.0]
+OK: capsule name b'dltensor_versioned' -> imported [999.0, 1.0]
+ERR: ValueError: PyCapsule_GetPointer called with incorrect name
+ERR: ValueError: PyCapsule_GetPointer called with incorrect name
+ERR: ValueError: PyCapsule_GetPointer called with incorrect name
+ERR: ValueError: PyCapsule_GetPointer called with incorrect name
+
+CASE: from_dlpack: validation order (bad device + bad dtype)
+ERR: BufferError: Unsupported device in DLTensor.
+
+CASE: from_dlpack: capsule ownership (refcount + rename) on failure vs success
+OK: FAILED import: refcount delta=0, capsule name still dltensor_versioned (numpy released it, did not rename -> the producer's capsule destructor would call the deleter)
+OK: SUCCESSFUL import: refcount delta=0, capsule renamed to used_dltensor_versioned -> numpy owns it
+OK: array base type=PyCapsule, base capsule name=numpy_dltensor_versioned
+OK: array writeable=True
+
+CASE: register_dlpack_dtype: NumPy 2.5 user-dtype escape hatch
+OK: registered (code=7, bits=8) for S1 -> export+import ok, dtype=|S1 [b'a', b'b']
+ERR: BufferError: DLPack only supports signed/unsigned integers, float and complex dtypes (or dtypes registered by third-party packages).
+
+################ PART 3: cross-library (torch) ################
+
+CASE: torch -> numpy -> torch
+OK: np.from_dlpack(torch.arange(6)) -> float32 [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+OK: aliases torch storage? torch t[0]=42.0
+OK: torch.from_dlpack(np.arange(4)) -> torch.int64 [0, 1, 2, 3]
+OK: np.from_dlpack(torch strided view) -> ok
+OK: torch.from_dlpack(readonly numpy) -> tensor([0., 1., 2., 3., 4.], dtype=torch.float64)
+
+==============================================================================
+ALL PROBES DONE
+==============================================================================
