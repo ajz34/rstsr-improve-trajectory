@@ -27,8 +27,10 @@ end-to-end suite of 8 cases / 64 checks):
 
 Gotchas that cost time (worth remembering for bridge crates):
 
-- **`DataArc` is not `Clone`** (no inner-Arc accessor either) → use a bridge-owned `Arc` owner; see
-  [[rstsr-external-storage-repr]].
+- **`DataArc` was not `Clone`** at implementation time (no inner-Arc accessor either) → the bridge
+  used its own `Arc` owner; see [[rstsr-external-storage-repr]]. (Later on 2026-10-03 core gained
+  `Clone for DataArc`/`TensorArc`, which enabled view export of `TensorArc` bases —
+  [[rstsr-tensorarc-clone]].)
 - `tensor.raw()` is *address order*, not logical order — read logical values through
   `storage().get_index(layout().index(&idx))` (bit me in tests: a reversed view's raw buffer looks
   ascending).
@@ -49,6 +51,9 @@ Gotchas that cost time (worth remembering for bridge crates):
   prevents a double free.
 
 Follow-ups from the post-implementation review (2026-10-03): the unsafe zero-copy *adoption*
-draft (`from_dlpack_*_adopt_f`, decision pending) and the *shared-view export* design
-(`to_dlpack_shared_view_f`, deferred) are in [[rstsr-cpu-dlpack-followups]] and
-`2026-10-03-rstsr-cpu-dlpack/FOLLOWUPS.md`.
+draft (`from_dlpack_*_adopt_f`) was **rejected** by the maintainer (too unsafe), and the
+*shared-view export* (`to_dlpack_shared_view[_f]`, with the core `Clone for TensorArc` it needed)
+was **implemented** — see [[rstsr-cpu-dlpack-followups]], [[rstsr-tensorarc-clone]] and
+`2026-10-03-rstsr-cpu-dlpack/FOLLOWUPS.md`. The crate itself (with the review-comment fixes:
+optional `half`, `CODE_*` constants in the dispatch macro, `rstsr_raise!`, anchor docs on the
+panic versions) is committed in the rstsr repo as `49a9c45`.

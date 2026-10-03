@@ -1,23 +1,25 @@
 ---
 name: rstsr-cpu-dlpack-followups
-description: Post-review open threads for rstsr-cpu-dlpack (2026-10-03) — unsafe zero-copy adoption (decision pending) and shared-view export design (deferred), with the decision log and where to resume.
+description: Post-review outcome for rstsr-cpu-dlpack (2026-10-03) — zero-copy adoption rejected (too unsafe); basic-indexed view export implemented (with core Clone for DataArc/TensorArc); decision log.
 metadata:
   type: project
 ---
 
-Follow-ups from the 2026-10-03 post-implementation review conversation are recorded in
-`2026-10-03-rstsr-cpu-dlpack/FOLLOWUPS.md`; **nothing implemented yet**.
+The two post-implementation review threads for `rstsr-cpu-dlpack` are **closed** (2026-10-03);
+full records in `2026-10-03-rstsr-cpu-dlpack/FOLLOWUPS.md`.
 
-- **Zero-copy adoption** (`TensorDlpack → Tensor` via `Vec::from_raw_parts`, unsafe): blocked by
-  base-pointer / capacity / allocator-identity / deleter-semantics being unverifiable from the
-  DLPack struct; `IS_COPIED` is the only runtime gate. Options: (a) unsafe entry only,
-  (b) + adoptable export flavor, (c) document only. **Pending decision.**
-- **View export** (`to_dlpack_shared_view_f(shared, view)`): design ready; everything already
-  compiles (`shared.i(...)` yields a `TensorView` over the root buffer). Same-root `ptr::eq` check
-  + `new_f` bounds validation + Arc-clone keepalive + `READ_ONLY`; repeatable, no `unsafe`.
-  **Deferred** until other aspects are handled. Residual: `TensorArc` bases need a core `DataArc`
-  clone / arc accessor first.
-- Dropped: unsafe owner-less borrow export. Flags stay advisory (`READ_ONLY` ignored by torch;
-  NumPy keys writeability off `READ_ONLY` alone) — see [[dlpack-numpy-protocol-gotchas]].
+- **Zero-copy adoption** (`from_dlpack_*_adopt_f` via `Vec::from_raw_parts`) — **rejected by the
+  maintainer** ("decided not implement, at least currently; this is too unsafe"); no code. The
+  four unverifiable facts (base vs interior pointer, capacity, allocator identity, deleter
+  semantics) stay in FOLLOWUPS.md §1 as the rationale.
+- **View export** — **implemented**: `to_dlpack_shared_view[_f](base, view)` (same-root `ptr::eq`
+  check, layout validated through `new_f`, owner cloned into the export, `READ_ONLY`, repeatable;
+  `data = base + view offset`), with the `DlpackSharedBaseAPI<T>` seam implemented for
+  `TensorDlpackShared` and `TensorArc`. Deliberately **not** implemented for `TensorDlpack`
+  (foreign import): its owner cannot be cloned (double deleter) — foreign-buffer views stay
+  copy-only (`to_dlpack_copy`).
+- Enabled by core additions — see [[rstsr-tensorarc-clone]] (`Clone for DataArc`/`TensorArc`,
+  zero-copy on data, COW via `Arc::make_mut`; plus the `DataArc::into_owned` shared-buffer fix).
+- Q1 flags stay advisory ([[dlpack-numpy-protocol-gotchas]]); no other threads remain open.
 
 Context: [[rstsr-cpu-dlpack-implementation]], [[rstsr-numpy-interop-review]].
