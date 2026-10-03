@@ -1,0 +1,304 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 906902a..935db02 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -8,6 +8,7 @@ This file is shared across the rstsr repositories by symlink to the `rstsr-agent
+ 
+ - `rstsr` - the core workspace: `rstsr-core` (tensor types, storage, device traits, naive and faer reference devices), `rstsr-common` (errors, dimension types), `rstsr-dtype-traits`, `rstsr-blas-traits`, `rstsr-linalg-traits`, `rstsr-sci-traits`, `rstsr-native-impl` (rayon reference impl), `crates-device/` (OpenBLAS, MKL, BLIS, AOCL, KML backends), `crates-plugin/rstsr-tblis` (einsum plugin).
+ - `rstsr-ffi` (sibling repo) - FFI bindings to C BLAS/LAPACK libraries (`rstsr-openblas-ffi`, `rstsr-mkl-ffi`, `rstsr-lapack-ffi`, ...).
++- `dlpack-ffi` (sibling repo) - standalone DLPack (dmlc/dlpack) FFI bindings: a types-only crate generated from its vendored `header/dlpack.h` by `scripts/bindgen.py` (hand-written additions: the test suite), kept free of references to the other repos here. Updated via skill `update-ffi-dlpack`.
+ - `rstsr-book` (sibling repo) - documentation project; developer docs and ADRs under `rstsr-book/dev/` (online: https://restgroup.github.io/rstsr-book/).
+ - `rstsr-agents` (sibling repo) - this repository: shared agent instructions, skills, and rules.
+ 
+diff --git a/README.md b/README.md
+index ecd1143..f1435bc 100644
+--- a/README.md
++++ b/README.md
+@@ -26,6 +26,7 @@ rstsr-agents/
+     ├── core-col-major-transfer/ # (stub, deferred)
+     ├── crate-publish/         #   rstsr release via release-plz
+     ├── update-ffi-blas/       #   rstsr-ffi binding updates (references/lapack.md, openblas.md, mkl.md, aocl.md + checker)
++    ├── update-ffi-dlpack/     #   dlpack-ffi binding updates (checker script; check/update modes)
+     ├── git-commit-coauthor/   #   commit trailers + attribution (+ coauthor.sh)
+     └── pr-writeup/            #   PR title and two-part body (changes + details)
+ ```
+diff --git a/skills/update-ffi-dlpack/SKILL.md b/skills/update-ffi-dlpack/SKILL.md
+new file mode 100644
+index 0000000..33fe92d
+--- /dev/null
++++ b/skills/update-ffi-dlpack/SKILL.md
+@@ -0,0 +1,77 @@
++---
++name: update-ffi-dlpack
++description: Update or check the dlpack-ffi crate (RESTGroup/dlpack-ffi) against newer DLPack releases - fetch upstream tags, diff the vendored header, refresh header/dlpack.h, regenerate with scripts/bindgen.py, run the checker and tests, record provenance, set the crate version to the DLPack version. Use when asked to update, regenerate, or version-bump dlpack-ffi.
++---
++
++# update-ffi-dlpack: refresh the DLPack bindings
++
++`dlpack-ffi` is a standalone generated-only crate binding [DLPack](https://github.com/dmlc/dlpack).
++Its header declares C types only - no functions - so there is no symbol coverage to
++check; the gate is header parity, regeneration reproducibility, and the ABI/ownership
++tests under `tests/`.
++
++**Purity rule**: never add "rstsr"/"rest" references to the dlpack-ffi repository
++(content, docs, code, metadata). This skill lives in rstsr-agents and operates on the
++crate from outside.
++
++Paths are per-developer: upstream checkout `~/Git-Others/dlpack`, crate checkout
++`~/rstsr_pack/dlpack-ffi` (recorded in the pack `CLAUDE.local.md`, "Resources and
++Directories"). The generator never reads the upstream checkout - only the vendored
++`header/dlpack.h` - so the header refresh below is mandatory.
++
++## Check mode - is there a newer DLPack?
++
++1. `git -C <upstream> fetch --tags --quiet`; list the newest release tags:
++   `git -C <upstream> tag --sort=-v:refname | head -5`.
++2. Diff the vendored header against the newest tag:
++   `git -C <upstream> show <tag>:include/dlpack/dlpack.h | diff - <crate>/header/dlpack.h`.
++3. Classify every hunk and report what it implies:
++   - version macros - a version bump (the crate version follows the DLPack version);
++   - new `DLDeviceType`/`DLDataTypeCode` values - regenerate only; the newtype style
++     absorbs them, no Rust API break;
++   - new/changed structs or function-pointer typedefs - regenerate; flag as a
++     potential Rust API change for the human;
++   - doc/comment-only hunks - regeneration noise.
++4. A `DLPACK_MAJOR_VERSION` bump means an upstream ABI layout change - stop and
++   report before touching anything.
++
++## Update mode
++
++1. **Pin the release**: check out the newest release *tag* in the upstream checkout
++   (never a branch tip); record tag + commit hash + date.
++2. **Pre-flight**: the crate tree must be clean (`git status`).
++3. **Vendor the header**:
++   `git -C <upstream> show <tag>:include/dlpack/dlpack.h > <crate>/header/dlpack.h`.
++4. **Regenerate**: `cd <crate>/scripts && python3 bindgen.py`. The script copies
++   `header/` into gitignored `tmp/`, runs the bindgen CLI, post-processes, writes
++   `src/lib.rs`, then formats. Never edit `src/lib.rs` by hand - fix the script.
++5. **Review the delta - the gate**: every hunk of `git diff src/lib.rs` must be
++   explainable by the header change. Then run the checker:
++   `python3 <rstsr-agents>/skills/update-ffi-dlpack/scripts/check_dlpack_bindings.py --repo <crate> --upstream <upstream> --tag <tag>`.
++6. **Verify**: `cargo fmt --all -- --check`, `cargo clippy --all-targets
++   --all-features -- -D warnings`, `cargo test` - all green; plus regeneration
++   idempotence: re-run the generator and confirm `src/lib.rs` is unchanged.
++7. **Record provenance**: readme version line (DLPack version + tag + commit) and a
++   changelog entry; set `Cargo.toml` version to the DLPack version (`v1.3` -> `1.3.0`);
++   refresh `Cargo.lock`.
++8. **Hand off**: leave uncommitted for human review; commit only on explicit
++   instruction, following skill `git-commit-coauthor`. Report: tag + commit, diff
++   classification, checker/test results, and the bindgen version used.
++
++## Pitfalls
++
++- The vendored header is the generator input; a stale `header/dlpack.h` is the silent
++  failure mode - always refresh, then rely on the checker's byte-parity check.
++- Run `scripts/bindgen.py` from inside `scripts/` (it builds paths from `os.getcwd()`).
++- `rustfmt.toml` contains nightly-only options (`wrap_comments`,
++  `overflow_delimited_expr`); regenerate with stable rustfmt as CI does - the warnings
++  are expected and the formatting stays reproducible on stable.
++- Doctests are disabled in `Cargo.toml` (`[lib] doctest = false`): the generated doc
++  comments embed C/C++ examples. `cargo test` runs the `tests/` suite.
++- Never switch the generator back to `--default-enum-style rust`; rustified enums are
++  undefined behavior for values added by newer DLPack releases.
++- The crate does not follow Rust semver: its version tracks DLPack, adjustments are
++  patch bumps.
++- An end-to-end interop check against `numpy.from_dlpack` needs a consumer-side
++  harness (e.g. pyo3 or a ctypes-loaded cdylib); it is out of scope for this
++  generated-only crate and remains a manual/future check.
+diff --git a/skills/update-ffi-dlpack/scripts/check_dlpack_bindings.py b/skills/update-ffi-dlpack/scripts/check_dlpack_bindings.py
+new file mode 100644
+index 0000000..9463a4c
+--- /dev/null
++++ b/skills/update-ffi-dlpack/scripts/check_dlpack_bindings.py
+@@ -0,0 +1,191 @@
++#!/usr/bin/env python3
++"""Consistency checks for the dlpack-ffi crate.
++
++dlpack-ffi binds C types only, so there is no symbol coverage to verify. This
++checker asserts the properties `cargo check` cannot: version-const consistency
++(header vs generated code vs crate metadata), the generated-style invariants that
++keep future DLPack minor releases non-breaking, repository purity, and - with
++`--upstream`/`--tag` - byte parity of the vendored header against the pinned
++upstream tag and the provenance recorded in the readme.
++
++Usage:
++    check_dlpack_bindings.py --repo /path/to/dlpack-ffi
++    check_dlpack_bindings.py --repo /path/to/dlpack-ffi \\
++        --upstream ~/Git-Others/dlpack --tag v1.3
++
++Exit code 0 = all checks pass; 1 = at least one failure reported.
++"""
++
++from __future__ import annotations
++
++import argparse
++import re
++import subprocess
++import sys
++from pathlib import Path
++
++HEADER = "header/dlpack.h"
++LIB = "src/lib.rs"
++README = "readme.md"
++CARGO = "Cargo.toml"
++ENUMS = ("DLDeviceType", "DLDataTypeCode")
++# Purity is about the unrelated rstsr project; the GitHub org owning the crate
++# (RESTGroup) legitimately appears in Cargo.toml's repository URL.
++PURITY_RE = re.compile(r"rstsr", re.IGNORECASE)
++
++
++def run(cmd: list[str]) -> bytes:
++    proc = subprocess.run(cmd, capture_output=True)
++    if proc.returncode:
++        raise RuntimeError(
++            f"command failed: {' '.join(cmd)}\n{proc.stderr.decode(errors='replace')}"
++        )
++    return proc.stdout
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(
++        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
++    )
++    parser.add_argument("--repo", required=True, help="path to the dlpack-ffi checkout")
++    parser.add_argument("--upstream", help="path to a dmlc/dlpack git checkout")
++    parser.add_argument("--tag", help="upstream release tag, e.g. v1.3")
++    args = parser.parse_args()
++
++    repo = Path(args.repo).resolve()
++    failures: list[str] = []
++
++    def check(ok: bool, label: str, detail: str = "") -> None:
++        suffix = f"  ({detail})" if detail and not ok else ""
++        print(f"[{'ok' if ok else 'FAIL'}] {label}{suffix}")
++        if not ok:
++            failures.append(label)
++
++    header = (repo / HEADER).read_text()
++    lib = (repo / LIB).read_text()
++    readme = (repo / README).read_text()
++    cargo = (repo / CARGO).read_text()
++
++    m_major = re.search(r"#define\s+DLPACK_MAJOR_VERSION\s+(\d+)", header)
++    m_minor = re.search(r"#define\s+DLPACK_MINOR_VERSION\s+(\d+)", header)
++    if not (m_major and m_minor):
++        check(False, "header version macros parse", "missing DLPACK_MAJOR/MINOR_VERSION")
++        return 1
++    major, minor = m_major.group(1), m_minor.group(1)
++
++    # Generated code agrees with the vendored header.
++    check(f"pub const DLPACK_MAJOR_VERSION: u32 = {major};" in lib, "generated major const matches header")
++    check(f"pub const DLPACK_MINOR_VERSION: u32 = {minor};" in lib, "generated minor const matches header")
++
++    # Crate metadata tracks the DLPack version (repo policy: no Rust semver).
++    check(
++        re.search(rf'^version\s*=\s*"{re.escape(major)}\.{re.escape(minor)}\.0"', cargo, re.M) is not None,
++        f"Cargo.toml version is {major}.{minor}.0",
++    )
++    check(f"[v{major}.{minor}](" in readme, f"readme states DLPack v{major}.{minor}")
++    m_stamp = re.search(r"automatically generated by rust-bindgen (\d+\.\d+\.\d+)", lib)
++    check(m_stamp is not None, "generated file carries the bindgen stamp")
++    if m_stamp:
++        check(
++            f"`rust-bindgen` {m_stamp.group(1)}" in readme,
++            f"readme records the generator version ({m_stamp.group(1)})",
++        )
++
++    # The test suite is the third gate; its absence must not pass silently.
++    tests_dir = repo / "tests"
++    test_files = sorted(p.name for p in tests_dir.glob("*.rs")) if tests_dir.is_dir() else []
++    check(
++        {"abi.rs", "ownership.rs"} <= set(test_files),
++        "test suite present (abi.rs + ownership.rs)",
++        f"found {test_files}",
++    )
++    check("doctest = false" in cargo, "lib doctests disabled (generated docs embed C/C++ examples)")
++
++    # Style invariants: newtype enums, u8 dtype code.
++    for enum in ENUMS:
++        check(
++            re.search(rf"\bpub\s+enum\s+{enum}\b", lib) is None,
++            f"{enum} is not a rustified enum",
++            "rustified enums are UB for values added by newer DLPack releases",
++        )
++        check(f"pub struct {enum}(pub " in lib, f"{enum} is a transparent newtype")
++    check("pub code: u8," in lib, "DLDataType.code stays u8")
++
++    # Every enumerator in the vendored header must be generated with the same
++    # value (spot checks in tests/ cannot cover all of them).
++    header_values = {
++        name: int(value)
++        for name, value in re.findall(r"^\s*(kDL\w+)\s*=\s*(\d+)\s*[uU]?,?\s*$", header, re.M)
++    }
++    lib_values = {
++        name: int(value)
++        for name, value in re.findall(r"pub const (kDL\w+): DL\w+ = DL\w+\((\d+)\);", lib)
++    }
++    check(bool(header_values), "header enumerators parse", f"found {len(header_values)}")
++    missing = sorted(set(header_values) - set(lib_values))
++    extra = sorted(set(lib_values) - set(header_values))
++    mismatched = sorted(
++        f"{name}: header={header_values[name]} code={lib_values[name]}"
++        for name in set(header_values) & set(lib_values)
++        if header_values[name] != lib_values[name]
++    )
++    problems = [str(p) for p in (missing, extra, mismatched) if p]
++    check(
++        bool(header_values) and not problems,
++        f"all {len(header_values)} enum values match the header",
++        "; ".join(problems),
++    )
++
++    # Purity: no references to the unrelated rstsr project. Covers tracked and
++    # untracked (not ignored) files, so it is meaningful mid-handoff too;
++    # gitignored scratch and build artifacts are not repository content.
++    try:
++        listed = run(
++            ["git", "-C", str(repo), "ls-files", "-z", "-co", "--exclude-standard"]
++        ).decode().split("\0")
++    except RuntimeError as exc:
++        check(False, "purity scan", str(exc).splitlines()[0])
++    else:
++        offending = []
++        for rel in filter(None, listed):
++            path = repo / rel
++            if not path.is_file():
++                continue
++            try:
++                text = path.read_text(errors="ignore")
++            except OSError:
++                continue
++            if PURITY_RE.search(text):
++                offending.append(rel)
++        check(not offending, "no rstsr references in tracked/untracked files", ", ".join(offending))
++
++    # Upstream parity (optional).
++    if args.upstream and args.tag:
++        upstream = Path(args.upstream).expanduser().resolve()
++        try:
++            upstream_header = run(
++                ["git", "-C", str(upstream), "show", f"{args.tag}:include/dlpack/dlpack.h"]
++            )
++            commit = run(
++                ["git", "-C", str(upstream), "rev-parse", f"{args.tag}^{{commit}}"]
++            ).decode().strip()
++        except RuntimeError as exc:
++            check(False, "upstream lookup", str(exc).splitlines()[0])
++        else:
++            check(
++                upstream_header == (repo / HEADER).read_bytes(),
++                f"vendored header byte-identical to {args.tag}",
++            )
++            check(commit[:7] in readme, "readme records the pinned commit", f"expected {commit[:7]}")
++    elif args.upstream or args.tag:
++        check(False, "upstream arguments", "--upstream and --tag must be given together")
++
++    if failures:
++        print(f"\n{len(failures)} check(s) failed")
++        return 1
++    print("\nall checks passed")
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
