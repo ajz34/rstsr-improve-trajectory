@@ -1,7 +1,7 @@
 # Round-2 design questions — dlpack-ffi repo redesign
 
 - **Date**: 2026-10-03
-- **Status**: **OPEN** — filed after the repo-anatomy report (appendix). R2-Q1 gained a tension note (the repo's own readme policy argues against my lean); R2-Q3 became a concrete upgrade checklist.
+- **Status**: **ANSWERED** (2026-10-03) — see [round-2-answers.md](./round-2-answers.md). Kept as the question record; the appendix below is the dlpack-ffi anatomy digest.
 - **Context**: round 1 ([round-1-answers.md](./round-1-answers.md)) relocated the task into the existing `RESTGroup/dlpack-ffi` repo (Q7). Round 2 settles: release version, package identity, upgrade scope, pack wiring.
 
 ## Repo facts that matter here (full digest in the appendix)
