@@ -4,7 +4,7 @@
 > **decided against** by the maintainer — "decided not implement, at least currently; this is
 > too unsafe" — and stays unimplemented; §2 (view export) was **implemented** in the same
 > session. The crate lives in the rstsr repo on branch `261003/rstsr-cpu-dlpack`
-> (committed as `49a9c45`; the view-export change is the current working tree).
+> (committed: crate `49a9c45`, view export `86a4e32`, core `Clone` `6d3f5bc`).
 
 Cross-framework DLPack usage evidence (numpy 2.5.1 / torch 2.14 probes) lives in
 `../2026-10-03-rust-numpy-review/experiments/probe_dlpack_python_usage.py` +
@@ -61,7 +61,7 @@ NumPy's `view.__dlpack__()` works because view objects retain their base (refcou
 are pure borrows (`Storage<DataRef<'a, Vec<T>>, T, B>` with `TrueRef(&root)`) carrying no owner —
 the exporter must supply one.
 
-What shipped (branch `261003/rstsr-cpu-dlpack`, working tree):
+What shipped (branch `261003/rstsr-cpu-dlpack`; bridge commit `86a4e32`, core commit `6d3f5bc`):
 
 - **`to_dlpack_shared_view` / `to_dlpack_shared_view_f(base, view)`** in `src/export.rs`. Checks
   that the view's root container *is* the base's buffer

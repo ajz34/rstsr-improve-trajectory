@@ -5,9 +5,9 @@ metadata:
   type: reference
 ---
 
-Added 2026-10-03 in the rstsr repo (branch `261003/rstsr-cpu-dlpack`, working tree on top of
-`f179c46`) so that `rstsr-cpu-dlpack` can export views of a `TensorArc`
-([[rstsr-cpu-dlpack-followups]]). Minor-semver trait impls, sanctioned by the maintainer.
+Added 2026-10-03 in the rstsr repo (branch `261003/rstsr-cpu-dlpack`, commit `6d3f5bc`) so that
+`rstsr-cpu-dlpack` can export views of a `TensorArc` ([[rstsr-cpu-dlpack-followups]]).
+Minor-semver trait impls, sanctioned by the maintainer.
 
 - `impl<C> Clone for DataArc<C>` (`rstsr-core/src/storage/data.rs`): `Arc::clone` — zero-copy.
 - `impl Clone for TensorArc<T, B, D>` (`rstsr-core/src/tensor/ownership_conversion.rs`, beside the

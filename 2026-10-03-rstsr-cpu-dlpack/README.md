@@ -7,8 +7,8 @@
   repo on branch `261003/rstsr-cpu-dlpack`** (`crates-interop/rstsr-cpu-dlpack`) — the maintainer
   redirected implementation into the rstsr repo ("why not directly implement in rstsr repo? Just
   create a new branch on that"). The Python end-to-end harness stays here, under `prototype/`.
-  The crate is committed in the rstsr repo as `49a9c45`; the view-export change of
-  [FOLLOWUPS.md](./FOLLOWUPS.md) §2 is the branch's current working tree. Both post-implementation
+  The crate is committed in the rstsr repo as `49a9c45`, the view-export change of
+  [FOLLOWUPS.md](./FOLLOWUPS.md) §2 as `86a4e32` (bridge) + `6d3f5bc` (core). Both post-implementation
   review threads are closed there: zero-copy adoption was **rejected** ("too unsafe") and the
   basic-indexed view export was **implemented** (plus the core `Clone for DataArc`/`TensorArc`
   additions it needed).
