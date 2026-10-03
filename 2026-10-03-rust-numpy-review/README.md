@@ -27,6 +27,8 @@
 | [notes/rstsr-state.md](./notes/rstsr-state.md) | raw evidence: rstsr bridge-relevant inventory (storage/layout/dtype/device) and gap list |
 | [experiments/probe_numpy_dlpack.py](./experiments/probe_numpy_dlpack.py) | executable probe suite against the installed NumPy |
 | [experiments/probe-output.txt](./experiments/probe-output.txt) | captured raw output of the above |
+| [experiments/probe_dlpack_python_usage.py](./experiments/probe_dlpack_python_usage.py) | cross-framework usage probe (numpy ↔ torch: zero-copy, write propagation, read-only, lifetime, `copy=True`) |
+| [experiments/probe-output-python-usage.txt](./experiments/probe-output-python-usage.txt) | captured raw output of the above |
 
 ## Headline conclusions (details in REVIEW.md §0)
 

@@ -1,6 +1,6 @@
 ---
 name: dlpack-numpy-protocol-gotchas
-description: DLPack/NumPy protocol facts verified 2026-10-03 (numpy 2.5): from_dlpack call pattern, element strides vs byte_offset, capsule naming, dtype/device accept tables, remaining rstsr dtype gaps.
+description: DLPack protocol facts verified 2026-10-03 (numpy 2.5.1 + torch 2.14): from_dlpack call patterns, element strides vs byte_offset, capsule naming, dtype/device accept tables, read-only enforcement, lifetime/copy semantics, remaining rstsr dtype gaps.
 metadata:
   type: reference
 ---
@@ -44,5 +44,24 @@ Verified against NumPy v2.5.2 source + NumPy 2.5.1 probes; full evidence in
   the deleter once via an internal base capsule; on failure it drops the capsule un-renamed
   (producer destructor/deleter runs). Legacy imports are always non-writeable; versioned
   imports honor the `READ_ONLY` flag.
+
+**Cross-framework usage** (numpy 2.5.1 ↔ torch 2.14, CPU; probe
+`2026-10-03-rust-numpy-review/experiments/probe_dlpack_python_usage.py` + captured output):
+
+- Consumer call patterns: torch calls `__dlpack_device__()` then
+  `__dlpack__(max_version=(1, 0))` (no `stream` for CPU tensors); numpy calls
+  `__dlpack__(dl_device=None, copy=None, max_version=(1, 0))`. Both producers emit a **legacy**
+  capsule unless `max_version` is requested; `np.from_dlpack`/`torch.from_dlpack` signatures both
+  expose `device=` and `copy=` keywords.
+- Zero-copy both directions with write propagation (incl. strided `[:, ::2]` views), and the
+  consumer view owns its lifetime: deleting the producer + gc leaves the view valid (the consumer
+  holds the producer's managed tensor; numpy stores it as an internal `numpy_dltensor*` capsule,
+  `arr.base`).
+- `copy=True` is **producer-performed** and stays in the producer's allocator/deleter domain:
+  `np.from_dlpack(t, copy=True)` yields `owndata=False`. No framework re-homes foreign memory into
+  its own allocator even for a demanded copy.
+- `READ_ONLY` is only advisory: numpy refuses legacy export of read-only arrays (`BufferError`) and
+  signals `READ_ONLY` in the versioned capsule, but torch imports it and writes through — a
+  consumer without a read-only concept cannot enforce it.
 
 See [[rstsr-numpy-interop-review]] for what rstsr intends to do with this.

@@ -1,0 +1,33 @@
+versions: numpy 2.5.1 | torch 2.14.0+rocm7.2
+np->torch zero-copy: True
+write numpy visible in torch: True
+write torch visible in numpy: True
+readonly numpy, default capsule: <BufferError: Cannot export readonly array since signalling readonly is unsupported by DLPack (supported by newer DLPack version).>
+readonly numpy, versioned capsule: dltensor_versioned
+readonly numpy -> torch: imported
+  torch write succeeded; numpy now sees 9.0
+strided numpy -> torch: ok; stride (6, 2) contiguous False values ok True
+torch->np zero-copy: True
+write torch visible in numpy: True
+write numpy visible in torch: True
+np array from torch: writeable = True | owndata = False | base type = PyCapsule
+strided torch -> np: ok (3, 2) (16, 8)
+np.from_dlpack signature: (x, /, *, device=None, copy=None)
+torch.from_dlpack signature: (ext_tensor: Any, *, device: torch.device | str | int | None = None, copy: bool | None = None) -> 'torch.Tensor'
+numpy default producer capsule: dltensor
+numpy versioned producer capsule: dltensor_versioned
+numpy copy=True producer capsule: dltensor
+torch default producer capsule: dltensor
+torch versioned producer capsule: dltensor_versioned
+torch consuming Spy:
+  Spy.__dlpack_device__ called
+  Spy.__dlpack__ called with {'max_version': (1, 0)}
+  torch ok: [0.0, 1.0, 2.0]
+numpy consuming Spy:
+  Spy.__dlpack__ called with {'dl_device': None, 'copy': None, 'max_version': (1, 0)}
+  numpy ok: [0.0, 1.0, 2.0]
+jax: ModuleNotFoundError No module named 'jax'
+numpy view survives dead torch producer: [0.0, 1.0, 2.0, 3.0] | same pointer: True
+torch view survives dead numpy producer: [0.0, 1.0, 2.0, 3.0]
+torch copy=True: detached: True | shares: False
+numpy copy=True: detached: True | owndata: False | shares: False
