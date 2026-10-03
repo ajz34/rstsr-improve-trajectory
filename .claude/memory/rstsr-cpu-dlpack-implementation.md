@@ -57,3 +57,10 @@ was **implemented** — see [[rstsr-cpu-dlpack-followups]], [[rstsr-tensorarc-cl
 `2026-10-03-rstsr-cpu-dlpack/FOLLOWUPS.md`. The crate itself (with the review-comment fixes:
 optional `half`, `CODE_*` constants in the dispatch macro, `rstsr_raise!`, anchor docs on the
 panic versions) is committed in the rstsr repo as `49a9c45`.
+
+The crate is now also surfaced through the main `rstsr` prelude: cargo feature `rstsr/dlpack`,
+items under `rt::dlpack::*` (rstsr commit `6eb3d90`). It required a bridge `prelude` module with
+the `rstsr_traits`/`rstsr_structs`/`rstsr_funcs` groups (the member-crate pattern) that the facade
+forwards behind `#[cfg(feature = "dlpack")]`. The pattern + the prelude conventions (including the
+deviations that exist in the tree) are codified in the `rstsr-agents` skill `prelude-conventions`
+(commit `b8828bd`).

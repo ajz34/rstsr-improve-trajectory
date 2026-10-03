@@ -11,7 +11,10 @@
   [FOLLOWUPS.md](./FOLLOWUPS.md) §2 as `86a4e32` (bridge) + `6d3f5bc` (core). Both post-implementation
   review threads are closed there: zero-copy adoption was **rejected** ("too unsafe") and the
   basic-indexed view export was **implemented** (plus the core `Clone for DataArc`/`TensorArc`
-  additions it needed).
+  additions it needed). The crate is also surfaced through the main `rstsr` prelude — cargo
+  feature `rstsr/dlpack`, `rt::dlpack::*` — via a new bridge `prelude` module following the
+  member-crate pattern (rstsr commit `6eb3d90`); that pattern and the prelude conventions are
+  documented in the `rstsr-agents` skill `prelude-conventions` (commit `b8828bd`).
 - **Inputs**: [`../2026-10-03-rust-numpy-review/DECISIONS-R2.md`](../2026-10-03-rust-numpy-review/DECISIONS-R2.md)
   (scope, assumptions A1–A4) and `RESPONSE-discussion-R1.md` (verifications V1–V5).
 - **Pinned sources**: rstsr `f179c46` (v0.9.0); `dlpack-ffi` 1.3.0 (crates.io, published 2026-10-03);
@@ -21,7 +24,8 @@
 
 | Where | What |
 |---|---|
-| `../../../rstsr/crates-interop/rstsr-cpu-dlpack` (branch `261003/rstsr-cpu-dlpack`) | the crate: `src/` + `tests/` (18 tests) + workspace wiring in `rstsr/Cargo.toml` |
+| `../../../rstsr/crates-interop/rstsr-cpu-dlpack` (branch `261003/rstsr-cpu-dlpack`) | the crate: `src/` + `tests/` (18 tests) + workspace wiring in `rstsr/Cargo.toml`; surfaced in the facade prelude as `rt::dlpack` (feature `rstsr/dlpack`) |
+| `../../../rstsr-agents/skills/prelude-conventions` (commit `b8828bd`) | the prelude reference written from this work: how items reach `prelude`/`rt::`, the optional member-crate wiring (the dlpack export is the worked example), the deviations in the current tree |
 | [DESIGN.md](./DESIGN.md) | the design: API surface, the `DataDlpack` repr and its safety contract, flags/ownership policy, validation checklist, error taxonomy, test plan, open questions, prototype results |
 | [FOLLOWUPS.md](./FOLLOWUPS.md) | post-review threads, now closed: zero-copy adoption **rejected** (too unsafe), shared-view export **implemented** (design + what shipped + core additions), decision log |
 | `prototype/` | the harness: `demo-ffi/` (cdylib host with a Rust-written `PyCapsule` destructor), `python/` (reference capsule holder + end-to-end suite + captured output), `rstsr-cpu-dlpack/` (archival snapshot of the crate at move time) |
