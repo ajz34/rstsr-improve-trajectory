@@ -57,6 +57,9 @@ to evolve; keep wording loose and leave room for future directions.
   user, it **must not only dump the questions on screen**: it also writes them
   to `GRILL-R<N>-QUESTIONS.md` (`R1`, `R2`, … per round), in the folder the
   grilling concerns — the task directory when there is one, else the repo root.
+- The initial prompt that starts a grilling can be stored in
+  `GRILL-INIT-PROMPT.md` in the same folder, as the record of what is being
+  grilled.
 - The user usually answers by editing `GRILL-R<N>-ANSWERS.md` in the same
   folder; the agent reads that file and builds the next round (or the decision)
   from it.
