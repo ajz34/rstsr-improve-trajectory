@@ -63,7 +63,7 @@ New register entries; "evidence" names the dominant failure class observed:
 | G-027 | result_type / can_cast / isdtype | rust-side | ? | 16 data_type_functions failures | needs token-level promotion query (G-008); decide shim strategy at S3 review |
 | G-028 | axes-supporting reductions & stats (sum/max/min/mean/…, argmax/min) | shim-side | ? | statistical 0/9 | whole-array first via reduction macros; axes via `*_axes` rt fns |
 | G-029 | searching/set (where, nonzero, unique_*, searchsorted, isin, count_nonzero) | rust-side? | ? | searching 0/8, set 0/6 | data-dependent shapes; capabilities declares False — resolve claim at S3 |
-| G-030 | `rt::arange` infinite loop on step-away-from-end | rust-side | — | probe: `arange(0, 4151497946, step=-129734311.0)` balloons to OOM (found 2026-10-04 post-S1, probe log in reports/) | `arange_by_primitive_f64_cpu_serial` bails via `ceil(neg).to_usize() → None`; the `unwrap_or_else` chain then reaches `arange_by_partial_ord_cpu_serial`, whose `while current < end` loop has no direction guard and marches to −∞. Int path survives only because `(0..negative_isize)` is empty. Spec/numpy: sign-mismatched range ⇒ empty. Shim guards value-exactly in its own Rust; **candidate issue #1 for the batch** |
+| G-030 | `rt::arange` infinite loop on step-away-from-end | rust-side | — | probe: `arange(0, 4151497946, step=-129734311.0)` balloons to OOM (found 2026-10-04 post-S1, probe log in reports/) | **RESOLVED rust-side** (rstsr `f94a3cd`, branch `261004/rstsr-faer-py`): `arange_by_partial_ord_cpu_serial` is now direction-aware (sign-mismatch ⇒ empty, matching numpy); the loop guard was the single root of G-030 *and* G-031. Shim guard removed (`881f071`); suite `test_arange` passes (stamp 20261004-214808: 303/997/82, only this test changed) |
 
 Remaining v0 entries (G-001…G-015) keep their status; G-010/G-011 resolve in
 S2/S3 as planned. Discrepancy watch for S4: fulfillment-table rows marked Y
@@ -80,7 +80,7 @@ census over the 998: 522 marshalling-reject (TypeError), 253 wrong-value,
 
 | id | area | category | table row | evidence | note |
 |---|---|---|---|---|---|
-| G-031 | arange narrow-int downward range | rust-side | — | hand-verified: `arange(0, -2, step=-1)` → `[]` on int8/int16; int64/float64 correct (suite: test_arange, `prod(out.shape)=0`) | sibling of G-030 in the `arange_by_primitive_*` family (narrow-int path); **candidate issue for the batch** |
+| G-031 | arange narrow-int downward range | rust-side | — | hand-verified: `arange(0, -2, step=-1)` → `[]` on int8/int16; int64/float64 correct (suite: test_arange, `prod(out.shape)=0`) | **RESOLVED** by the same change as G-030 (rstsr `f94a3cd`): i8/i16/u8/u16 always took the upward-only generic loop; it is now direction-aware. Watch-item: unsigned dtypes with negative steps cannot represent the step in `T` at all (wrap/overflow) — ungraded by the suite so far |
 | G-032 | finfo/iinfo reject complex dtypes | shim-side | ? | `xp.finfo(complex64)` → ValueError "only real floating-point dtypes are allowed" (4 data_type failures) | spec: finfo accepts complex floating (real-part semantics); shim's own Rust raises |
 | G-033 | capabilities key `max dimensions` | shim-side | — | test_inspection: expects `"max dimensions"` (2024.12 rename), shim emits `"max ndim"` | one-line Python fix |
 | G-034 | spec name `permute_dims` vs shim `permute_axes` | shim-side | — | "permute_dims is not defined" (all manipulation + has_names) | expose the spec name; `permute_axes` stays internal |
