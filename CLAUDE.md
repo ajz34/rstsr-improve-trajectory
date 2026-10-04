@@ -87,6 +87,13 @@ Agent memory lives **inside this repository**, at `.claude/memory/`:
 
 ## Git
 
+- **GitHub connections use SSH, never HTTPS**: plain-HTTPS to github.com is
+  unreliable/blocked on this machine (GnuTLS errors); fetch/push and
+  submodule fetches go via `git@github.com:...`. When a recipe clones over
+  HTTPS (submodule defaults, `git clone` URLs), rewrite to SSH or source
+  from an existing local clone under `~/Git-Others/` instead of retrying
+  HTTPS.
+
 - The agent **may commit autonomously in this repository** (this repo is
   designed to be virtually fully AI-generated). The no-auto-commit policy of
   the main rstsr repos does not apply here.
