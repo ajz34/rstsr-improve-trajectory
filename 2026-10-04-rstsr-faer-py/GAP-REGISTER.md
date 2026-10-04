@@ -46,9 +46,11 @@ Compile-cycle notes (S1):
 
 ## Entries v1 (after the first suite run, 2026-10-04, chunked stamp 20261004-183548)
 
-Suite result: **253 passed / 1026 failed / 87 skipped of 1366** — details in
-`reports/SUMMARY-s1.md`. New register entries; "evidence" names the dominant
-failure class observed:
+Suite result: **255 passed / 1040 failed / 87 skipped of 1382** (19 chunks;
+stamp `20261004-194249` — corrected figures, see SUMMARY-s1 correction: the
+first merge silently dropped the `test_creation_functions` chunk, whose
+process died in the G-030 arange loop) — details in `reports/SUMMARY-s1.md`.
+New register entries; "evidence" names the dominant failure class observed:
 
 | id | area | category | table row | evidence | note |
 |---|---|---|---|---|---|
@@ -61,6 +63,7 @@ failure class observed:
 | G-027 | result_type / can_cast / isdtype | rust-side | ? | 16 data_type_functions failures | needs token-level promotion query (G-008); decide shim strategy at S3 review |
 | G-028 | axes-supporting reductions & stats (sum/max/min/mean/…, argmax/min) | shim-side | ? | statistical 0/9 | whole-array first via reduction macros; axes via `*_axes` rt fns |
 | G-029 | searching/set (where, nonzero, unique_*, searchsorted, isin, count_nonzero) | rust-side? | ? | searching 0/8, set 0/6 | data-dependent shapes; capabilities declares False — resolve claim at S3 |
+| G-030 | `rt::arange` infinite loop on step-away-from-end | rust-side | — | probe: `arange(0, 4151497946, step=-129734311.0)` balloons to OOM (found 2026-10-04 post-S1, probe log in reports/) | `arange_by_primitive_f64_cpu_serial` bails via `ceil(neg).to_usize() → None`; the `unwrap_or_else` chain then reaches `arange_by_partial_ord_cpu_serial`, whose `while current < end` loop has no direction guard and marches to −∞. Int path survives only because `(0..negative_isize)` is empty. Spec/numpy: sign-mismatched range ⇒ empty. Shim guards value-exactly in its own Rust; **candidate issue #1 for the batch** |
 
 Remaining v0 entries (G-001…G-015) keep their status; G-010/G-011 resolve in
 S2/S3 as planned. Discrepancy watch for S4: fulfillment-table rows marked Y

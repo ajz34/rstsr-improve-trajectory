@@ -97,19 +97,27 @@ cd "$SUITE_DIR"
 START=$SECONDS
 
 # CHUNKED=1 runs one pytest process per suite test file, each with its own
-# json report. Needed once the failure count reaches the thousands: pytest +
-# pytest-json-report hold every failure record (tracebacks, array reprs) in
-# RAM, and an honestly-red map of an early-stage shim OOM-kills a single
-# process (observed 2026-10-04: rstsr_faer.api full run killed ~35 tests in;
-# every file individually peaks <= 155 MB). Derandomized examples are
-# per-test, so chunked numbers stay comparable to the whole-suite baseline.
+# json report. A runaway or aborting test (e.g. an infinite loop in native
+# code) then costs one file's process, not the whole run. Observed 2026-10-04:
+# the S1 red run of rstsr_faer.api OOM-died inside rstsr-native-impl's arange
+# (register G-030) — not a pytest/json-report property (the whole suite's
+# failure longreprs total ~3 MB). A chunk that dies without producing a
+# report is a HARD ERROR: a silent merge once dropped a whole file from the
+# totals. Derandomized examples are per-test, so chunked numbers stay
+# comparable to the whole-suite baseline.
 if [ -n "${CHUNKED:-}" ] && [ "${PYTEST_ARGS[0]}" = "array_api_tests/" ]; then
     TOTAL_P=0; TOTAL_F=0; TOTAL_E=0; TOTAL_S=0
+    MISSING=()
     for f in array_api_tests/test_*.py; do
         cname="${MODULE//./_}-chunk-$(basename "$f" .py)-$STAMP.json"
         echo "--- $f"
         env "${ENV_VARS[@]}" "$TORCH_PY" -m pytest "$f" \
             "${PYTEST_ARGS[@]:1}" --json-report-file "$REPORTS/$cname" || true
+        if [ ! -s "$REPORTS/$cname" ]; then
+            echo "    !!! no report produced (chunk process died?)"
+            MISSING+=("$f")
+            continue
+        fi
         "$TORCH_PY" - "$REPORTS/$cname" <<'PYEOF' || true
 import json, sys
 try:
@@ -121,6 +129,11 @@ print(f"    passed {p}  failed {f}  error {e}  skipped {s}")
 PYEOF
     done
     echo
+    if [ ${#MISSING[@]} -gt 0 ]; then
+        echo "!!! MISSING CHUNK REPORTS: ${MISSING[*]}"
+        echo "!!! totals would silently exclude these files; rerun them individually"
+        exit 1
+    fi
     echo "==> merging chunk summaries"
     "$TORCH_PY" - "$REPORTS" "$STAMP" "${MODULE//./_}" <<'PYEOF' || true
 import glob, json, sys

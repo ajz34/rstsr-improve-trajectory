@@ -45,9 +45,21 @@ ON HOLD for the user's explicit go.
   1.15, wheel installed into torch env; python-side edits = cp to
   site-packages, rust edits = wheel rebuild (~30 s incremental). First red
   map: **253 passed / 1026 failed / 87 skipped of 1366** — suite runs
-  END-TO-END. Whole-suite single pytest process OOM-kills at ~1000 failures
-  (json-report holds all failure RAM) → `CHUNKED=1 ./run.sh` mode added
-  (per-file processes; derandomize keeps comparability). Top reds:
+  END-TO-END. **OOM corrected post-S1 (user question)**: NOT json-report
+  (whole-suite failure longreprs = 3.1 MB) — it was an **rstsr-native-impl
+  arange infinite loop** (G-030, rust-side, candidate issue #1):
+  `arange(0, 4.15e9, step=-1.3e8)` → f64 fast path bails (`ceil(neg).to_usize()`
+  → None) → generic `while current < end` fallback has no direction guard →
+  marches to −∞, ~48 GB in <1 min. Int path survives by accident
+  (`(0..neg_isize)` empty). Two shim bugs fixed same session:
+  step dropped when stop=None (arange(start, step=huge) → arange(huge)!),
+  and sign-mismatch now returns empty (spec-exact guard in shim Rust).
+  Corrected red map: **255/1040/87 of 1382 (19 chunks, stamp 20261004-194249)**;
+  the earlier 253/1026/1366 silently lost the creation chunk (run.sh now
+  hard-errors on missing chunk reports; collection = 1382 = NumPy baseline
+  exactly, nothing "vanishes"). Probe tricks: pytest fd-capture swallows
+  prints (use sys.__stderr__); Rust alloc failure aborts before hypothesis
+  prints "Falsifying example" (wrap the shim with a call logger). Top reds:
   `__getitem__` (blocks hypothesis data generation — 0/155 operators),
   missing elementwise fns (241, all on rt::), xp.linalg, manipulation
   remainder. Rust-side facts in register G-016..G-020: zeros/full gate on

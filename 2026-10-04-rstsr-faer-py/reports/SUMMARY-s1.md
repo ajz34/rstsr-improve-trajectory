@@ -111,3 +111,56 @@ honest.
   edits need a wheel rebuild (~30 s incremental release).
 - Chunk reports: `harness/reports/rstsr_faer_api-chunk-*.json`
   (this run's stamp: 20261004-183548).
+
+## Correction (2026-10-04, post-commit) — OOM root cause and corrected totals
+
+Two claims above are wrong, and the investigation that followed the user's
+question produced a different story:
+
+1. **"pytest-json-report holds all failure records in RAM" is false.** The
+   entire 1026-failure report payload measures **3.1 MB** (largest single
+   longrepr 10 KB). The report machinery was never the problem.
+2. **"16 items vanish from our collection" is false.** Nothing vanishes: the
+   first chunked merge silently dropped the `test_creation_functions` chunk,
+   whose per-file process had died the same death as the whole-suite run.
+   Collection is **1382 — identical to the NumPy baseline**.
+
+**True root cause: an infinite loop in rstsr-native-impl's arange**
+(register G-030, rust-side). Reachable input:
+`arange(0, 4151497946, step=-129734311.0)` — a step pointing away from the
+stop. `arange_by_primitive_f64_cpu_serial` bails via
+`ceil(negative).to_usize() → None`; the `unwrap_or_else` chain falls through
+the int-accelerated paths (TypeId mismatch) into
+`arange_by_partial_ord_cpu_serial`, whose `while current < end` loop has no
+direction guard — `current` marches to −∞ pushing elements, RSS hits ~48 GB
+in under a minute (kernel OOM-kill log confirms two such kills, 18:24 and
+18:36). The int path survives the same negative ratio only because
+`(0..negative_isize)` is empty. The balloon is not a suite or instrument
+property; NumPy receives the same drawn inputs and returns `[]`.
+
+Two shim-side defects were found and fixed in the same investigation (both in
+`rstsr-faer-py/src/creation.rs`, value-exact vs numpy on 10 edge cases):
+
+- `arange(start, step=huge)` — the Rust arity match discarded an explicit
+  step whenever `stop` was None, degrading to one-arg `arange(huge)` with
+  implicit step 1. Now normalized to `arange(0, stop, step)`.
+- Sign-mismatched ranges (step away from stop) now return an empty tensor in
+  the shim — spec-exact, and it keeps the G-030 loop unreachable from the
+  suite. **rstsr itself remains unfixed; G-030 is the first candidate issue
+  for the S4 batch.**
+
+**Corrected first red map** (stamp `20261004-194249`, 19 chunks, 278 s,
+identical pins):
+
+```
+255 passed, 1040 failed, 87 skipped   (1382 collected — full suite, no gap)
+```
+
+`test_creation_functions` contributes 2 passed / 14 failed (it was absent
+from the first table). Instrument lessons baked into `run.sh`: a chunk that
+dies without a report is now a hard error (the silent merge that dropped a
+file cannot recur); the OOM comment now states the real mechanism.
+Probing lessons worth keeping: pytest's fd-level capture swallows plain
+`print` (write `sys.__stderr__` instead), and a Rust allocation failure
+aborts the process — hypothesis never reaches "Falsifying example", so a
+call-logging wrapper around the shim is the way to see the lethal input.
