@@ -5,6 +5,7 @@
 #   MODULE=numpy ./run.sh                 # whole suite, suite-default examples
 #   MODULE=numpy ./run.sh --max-examples 20
 #   MODULE=rstsr_faer.api ./run.sh        # the actual subject (S1+)
+#   NO_EXPLAIN=1 MODULE=rstsr_faer.api ./run.sh  # skip hypothesis's explain phase (fast red maps)
 #   ./run.sh array_api_tests/test_has_names.py   # one module (MODULE still applies)
 #
 # Anything after the script name is passed straight to pytest.
@@ -13,6 +14,8 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Bundled pytest plugin (no_explain.py) must be importable from any cwd.
+export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
 SUITE_DIR="${SUITE_DIR:-$HOME/Git-Others/array-api-tests}"
 TORCH_PY="${TORCH_PY:-/home/a/miniconda3/envs/torch/bin/python}"
 REPORTS="$HERE/reports"
@@ -44,6 +47,14 @@ for arg in "$@"; do
 done
 if [ -n "${MAX_EXAMPLES:-}" ]; then
     PYTEST_ARGS+=(--max-examples "$MAX_EXAMPLES")
+fi
+# Hypothesis's explain phase (>= 6.131) computes a minimal-explanation blob
+# after every failure; on a red module it was 93% of wall time (2026-10-04:
+# 34.2s of 36.8s on test_manipulation_functions.py). NO_EXPLAIN=1 drops the
+# phase via the bundled plugin (counts unchanged). Leave it off when a single
+# failure's "Draw N" blob is the evidence you want.
+if [ -n "${NO_EXPLAIN:-}" ]; then
+    PYTEST_ARGS+=(-p no_explain)
 fi
 PYTEST_ARGS+=(
     --disable-deadline          # the suite's 800ms/example deadline is for CI only

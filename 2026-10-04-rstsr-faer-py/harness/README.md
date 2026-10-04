@@ -38,4 +38,7 @@ fftfreq dtype=, clip min/max names); all 5 skips = self-skipped
 ```bash
 MODULE=rstsr_faer.api ./run.sh        # the subject under test
 SKIPS_FILE=../skips.txt XFAILS_FILE=../xfails.txt MODULE=rstsr_faer.api ./run.sh
+NO_EXPLAIN=1 MODULE=rstsr_faer.api ./run.sh   # red-map speedup: skip hypothesis's
+                                              # explain phase (93% of a failure-heavy
+                                              # file; drops the "Draw N" repro blob)
 ```
