@@ -51,6 +51,18 @@ to evolve; keep wording loose and leave room for future directions.
   porting notes; the human integrates it into rstsr under rstsr's normal
   review policy. Do not push changes into the main repos from here.
 
+## Grilling for decisions (mandatory convention)
+
+- Decisions are commonly stress-tested by grilling. When the agent grills the
+  user, it **must not only dump the questions on screen**: it also writes them
+  to `GRILL-R<N>-QUESTIONS.md` (`R1`, `R2`, … per round), in the folder the
+  grilling concerns — the task directory when there is one, else the repo root.
+- The user usually answers by editing `GRILL-R<N>-ANSWERS.md` in the same
+  folder; the agent reads that file and builds the next round (or the decision)
+  from it.
+- Older directories may use bespoke names (e.g. `QUESTIONS-discussion-R1.md`);
+  this convention applies to new grillings.
+
 ## Agent memory (mandatory convention)
 
 Agent memory lives **inside this repository**, at `.claude/memory/`:
