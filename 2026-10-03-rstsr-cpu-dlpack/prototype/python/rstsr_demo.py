@@ -13,6 +13,8 @@ def load(lib_path=None):
 
     lib.rstsr_demo_arange_f64.restype = ctypes.c_void_p
     lib.rstsr_demo_arange_f64.argtypes = [ctypes.c_size_t]
+    lib.rstsr_demo_arange2d_f64.restype = ctypes.c_void_p
+    lib.rstsr_demo_arange2d_f64.argtypes = [ctypes.c_size_t, ctypes.c_size_t]
     lib.rstsr_demo_to_shared.restype = ctypes.c_void_p
     lib.rstsr_demo_to_shared.argtypes = [ctypes.c_void_p]
     lib.rstsr_demo_export.restype = ctypes.c_void_p
@@ -21,11 +23,23 @@ def load(lib_path=None):
     lib.rstsr_demo_export_copy.argtypes = [ctypes.c_void_p]
     lib.rstsr_demo_export_move.restype = ctypes.c_void_p
     lib.rstsr_demo_export_move.argtypes = [ctypes.c_void_p]
+    lib.rstsr_demo_export_slice.restype = ctypes.c_void_p
+    lib.rstsr_demo_export_slice.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_ssize_t), ctypes.c_size_t]
     lib.rstsr_demo_import.restype = ctypes.c_void_p
     lib.rstsr_demo_import.argtypes = [ctypes.c_void_p, ctypes.c_int]
 
     lib.rstsr_demo_data_ptr.restype = ctypes.c_size_t
     lib.rstsr_demo_data_ptr.argtypes = [ctypes.c_void_p]
+    lib.rstsr_demo_buffer_ptr.restype = ctypes.c_size_t
+    lib.rstsr_demo_buffer_ptr.argtypes = [ctypes.c_void_p]
+    lib.rstsr_demo_layout.restype = ctypes.c_size_t
+    lib.rstsr_demo_layout.argtypes = [
+        ctypes.c_void_p,
+        ctypes.POINTER(ctypes.c_int64),
+        ctypes.POINTER(ctypes.c_int64),
+        ctypes.c_size_t,
+        ctypes.POINTER(ctypes.c_size_t),
+    ]
     lib.rstsr_demo_len.restype = ctypes.c_size_t
     lib.rstsr_demo_len.argtypes = [ctypes.c_void_p]
     lib.rstsr_demo_ndim.restype = ctypes.c_size_t
@@ -55,6 +69,20 @@ def values(lib, handle):
     if written != n:
         raise RuntimeError("rstsr_demo_dump_f64 failed: " + last_error(lib))
     return list(buf)[:n]
+
+
+def layout(lib, handle):
+    """`(shape, strides, offset)` of a handle; strides are in elements."""
+    ndim = lib.rstsr_demo_ndim(handle)
+    if ndim == ctypes.c_size_t(-1).value:
+        raise RuntimeError("rstsr_demo_ndim failed: " + last_error(lib))
+    shape = (ctypes.c_int64 * max(1, ndim))()
+    strides = (ctypes.c_int64 * max(1, ndim))()
+    offset = ctypes.c_size_t()
+    written = lib.rstsr_demo_layout(handle, shape, strides, ndim, ctypes.byref(offset))
+    if written != ndim:
+        raise RuntimeError("rstsr_demo_layout failed: " + last_error(lib))
+    return list(shape)[:ndim], list(strides)[:ndim], offset.value
 
 
 def import_handle(lib, ptr, legacy):

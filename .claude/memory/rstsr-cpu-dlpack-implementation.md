@@ -72,3 +72,12 @@ the pointer through `usize` (crate is `-Zmiri-strict-provenance` clean now); emp
 aligned for `T`; the col-major doctest asserts through the view offset; `DlpackDtype` /
 `DlpackSharedBaseAPI` stay **safe traits** with documented implementor contracts (maintainer
 call). See `2026-10-03-rstsr-cpu-dlpack/FOLLOWUPS.md` §5.
+
+The Python harness gained a narrated slicing walk-through (2026-10-04):
+`2026-10-03-rstsr-cpu-dlpack/prototype/python/example_slicing.py` (capture
+`example-slicing-output.txt`) passes whole tensors and basic-indexed views (strided + offset,
+negative strides) in both directions through real capsules. It uses four new `demo-ffi` entry
+points — `rstsr_demo_arange2d_f64`, `rstsr_demo_export_slice` (runtime `(start, stop, step)` per
+axis, built with `rstsr_common::layout::exports::{Indexer, Slice}`; `isize::MIN` = "no bound"),
+`rstsr_demo_layout`, `rstsr_demo_buffer_ptr` — and the existing 8-case E2E suite still passes.
+The layout facts it verified are in [[dlpack-numpy-protocol-gotchas]].

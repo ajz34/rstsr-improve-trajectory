@@ -2,11 +2,12 @@
 //! `rstsr-cpu-dlpack` (`../../../rstsr/crates-interop/rstsr-cpu-dlpack`).
 //!
 //! It exposes a tiny C ABI: a handle table of rstsr tensors, export entry
-//! points (shared / move), a dtype-dispatching import entry point, simple
-//! readers, and — the interesting part — a `PyCapsule` destructor written in
-//! Rust, so the Python side only has to box the capsule. Production hosts
-//! would use the crate directly (or through a pyo3 adapter); this crate exists
-//! only to exercise the protocol from real CPython + NumPy.
+//! points (shared / move / basic-indexed view), a dtype-dispatching import
+//! entry point, simple readers (values, layout, buffer addresses), and — the
+//! interesting part — a `PyCapsule` destructor written in Rust, so the Python
+//! side only has to box the capsule. Production hosts would use the crate
+//! directly (or through a pyo3 adapter); this crate exists only to exercise
+//! the protocol from real CPython + NumPy.
 
 use std::cell::RefCell;
 use std::ffi::{CStr, CString, c_char, c_void};
@@ -15,11 +16,12 @@ use std::ptr;
 
 use dlpack_ffi::{DLDataType, DLManagedTensor, DLManagedTensorVersioned};
 use rstsr_common::error::Result as RstsrResult;
+use rstsr_common::layout::exports::{Indexer, Slice};
 use rstsr_core::prelude::*;
-use rstsr_core::storage::exports::Storage;
+use rstsr_core::storage::exports::{DataOwned, Storage};
 use rstsr_cpu_dlpack::{
     DlpackDtype, TensorDlpack, TensorDlpackShared, from_dlpack_legacy_f, from_dlpack_versioned_f, into_dlpack_f,
-    into_shared_dlpack_f, to_dlpack_copy_f, to_dlpack_shared_f,
+    into_shared_dlpack_f, to_dlpack_copy_f, to_dlpack_shared_f, to_dlpack_shared_view_f,
 };
 
 type Cpu = DeviceCpuSerial;
@@ -78,6 +80,28 @@ where
 {
     let base = tensor.storage().raw().as_ptr();
     unsafe { base.add(tensor.layout().offset()) as usize }
+}
+
+/// Base address of the buffer span behind a tensor (for a negative-stride
+/// import this is the lowest addressed element, not necessarily element zero).
+fn buffer_ptr_of<R, T, B, D>(tensor: &TensorBase<Storage<R, T, B>, D>) -> usize
+where
+    R: DataAPI<Data = Vec<T>>,
+    B: DeviceAPI<T, Raw = Vec<T>>,
+    D: DimAPI,
+{
+    tensor.storage().raw().as_ptr() as usize
+}
+
+/// `(shape, strides, offset)` of a tensor; strides in elements.
+fn layout_of<R, T, B, D>(tensor: &TensorBase<Storage<R, T, B>, D>) -> (Vec<usize>, Vec<isize>, usize)
+where
+    R: DataAPI<Data = Vec<T>>,
+    B: DeviceAPI<T, Raw = Vec<T>>,
+    D: DimAPI,
+{
+    let layout = tensor.layout();
+    (layout.shape().as_ref().to_vec(), layout.stride().as_ref().to_vec(), layout.offset())
 }
 
 /// Values convertible to `f64` for the demo's readers.
@@ -200,6 +224,28 @@ pub extern "C" fn rstsr_demo_arange_f64(len: usize) -> *mut c_void {
     })
 }
 
+/// Create a 2-D row-major `f64` tensor with values `0..rows*cols`.
+#[no_mangle]
+pub extern "C" fn rstsr_demo_arange2d_f64(rows: usize, cols: usize) -> *mut c_void {
+    guarded(ptr::null_mut(), || {
+        let Some(numel) = rows.checked_mul(cols) else {
+            set_error("arange2d: shape overflows");
+            return ptr::null_mut();
+        };
+        let layout = match Layout::new(vec![rows, cols], vec![cols as isize, 1], 0) {
+            Ok(layout) => layout,
+            Err(e) => {
+                set_error(format!("arange2d: invalid layout: {e:?}"));
+                return ptr::null_mut();
+            },
+        };
+        let values: Vec<f64> = (0..numel).map(|v| v as f64).collect();
+        let storage = Storage::new(DataOwned::from(values), Cpu::default());
+        let tensor = Tensor::new(storage, layout);
+        Box::into_raw(Box::new(Handle::Owned(tensor))) as *mut c_void
+    })
+}
+
 /// Move an owned handle into the shareable representation (no data copy).
 #[no_mangle]
 pub extern "C" fn rstsr_demo_to_shared(handle: *mut c_void) -> *mut c_void {
@@ -293,6 +339,51 @@ pub extern "C" fn rstsr_demo_export_move(handle: *mut c_void) -> *mut c_void {
     })
 }
 
+/// "No bound" sentinel for [`rstsr_demo_export_slice`] (Python `None`).
+const SLICE_NONE: isize = isize::MIN;
+
+/// Export a basic-indexed view of a shared `f64` handle, zero-copy.
+///
+/// `params` holds three `isize` per axis — `(start, stop, step)` with NumPy
+/// slice conventions, `SLICE_NONE` for an absent bound — mirroring
+/// `Slice::new`. Returns a fresh `DLManagedTensorVersioned` pointer per call.
+#[no_mangle]
+pub extern "C" fn rstsr_demo_export_slice(handle: *mut c_void, params: *const isize, n_axes: usize) -> *mut c_void {
+    guarded(ptr::null_mut(), || {
+        let handle = handle as *mut Handle;
+        if handle.is_null() {
+            set_error("demo-ffi: NULL handle");
+            return ptr::null_mut();
+        }
+        if params.is_null() || n_axes == 0 {
+            set_error("rstsr_demo_export_slice needs at least one axis");
+            return ptr::null_mut();
+        }
+        let flat = unsafe { core::slice::from_raw_parts(params, n_axes * 3) };
+        let bound = |v: isize| if v == SLICE_NONE { None } else { Some(v) };
+        let indexers: Vec<Indexer> = flat
+            .chunks_exact(3)
+            .map(|p| Indexer::Slice(Slice::<isize>::new(bound(p[0]), bound(p[1]), bound(p[2]))))
+            .collect();
+        match unsafe { &*handle } {
+            Handle::Shared(shared) => {
+                let view = shared.i(indexers);
+                match to_dlpack_shared_view_f(shared, &view) {
+                    Ok(export) => export.into_raw() as *mut c_void,
+                    Err(e) => {
+                        set_error(format!("to_dlpack_shared_view failed: {e:?}"));
+                        ptr::null_mut()
+                    },
+                }
+            },
+            _ => {
+                set_error("rstsr_demo_export_slice expects a shared handle");
+                ptr::null_mut()
+            },
+        }
+    })
+}
+
 fn import_typed<T: DlpackDtype>(ptr: *mut c_void, legacy: bool) -> RstsrResult<TensorDlpack<T, Cpu, IxD>> {
     unsafe {
         if legacy {
@@ -354,6 +445,70 @@ pub extern "C" fn rstsr_demo_data_ptr(handle: *mut c_void) -> usize {
             Handle::ImportedI64(t) => data_ptr_of(t),
             Handle::ImportedI32(t) => data_ptr_of(t),
         }
+    })
+}
+
+/// Base address of the buffer span behind a handle (an import with negative
+/// strides starts below element zero; see the crate's import normalisation).
+#[no_mangle]
+pub extern "C" fn rstsr_demo_buffer_ptr(handle: *mut c_void) -> usize {
+    guarded(usize::MAX, || {
+        let handle = handle as *mut Handle;
+        if handle.is_null() {
+            set_error("demo-ffi: NULL handle");
+            return usize::MAX;
+        }
+        match unsafe { &*handle } {
+            Handle::Owned(t) => buffer_ptr_of(t),
+            Handle::Shared(t) => buffer_ptr_of(t),
+            Handle::ImportedF64(t) => buffer_ptr_of(t),
+            Handle::ImportedF32(t) => buffer_ptr_of(t),
+            Handle::ImportedI64(t) => buffer_ptr_of(t),
+            Handle::ImportedI32(t) => buffer_ptr_of(t),
+        }
+    })
+}
+
+/// Write `(shape, strides)` as `i64` into the caller buffers (capacity `cap`
+/// each, `cap >= ndim`) and the offset into `*offset_out`.
+///
+/// Returns `ndim`, or `usize::MAX` on error.
+#[no_mangle]
+pub extern "C" fn rstsr_demo_layout(
+    handle: *mut c_void,
+    shape_out: *mut i64,
+    strides_out: *mut i64,
+    cap: usize,
+    offset_out: *mut usize,
+) -> usize {
+    guarded(usize::MAX, || {
+        let handle = handle as *mut Handle;
+        if handle.is_null() {
+            set_error("demo-ffi: NULL handle");
+            return usize::MAX;
+        }
+        let (shape, strides, offset) = match unsafe { &*handle } {
+            Handle::Owned(t) => layout_of(t),
+            Handle::Shared(t) => layout_of(t),
+            Handle::ImportedF64(t) => layout_of(t),
+            Handle::ImportedF32(t) => layout_of(t),
+            Handle::ImportedI64(t) => layout_of(t),
+            Handle::ImportedI32(t) => layout_of(t),
+        };
+        if shape.len() > cap || shape_out.is_null() || strides_out.is_null() {
+            set_error(format!("layout buffer too small: need {}, have {cap}", shape.len()));
+            return usize::MAX;
+        }
+        for (i, (&dim, &stride)) in shape.iter().zip(strides.iter()).enumerate() {
+            unsafe {
+                *shape_out.add(i) = dim as i64;
+                *strides_out.add(i) = stride as i64;
+            }
+        }
+        if !offset_out.is_null() {
+            unsafe { *offset_out = offset };
+        }
+        shape.len()
     })
 }
 

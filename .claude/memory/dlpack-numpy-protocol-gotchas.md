@@ -70,4 +70,13 @@ Verified against NumPy v2.5.2 source + NumPy 2.5.1 probes; full evidence in
   `rstsr-cpu-dlpack` validates the visible elements on import (see
   [[rstsr-cpu-dlpack-implementation]]).
 
+- **Sliced-view round trip verified end-to-end** (2026-10-04; capture
+  `2026-10-03-rstsr-cpu-dlpack/prototype/python/example-slicing-output.txt`): NumPy folds a
+  basic-index offset into `data` (`byte_offset` stays 0), so `a[1:, ::2]` arrives at the importer
+  with the slice start already baked in — the renormalised offset is **0**, element-zero address
+  unchanged; only negative strides move the span base (`a[::-1, ::-1]` → `strides [-4, -1]`,
+  `offset 11`, span 11 elements below element zero). NumPy's own import of a rstsr-exported
+  negative-stride view works without complaint (`t[:, ::-1]` → byte strides `(32, -8)`, data at
+  the last column), and `np.from_dlpack` of a view shares memory with the whole-tensor export.
+
 See [[rstsr-numpy-interop-review]] for what rstsr intends to do with this.

@@ -31,8 +31,8 @@
 | `../../../rstsr-agents/skills/prelude-conventions` (commit `b8828bd`) | the prelude reference written from this work: how items reach `prelude`/`rt::`, the optional member-crate wiring (the dlpack export is the worked example), the deviations in the current tree |
 | [DESIGN.md](./DESIGN.md) | the design: API surface, the `DataDlpack` repr and its safety contract, flags/ownership policy, validation checklist, error taxonomy, test plan, open questions, prototype results |
 | [FOLLOWUPS.md](./FOLLOWUPS.md) | post-review threads, now closed: zero-copy adoption **rejected** (too unsafe), shared-view export **implemented** (design + what shipped + core additions), decision log |
-| `prototype/` | the harness: `demo-ffi/` (cdylib host with a Rust-written `PyCapsule` destructor), `python/` (reference capsule holder + end-to-end suite + captured output), `rstsr-cpu-dlpack/` (archival snapshot of the crate at move time) |
-| `prototype/README.md` | how to run the Rust tests and the Python end-to-end suite |
+| `prototype/` | the harness: `demo-ffi/` (cdylib host with a Rust-written `PyCapsule` destructor), `python/` (reference capsule holder + end-to-end suite + captured output + the narrated slicing example `example_slicing.py`), `rstsr-cpu-dlpack/` (archival snapshot of the crate at move time) |
+| `prototype/README.md` | how to run the Rust tests, the Python end-to-end suite, and the slicing example |
 
 ## Verified end-to-end (details in DESIGN.md §12)
 
@@ -43,6 +43,12 @@
   `__dlpack__(copy=True)` deep copy, imports of strided/reversed/transposed/f32/i64/i32 arrays with
   pointer equality, producer lifetime (weakref dies when the import is freed), legacy capsule
   import, seven malignant-tensor rejections, 2000 unconsumed capsules freed by the Rust destructor.
+- Slicing walk-through (2026-10-04, `prototype/python/example_slicing.py`, capture
+  `example-slicing-output.txt`): whole tensors and basic-indexed views (strided + offset; negative
+  strides) cross NumPy ⇄ rstsr through real capsules with every buffer address compared — NumPy's
+  `a[1:, ::2]` / `a[::-1, ::-1]` import with strides preserved (a negative-stride import re-bases
+  the Rust span below element zero), and Rust-side `t[1:, ::2]` / `t[:, ::-1]` export zero-copy
+  into NumPy (`shares_memory` with the whole-tensor export).
 
 ## Headline design points
 

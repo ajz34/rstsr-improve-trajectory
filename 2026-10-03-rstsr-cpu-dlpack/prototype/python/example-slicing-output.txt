@@ -1,0 +1,59 @@
+============================================================================
+DLPack: NumPy <-> rstsr - whole tensors and basic-indexed views (zero copy)
+============================================================================
+host: rstsr-cpu-dlpack-demo-ffi/0.1
+python: 3.13.14  numpy: 2.5.1
+
+source: a = np.arange(12.).reshape(3, 4)
+        numpy      shape=(3, 4) strides(elem)=(4, 1)  data 0x5c27f6ceb360
+
+[A] NumPy -> rstsr (import; the Rust tensor keeps the array alive)
+[A1] whole array
+      rstsr      shape=[3, 4] strides(elem)=[4, 1] offset=0
+                 element-zero 0x5c27f6ceb360  buffer base 0x5c27f6ceb360
+      values     [[0.0, 1.0, 2.0, 3.0], [4.0, 5.0, 6.0, 7.0], [8.0, 9.0, 10.0, 11.0]]
+
+[A2] sliced view v = a[1:, ::2]  (row offset 1, column step 2)
+      numpy      shape=(2, 2) strides(elem)=(4, 2)  data = a.data + 4 elem
+      rstsr      shape=[2, 2] strides(elem)=[4, 2] offset=0
+                 element-zero 0x5c27f6ceb380  buffer base 0x5c27f6ceb380
+      values     [[4.0, 6.0], [8.0, 10.0]]
+
+[A3] reversed view r = a[::-1, ::-1]  (negative strides)
+      numpy      shape=(3, 4) strides(elem)=(-4, -1)  data = a.data + 11 elem
+      rstsr      shape=[3, 4] strides(elem)=[-4, -1] offset=11
+                 element-zero 0x5c27f6ceb3b8  buffer base 0x5c27f6ceb360
+      values     [[11.0, 10.0, 9.0, 8.0], [7.0, 6.0, 5.0, 4.0], [3.0, 2.0, 1.0, 0.0]]
+      note       the Rust span starts 11 elem below element zero (layout offset 11): negative strides are kept, the address bound stays >= 0
+
+[B] rstsr -> NumPy (export; shared = one Arc buffer, repeatable)
+[B0] source: arange(12).reshape(3, 4) built on the Rust side, moved into the shareable repr
+      rstsr      shape=[3, 4] strides(elem)=[4, 1] offset=0
+                 element-zero 0x5c27f6e525a0  buffer base 0x5c27f6e525a0
+
+[B1] whole tensor -> NumPy (read-only: the export carries the READ_ONLY flag)
+      numpy      shape=(3, 4) strides(elem)=(4, 1) writeable=False
+
+[B2] view on the Rust side: t[1:, ::2]  (same spec as A2)
+      numpy      shape=(2, 2) strides(elem)=(4, 2) writeable=False
+      offset     view ptr - whole ptr = 32 bytes (4 elem)
+      values     [[4.0, 6.0], [8.0, 10.0]]
+
+[B3] view on the Rust side: t[:, ::-1]  (negative stride)
+      numpy      shape=(3, 4) strides(elem)=(4, -1)
+      values     [[3.0, 2.0, 1.0, 0.0], [7.0, 6.0, 5.0, 4.0], [11.0, 10.0, 9.0, 8.0]]
+
+[wire format, as exercised above]
+  * DLPack carries (data, dtype, shape, strides in elements, byte_offset);
+    NumPy bakes basic-index offsets into `data` and emits byte_offset = 0.
+  * NumPy -> rstsr: shape/strides cross verbatim (A2, A3) and the element-zero
+    address is unchanged (zero copy). A negative-stride import re-bases the Rust
+    span below element zero (A3) so every reachable address stays >= 0.
+  * rstsr -> NumPy: the exporter sets data = buffer base + layout offset, so the
+    imported pointer sits at the offset in elements x itemsize (B2: +4 elem,
+    B3: +3 elem) and NumPy sees the same strides, converted to bytes.
+  * No value was copied anywhere: every step above compared buffer addresses.
+  * Shared exports are read-only in NumPy; imported tensors are read-only in
+    Rust by type (the repr has no mutable accessor).
+
+OK: all checks passed
