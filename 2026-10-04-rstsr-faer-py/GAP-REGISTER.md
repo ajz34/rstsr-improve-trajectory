@@ -137,3 +137,28 @@ batch: the tensor-level binary ops are generic over the two input dtypes and
 the device comparison kernels are bounded on Rust traits that hold within a
 dtype family, so mixed pairs need either promotion wiring or pair dispatch
 — not a shim change.
+
+## Entries v4 (W2 elementwise + operator pass, 2026-10-05)
+
+W2 landed shim-side (bindings only): the full elementwise surface and the
+operator-dunder set, including mixed-dtype pair dispatch for the
+`DTypePromoteAPI`-bound ops. Red map: **901 passed / 399 failed / 82 skipped
+of 1382** (stamp `20261005-015407`), up from 320/980/82. Census and full
+table in `reports/SUMMARY-w2.md` /
+`harness/reports/COMPLIANCE-FULL-20261005-015407.csv`.
+
+New divergences confirmed during the pass:
+
+| id | area | category | evidence | note |
+|---|---|---|---|---|
+| G-052 | dtype-preserving unary kernels for integers | rust-side | `rt::{ceil,floor,trunc,round}_f` promote integer inputs to float64 (`TOut = T::FloatType`); the spec requires the input dtype (suite grades integers for ceil/floor/trunc/round) | shim declines integer inputs per owner ruling 2026-10-05 ("decline now, fix later"). Also `conj` (integers routed through the into-float block) |
+| G-053 | `pow` dtype coverage | rust-side | integer bases: `num::Pow` needs an unsigned exponent type (`i8: Pow<i8>` undefined); complex: `num_complex` has no `Complex<T>: Pow<Complex<T>>` (documented upstream limitation) | shim serves float32/float64 same-dtype only; mixed pairs stay G-009 |
+| G-054 | `rt::signbit` semantics inverted | rust-side | `signbit(-2.0)` returns False, `signbit(1.0)` returns True (kernel writes `is_positive()`) | wrong values are worse than a decline: the shim raises with this register reference; suite probe `_has_functional_signbit()` consequently reports "unavailable" (only affects zero-sign checks) |
+| G-055 | complex transcendental coverage and special-value propagation | rust-side | `expm1(complex)` has no kernel (`Float`-bound impl only); num-based kernels return `nan+nanj` where the spec requires specific values (acos/acosh/asinh/atanh/cosh/sinh/tanh/sqrt special cases, ~35 tests); accuracy diverges at large magnitudes in complex64 (`acos(7281-1j)`, `asinh(-2731+1j)`, `tan(1+45j)` vs numpy/cmath) | rust-side numerical work; register first, no shim workaround |
+| G-056 | elementwise `maximum`/`minimum` do not propagate NaN | rust-side | `maximum(NaN, 0.0)` returns 0.0, spec requires NaN (2 tests); consistent with the 2026-10-02 compliance directive for min/max | rust-side fix |
+| G-057 | `remainder` signed zero / infinite divisor | rust-side | `remainder(-0.0, 2.0)` → -0.0 (spec: +0), `remainder(1.0, -inf)` → 1.0 (spec: -inf); rstsr's float `%` is fmod-style, the spec's `remainder` follows the divisor's sign (Python `%` semantics) | 8 tests across remainder/`__mod__`/`__imod__` |
+
+Mixed-dtype status after W2 (G-009 family refinements):
+- **served by shim pair dispatch** (rstsr device kernels bound on `DTypePromoteAPI`, real dtypes): `maximum minimum floor_divide atan2 copysign hypot nextafter logaddexp` + comparisons (`equal`/`not_equal` additionally across bool and complex; ordering comparisons are real-only per spec).
+- **still declined, registered rust-side**: `add subtract multiply divide remainder` (Rust `Add`/`Sub`/... bounds are same-type only), `bitwise_*`/shifts, `pow` mixed, and **mixed-kind Python scalars** (e.g. float scalar + int array).
+- compile-time cost measured: shim release build 30 s → ~6 min from the pair-dispatch expansion (166 eq arms + 113 promote arms); worth revisiting if the crate is ever built per-commit in CI.
