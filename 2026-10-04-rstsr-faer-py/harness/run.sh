@@ -95,6 +95,51 @@ echo
 
 cd "$SUITE_DIR"
 START=$SECONDS
+
+# CHUNKED=1 runs one pytest process per suite test file, each with its own
+# json report. Needed once the failure count reaches the thousands: pytest +
+# pytest-json-report hold every failure record (tracebacks, array reprs) in
+# RAM, and an honestly-red map of an early-stage shim OOM-kills a single
+# process (observed 2026-10-04: rstsr_faer.api full run killed ~35 tests in;
+# every file individually peaks <= 155 MB). Derandomized examples are
+# per-test, so chunked numbers stay comparable to the whole-suite baseline.
+if [ -n "${CHUNKED:-}" ] && [ "${PYTEST_ARGS[0]}" = "array_api_tests/" ]; then
+    TOTAL_P=0; TOTAL_F=0; TOTAL_E=0; TOTAL_S=0
+    for f in array_api_tests/test_*.py; do
+        cname="${MODULE//./_}-chunk-$(basename "$f" .py)-$STAMP.json"
+        echo "--- $f"
+        env "${ENV_VARS[@]}" "$TORCH_PY" -m pytest "$f" \
+            "${PYTEST_ARGS[@]:1}" --json-report-file "$REPORTS/$cname" || true
+        "$TORCH_PY" - "$REPORTS/$cname" <<'PYEOF' || true
+import json, sys
+try:
+    r = json.load(open(sys.argv[1]))["summary"]
+except Exception:
+    print("    (no report)"); raise SystemExit
+p = r.get("passed", 0); f = r.get("failed", 0); e = r.get("error", 0); s = r.get("skipped", 0)
+print(f"    passed {p}  failed {f}  error {e}  skipped {s}")
+PYEOF
+    done
+    echo
+    echo "==> merging chunk summaries"
+    "$TORCH_PY" - "$REPORTS" "$STAMP" "${MODULE//./_}" <<'PYEOF' || true
+import glob, json, sys
+reports = sorted(glob.glob(f"{sys.argv[1]}/{sys.argv[3]}-chunk-*-{sys.argv[2]}.json"))
+tp = tf = te = ts = tn = 0
+for path in reports:
+    try:
+        s = json.load(open(path))["summary"]
+    except Exception:
+        continue
+    tp += s.get("passed", 0); tf += s.get("failed", 0)
+    te += s.get("error", 0); ts += s.get("skipped", 0)
+    tn += s.get("total", 0)
+print(f"TOTAL: {tp} passed, {tf} failed, {te} error, {ts} skipped  ({tn} collected over {len(reports)} chunks)")
+PYEOF
+    echo "==> finished in $((SECONDS - START))s (chunked; per-chunk reports kept in reports/)"
+    exit 0
+fi
+
 env "${ENV_VARS[@]}" "$TORCH_PY" -m pytest "${PYTEST_ARGS[@]}" || true
 ELAPSED=$((SECONDS - START))
 
