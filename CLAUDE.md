@@ -67,7 +67,8 @@ to evolve; keep wording loose and leave room for future directions.
   overwrite, or delete `GRILL-R<N>-ANSWERS.md` (or a bespoke `*ANSWERS*`
   equivalent). If answers arrived on screen and must be recorded, the agent
   transcribes them into the NEXT round's questions file as clearly-marked
-  agent-authored background — never into the answers file.
+  agent-authored background — never into the answers file. Committing an
+  answers file verbatim (`git add` + commit, content untouched) is permitted.
 - Older directories may use bespoke names (e.g. `QUESTIONS-discussion-R1.md`);
   this convention applies to new grillings.
 
