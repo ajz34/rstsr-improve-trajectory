@@ -69,3 +69,25 @@ Remaining v0 entries (G-001…G-015) keep their status; G-010/G-011 resolve in
 S2/S3 as planned. Discrepancy watch for S4: fulfillment-table rows marked Y
 that appear in G-022/G-024 evidence = stale table entries (report-only diff
 proposed at close).
+
+## Entries v2 (post-S2 wheel, 2026-10-04, chunked stamp `20261004-205656`, NO_EXPLAIN)
+
+Suite result: **302 passed / 998 failed / 82 skipped of 1382** (wheel = branch
+`261004/rstsr-faer-py` @ `a52bf4f`, S1 surface + S2 DLPack). Failure-class
+census over the 998: 522 marshalling-reject (TypeError), 253 wrong-value,
+136 missing-attr, 58 unexpected exception, 26 blocked on missing `xp.astype`,
+3 explicit declines. New entries:
+
+| id | area | category | table row | evidence | note |
+|---|---|---|---|---|---|
+| G-031 | arange narrow-int downward range | rust-side | — | hand-verified: `arange(0, -2, step=-1)` → `[]` on int8/int16; int64/float64 correct (suite: test_arange, `prod(out.shape)=0`) | sibling of G-030 in the `arange_by_primitive_*` family (narrow-int path); **candidate issue for the batch** |
+| G-032 | finfo/iinfo reject complex dtypes | shim-side | ? | `xp.finfo(complex64)` → ValueError "only real floating-point dtypes are allowed" (4 data_type failures) | spec: finfo accepts complex floating (real-part semantics); shim's own Rust raises |
+| G-033 | capabilities key `max dimensions` | shim-side | — | test_inspection: expects `"max dimensions"` (2024.12 rename), shim emits `"max ndim"` | one-line Python fix |
+| G-034 | spec name `permute_dims` vs shim `permute_axes` | shim-side | — | "permute_dims is not defined" (all manipulation + has_names) | expose the spec name; `permute_axes` stays internal |
+
+Note on scoping: `test_has_names`/`test_signatures` grade extension names
+(linalg-*, fft-*) unconditionally — `--disable-extension` only skips the
+extension test *files*, not the name checks. Scoping them out would require
+task-side SKIPS_FILE entries (never upstream edits); default plan keeps them
+in scope and implements linalg (fft: open decision, see
+FAILURE-REDUCTION-PLAN.md wave W7).
