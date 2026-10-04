@@ -1,8 +1,18 @@
 # 2026-10-04-rstsr-cpu-pyo3 — pyo3 adapter on top of `rstsr-cpu-dlpack`
 
-Status: **design / grilling in progress** — R1 questions open in `QUESTIONS-R1.md`.
+Status: **abandoned (2026-10-04, before any implementation)** — see Outcome.
 
-## Goal (being sharpened)
+## Outcome (2026-10-04)
+
+The maintainer dropped the pyo3 adapter: the immediate need is **using rstsr in real
+projects**, and the open question is *which backend those projects standardize on*.
+The stated worry — "using maturin would fix a backend" — is real but misattributed:
+any compiled Rust artifact (cdylib, bin, or plain library consumer) pins the backend at
+compile time, because `Device` is type-generic, not object-safe; maturin only sharpens
+it by shipping that pin to end users who cannot rebuild. The R1 record is kept as-is;
+the backend-selection thread continues separately.
+
+## Goal (historical, as tasked)
 
 Make numpy ↔ rstsr transfer approachable by replacing the ctypes "last mile" of
 `rstsr-cpu-dlpack` (the reference shim in its `examples/` plus the `demo-ffi` host) with
