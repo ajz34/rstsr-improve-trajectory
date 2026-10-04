@@ -19,7 +19,8 @@ thing the campaign measures) and duplicate rust-side work.
 
 **How to apply:** before writing any non-trivial logic in the shim, ask:
 is this marshalling (allowed) or an algorithm (needs permission)? Register
-the gap either way. The mask/fancy `__getitem__` gathers were written under
-the explicit "fix __getitem__" instruction and are flagged for owner
-confirmation. Also: no rstsr commits without owner review (reaffirmed same
+the gap either way. The mask/fancy
+`__getitem__` gathers were briefly shim-side (written under the explicit
+"fix __getitem__" instruction) and were REVERTED on the owner's follow-up
+ruling — they are registered as rust-side gaps G-038/G-039. Also: no rstsr commits without owner review (reaffirmed same
 day). Related: [[rstsr-faer-py-grill]], [[array-api-tests-explain-phase]].

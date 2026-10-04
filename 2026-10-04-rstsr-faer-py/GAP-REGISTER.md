@@ -7,9 +7,9 @@ standard 2025.12, as graded by array-api-tests @ `6c0b59f`.
 *no algorithms* — neither in its Rust nor its Python layer. It marshals,
 validates shapes/dtypes, and calls rstsr. Where rstsr lacks a capability,
 the divergence is registered and waits for a rust-side fix; a shim-side
-algorithm may be written only with the owner's explicit per-case permission
-(the mask/fancy getitem gathers below were written under the explicit
-"fix __getitem__" instruction and are flagged for confirmation).
+algorithm may be written only with the owner's explicit per-case permission.
+(The mask/fancy __getitem__ gathers were briefly shim-side and were REVERTED
+on the owner's ruling — G-038/G-039 record the capability requests.)
 
 Columns:
 category (`rust-side` = needs an rstsr-core/traits change, fix only on user
@@ -97,6 +97,8 @@ census over the 998: 522 marshalling-reject (TypeError), 253 wrong-value,
 | G-035 | advanced indexing mixed with slices | shim-side (algorithm; needs permission) | — | `x[idx, :]` raises NotImplementedError | suite's arrays_and_ints tests use ints+arrays only, so ungraded; gather would need the same machinery as G-036's fancy path |
 | G-036 | handle-model aliasing: indexing/astype results are copies, never views | shim-side | — | ops.rs getitem_int comment cites this id | spec permits copies; shared-storage views would need a TensorArc repr in the handle enum |
 | G-037 | `where` absent from rstsr | rust-side | ? | test_getitem verification calls `xp.where` (1st blocker of test_getitem/test_setitem) | elementwise ternary; rstsr has no primitive — **owner ruled: do not implement shim-side**; candidate for the rust-side batch |
+| G-038 | boolean-mask indexing (x[mask] getitem + setitem) | rust-side | ? | `x[bool_array]` / `x[mask]=v` raise NotImplementedError (reverted shim gather) | rstsr has only per-axis bool_select; needs whole-tensor mask gather/scatter or a nonzero primitive; candidate for the rust-side batch |
+| G-039 | integer-array (fancy) indexing with broadcasting | rust-side | ? | `x[int_array, ...]` raises NotImplementedError (reverted shim gather) | needs multi-array broadcast gather (index_select is per-axis only); pairs with G-035 (array+slices mixing); candidate for the rust-side batch |
 
 Note on scoping: `test_has_names`/`test_signatures` grade extension names
 (linalg-*, fft-*) unconditionally — `--disable-extension` only skips the
