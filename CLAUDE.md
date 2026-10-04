@@ -63,6 +63,11 @@ to evolve; keep wording loose and leave room for future directions.
 - The user usually answers by editing `GRILL-R<N>-ANSWERS.md` in the same
   folder; the agent reads that file and builds the next round (or the decision)
   from it.
+- **Answers files are user-owned**: the agent must never create, edit,
+  overwrite, or delete `GRILL-R<N>-ANSWERS.md` (or a bespoke `*ANSWERS*`
+  equivalent). If answers arrived on screen and must be recorded, the agent
+  transcribes them into the NEXT round's questions file as clearly-marked
+  agent-authored background — never into the answers file.
 - Older directories may use bespoke names (e.g. `QUESTIONS-discussion-R1.md`);
   this convention applies to new grillings.
 
