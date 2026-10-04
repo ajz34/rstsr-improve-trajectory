@@ -1,7 +1,17 @@
 # Gap register — rstsr-faer-py
 
 Every divergence of `rstsr_faer.api` (DeviceFaer) from the Python array API
-standard 2025.12, as graded by array-api-tests @ `6c0b59f`. Columns:
+standard 2025.12, as graded by array-api-tests @ `6c0b59f`.
+
+**Wrapper-only rule (owner directive, 2026-10-04):** the shim crate carries
+*no algorithms* — neither in its Rust nor its Python layer. It marshals,
+validates shapes/dtypes, and calls rstsr. Where rstsr lacks a capability,
+the divergence is registered and waits for a rust-side fix; a shim-side
+algorithm may be written only with the owner's explicit per-case permission
+(the mask/fancy getitem gathers below were written under the explicit
+"fix __getitem__" instruction and are flagged for confirmation).
+
+Columns:
 category (`rust-side` = needs an rstsr-core/traits change, fix only on user
 permission; `shim-side` = binding work; `suite` = instrument behavior),
 fulfillment-table row (`rstsr-core/src/docs/array_api_standard.md`), suite
@@ -83,7 +93,10 @@ census over the 998: 522 marshalling-reject (TypeError), 253 wrong-value,
 | G-031 | arange narrow-int downward range | rust-side | — | hand-verified: `arange(0, -2, step=-1)` → `[]` on int8/int16; int64/float64 correct (suite: test_arange, `prod(out.shape)=0`) | **RESOLVED** by the same change as G-030 (rstsr `f94a3cd`): i8/i16/u8/u16 always took the upward-only generic loop; it is now direction-aware. Watch-item: unsigned dtypes with negative steps cannot represent the step in `T` at all (wrap/overflow) — ungraded by the suite so far |
 | G-032 | finfo/iinfo reject complex dtypes | shim-side | ? | `xp.finfo(complex64)` → ValueError "only real floating-point dtypes are allowed" (4 data_type failures) | spec: finfo accepts complex floating (real-part semantics); shim's own Rust raises |
 | G-033 | capabilities key `max dimensions` | shim-side | — | test_inspection: expects `"max dimensions"` (2024.12 rename), shim emits `"max ndim"` | one-line Python fix |
-| G-034 | spec name `permute_dims` vs shim `permute_axes` | shim-side | — | "permute_dims is not defined" (all manipulation + has_names) | expose the spec name; `permute_axes` stays internal |
+| G-034 | spec name `permute_dims` vs shim `permute_axes` | shim-side | — | "permute_dims is not defined" (all manipulation + has_names) | **fixed** (renamed in api.py, 2026-10-04) |
+| G-035 | advanced indexing mixed with slices | shim-side (algorithm; needs permission) | — | `x[idx, :]` raises NotImplementedError | suite's arrays_and_ints tests use ints+arrays only, so ungraded; gather would need the same machinery as G-036's fancy path |
+| G-036 | handle-model aliasing: indexing/astype results are copies, never views | shim-side | — | ops.rs getitem_int comment cites this id | spec permits copies; shared-storage views would need a TensorArc repr in the handle enum |
+| G-037 | `where` absent from rstsr | rust-side | ? | test_getitem verification calls `xp.where` (1st blocker of test_getitem/test_setitem) | elementwise ternary; rstsr has no primitive — **owner ruled: do not implement shim-side**; candidate for the rust-side batch |
 
 Note on scoping: `test_has_names`/`test_signatures` grade extension names
 (linalg-*, fft-*) unconditionally — `--disable-extension` only skips the
