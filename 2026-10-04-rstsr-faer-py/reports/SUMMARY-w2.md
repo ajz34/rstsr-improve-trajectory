@@ -8,9 +8,10 @@ wrapper-only rule, with one owner-authorized rust-side addition (`positive`).
 | stamp | passed | failed | skipped | note |
 |---|---|---|---|---|
 | `20261004-233924` (W0/W1 baseline) | 320 | 980 | 82 | before this pass |
-| `20261005-015407` (chunked, 19/19 chunks) | **901** | **399** | 82 | after W2 |
+| `20261005-020258` (chunked, 19/19 chunks; final wheel) | **902** | **398** | 82 | after W2 |
 
-Net: **+581 passed / −581 failed**, no new skips. Per file:
+Net: **+582 passed / −582 failed**, no new skips (a ±1–2 wobble between
+stamps comes from hypothesis DB replay, per the harness notes). Per file:
 
 | suite file | before (p/f) | after (p/f) |
 |---|---|---|
@@ -53,7 +54,7 @@ Net: **+581 passed / −581 failed**, no new skips. Per file:
   mixed-kind scalars — G-009 (rust-side: those device kernels are bounded on
   same-type Rust ops).
 
-## Remaining 399 failures (census)
+## Remaining 398 failures (census)
 
 | class | n | dominant owners |
 |---|---|---|
@@ -84,6 +85,6 @@ is either bound or carries a register entry.
 ```bash
 cd 2026-10-04-rstsr-faer-py/harness
 NO_EXPLAIN=1 MODULE=rstsr_faer.api CHUNKED=1 ./run.sh
-python3 compliance_table.py reports/rstsr_faer_api-MERGED-20261005-015407.json \
-    -o reports/COMPLIANCE-FULL-20261005-015407.csv --census
+python3 compliance_table.py reports/rstsr_faer_api-MERGED-20261005-020258.json \
+    -o reports/COMPLIANCE-FULL-20261005-020258.csv --census
 ```

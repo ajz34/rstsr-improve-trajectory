@@ -142,10 +142,10 @@ dtype family, so mixed pairs need either promotion wiring or pair dispatch
 
 W2 landed shim-side (bindings only): the full elementwise surface and the
 operator-dunder set, including mixed-dtype pair dispatch for the
-`DTypePromoteAPI`-bound ops. Red map: **901 passed / 399 failed / 82 skipped
-of 1382** (stamp `20261005-015407`), up from 320/980/82. Census and full
+`DTypePromoteAPI`-bound ops. Red map: **902 passed / 398 failed / 82 skipped
+of 1382** (stamp `20261005-020258`), up from 320/980/82. Census and full
 table in `reports/SUMMARY-w2.md` /
-`harness/reports/COMPLIANCE-FULL-20261005-015407.csv`.
+`harness/reports/COMPLIANCE-FULL-20261005-020258.csv`.
 
 New divergences confirmed during the pass:
 
