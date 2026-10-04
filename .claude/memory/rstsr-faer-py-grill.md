@@ -29,6 +29,17 @@ ON HOLD for the user's explicit go.
   batched only on user go). Known expected gaps: sort/argsort, roll,
   repeat/tile, QR, slogdet/solve_symmetric (faer), `__pos__`/`__ifloordiv__`/
   `__ipow__`; unconfirmed: where/nonzero/unique/searchsorted/result_type/astype.
+- **S0 DONE 2026-10-04** (gate passed): harness in
+  `2026-10-04-rstsr-faer-py/harness/`; suite @ `~/Git-Others/array-api-tests`
+  `6c0b59f`, submodule offline-init'd from `~/Git-Others/array-api`
+  (submodule NAME is `array_api_tests/array-api`; needs
+  `-c protocol.file.allow=always`); deps (pytest/hypothesis/ndindex/
+  pytest-json-report) installed directly into conda env `torch` (no venv,
+  user instruction). Baseline: 1335/42/5 of 1382 in 39 s, 6 known clusters
+  (`reports/SUMMARY-s0-baseline.md`). Next: S1 skeleton (branch
+  `261004/rstsr-faer-py`, crates-interop/rstsr-faer-py, rstsr_faer.api),
+  review point 1 after first red map. Machine rule: github via SSH only
+  (CLAUDE.md).
 - **Repo conventions learned**: `GRILL-*-ANSWERS.md` are user-owned —
   agent never creates/edits/deletes them (verbatim commits OK); agent
   transcriptions go into the next round's questions file as background.
