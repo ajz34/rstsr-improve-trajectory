@@ -29,3 +29,7 @@ Decisions + facts (full trail in `2026-10-02-arrayapi-nan-compliance/README.md`)
 
 Cost numbers (arg variants): [[rstsr-nanarg-semantics]] sweeps stand as the
 reference; paired A/B for the landed forms to be appended in the dir README.
+
+2026-10-04: the postponed audit is seeded — study doc + NumPy conformance
+harness transferred into `2026-10-04-arrayapi-compliance-notes/`; see
+[[rstsr-arrayapi-compliance-notes]].
