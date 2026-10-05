@@ -165,3 +165,39 @@ Mixed-dtype status after W2 (G-009 family refinements):
 - **served by shim pair dispatch** (rstsr device kernels bound on `DTypePromoteAPI`, real dtypes): `maximum minimum floor_divide atan2 copysign hypot nextafter logaddexp` + comparisons (`equal`/`not_equal` additionally across bool and complex; ordering comparisons are real-only per spec).
 - **still declined, registered rust-side**: `add subtract multiply divide remainder` (Rust `Add`/`Sub`/... bounds are same-type only), `bitwise_*`/shifts, `pow` mixed, and **mixed-kind Python scalars** (e.g. float scalar + int array).
 - compile-time cost measured: shim release build 30 s → ~6 min from the pair-dispatch expansion (166 eq arms + 113 promote arms); worth revisiting if the crate is ever built per-commit in CI.
+
+## Entries v5 (W3 statistical wave, 2026-10-06)
+
+Owner directive for this wave: rstsr-faer-py stays wrapper-only; bugs and
+missing algorithms are fixed on the rust side (this supersedes the W0-W2
+"register-only" stance for the duration of the task). Wheel = rstsr branch
+`261005/faer-py-stats` (uncommitted working tree at the time of the run, on
+top of main `cc65a48` = merged PR #111).
+
+Suite result: **934 passed / 366 failed / 82 skipped of 1382** (stamp
+`20261006-002157`, NO_EXPLAIN, 19/19 chunks), up from 902/398/82. Flips:
+32 failed->passed, 1 latent wrong-value surfaced (G-059). Full table
+`harness/reports/COMPLIANCE-FULL-20261006-002157.csv`; narrative
+`reports/SUMMARY-w3.md`.
+
+RESOLVED in this wave (registered earlier):
+
+| id | area | resolution |
+|---|---|---|
+| G-041 | all/any ignore keepdims | bound through `op_all_axes`/`op_any_axes` (truthiness cast + `all/any_with_args_f`, ReduceArgs axes+keepdims); `test_all`/`test_any` pass |
+| G-042 | sum lacks axis=/dtype= | `sum`/`prod`/`max`/`min`/`mean`/`std`/`var` bound over `*_with_args_f` (axes + keepdims); `dtype=` via cast-then-reduce marshalling |
+| G-043 | integer reductions keep input dtype | accumulation rule (spec 2025.12: signed->int64, unsigned->uint64, floats/complex keep) applied Python-side by casting with the existing astype path BEFORE the same-dtype reduction — the order the standard itself recommends; u8 sum now yields uint64 |
+
+New entries:
+
+| id | area | category | evidence | note |
+|---|---|---|---|---|
+| G-059 | `round` was ties-away, not ties-to-even | rust-side — **FIXED** | first surfaced by this wave's run: `test_special_cases[round(modf(i)[0]==0.5) -> ROUND_HALF_EVEN]` flipped passed->failed because the derandomized example set newly drew an exact halfway value; the kernel called `f64::round` (half away from zero), the spec requires the even neighbor | fixed on `261005/faer-py-stats`: `round_ties_even_f` helper in both device kernel tables (IEEE roundToIntegralTiesToEven, f32 exact via f64); regression test `core_func::math::test_unary_math::custom_math_basic::test_round_ties_to_even`; archived in `numpy_differences_resolved.md`. +1 suite test |
+
+Note on the shim's dtype policy: no promotion table was added to the Python
+layer; the accumulation dtype default is the spec's documented argument
+default for sum/prod/cumulative_* (mirrors `_dtype_or_default`), and the
+cast reuses the shim's registered astype path (G-007/G-018 machinery).
+`median` is NOT in the 2025.12 statistical surface (checked the stubs:
+cumulative_sum/prod, max, mean, min, prod, std, sum, var) — no rust-side
+median work is needed for conformance.
