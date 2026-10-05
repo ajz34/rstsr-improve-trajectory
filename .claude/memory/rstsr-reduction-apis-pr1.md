@@ -47,6 +47,12 @@ Current state after review:
   (sealed trait / runtime dtype enum dispatch).
 - Turbofish lesson: free fns with >1 generic cannot take partial turbofish —
   method forms (`a.sum_with_dtype::<u64>(args)`) are the ergonomic spellings.
+- Bool sum unification into OpSumAPI REJECTED (D12 in DECISIONS.md): E0119
+  forbids `impl OpSumAPI<bool, D>` beside the `T: Zero + Add` blanket; the
+  only stable fix is closing the blanket into dtype enumeration, which the
+  owner refused ("compile-time dispatch is also dispatch" — openness of the
+  blanket is deliberate). Bool stays method-only via TensorSumBoolAPI (PR1
+  already gave it sum/sum_axes/sum_with_args + with_dtype). Do NOT retry.
 - Gates: entry_row_cpu 317, lib faer 133, doc default-features 188/0, clippy
   clean serial/faer/default/workspace, nightly rustfmt.
 

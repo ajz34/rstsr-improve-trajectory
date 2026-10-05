@@ -128,3 +128,22 @@ wave, not this task.
   future tasks must not strictly follow it; on divergence or stale content,
   ask the user what diverged and whether to update. (`rules/code-concepts.md`
   remains the concept reference; the skill is the procedure reference.)
+
+## D12 — bool sum unification REJECTED; way (b) is final
+Owner asked whether bool sum could be unified into `OpSumAPI` (free fns for
+bool) — the "way (a)" previously attempted and abandoned for way (b)
+(`TensorSumBoolAPI`, method-only). Root cause re-confirmed empirically:
+E0119 — coherence does no negative reasoning, so `impl OpSumAPI<bool, D>`
+cannot coexist with the blanket `impl<T: Zero + Add> OpSumAPI<T, D>` (rustc
+must assume `core`/`num` may add `Add`/`Zero` for `bool`). Only stable-Rust
+route: close the blanket into a per-dtype enumeration. Owner rejected
+enumeration ("compile-time dispatch is also dispatch"; the open blanket keeps
+unencountered future/foreign `Zero + Add` types automatically summable).
+Nightly `specialization`/`negative_impls` also rejected (incomplete features
+in a public crate). A probe impl was compiled to capture the exact E0119
+diagnostics, then reverted; working tree restored to committed PR1 state.
+Consequence: bool stays method-only on `TensorSumBoolAPI` (complete surface
+from PR1: sum/sum_axes/sum_with_args[_f] + with_dtype via cast-in-fold);
+`rt::sum` family stays numeric-only. Bool min/max (ExtReal) deferred; bool
+count_nonzero has the same shape and is likewise out of scope. Do NOT retry
+unification unless the owner reopens it (e.g. at a 1.0 coherence refactor).
