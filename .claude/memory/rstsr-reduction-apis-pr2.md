@@ -71,9 +71,8 @@ list cumulative_sum/cumulative_prod as unimplemented - D15 said the file
 "stays untouched by this task", so left alone; flipping those cells is a
 one-line follow-up if the owner wants it.
 
-Next: owner review -> commit go -> push `261005/custom-reduce` to fork ajz34
--> PR against RESTGroup/rstsr (pr-writeup style). PR3 `261005/cumulative` as
-a separate branch is OBSOLETE (folded in). Fresh subagent drafts
+Next: owner reviews PR #111 and merges (or asks for changes); no auto-merge.
+PR3 `261005/cumulative` as a separate branch is OBSOLETE (folded in). Fresh subagent drafts
 `rstsr-code-style` skill at task wrap-up (Q9).
 
 Related: [[rstsr-reduction-apis-pr1]], [[rstsr-reduction-apis-grill]].
