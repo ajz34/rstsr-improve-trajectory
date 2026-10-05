@@ -28,11 +28,16 @@ only the (result, input) order exists (e.g. `(i16, i8)`, never `(i8, i16)`).
 ~30 s incremental to **~6 min** (166 eq arms + 113 promote arms × op).
 Batch shim changes before rebuilding; `maturin build` from the crate dir.
 
-**rstsr-side change is uncommitted on purpose:** `rt::positive`/`positive_f`
-(`rstsr-core/src/tensor/operators/op_unary_arithmetic.rs` + prelude + the
-fulfillment-table rows) sits in the rstsr working tree awaiting owner review
-(owner: "you can add positive function at rust-side ... you would not git
-commit on rstsr"). Rust-side **fixes** found during W2 (signbit inverted,
-integer-dtype preservation for ceil/floor/trunc/round/conj, pow dtypes,
-complex special cases, maximum/minimum NaN, remainder semantics) are
-register entries only — see [[rstsr-faer-py-wrapper-only]].
+**rstsr-side change is uncommitted on purpose:** `positive` sits in the rstsr
+working tree awaiting owner review (owner: "you can add positive function at
+rust-side ... you would not git commit on rstsr"). Implementation per owner
+review: follows the `neg`/`not` machinery — `TensorPositiveAPI` in
+`rstsr-core/src/tensor/operators/op_unary_arithmetic.rs`, device kernel
+`OpPositiveAPI` (`operators/ops/op_binary_arithmetic.rs` + impls in
+`device_cpu_serial` and the shared `feature_rayon/auto_impl` symlink) — with
+no operator trait bound on the element type; borrowed/view inputs hit the
+device kernel, an owned input returns `self`. Rust-side **fixes** found
+during W2 (signbit inverted, integer-dtype preservation for
+ceil/floor/trunc/round/conj, pow dtypes, complex special cases,
+maximum/minimum NaN, remainder semantics) are register entries only — see
+[[rstsr-faer-py-wrapper-only]].

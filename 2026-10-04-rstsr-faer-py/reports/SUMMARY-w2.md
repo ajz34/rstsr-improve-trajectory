@@ -11,7 +11,16 @@ wrapper-only rule, with one owner-authorized rust-side addition (`positive`).
 | `20261005-020258` (chunked, 19/19 chunks; final wheel) | **902** | **398** | 82 | after W2 |
 
 Net: **+582 passed / −582 failed**, no new skips (a ±1–2 wobble between
-stamps comes from hypothesis DB replay, per the harness notes). Per file:
+stamps comes from hypothesis DB replay, per the harness notes).
+
+**Post-review follow-up (2026-10-05).** The owner asked for `positive` to be
+implemented like `OpNegAPI` (the same trait machinery, but no operator trait
+bound on the element type); the implementation was reworked (details below)
+and the wheel rebuilt. Full chunked re-run on the rebuilt wheel (stamp
+`20261005-094602`, 19/19 chunks): **902 / 398 / 82 — identical to the table
+above**. The same pass fixed all remaining compile warnings (shim: unused
+`py` + three dead wrapper fns; clippy: needless `Ok(?)`, empty line after doc
+comment; workspace: two unused-dependency warnings). Per file:
 
 | suite file | before (p/f) | after (p/f) |
 |---|---|---|
@@ -37,10 +46,14 @@ stamps comes from hypothesis DB replay, per the harness notes). Per file:
 - **Scalar operands** for every binary function (namespace + dunders),
   same-kind weak-scalar policy as before; cross-kind scalars stay declined
   (G-009).
-- **`positive` added rust-side** (owner-authorized): `rt::positive`/
-  `positive_f` (identity copy) in `rstsr-core`, fulfillment table updated;
-  bound in the shim. **Not committed in the rstsr repo** (per owner
-  instruction) — the change sits in the working tree for review.
+- **`positive` added rust-side** (owner-authorized; reworked after owner
+  review to follow the `neg`/`not` machinery): `TensorPositiveAPI` +
+  device kernel `OpPositiveAPI` in `rstsr-core` — no operator trait bound on
+  the element type (the kernel only clones). Borrowed/view inputs produce a
+  fresh tensor through the device kernel; an owned input is returned as-is
+  (the in-place identity is a no-op). Fulfillment table updated; bound in
+  the shim via `rt::positive_f`. **Not committed in the rstsr repo** (per
+  owner instruction) — the change sits in the working tree for review.
 
 ## Deliberate declines (registered, not worked around)
 
