@@ -41,3 +41,4 @@
 - [array-api-tests explain phase](array-api-tests-explain-phase.md) - red runs are explain-bound (~93% of failure-heavy files; partial-support WIP failures are the pricey ones); NO_EXPLAIN=1 knob drops it in harness + skill.
 - [rstsr-faer-py wrapper-only](rstsr-faer-py-wrapper-only.md) - OWNER DIRECTIVE: shim carries no algorithms (Rust or Python); missing capability = register entry + rust-side request; `where` rejected as shim-side; no rstsr commits without review.
 - [rstsr-faer-py W2 pass](rstsr-faer-py-w2.md) - W2 landed 2026-10-05: 320/980/82 → 901/399/82; output dtypes via rstsr traits + generated pair dispatch (directional arms, any_of not closure), build now ~6 min; rstsr-side positive left uncommitted for review.
+- [rstsr-core reduction-apis grill](rstsr-reduction-apis-grill.md) - 2026-10-05 closed: with_args/with_dtype additive, element-cast fold (no intermediates), 3 PRs w/ hard stops; DECISIONS.md in 2026-10-05-reduction-apis/.
