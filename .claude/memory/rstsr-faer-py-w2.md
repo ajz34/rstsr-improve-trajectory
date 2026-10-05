@@ -25,8 +25,14 @@ are generated from `rstsr-dtype-traits/src/promotion.rs` and are directional:
 only the (result, input) order exists (e.g. `(i16, i8)`, never `(i8, i16)`).
 
 **Cost:** the pair-dispatch expansion takes the shim's release build from
-~30 s incremental to **~6 min** (166 eq arms + 113 promote arms × op).
-Batch shim changes before rebuilding; `maturin build` from the crate dir.
+~30 s incremental to **~6 min** (270 promote arms + 170 eq arms × op).
+`maturin build` must run from the crate dir. Measured 2026-10-05
+(`CARGO_PROFILE_RELEASE_OPT_LEVEL`): opt 0 → shim rebuild 1m14s / full suite
+60 s; opt 2 → 5m47s / 59 s; opt 3 → 6m05s / 59 s. The suite is
+hypothesis-dominated, so **for dev iterations build with
+`CARGO_PROFILE_RELEASE_OPT_LEVEL=0`** (same verdict, ~5× faster builds);
+opt 0 is ~5× slower on real compute (add 1e6 f64: 0.79 ms vs 0.14 ms at
+opt 2/3), so keep opt 3 for the record wheel and any perf measurement.
 
 **rstsr-side change is uncommitted on purpose:** `positive` sits in the rstsr
 working tree awaiting owner review (owner: "you can add positive function at

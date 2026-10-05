@@ -83,9 +83,26 @@ is either bound or carries a register entry.
 
 ## Observations for the next pass
 
-- Compile time: the pair-dispatch expansion takes the shim release build
-  from ~30 s incremental to **~6 min** (166 equality arms + 113 promote arms
-  × op). Acceptable locally; revisit if this ever runs per-commit in CI.
+- Compile time (measured 2026-10-05 with `CARGO_PROFILE_RELEASE_OPT_LEVEL`,
+  `maturin build --release`, same tree):
+
+  | opt-level | full build (deps + shim) | shim-only rebuild | full suite time |
+  |---|---|---|---|
+  | 0 | 1m26s | 1m14s | 60 s |
+  | 2 | 6m08s | 5m47s | 59 s |
+  | 3 | ≥6m19s (deps cached) | 6m05s | 59 s |
+
+  The pair-dispatch expansion (270 promote arms + 170 equality arms × op) is
+  the whole difference vs the pre-W2 ~30 s rebuild. The suite is
+  hypothesis-dominated (arrays ≤ 1024 elements, per-array cost far below
+  dispatch overhead), so the opt-level is free on the test side — **use
+  opt-level 0 for dev iterations** (~5× faster builds, same suite verdict),
+  opt-level 3 only for the record wheel. Runtime cost of opt 0 on real
+  compute (1e6-element f64, best-of-blocks): add 0.79 ms / exp 3.2 ms at
+  opt 0 vs add 0.14 ms / exp 0.55 ms at opt 2/3 (numpy reference: 0.16 /
+  0.38 ms) — so opt 0 is unsuitable for perf measurements, but fine for
+  correctness runs. opt 2 and opt 3 are indistinguishable in both compile
+  and run time. Revisit the arm count if this ever runs per-commit in CI.
 - Two shim-side bugs found earlier (G-040 isnan/isfinite/isinf 0-d shape,
   G-041 `all`/`any` keepdims) were left untouched per the "W2 strictly"
   scope; they are 1-line fixes in `ops.rs` and remain registered.
