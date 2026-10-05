@@ -1,6 +1,6 @@
 ---
 name: rstsr-reduction-apis-pr2
-description: Branch 261005/custom-reduce = commit 24a09ef (custom reduce) + UNCOMMITTED cumulative_sum/prod wave; all gates green; owner review pending, no commit/push without explicit go.
+description: PR #111 open (branch 261005/custom-reduce: 24a09ef + 113dc5e + col-major fix 472eddd), all 13 CI checks green; NOT merging without owner go.
 metadata:
   type: project
 ---
@@ -54,6 +54,17 @@ tensor/reduction.rs (incl. 2048-element parallel-branch case).
 
 Gates all green: entry_row_cpu 341, faer lib 135, doc 194, clippy 0
 (default/rayon/faer), nightly fmt, rustdoc renders (no broken links).
+
+PR #111 opened 2026-10-05 (fork ajz34:261005/custom-reduce -> RESTGroup/rstsr
+main); first CI run failed ONE check, unittests-col-major: DeviceFaer::default()
+follows the GLOBAL default order, which is ColMajor under the col_major feature
+- the unpinned arange/into_shape fixture filled col-major (4093 = 4j+1 vs
+expected 3070). Fix 472eddd pins device.set_default_order(RowMajor) (house
+convention for order-dependent faer tests). LESSON: local gate for faer tests
+needs `cargo test -p rstsr-core --lib --no-default-features --features
+"faer col_major"` too (col_major is mutually exclusive with row_major, so
+drop default features). All 13 checks green on 472eddd; NOT merging (owner
+checks status, no auto-merge).
 
 OPEN question flagged to owner: `array_api_standard.md` lines ~261-262 still
 list cumulative_sum/cumulative_prod as unimplemented - D15 said the file
