@@ -31,9 +31,13 @@ import sys
 #   absent : no rstsr primitive; needs a rust-side implementation
 NAME_LAYER = {}
 for n in """acos acosh asin asinh atan atanh ceil conj cos cosh exp expm1 floor
-           imag log log1p log2 log10 real reciprocal round sign signbit sin sinh
+           imag log log2 log10 real reciprocal round sign signbit sin sinh
            sqrt square tan tanh trunc abs""".split():
     NAME_LAYER[n] = "shim-bind"
+# log1p: TensorLog1pAPI/OpLog1pAPI are declared but no device implements the
+# kernel (only `// TODO: log1p` in device_cpu_serial / feature_rayon), so the
+# primitive is not usable — rust-side, unlike the rest of this block (G-058).
+NAME_LAYER["log1p"] = "rust-impl"
 NAME_LAYER.update({
     "atan2": "shim-bind", "copysign": "shim-bind", "floor_divide": "shim-bind",
     "hypot": "shim-bind", "logaddexp": "shim-alias", "maximum": "shim-bind",

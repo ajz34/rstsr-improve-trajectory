@@ -52,8 +52,8 @@ comment; workspace: two unused-dependency warnings). Per file:
   the element type (the kernel only clones). Borrowed/view inputs produce a
   fresh tensor through the device kernel; an owned input is returned as-is
   (the in-place identity is a no-op). Fulfillment table updated; bound in
-  the shim via `rt::positive_f`. **Not committed in the rstsr repo** (per
-  owner instruction) — the change sits in the working tree for review.
+  the shim via `rt::positive_f`. Committed 2026-10-05 on branch
+  `261004/rstsr-faer-py`: `1546e5e` (rstsr-core) + `799c4b3` (shim).
 
 ## Deliberate declines (registered, not worked around)
 

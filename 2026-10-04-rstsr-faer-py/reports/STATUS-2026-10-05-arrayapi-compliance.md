@@ -9,16 +9,21 @@ limitation of the current scheme.
 
 | artifact | where | tracked? |
 |---|---|---|
-| full per-test table (1382 rows, 16 cols) | `harness/reports/COMPLIANCE-FULL-20261004-233924.csv` | no (gitignored; regenerate with the script) |
+| full per-test table (1382 rows, 16 cols), current | `harness/reports/COMPLIANCE-FULL-20261005-094602.csv` | no (gitignored; regenerate with the script) |
 | generator | `harness/compliance_table.py` | yes |
-| raw suite report (source of the CSV) | `harness/reports/rstsr_faer_api-20261004-233924.json` | no (gitignored) |
+| merged suite report (source of the CSV) | `harness/reports/rstsr_faer_api-MERGED-20261005-094602.json`, merged from the 19 `…-chunk-*-20261005-094602.json` | no (gitignored) |
+| W2 narrative, per-file deltas, declines | `reports/SUMMARY-w2.md` | yes |
+| W0+W1 state (this file's starting point) | stamp `20261004-233924`; kept in git history | — |
 | gap register (per-divergence entries) | `../GAP-REGISTER.md` | yes |
 | reduction plan (wave order) | `../FAILURE-REDUCTION-PLAN.md` | yes |
 
 ```bash
 cd 2026-10-04-rstsr-faer-py/harness
-python3 compliance_table.py reports/rstsr_faer_api-20261004-233924.json \
-    -o reports/COMPLIANCE-FULL-20261004-233924.csv --census
+NO_EXPLAIN=1 MODULE=rstsr_faer.api CHUNKED=1 ./run.sh   # full red map, ~60 s, 19/19 chunks
+# run.sh prints the totals only; merge the chunk reports into one json first
+# (snippet in harness/README.md, "Merging chunk reports"), then:
+python3 compliance_table.py reports/rstsr_faer_api-MERGED-<stamp>.json \
+    -o reports/COMPLIANCE-FULL-<stamp>.csv --census
 ```
 
 ## 1. Headline numbers
@@ -26,24 +31,26 @@ python3 compliance_table.py reports/rstsr_faer_api-20261004-233924.json \
 Pins (identical to the NumPy baseline, so numbers compare directly):
 array-api-tests `6c0b59f` + spec submodule `5f847a3`, standard 2025.12,
 1382 collected items, derandomized, suite defaults (100 examples).
-Subject wheel: rstsr branch `261004/rstsr-faer-py` @ `d7f4082`
-("basic indexing surface and namespace quick wins").
+Subject wheel: rstsr branch `261004/rstsr-faer-py` @ `799c4b3`
+(`1546e5e` = rust-side `positive`, `799c4b3` = shim elementwise + dunders).
 
 | run | passed | failed | skipped | delta |
 |---|---|---|---|---|
 | NumPy 2.5.1 baseline (S0 gate) | 1335 | 42 | 5 | — |
 | rstsr_faer.api S1 (first red map) | 255 | 1040 | 87 | `a52bf4f` skeleton |
 | rstsr_faer.api S2 (DLPack) | 302 | 998 | 82 | +47 |
-| rstsr_faer.api W0+W1 (indexing + quick wins) | **320** | **980** | **82** | +18, -18 |
+| rstsr_faer.api W0+W1 (indexing + quick wins) | 320 | 980 | 82 | +18, −18 |
+| rstsr_faer.api W2 (elementwise + operator dunders) | **902** | **398** | **82** | **+582, −582** |
 
-Per spec area (stamp `20261004-233924`):
+Per spec area (stamp `20261005-094602`; totals identical at `-020258`,
+per-file counts wobble ±1 from hypothesis DB replay):
 
 | suite file | pass | fail | skip |
 |---|---|---|---|
-| test_special_cases.py | 135 | 482 | 0 |
-| test_has_names.py | 60 | 154 | 0 |
-| test_signatures.py | 51 | 124 | 37 |
-| test_operators_and_elementwise_functions.py | 15 | 140 | 5 |
+| test_special_cases.py | 508 | 109 | 0 |
+| test_has_names.py | 122 | 92 | 0 |
+| test_signatures.py | 113 | 62 | 37 |
+| test_operators_and_elementwise_functions.py | 100 | 55 | 5 |
 | test_data_type_functions.py | 22 | 14 | 0 |
 | test_manipulation_functions.py | 2 | 11 | 0 |
 | test_creation_functions.py | 6 | 10 | 0 |
@@ -60,44 +67,66 @@ Per spec area (stamp `20261004-233924`):
 | test_dlpack.py | 3 | 0 | 0 |
 | test_fft.py | 0 | 0 | 14 (self-skip) |
 
-**94% of the 980 failures are surface-existence, not correctness**: the
-suite cannot even call the function (missing name / missing operator
-dunder). Only ~59 tests are behavioral or decision items. The next wave
-converts type failures into value failures — expect the raw count to move
-slowly while adjudication catches up (measure by class census, not by
-count).
+**62% of the remaining 398 are still surface-existence** (246 missing
+names): W3+ territory — reductions/stats (`mean prod std var max min
+cumulative_*`), manipulation (`concat stack expand_dims squeeze flip
+moveaxis …`), creation (`*_like eye linspace tril triu meshgrid`),
+`xp.linalg` (23), sorting (`sort argsort`), searching/set, dtype queries
+(`result_type can_cast isdtype`), fft (14), plus `log1p` (20; declared
+trait, device kernels are TODO — G-058). The rest is value adjudication
+(79 wrong-value), rust-side declines that now raise register-referenced
+errors (60 unexpected-exception), mask/fancy indexing (6), finfo-complex
+(4), unclassified (2), a reduction `axis=` binding (1).
 
-## 2. Failure census (980) with fix layer
+## 2. Failure census (398, W2) with fix layer
 
 Root cause from the crash message, fix layer from the capability check
-(below). Cross-tab of the two:
+(Appendix). Cross-tab of the two (stamp `20261005-094602`):
 
 | root cause | n | fix layer |
 |---|---|---|
-| missing-surface (name absent) | 762 | shim-bind 558, shim-alias 82, rust-impl 82, mixed 23, suite-scope 14, shim-py 3 |
-| missing-dunder (operator absent) | 159 | shim-bind 159 |
-| promotion-decline (cross-dtype) | 14 | rust-design 14 |
-| unexpected-exception | 12 | rust-fix-or-shim 12 |
-| wrong-value (ran, wrong result) | 12 | mixed-values 12 |
-| marshal-reject (valid input refused) | 10 | shim-py 10 |
+| missing-surface (name absent) | 246 | shim-bind 108, rust-impl 98, mixed 23, suite-scope 14, shim-py 3 |
+| wrong-value (ran, wrong result) | 79 | mixed-values 79 |
+| unexpected-exception | 60 | rust-fix-or-shim 60 |
 | indexing-gap (mask/fancy) | 6 | rust-impl 6 |
 | dtype-fn-bug (finfo complex) | 4 | shim-rs 4 |
+| unclassified | 2 | unclassified 2 |
 | axes-not-bound (reduction axis=) | 1 | shim-bind 1 |
 
-Fix-layer totals: **shim-bind 718** (bind an existing `rt::` primitive),
-**shim-alias 82** (rt has it under another name), **rust-impl 88** (no
-rstsr primitive), **mixed 23** (linalg namespace: partially rust),
-**suite-scope 14** (fft), **rust-design 14** (promotion),
-**rust-fix-or-shim 12**, **mixed-values 12**, **shim-py 13**, **shim-rs 4**.
+Fix-layer totals: **shim-bind 109** (bind an existing `rt::` primitive —
+W3/W4/W6 surface), **rust-impl 104** (no usable rstsr primitive, G-001…G-058
+family), **mixed-values 79** (adjudication), **rust-fix-or-shim 60**
+(register-referenced declines from the W2 pass), **mixed 23** (`xp.linalg`
+namespace), **suite-scope 14** (fft), **shim-rs 4** (finfo), **shim-py 3**
+(namespace-info), **unclassified 2**. (`log1p`'s 20 rows were re-classified
+shim-bind → rust-impl during this status pass; see G-058.)
+
+For reference, the W0+W1 census (980 failures at stamp `20261004-233924`):
+missing-surface 762 (shim-bind 558, shim-alias 82, rust-impl 82, mixed 23,
+suite-scope 14, shim-py 3), missing-dunder 159 (shim-bind 159),
+promotion-decline 14 (rust-design 14), unexpected-exception 12,
+wrong-value 12, marshal-reject 10 (shim-py 10), indexing-gap 6,
+dtype-fn-bug 4, axes-not-bound 1. W2 collapsed the shim-bind + shim-alias
+classes (800 failures) to 109 remaining shim-bind, and converted the
+cross-dtype/marshal declines into register-referenced exceptions.
 
 ---
 
 ## 3. Category A — Python-specific (shim work; zero rstsr change)
 
 Everything here rides an existing rstsr primitive; it is binding,
-marshalling, validation, or signature work. ~800 of the 980 failures.
+marshalling, validation, or signature work.
+
+**W2 status:** A1 and A2 are **landed** (commit `799c4b3`); A3, A4 remain
+open for W3–W6, plus the A5 shim bugs.
 
 ### A1. Elementwise surface (the single biggest unlock, ~500 tests)
+**Landed in W2** — 56 names bound. Residual declines are registered:
+integer inputs to `ceil/floor/trunc/round/conj` (G-052), `pow` int/complex
+(G-053), `signbit` (inverted kernel, G-054), `expm1(complex)` and complex
+special values (G-055), `log1p` (no device kernel, G-058). The pre-W2
+inventory below stays as the record:
+
 ~50 names, all with an `rt::` counterpart:
 
 - unary: `acos acosh asin asinh atan atanh ceil conj cos cosh exp expm1
@@ -115,11 +144,15 @@ marshalling, validation, or signature work. ~800 of the 980 failures.
 Two gaps in the family are *not* in rt:: — see C.
 
 ### A2. Operator dunders (159 tests)
+**Landed in W2** — all dunders bound, including `__pos__` via the new
+rust-side `rt::positive` (`1546e5e`); `__matmul__` remains with W6
+(`xp.linalg`).
+
 `__pow__ __ipow__ __floordiv__ __ifloordiv__ __mod__ __imod__ __and__
 __or__ __xor__` + in-place twins `__lshift__ __rshift__ __matmul__ __abs__
 __neg__ __invert__`. All map to existing `rt::` fns (in-place dunders may
 legally be implemented as `self = op(self, other)` — the spec does not
-require true in-place behavior). `__pos__` has no rt primitive (C).
+require true in-place behavior).
 The shim's `_binary` helper already handles weak scalars within the same
 kind; the operator definitions are a table plus the existing dispatch.
 
@@ -234,9 +267,11 @@ pairs have no kernel; comparisons could be served with a pair-dispatch
 (output is always bool), arithmetic needs a promotion map. Owner/rust-side
 decision.
 
-**C12. `positive` / `__pos__`.** No rt primitive; either a rust identity op
-or a shim no-copy return (aliasing semantics — see D2). The fulfillment
-table marks the `__pos__` family `D`.
+**C12. `positive` / `__pos__` — RESOLVED 2026-10-05 (`1546e5e`).** Rust-side
+identity op landed as a first-class unary op (`OpPositiveAPI` device kernel +
+`TensorPositiveAPI`; borrowed/view inputs copy through the kernel, an owned
+tensor is returned as-is). The fulfillment table marks `positive`/`__pos__`
+`Y`; the shim routes both through it.
 
 ## 6. Category D — difficult in the current scheme
 
@@ -310,9 +345,12 @@ state against it:
 - W1 (indexing) — **basic indexing landed**; mask/fancy declined and
   registered (rust-side C1). The suite's helper crash fixed; manipulation
   failures are now value-level.
-- W2 (elementwise + dunders, ~500+159 tests) — **next**; the largest
-  single unlock and pure shim work.
-- W3 (reductions/stats/searching/set) — partially blocked by C3/C5/C6.
+- W2 (elementwise + dunders, ~500+159 tests) — **landed 2026-10-05**
+  (`1546e5e` rust-side `positive` + `799c4b3` shim): 320/980/82 →
+  **902/398/82**. C12 resolved; declines registered as G-052…G-058;
+  per-file deltas and census in `SUMMARY-w2.md`.
+- W3 (reductions/stats/searching/set) — **next**; partially blocked by
+  C3/C5/C6 (`where` G-037 remains the highest-value rust-side item).
 - W4 (creation/manipulation) — mostly bindable today (roll/repeat/tile
   rust-side).
 - W5 (dtype introspection) — needs a decision (C10).
@@ -320,16 +358,20 @@ state against it:
   QR/slogdet/norms are rust-side.
 - W7 (fft) — decision: default scope-out with a register entry.
 
-A realistic target after W2+W3+W4 shim work: the red map drops to the
+A realistic target after W3+W4 shim work: the red map drops to the
 rust-blocked set (C1–C11) plus value adjudication; the honest end state is
 *every remaining failure carries a register entry*, not 1382 green.
 
 ## Appendix — capability check used for the fix-layer column
 
 Fix layer was assigned by checking each missing name against the rstsr
-surface at `d7f4082` (`rstsr-core` prelude exports, `rstsr-linalg-traits/
-faer_impl`, native device op macros): `shim-bind` = `rt::` has an
-equivalent primitive; `shim-alias` = same primitive under a different name;
-`rust-impl` = absent. Pairs to re-check if a binding surprises:
-`logical_*`→bool bit ops (`bool: BitAnd/BitOr/BitXor` — present),
-`bitwise_invert`→`not` (Rust `!` is bitwise for integers — present).
+surface (`rstsr-core` prelude exports, `rstsr-linalg-traits/faer_impl`,
+native device op macros), originally at `d7f4082`: `shim-bind` = `rt::` has
+an equivalent primitive; `shim-alias` = same primitive under a different
+name; `rust-impl` = absent. The W2 census re-verified the entries that
+still matter against `799c4b3` (e.g. `log1p` corrected to `rust-impl` —
+trait declared, no device kernel, G-058); the W3+ entries keep the W1
+classification until their wave binds them. Pairs to re-check if a binding
+surprises: `logical_*`→bool bit ops (`bool: BitAnd/BitOr/BitXor` —
+present), `bitwise_invert`→`not` (Rust `!` is bitwise for integers —
+present).

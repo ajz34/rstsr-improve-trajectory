@@ -143,9 +143,11 @@ dtype family, so mixed pairs need either promotion wiring or pair dispatch
 W2 landed shim-side (bindings only): the full elementwise surface and the
 operator-dunder set, including mixed-dtype pair dispatch for the
 `DTypePromoteAPI`-bound ops. Red map: **902 passed / 398 failed / 82 skipped
-of 1382** (stamp `20261005-020258`), up from 320/980/82. Census and full
-table in `reports/SUMMARY-w2.md` /
-`harness/reports/COMPLIANCE-FULL-20261005-020258.csv`.
+of 1382** (stamp `20261005-020258`, re-verified `20261005-094602` on the
+reworked `positive` wheel), up from 320/980/82. Committed on branch
+`261004/rstsr-faer-py`: `1546e5e` (rust-side `positive`) + `799c4b3` (shim).
+Census and full table in `reports/SUMMARY-w2.md` /
+`harness/reports/COMPLIANCE-FULL-20261005-094602.csv`.
 
 New divergences confirmed during the pass:
 
@@ -157,6 +159,7 @@ New divergences confirmed during the pass:
 | G-055 | complex transcendental coverage and special-value propagation | rust-side | `expm1(complex)` has no kernel (`Float`-bound impl only); num-based kernels return `nan+nanj` where the spec requires specific values (acos/acosh/asinh/atanh/cosh/sinh/tanh/sqrt special cases, ~35 tests); accuracy diverges at large magnitudes in complex64 (`acos(7281-1j)`, `asinh(-2731+1j)`, `tan(1+45j)` vs numpy/cmath) | rust-side numerical work; register first, no shim workaround |
 | G-056 | elementwise `maximum`/`minimum` do not propagate NaN | rust-side | `maximum(NaN, 0.0)` returns 0.0, spec requires NaN (2 tests); consistent with the 2026-10-02 compliance directive for min/max | rust-side fix |
 | G-057 | `remainder` signed zero / infinite divisor | rust-side | `remainder(-0.0, 2.0)` → -0.0 (spec: +0), `remainder(1.0, -inf)` → 1.0 (spec: -inf); rstsr's float `%` is fmod-style, the spec's `remainder` follows the divisor's sign (Python `%` semantics) | 8 tests across remainder/`__mod__`/`__imod__` |
+| G-058 | `log1p` has no device kernel | rust-side | `TensorLog1pAPI`/`OpLog1pAPI` are declared, but every device impl file carries only `// TODO: log1p` (`device_cpu_serial/operators/op_binary_common.rs`, `feature_rayon/auto_impl/op_binary_common.rs`) — `rt::log1p_f` cannot be instantiated for `DeviceFaer` | 20 suite failures (name neither bound nor bindable); shim side is trivial once a kernel exists (float-only, like `expm1`) |
 
 Mixed-dtype status after W2 (G-009 family refinements):
 - **served by shim pair dispatch** (rstsr device kernels bound on `DTypePromoteAPI`, real dtypes): `maximum minimum floor_divide atan2 copysign hypot nextafter logaddexp` + comparisons (`equal`/`not_equal` additionally across bool and complex; ordering comparisons are real-only per spec).

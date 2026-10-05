@@ -34,16 +34,16 @@ hypothesis-dominated, so **for dev iterations build with
 opt 0 is ~5× slower on real compute (add 1e6 f64: 0.79 ms vs 0.14 ms at
 opt 2/3), so keep opt 3 for the record wheel and any perf measurement.
 
-**rstsr-side change is uncommitted on purpose:** `positive` sits in the rstsr
-working tree awaiting owner review (owner: "you can add positive function at
-rust-side ... you would not git commit on rstsr"). Implementation per owner
-review: follows the `neg`/`not` machinery — `TensorPositiveAPI` in
+**rstsr-side `positive` is committed** (2026-10-05, branch
+`261004/rstsr-faer-py`: `1546e5e` rstsr-core + `799c4b3` shim). Owner
+review asked for the `neg`/`not` machinery with no operator trait bound:
+`TensorPositiveAPI` in
 `rstsr-core/src/tensor/operators/op_unary_arithmetic.rs`, device kernel
 `OpPositiveAPI` (`operators/ops/op_binary_arithmetic.rs` + impls in
-`device_cpu_serial` and the shared `feature_rayon/auto_impl` symlink) — with
-no operator trait bound on the element type; borrowed/view inputs hit the
-device kernel, an owned input returns `self`. Rust-side **fixes** found
-during W2 (signbit inverted, integer-dtype preservation for
-ceil/floor/trunc/round/conj, pow dtypes, complex special cases,
-maximum/minimum NaN, remainder semantics) are register entries only — see
+`device_cpu_serial` and the shared `feature_rayon/auto_impl` symlink);
+borrowed/view inputs hit the device kernel, an owned input returns `self`.
+Rust-side **fixes** found during W2 (signbit inverted, integer-dtype
+preservation for ceil/floor/trunc/round/conj, pow dtypes, complex special
+cases, maximum/minimum NaN, remainder semantics, `log1p` has no device
+kernel — G-058) are register entries only — see
 [[rstsr-faer-py-wrapper-only]].

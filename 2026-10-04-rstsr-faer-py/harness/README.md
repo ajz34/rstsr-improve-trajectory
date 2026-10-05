@@ -41,4 +41,30 @@ SKIPS_FILE=../skips.txt XFAILS_FILE=../xfails.txt MODULE=rstsr_faer.api ./run.sh
 NO_EXPLAIN=1 MODULE=rstsr_faer.api ./run.sh   # red-map speedup: skip hypothesis's
                                               # explain phase (93% of a failure-heavy
                                               # file; drops the "Draw N" repro blob)
+NO_EXPLAIN=1 MODULE=rstsr_faer.api CHUNKED=1 ./run.sh   # ~60 s whole suite (warm DB)
+```
+
+## Merging chunk reports
+
+`CHUNKED=1` writes one report per suite file and prints the merged totals,
+but does not write a merged JSON. `compliance_table.py` needs one file, so
+merge the chunks first (adjust the stamp):
+
+```bash
+python3 - <<'EOF'
+import glob, json
+stamp = "20261005-094602"
+tests, summary = [], {}
+for f in sorted(glob.glob(f"reports/rstsr_faer_api-chunk-*-{stamp}.json")):
+    d = json.load(open(f))
+    tests += d.get("tests", [])
+    for k, v in d.get("summary", {}).items():
+        if isinstance(v, int):
+            summary[k] = summary.get(k, 0) + v
+json.dump({"tests": tests, "summary": summary},
+          open(f"reports/rstsr_faer_api-MERGED-{stamp}.json", "w"))
+print(summary)
+EOF
+python3 compliance_table.py reports/rstsr_faer_api-MERGED-<stamp>.json \
+    -o reports/COMPLIANCE-FULL-<stamp>.csv --census
 ```

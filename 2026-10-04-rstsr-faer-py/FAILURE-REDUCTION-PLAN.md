@@ -94,6 +94,12 @@ in `_operand` (spec allows py-scalar with array when scalar kind ≤ array
 kind; today the shim declines). Acceptance: special-cases TYPE class
 collapses; remaining failures there become VALUE adjudications.
 
+> **Landed 2026-10-05** (`799c4b3` + rust-side `positive` in `1546e5e`):
+> red map **902/398/82** at stamps `20261005-020258` / `-094602` —
+> special-cases 135/482 → 508/109, operators 15/140 → 100/55. Details and
+> the residual census in `reports/SUMMARY-w2.md`; new register entries
+> G-052…G-058.
+
 ### W3 — reductions / stats / searching / set / utility (G-028/G-029)
 sum, prod, min, max, mean, std, var, cumulative_sum/prod (whole-array first
 via reduction macros, then axes), argmax/argmin (**already exist rust-side**),
