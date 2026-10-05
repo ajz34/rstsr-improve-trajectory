@@ -5,10 +5,26 @@ metadata:
   type: project
 ---
 
-PR1 of the 2026-10-05 reduction-apis task is implemented in the rstsr working
-tree (branch `261005/reduction-withargs-dtype`, NO commits per owner rule),
-owner review round 1 received and applied 2026-10-05. A previous attempt
-(closed PR RESTGroup/rstsr#109) is discarded; its record was removed.
+PR1 of the 2026-10-05 reduction-apis task is COMMITTED on branch
+`261005/reduction-withargs-dtype` (e3c67cf feature + 8ae9c3d review round),
+not pushed; push/PR only on owner instruction. Review round 1 applied, then
+round 2 (stride-0 + empty axes kernel fixes, all_dtype removal, VarArgs
+correction in with_dtype, Float import style). A previous attempt (closed PR
+RESTGroup/rstsr#109) is discarded; its record was removed.
+
+Owner-review protocol learned: "you can git commit" authorizes THAT state
+only — each later round needs a fresh commit go (one soft-reset lesson).
+
+Key fixes in 8ae9c3d (owner-directed kernel fix):
+- axes-kernel size_s0 read from remaining layout instead of summed layout:
+  stride-0 reductions silently wrong + all-axes-via-list index panic
+  (both kernels, serial + rayon).
+- zero-size input through all-axes list panicked; early return
+  f_out(init()) per cell (NumPy-matching).
+- *_with_dtype routes AxesIndex::None through the axes kernel
+  (@axes_kernel dispatcher arm); no *_all_dtype device methods.
+- tracking files: numpy_differences*.md are ONLY for NumPy test-transfer
+  divergences — custom regression tests must not add entries there.
 
 Current state after review:
 
