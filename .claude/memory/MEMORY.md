@@ -43,3 +43,4 @@
 - [rstsr-faer-py W2 pass](rstsr-faer-py-w2.md) - W2 landed 2026-10-05: 320/980/82 → 901/399/82; output dtypes via rstsr traits + generated pair dispatch (directional arms, any_of not closure), build now ~6 min; rstsr-side positive left uncommitted for review.
 - [rstsr-core reduction-apis grill](rstsr-reduction-apis-grill.md) - 2026-10-05 closed: with_args/with_dtype additive, element-cast fold (no intermediates), 3 PRs w/ hard stops; DECISIONS.md in 2026-10-05-reduction-apis/.
 - [PR1 reduction-apis state](rstsr-reduction-apis-pr1.md) - with_args/with_dtype implemented (slim axes-only dtype trait), astype POSTPONED (artifacts in task dir), uncommitted on 261005 branch; turbofish lesson; next PR2/PR3 gated on review.
+- [Reduction APIs PR2 (norm + custom reduce)](rstsr-reduction-apis-pr2.md) — enforced-ord norm family + custom reduce on 261005/norm-custom-reduce, uncommitted, gates green; D13 redesign applied.

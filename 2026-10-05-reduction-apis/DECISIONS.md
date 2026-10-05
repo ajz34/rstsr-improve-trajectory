@@ -147,3 +147,71 @@ from PR1: sum/sum_axes/sum_with_args[_f] + with_dtype via cast-in-fold);
 `rt::sum` family stays numeric-only. Bool min/max (ExtReal) deferred; bool
 count_nonzero has the same shape and is likewise out of scope. Do NOT retry
 unification unless the owner reopens it (e.g. at a 1.0 coherence refactor).
+
+## D13 — norm redesign mid-implementation: enforced `ord` + ReduceArgs reuse + string ords
+Owner interjected while PR2 was being implemented (2026-10-05), superseding
+parts of D7:
+- `ord` is an ENFORCED positional parameter on every norm function:
+  `norm(x, ord)`, `norm_axes(x, ord, axes)`,
+  `norm_with_args(x, ord, args)`. The no-ord default spelling (`norm(x)`)
+  was dropped; NumPy's `ord=None` default corresponds to passing `2`, and
+  the `ord=None` raveled 2-norm of an n-D array maps to `l2_norm`.
+- The bespoke `NormArgs` struct was DELETED; the args form reuses
+  `ReduceArgs` (axes + keepdims) directly.
+- `NormOrd: TryFrom<&str>`/`TryFrom<String>` for `"l1"`/`"L1"`/`"l2"`/`"L2"`
+  /`"fro"`/`"nuc"`; ord parameter type is
+  `impl TryInto<NormOrd, Error: Into<Error>>` so numerics (via `From`,
+  Infallible -> Error) and strings both work at one call site.
+- fro/nuc stay matrix-only (two reduced axes); single-axis or ndim != 2
+  whole-input use is `InvalidValue` (NumPy-compatible).
+Implementation notes (for the record):
+- Matrix ±1/±Inf norms are two-stage; stage 2 lives in a dedicated device
+  method `OpNormAPI::norm_matrix_cmp_axes` (axis adjustment after stage 1 is
+  device-side; empty max stage yields 0 = NumPy `max(initial=0)`).
+- rustc E0391: `B: OpMaxAPI<B::TOut, IxD>`-style bounds (trait WITH an
+  associated type, arg = projection of the same self type) cycle bound
+  elaboration; routing stage 2 back through `OpNormAPI` with `T = B::TOut`
+  hit the same wall - hence the dedicated device method.
+- `feature_rayon/auto_impl/reduction.rs` is SYMLINKED into
+  `device_faer/rayon_auto_impl/` - one source, two cfg contexts; kernels take
+  `Option<&ThreadPool>`.
+
+### D14 — flatten RETRACTED; NumPy vector/matrix convention stands; nuc excluded
+After D13's "no matrix/vector distinction" direction was implemented and the
+L1-divergence table was shown (`norm([[1,2],[3,4]],1)` = 10 vs NumPy 6), the
+owner retracted: "I made wrong assertion to you. You are going to follow
+NumPy's convention." Final PR2 norm semantics = the pre-flatten design:
+- NumPy vector/matrix classification (1 axis = vector; 2 axes = matrix,
+  axis-tuple order significant for ±1/±Inf; >2 axes = InvalidValue).
+- Matrix 2/-2 raise `UnImplemented` (SVD deferred to linalg wave).
+- `nuc` EXCLUDED from `NormOrd` entirely (owner directive kept from the same
+  review): `"nuc"` does not parse; documented as an intentional gap.
+- `fro` string/`Fro` variant kept (matrix Frobenius; == 2-norm fold for
+  vectors, single-axis Fro is InvalidValue per NumPy).
+- enforced `ord` + `ReduceArgs` reuse + string ords from D13 unchanged.
+Note: the owner's staged snapshot turned out to predate the norm
+implementation (partial staging) - the four src files were reset to HEAD and
+the implementation reconstructed; any diff review must use the working tree,
+not the staging area.
+
+## D15 — norm REVERTED from rstsr-core; moved to future rstsr-sci-traits
+Owner (2026-10-05, after seeing `norm(a)` on 2-D resolve to Frobenius under
+the enforced-ord mapping): "I wish to revert this PR [the norm part], and
+leave this to be something rstsr-sci-traits to be implemented. However,
+custom reduce is still needed at this time."
+
+Consequences:
+- PR2 scope is now custom reduce ONLY (`reduce_all`/`reduce_axes`/
+  `reduce_with_args` + `OpReduceCustomAPI` + device impls). All norm code,
+  tests, exports, docs, and tracking rows removed from rstsr-core.
+- The complete norm prototype (implementation + passing tests + settled
+  design + gotchas) is preserved at `postponed-norm/` in this directory
+  (README + full diff + the two test files) as the reference for the future
+  `rstsr-sci-traits` wave. Key settled points: enforced positional `ord`,
+  `ReduceArgs` reuse (no `NormArgs`), string ords l1/L1/l2/L2/fro, nuc
+  excluded, NumPy vector/matrix convention with axis-tuple order, matrix
+  2/-2 SVD-deferred, E0391 projection-bound gotcha -> dedicated device
+  two-stage method.
+- Owner also flagged (review round): array-api's linalg table does not
+  track norm the way I had added it -> `array_api_standard.md` reverted and
+  stays untouched by this task.

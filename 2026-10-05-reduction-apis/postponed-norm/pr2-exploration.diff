@@ -1,0 +1,1435 @@
+diff --git a/rstsr-core/src/device_cpu_serial/reduction.rs b/rstsr-core/src/device_cpu_serial/reduction.rs
+index a576c9f..efaca4a 100644
+--- a/rstsr-core/src/device_cpu_serial/reduction.rs
++++ b/rstsr-core/src/device_cpu_serial/reduction.rs
+@@ -759,3 +759,218 @@ where
+         unimplemented!("This function (`allclose_axes`) is not planned to be implemented yet.");
+     }
+ }
++/// Norm fold dispatched per ord onto the generic reduction kernels.
++fn norm_axes_vec_cpu_serial<T, D>(
++    a: &[T],
++    la: &Layout<D>,
++    axes: &[isize],
++    ord: &NormOrd,
++) -> Result<(Vec<T::Real>, Layout<IxD>)>
++where
++    T: Clone + ComplexFloat + FromPrimitive,
++    T::Real: Clone + Float + FromPrimitive,
++    D: DimAPI,
++{
++    type R<T> = <T as ComplexFloat>::Real;
++
++    let f_sum = |acc1: R<T>, acc2: R<T>| acc1 + acc2;
++    match ord {
++        NormOrd::One => {
++            let f_init = || R::<T>::zero();
++            let f = |acc: R<T>, x: T| acc + x.abs();
++            reduce_axes_cpu_serial(a, &la.to_dim()?, axes, f_init, f, f_sum, |acc| acc)
++        },
++        NormOrd::Two | NormOrd::Fro => {
++            let f_init = || R::<T>::zero();
++            let f = |acc: R<T>, x: T| acc + (x * x.conj()).re();
++            reduce_axes_cpu_serial(a, &la.to_dim()?, axes, f_init, f, f_sum, ComplexFloat::sqrt)
++        },
++        NormOrd::Inf => {
++            let f_init = || R::<T>::zero();
++            let f = |acc: R<T>, x: T| {
++                let r = x.abs();
++                if Float::is_nan(r) || r > acc {
++                    r
++                } else {
++                    acc
++                }
++            };
++            let f_sum = |acc1: R<T>, acc2: R<T>| if Float::is_nan(acc1) || acc1 > acc2 { acc1 } else { acc2 };
++            reduce_axes_cpu_serial(a, &la.to_dim()?, axes, f_init, f, f_sum, |acc| acc)
++        },
++        NormOrd::NegInf => {
++            let f_init = || R::<T>::infinity();
++            let f = |acc: R<T>, x: T| {
++                let r = x.abs();
++                if Float::is_nan(r) || r < acc {
++                    r
++                } else {
++                    acc
++                }
++            };
++            let f_sum = |acc1: R<T>, acc2: R<T>| if Float::is_nan(acc1) || acc1 < acc2 { acc1 } else { acc2 };
++            reduce_axes_cpu_serial(a, &la.to_dim()?, axes, f_init, f, f_sum, |acc| acc)
++        },
++        NormOrd::Zero => {
++            let f_init = || R::<T>::zero();
++            let f = |acc: R<T>, x: T| {
++                if x.re() != R::<T>::zero() || x.im() != R::<T>::zero() {
++                    acc + R::<T>::one()
++                } else {
++                    acc
++                }
++            };
++            reduce_axes_cpu_serial(a, &la.to_dim()?, axes, f_init, f, f_sum, |acc| acc)
++        },
++        NormOrd::NegOne => {
++            let f_init = || R::<T>::zero();
++            let f = |acc: R<T>, x: T| acc + R::<T>::one() / x.abs();
++            reduce_axes_cpu_serial(a, &la.to_dim()?, axes, f_init, f, f_sum, Float::recip)
++        },
++        NormOrd::NegTwo => {
++            let f_init = || R::<T>::zero();
++            let f = |acc: R<T>, x: T| acc + R::<T>::one() / (x * x.conj()).re();
++            reduce_axes_cpu_serial(a, &la.to_dim()?, axes, f_init, f, f_sum, |acc| {
++                Float::recip(ComplexFloat::sqrt(acc))
++            })
++        },
++        NormOrd::P(p) => {
++            let p_f = <R<T> as FromPrimitive>::from_f64(*p).unwrap();
++            let p_inv = <R<T> as FromPrimitive>::from_f64(1.0 / *p).unwrap();
++            let f_init = || R::<T>::zero();
++            let f = move |acc: R<T>, x: T| acc + Float::powf(x.abs(), p_f);
++            let f_out = move |acc: R<T>| Float::powf(acc, p_inv);
++            reduce_axes_cpu_serial(a, &la.to_dim()?, axes, f_init, f, f_sum, f_out)
++        },
++    }
++}
++
++impl<T, D> OpNormAPI<T, D> for DeviceCpuSerial
++where
++    T: Clone + ComplexFloat + FromPrimitive,
++    T::Real: Clone + Float + FromPrimitive,
++    D: DimAPI,
++{
++    type TOut = T::Real;
++
++    fn norm_all(&self, a: &Vec<T>, la: &Layout<D>, ord: &NormOrd) -> Result<T::Real> {
++        let axes: Vec<isize> = (0..la.ndim() as isize).collect();
++        let (out, _) = norm_axes_vec_cpu_serial(a, la, &axes, ord)?;
++        Ok(out[0])
++    }
++
++    fn norm_axes(
++        &self,
++        a: &Vec<T>,
++        la: &Layout<D>,
++        axes: &[isize],
++        ord: &NormOrd,
++    ) -> Result<(Storage<DataOwned<Vec<T::Real>>, T::Real, Self>, Layout<IxD>)> {
++        let (out, layout_out) = norm_axes_vec_cpu_serial(a, la, axes, ord)?;
++        Ok((Storage::new(out.into(), self.clone()), layout_out))
++    }
++
++    fn norm_matrix_cmp_axes(
++        &self,
++        a: &Vec<T>,
++        la: &Layout<D>,
++        sum_axis: isize,
++        cmp_axis: isize,
++        is_max: bool,
++    ) -> Result<(Storage<DataOwned<Vec<T::Real>>, T::Real, Self>, Layout<IxD>)> {
++        type R<T> = <T as ComplexFloat>::Real;
++
++        // stage 1: sum of absolute values along `sum_axis`
++        let (inter, layout_1) = norm_axes_vec_cpu_serial(a, la, &[sum_axis], &NormOrd::One)?;
++        // stage 2: max/min over `cmp_axis` of the remaining layout
++        let cmp_axis = if cmp_axis > sum_axis { cmp_axis - 1 } else { cmp_axis };
++        let (out, layout_out) = reduce_axes_cpu_serial(
++            &inter,
++            &layout_1,
++            &[cmp_axis],
++            || {
++                if is_max {
++                    R::<T>::zero()
++                } else {
++                    R::<T>::infinity()
++                }
++            },
++            |acc, x: T::Real| {
++                if is_max {
++                    if Float::is_nan(x) || x > acc {
++                        x
++                    } else {
++                        acc
++                    }
++                } else if Float::is_nan(x) || x < acc {
++                    x
++                } else {
++                    acc
++                }
++            },
++            |acc1, acc2| {
++                if is_max {
++                    if Float::is_nan(acc1) || acc1 > acc2 {
++                        acc1
++                    } else {
++                        acc2
++                    }
++                } else if Float::is_nan(acc1) || acc1 < acc2 {
++                    acc1
++                } else {
++                    acc2
++                }
++            },
++            |acc| acc,
++        )?;
++        Ok((Storage::new(out.into(), self.clone()), layout_out))
++    }
++}
++
++impl<T, TS, TO, D> OpReduceCustomAPI<T, TS, TO, D> for DeviceCpuSerial
++where
++    T: Clone,
++    TO: Clone,
++    D: DimAPI,
++{
++    fn reduce_all_custom<FI, FF, FC, FO>(
++        &self,
++        a: &Vec<T>,
++        la: &Layout<D>,
++        f_init: FI,
++        f: FF,
++        f_sum: FC,
++        f_out: FO,
++    ) -> Result<TO>
++    where
++        TS: Clone,
++        FI: Fn() -> TS + Send + Sync,
++        FF: Fn(TS, T) -> TS + Send + Sync,
++        FC: Fn(TS, TS) -> TS + Send + Sync,
++        FO: Fn(TS) -> TO + Send + Sync,
++    {
++        reduce_all_cpu_serial(a, la, f_init, f, f_sum, f_out)
++    }
++
++    fn reduce_axes_custom<FI, FF, FC, FO>(
++        &self,
++        a: &Vec<T>,
++        la: &Layout<D>,
++        axes: &[isize],
++        f_init: FI,
++        f: FF,
++        f_sum: FC,
++        f_out: FO,
++    ) -> Result<(Storage<DataOwned<Vec<TO>>, TO, Self>, Layout<IxD>)>
++    where
++        TS: Clone,
++        TO: Clone,
++        FI: Fn() -> TS + Send + Sync,
++        FF: Fn(TS, T) -> TS + Send + Sync,
++        FC: Fn(TS, TS) -> TS + Send + Sync,
++        FO: Fn(TS) -> TO + Send + Sync,
++    {
++        let (out, layout_out) = reduce_axes_cpu_serial(a, &la.to_dim()?, axes, f_init, f, f_sum, f_out)?;
++        Ok((Storage::new(out.into(), self.clone()), layout_out))
++    }
++}
+diff --git a/rstsr-core/src/feature_rayon/auto_impl/reduction.rs b/rstsr-core/src/feature_rayon/auto_impl/reduction.rs
+index da17b70..0bd6035 100644
+--- a/rstsr-core/src/feature_rayon/auto_impl/reduction.rs
++++ b/rstsr-core/src/feature_rayon/auto_impl/reduction.rs
+@@ -844,3 +844,229 @@ where
+         unimplemented!("This function (`allclose_axes`) is not planned to be implemented yet.");
+     }
+ }
++/// Norm fold dispatched per ord onto the generic rayon reduction kernels.
++fn norm_axes_vec_cpu_rayon<T, D>(
++    a: &[T],
++    la: &Layout<D>,
++    axes: &[isize],
++    ord: &NormOrd,
++    pool: Option<&ThreadPool>,
++) -> Result<(Vec<T::Real>, Layout<IxD>)>
++where
++    T: Clone + Send + Sync + ComplexFloat + FromPrimitive,
++    T::Real: Clone + Send + Sync + Float + FromPrimitive,
++    D: DimAPI,
++{
++    type R<T> = <T as ComplexFloat>::Real;
++
++    let f_sum = |acc1: R<T>, acc2: R<T>| acc1 + acc2;
++    match ord {
++        NormOrd::One => {
++            let f_init = || R::<T>::zero();
++            let f = |acc: R<T>, x: T| acc + x.abs();
++            reduce_axes_cpu_rayon(a, &la.to_dim()?, axes, f_init, f, f_sum, |acc| acc, pool)
++        },
++        NormOrd::Two | NormOrd::Fro => {
++            let f_init = || R::<T>::zero();
++            let f = |acc: R<T>, x: T| acc + (x * x.conj()).re();
++            reduce_axes_cpu_rayon(a, &la.to_dim()?, axes, f_init, f, f_sum, ComplexFloat::sqrt, pool)
++        },
++        NormOrd::Inf => {
++            let f_init = || R::<T>::zero();
++            let f = |acc: R<T>, x: T| {
++                let r = x.abs();
++                if Float::is_nan(r) || r > acc {
++                    r
++                } else {
++                    acc
++                }
++            };
++            let f_sum = |acc1: R<T>, acc2: R<T>| if Float::is_nan(acc1) || acc1 > acc2 { acc1 } else { acc2 };
++            reduce_axes_cpu_rayon(a, &la.to_dim()?, axes, f_init, f, f_sum, |acc| acc, pool)
++        },
++        NormOrd::NegInf => {
++            let f_init = || R::<T>::infinity();
++            let f = |acc: R<T>, x: T| {
++                let r = x.abs();
++                if Float::is_nan(r) || r < acc {
++                    r
++                } else {
++                    acc
++                }
++            };
++            let f_sum = |acc1: R<T>, acc2: R<T>| if Float::is_nan(acc1) || acc1 < acc2 { acc1 } else { acc2 };
++            reduce_axes_cpu_rayon(a, &la.to_dim()?, axes, f_init, f, f_sum, |acc| acc, pool)
++        },
++        NormOrd::Zero => {
++            let f_init = || R::<T>::zero();
++            let f = |acc: R<T>, x: T| {
++                if x.re() != R::<T>::zero() || x.im() != R::<T>::zero() {
++                    acc + R::<T>::one()
++                } else {
++                    acc
++                }
++            };
++            reduce_axes_cpu_rayon(a, &la.to_dim()?, axes, f_init, f, f_sum, |acc| acc, pool)
++        },
++        NormOrd::NegOne => {
++            let f_init = || R::<T>::zero();
++            let f = |acc: R<T>, x: T| acc + R::<T>::one() / x.abs();
++            reduce_axes_cpu_rayon(a, &la.to_dim()?, axes, f_init, f, f_sum, Float::recip, pool)
++        },
++        NormOrd::NegTwo => {
++            let f_init = || R::<T>::zero();
++            let f = |acc: R<T>, x: T| acc + R::<T>::one() / (x * x.conj()).re();
++            reduce_axes_cpu_rayon(
++                a,
++                &la.to_dim()?,
++                axes,
++                f_init,
++                f,
++                f_sum,
++                |acc| Float::recip(ComplexFloat::sqrt(acc)),
++                pool,
++            )
++        },
++        NormOrd::P(p) => {
++            let p_f = <R<T> as FromPrimitive>::from_f64(*p).unwrap();
++            let p_inv = <R<T> as FromPrimitive>::from_f64(1.0 / *p).unwrap();
++            let f_init = || R::<T>::zero();
++            let f = move |acc: R<T>, x: T| acc + Float::powf(x.abs(), p_f);
++            let f_out = move |acc: R<T>| Float::powf(acc, p_inv);
++            reduce_axes_cpu_rayon(a, &la.to_dim()?, axes, f_init, f, f_sum, f_out, pool)
++        },
++    }
++}
++
++impl<T, D> OpNormAPI<T, D> for DeviceRayonAutoImpl
++where
++    T: Clone + Send + Sync + ComplexFloat + FromPrimitive,
++    T::Real: Clone + Send + Sync + Float + FromPrimitive,
++    D: DimAPI,
++{
++    type TOut = T::Real;
++
++    fn norm_all(&self, a: &Vec<T>, la: &Layout<D>, ord: &NormOrd) -> Result<T::Real> {
++        let axes: Vec<isize> = (0..la.ndim() as isize).collect();
++        let (out, _) = norm_axes_vec_cpu_rayon(a, la, &axes, ord, self.get_current_pool())?;
++        Ok(out[0])
++    }
++
++    fn norm_axes(
++        &self,
++        a: &Vec<T>,
++        la: &Layout<D>,
++        axes: &[isize],
++        ord: &NormOrd,
++    ) -> Result<(Storage<DataOwned<Vec<T::Real>>, T::Real, Self>, Layout<IxD>)> {
++        let (out, layout_out) = norm_axes_vec_cpu_rayon(a, la, axes, ord, self.get_current_pool())?;
++        Ok((Storage::new(out.into(), self.clone()), layout_out))
++    }
++
++    fn norm_matrix_cmp_axes(
++        &self,
++        a: &Vec<T>,
++        la: &Layout<D>,
++        sum_axis: isize,
++        cmp_axis: isize,
++        is_max: bool,
++    ) -> Result<(Storage<DataOwned<Vec<T::Real>>, T::Real, Self>, Layout<IxD>)> {
++        type R<T> = <T as ComplexFloat>::Real;
++
++        let pool = self.get_current_pool();
++        let (inter, layout_1) = norm_axes_vec_cpu_rayon(a, la, &[sum_axis], &NormOrd::One, pool)?;
++        let cmp_axis = if cmp_axis > sum_axis { cmp_axis - 1 } else { cmp_axis };
++        let (out, layout_out) = reduce_axes_cpu_rayon(
++            &inter,
++            &layout_1,
++            &[cmp_axis],
++            || {
++                if is_max {
++                    R::<T>::zero()
++                } else {
++                    R::<T>::infinity()
++                }
++            },
++            |acc, x: T::Real| {
++                if is_max {
++                    if Float::is_nan(x) || x > acc {
++                        x
++                    } else {
++                        acc
++                    }
++                } else if Float::is_nan(x) || x < acc {
++                    x
++                } else {
++                    acc
++                }
++            },
++            |acc1, acc2| {
++                if is_max {
++                    if Float::is_nan(acc1) || acc1 > acc2 {
++                        acc1
++                    } else {
++                        acc2
++                    }
++                } else if Float::is_nan(acc1) || acc1 < acc2 {
++                    acc1
++                } else {
++                    acc2
++                }
++            },
++            |acc| acc,
++            pool,
++        )?;
++        Ok((Storage::new(out.into(), self.clone()), layout_out))
++    }
++}
++
++impl<T, TS, TO, D> OpReduceCustomAPI<T, TS, TO, D> for DeviceRayonAutoImpl
++where
++    T: Clone + Send + Sync,
++    TS: Clone + Send + Sync,
++    TO: Clone + Send + Sync,
++    D: DimAPI,
++{
++    fn reduce_all_custom<FI, FF, FC, FO>(
++        &self,
++        a: &Vec<T>,
++        la: &Layout<D>,
++        f_init: FI,
++        f: FF,
++        f_sum: FC,
++        f_out: FO,
++    ) -> Result<TO>
++    where
++        TS: Clone,
++        FI: Fn() -> TS + Send + Sync,
++        FF: Fn(TS, T) -> TS + Send + Sync,
++        FC: Fn(TS, TS) -> TS + Send + Sync,
++        FO: Fn(TS) -> TO + Send + Sync,
++    {
++        let pool = self.get_current_pool();
++        reduce_all_cpu_rayon(a, la, f_init, f, f_sum, f_out, pool)
++    }
++
++    fn reduce_axes_custom<FI, FF, FC, FO>(
++        &self,
++        a: &Vec<T>,
++        la: &Layout<D>,
++        axes: &[isize],
++        f_init: FI,
++        f: FF,
++        f_sum: FC,
++        f_out: FO,
++    ) -> Result<(Storage<DataOwned<Vec<TO>>, TO, Self>, Layout<IxD>)>
++    where
++        TS: Clone,
++        TO: Clone,
++        FI: Fn() -> TS + Send + Sync,
++        FF: Fn(TS, T) -> TS + Send + Sync,
++        FC: Fn(TS, TS) -> TS + Send + Sync,
++        FO: Fn(TS) -> TO + Send + Sync,
++    {
++        let pool = self.get_current_pool();
++        let (out, layout_out) = reduce_axes_cpu_rayon(a, &la.to_dim()?, axes, f_init, f, f_sum, f_out, pool)?;
++        Ok((Storage::new(out.into(), self.clone()), layout_out))
++    }
++}
+diff --git a/rstsr-core/src/operators/reduction.rs b/rstsr-core/src/operators/reduction.rs
+index 3814d42..295ac79 100644
+--- a/rstsr-core/src/operators/reduction.rs
++++ b/rstsr-core/src/operators/reduction.rs
+@@ -117,3 +117,87 @@ where
+         isclose_args: &IsCloseArgs<TE>,
+     ) -> Result<(Storage<DataOwned<<Self as DeviceRawAPI<bool>>::Raw>, bool, Self>, Layout<IxD>)>;
+ }
++
++/// Norm reduction as a single fold over the given axes (`TOut` is the real
++/// float associated with `T`).
++///
++/// Vector/matrix interpretation of [`NormOrd`] (axis order, two-stage matrix
++/// ±1/±Inf norms) is resolved by the caller (`rt::norm` family); the device
++/// only maps `ord` onto fold closures.
++#[allow(clippy::type_complexity)]
++pub trait OpNormAPI<T, D>
++where
++    D: DimAPI,
++    Self: DeviceAPI<T> + DeviceAPI<Self::TOut>,
++{
++    type TOut;
++
++    fn norm_all(&self, a: &<Self as DeviceRawAPI<T>>::Raw, la: &Layout<D>, ord: &NormOrd) -> Result<Self::TOut>;
++    fn norm_axes(
++        &self,
++        a: &<Self as DeviceRawAPI<T>>::Raw,
++        la: &Layout<D>,
++        axes: &[isize],
++        ord: &NormOrd,
++    ) -> Result<(Storage<DataOwned<<Self as DeviceRawAPI<Self::TOut>>::Raw>, Self::TOut, Self>, Layout<IxD>)>;
++
++    /// Two-stage matrix ±1/±Inf norm: sum of absolute values along `sum_axis`,
++    /// then maximum (`is_max`) or minimum over `cmp_axis` (axis indices count
++    /// from the back; adjusted by the device after the first stage). Empty
++    /// max stage yields zero (NumPy `max(initial=0)` semantics).
++    fn norm_matrix_cmp_axes(
++        &self,
++        a: &<Self as DeviceRawAPI<T>>::Raw,
++        la: &Layout<D>,
++        sum_axis: isize,
++        cmp_axis: isize,
++        is_max: bool,
++    ) -> Result<(Storage<DataOwned<<Self as DeviceRawAPI<Self::TOut>>::Raw>, Self::TOut, Self>, Layout<IxD>)>;
++}
++
++/// Custom user reduction over generic closures (init / fold / combine /
++/// finalize); the accumulator `TS` and output `TO` are both free.
++///
++/// `combine` must be associative; within one output cell the input order is
++/// sequential (row-major traversal), but the tree shape of `combine` is
++/// device-defined (e.g. parallel chunking on the rayon device).
++#[allow(clippy::type_complexity)]
++pub trait OpReduceCustomAPI<T, TS, TO, D>
++where
++    D: DimAPI,
++    Self: DeviceAPI<T> + DeviceAPI<TO>,
++{
++    fn reduce_all_custom<FI, FF, FC, FO>(
++        &self,
++        a: &<Self as DeviceRawAPI<T>>::Raw,
++        la: &Layout<D>,
++        f_init: FI,
++        f: FF,
++        f_sum: FC,
++        f_out: FO,
++    ) -> Result<TO>
++    where
++        TS: Clone,
++        FI: Fn() -> TS + Send + Sync,
++        FF: Fn(TS, T) -> TS + Send + Sync,
++        FC: Fn(TS, TS) -> TS + Send + Sync,
++        FO: Fn(TS) -> TO + Send + Sync;
++
++    fn reduce_axes_custom<FI, FF, FC, FO>(
++        &self,
++        a: &<Self as DeviceRawAPI<T>>::Raw,
++        la: &Layout<D>,
++        axes: &[isize],
++        f_init: FI,
++        f: FF,
++        f_sum: FC,
++        f_out: FO,
++    ) -> Result<(Storage<DataOwned<<Self as DeviceRawAPI<TO>>::Raw>, TO, Self>, Layout<IxD>)>
++    where
++        TS: Clone,
++        TO: Clone,
++        FI: Fn() -> TS + Send + Sync,
++        FF: Fn(TS, T) -> TS + Send + Sync,
++        FC: Fn(TS, TS) -> TS + Send + Sync,
++        FO: Fn(TS) -> TO + Send + Sync;
++}
+diff --git a/rstsr-core/src/tensor/reduction.rs b/rstsr-core/src/tensor/reduction.rs
+index 301a840..a0e322c 100644
+--- a/rstsr-core/src/tensor/reduction.rs
++++ b/rstsr-core/src/tensor/reduction.rs
+@@ -17,6 +17,14 @@
+ //!   (anti-overflow semantics of array-api's `dtype=`), with no cast copy of the input;
+ //! - fallible `_f` versions of all of the above.
+ //!
++//! The [`norm`] family (hand-written, NumPy `numpy.linalg.norm` semantics)
++//! takes an enforced `ord` ([`NormOrd`], converting from floats/ints and the
++//! strings `"l1"`/`"L1"`/`"l2"`/`"L2"`/`"fro"`); one reduced axis gives
++//! vector norms, two give matrix norms. The expert-level [`reduce_all`] /
++//! [`reduce_axes`] / [`reduce_with_args`] functions expose the underlying
++//! fold machinery (init/fold/combine/finalize closures) for custom
++//! reductions.
++//!
+ //! The arg* families (`argmin`, `argmax`, and their `unraveled_` variants from
+ //! the `trait_reduction_arg!` macro) return element indices instead of values:
+ //! the all-element forms return the flat (linear) index, and the `_axes`
+@@ -369,6 +377,106 @@ impl<const N: usize> From<([isize; N], bool)> for VarArgs {
+ 
+ /* #endregion */
+ 
++/* #region norm args */
++
++/// Norm order, following NumPy `numpy.linalg.norm`'s `ord` argument.
++///
++/// The same value may act as a vector norm or a matrix norm depending on the
++/// reduced axes (one axis: vector; two axes: matrix) - see [`norm`]. Values
++/// convert from floats and integers (`1.0` -> [`NormOrd::One`], `inf` ->
++/// [`NormOrd::Inf`], ...), and from strings via [`TryFrom`]: `"l1"`/`"L1"`
++/// ([`NormOrd::One`]), `"l2"`/`"L2"` ([`NormOrd::Two`]) and `"fro"`
++/// ([`NormOrd::Fro`]). The nuclear order (`"nuc"` in NumPy) is not provided:
++/// it requires SVD, and is excluded instead of raising at fold time.
++///
++/// # Examples
++///
++/// ```rust
++/// # use rstsr::prelude::*;
++/// # let mut device = DeviceCpu::default();
++/// # device.set_default_order(RowMajor);
++/// let v = rt::tensor_from_nested!([3.0, 4.0], &device);
++/// assert_eq!(rt::norm(&v, NormOrd::One), 7.0);
++/// assert_eq!(rt::norm(&v, 1.0), 7.0); // `f64` converts into `NormOrd`
++/// assert_eq!(rt::norm(&v, "l1"), 7.0); // string spellings
++/// ```
++#[derive(Debug, Clone, Copy, PartialEq)]
++pub enum NormOrd {
++    /// `ord = 1` (also `"l1"`): sum of absolute values (matrices: maximum absolute column sum).
++    One,
++    /// `ord = 2` (also `"l2"`): Euclidean norm (matrices: largest singular value, not yet
++    /// supported).
++    Two,
++    /// `ord = inf`: maximum absolute value (matrices: maximum absolute row sum).
++    Inf,
++    /// `ord = -inf`: minimum absolute value (matrices: minimum absolute row sum).
++    NegInf,
++    /// `ord = 0`: number of nonzero elements (vectors only).
++    Zero,
++    /// `ord = -1`: `1 / sum(1/|x|)` (matrices: minimum absolute column sum).
++    NegOne,
++    /// `ord = -2`: `1 / sqrt(sum(1/|x|^2))` (matrices: smallest singular value, not yet supported).
++    NegTwo,
++    /// `ord = p`: `(sum(|x|^p))^(1/p)` for other `p` (vectors only).
++    P(f64),
++    /// Frobenius norm `sqrt(sum(|x|^2))` (also `"fro"`); identical to [`NormOrd::Two`] for vectors.
++    Fro,
++}
++
++fn norm_ord_from_f64(value: f64) -> NormOrd {
++    match value {
++        1.0 => NormOrd::One,
++        2.0 => NormOrd::Two,
++        f64::INFINITY => NormOrd::Inf,
++        f64::NEG_INFINITY => NormOrd::NegInf,
++        0.0 => NormOrd::Zero,
++        -1.0 => NormOrd::NegOne,
++        -2.0 => NormOrd::NegTwo,
++        v => NormOrd::P(v),
++    }
++}
++
++impl From<f64> for NormOrd {
++    fn from(value: f64) -> Self {
++        norm_ord_from_f64(value)
++    }
++}
++
++macro_rules! impl_norm_ord_from {
++    ($($t: ty),* $(,)?) => {$(
++        impl From<$t> for NormOrd {
++            fn from(value: $t) -> Self {
++                norm_ord_from_f64(value as f64)
++            }
++        }
++    )*};
++}
++
++impl_norm_ord_from!(f32, i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
++
++impl TryFrom<&str> for NormOrd {
++    type Error = Error;
++
++    fn try_from(value: &str) -> Result<Self> {
++        match value {
++            "l1" | "L1" => Ok(NormOrd::One),
++            "l2" | "L2" => Ok(NormOrd::Two),
++            "fro" => Ok(NormOrd::Fro),
++            _ => rstsr_raise!(InvalidValue, "invalid norm order string: {}", value),
++        }
++    }
++}
++
++impl TryFrom<String> for NormOrd {
++    type Error = Error;
++
++    fn try_from(value: String) -> Result<Self> {
++        NormOrd::try_from(value.as_str())
++    }
++}
++
++/* #endregion */
++
+ /* #region keepdims layout helpers */
+ 
+ /// Layout for a whole-reduction result: 0-D, or `(1,)*ndim` if keepdims.
+@@ -1039,6 +1147,657 @@ where
+ 
+ /* #endregion */
+ 
++/* #region norm */
++
++/// Classification + dispatch of NumPy norm semantics onto device fold calls;
++/// shared by the whole `norm` family. `axes` here is the resolved
++/// (normalized, order-preserving) axes list.
++fn norm_dispatch_axes_f<T, B>(
++    device: &B,
++    raw: &<B as DeviceRawAPI<T>>::Raw,
++    layout: &Layout<IxD>,
++    axes: &[isize],
++    ord: &NormOrd,
++    keepdims: bool,
++) -> Result<Tensor<B::TOut, B, IxD>>
++where
++    B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++{
++    // NumPy reads a float `0.0` ord as the zero norm
++    let ord = match ord {
++        NormOrd::P(p) if *p == 0.0 => &NormOrd::Zero,
++        ord => ord,
++    };
++    let ndim = layout.ndim();
++
++    match axes.len() {
++        0 => rstsr_raise!(InvalidValue, "Improper number of dimensions to norm.")?,
++        1 => match ord {
++            NormOrd::Fro => rstsr_raise!(InvalidValue, "Invalid norm order for vectors.")?,
++            ord => {
++                let (storage, out_layout) = device.norm_axes(raw, layout, axes, ord)?;
++                let out_layout = reduce_layout_keepdims(out_layout, &AxesIndex::Vec(axes.to_vec()), ndim, keepdims)?;
++                Tensor::new_f(storage, out_layout)
++            },
++        },
++        2 => {
++            let (ax_0, ax_1) = (axes[0], axes[1]);
++            match ord {
++                // NumPy: `ord=None` (and `'fro'`) on two axes is the Frobenius norm
++                NormOrd::Fro => {
++                    let (storage, out_layout) = device.norm_axes(raw, layout, axes, &NormOrd::Two)?;
++                    let out_layout =
++                        reduce_layout_keepdims(out_layout, &AxesIndex::Vec(axes.to_vec()), ndim, keepdims)?;
++                    Tensor::new_f(storage, out_layout)
++                },
++                NormOrd::Two | NormOrd::NegTwo => {
++                    rstsr_raise!(UnImplemented, "matrix 2/-2 norms require SVD and are not supported yet")?
++                },
++                NormOrd::Zero | NormOrd::P(_) => rstsr_raise!(InvalidValue, "Invalid norm order for matrices.")?,
++                ord => {
++                    // NumPy: ord=±1 sums `axis[0]` then max/min over `axis[1]`;
++                    // ord=±inf sums `axis[1]` then max/min over `axis[0]`
++                    let (sum_axis, cmp_axis, is_max) = match ord {
++                        NormOrd::One => (ax_0, ax_1, true),
++                        NormOrd::NegOne => (ax_0, ax_1, false),
++                        NormOrd::Inf => (ax_1, ax_0, true),
++                        NormOrd::NegInf => (ax_1, ax_0, false),
++                        _ => unreachable!(),
++                    };
++                    let (storage, out_layout) = device.norm_matrix_cmp_axes(raw, layout, sum_axis, cmp_axis, is_max)?;
++                    let out_layout =
++                        reduce_layout_keepdims(out_layout, &AxesIndex::Vec(axes.to_vec()), ndim, keepdims)?;
++                    Tensor::new_f(storage, out_layout)
++                },
++            }
++        },
++        _ => rstsr_raise!(InvalidValue, "Improper number of dimensions to norm.")?,
++    }
++}
++
++fn norm_dispatch_f<T, B, D>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    ord: impl TryInto<NormOrd, Error: Into<Error>>,
++    axes: AxesIndex<isize>,
++    keepdims: bool,
++) -> Result<Tensor<B::TOut, B, IxD>>
++where
++    D: DimAPI,
++    B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++{
++    let ord = ord.try_into().map_err(Into::into)?;
++    let tensor = tensor.view();
++    let layout: Layout<IxD> = tensor.layout().to_dim()?;
++    let ndim = layout.ndim();
++
++    match axes {
++        AxesIndex::None => {
++            let axes_all: Vec<isize> = (0..ndim as isize).collect_vec();
++            norm_dispatch_axes_f(tensor.device(), tensor.raw(), &layout, &axes_all, &ord, keepdims)
++        },
++        axes => {
++            let axes_norm = normalize_axes_index(axes, ndim, false, false)?;
++            norm_dispatch_axes_f(tensor.device(), tensor.raw(), &layout, &axes_norm, &ord, keepdims)
++        },
++    }
++}
++
++/// Computes the matrix or vector norm of the whole input (NumPy
++/// `numpy.linalg.norm` with `axis=None`).
++///
++/// The norm order `ord` is an enforced parameter; see [`NormOrd`] for the
++/// ord table and its numeric/string conversions. With no axes given, a 1-D
++/// input takes vector norms and a 2-D input takes matrix norms (NumPy's
++/// `axis=None` semantics; higher-rank inputs require explicit axes via
++/// [`norm_axes`]). One axis gives vector norms, two axes give matrix norms
++/// (axis order matters for ord=±1/±inf, NumPy semantics). The output dtype
++/// is the real float associated with the input (`T::Real`; complex input
++/// yields real output).
++///
++/// This function behaves identically under [`RowMajor`] and [`ColMajor`] device default orders.
++///
++/// # Parameters
++///
++/// - `tensor`: [`&TensorAny<R, T, B, D>`](TensorAny), the input; float or complex float.
++/// - `ord`: norm order; anything converting into [`NormOrd`] (floats and integers like `2.0`/`-1`,
++///   [`NormOrd`] itself, or strings like `"l1"`/`"fro"`).
++///
++/// # Returns
++///
++/// The norm as a scalar of type `B::TOut` (the input's associated real float type).
++///
++/// # Examples
++///
++/// ```rust
++/// # use rstsr::prelude::*;
++/// # let mut device = DeviceCpu::default();
++/// # device.set_default_order(RowMajor);
++/// let v = rt::tensor_from_nested!([3.0, 4.0], &device);
++/// println!("{}", rt::norm(&v, 2.0));
++/// // 5
++/// # assert_eq!(rt::norm(&v, 2.0), 5.0);
++/// ```
++///
++/// Matrix norms on 2-D input, with the string ord spelling:
++///
++/// ```rust
++/// # use rstsr::prelude::*;
++/// # let mut device = DeviceCpu::default();
++/// # device.set_default_order(RowMajor);
++/// let a = rt::tensor_from_nested!([[1.0, 2.0], [3.0, 4.0]], &device);
++/// println!("{}", rt::norm(&a, "fro"));
++/// // 5.477225575051661
++/// println!("{}", rt::norm(&a, 1.0));
++/// // 6
++/// # assert_eq!(rt::norm(&a, "fro"), 5.477225575051661);
++/// # assert_eq!(rt::norm(&a, 1.0), 6.0);
++/// ```
++///
++/// # Notes of API accordance
++///
++/// - NumPy: `norm(x, ord=None, axis=None, keepdims=False)` ([`numpy.linalg.norm`](https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html));
++///   the ord table, axis-tuple order (ord=±1 reduces `axis[0]` first) and the string ords follow
++///   NumPy, except `ord` is an enforced positional here (NumPy's `ord=None` default corresponds to
++///   passing `2`; the `ord=None` raveled 2-norm of an n-D array maps to [`l2_norm`]). The nuclear
++///   order (`'nuc'`) is excluded rather than raising at fold time (SVD-dependent).
++/// - Integer input is not promoted (NumPy casts to float first); convert with an explicit cast,
++///   same convention as [`l2_norm`].
++///
++/// # Panics
++///
++/// - Panics if the input dtype is not a float or complex float.
++/// - Panics for invalid ord/axes combinations (NumPy raises `ValueError` for the same inputs, e.g.
++///   `P(_)`/`Zero` with two axes, or `"fro"` on a single axis).
++/// - Empty inputs with `NegInf` return `inf` instead of raising (RSTSR's zero-size reduction
++///   semantics).
++///
++/// For a fallible version, use [`norm_f`].
++///
++/// # See also
++///
++/// ## Similar function from other crates/libraries
++///
++/// - NumPy: [`numpy.linalg.norm`](https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html)
++///
++/// ## Related functions in RSTSR
++///
++/// - [`l2_norm`]: the 2-norm fast path (same fold, no ord dispatch)
++///
++/// ## Variants of this function
++///
++/// - [`norm_all`]: alias of this function
++/// - [`norm_axes`], [`norm_with_args`]: axes / [`ReduceArgs`] forms
++/// - [`norm_f`]: fallible version
++/// - Associated methods on `TensorAny`: `.norm(…)`, `.norm_f(…)`, `.norm_axes(…)`,
++///   `.norm_with_args(…)` and their `_f` twins
++pub fn norm_f<T, B, D>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    ord: impl TryInto<NormOrd, Error: Into<Error>>,
++) -> Result<B::TOut>
++where
++    D: DimAPI,
++    B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++    B::TOut: Clone,
++{
++    let val = norm_with_args_f(tensor, ord, ReduceArgs::default())?;
++    Ok(val.to_scalar())
++}
++
++/// Computes the norm of the whole input; panicking version of [`norm_f`].
++///
++/// See also [`norm`].
++pub fn norm<T, B, D>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    ord: impl TryInto<NormOrd, Error: Into<Error>>,
++) -> B::TOut
++where
++    D: DimAPI,
++    B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++    B::TOut: Clone,
++{
++    norm_f(tensor, ord).rstsr_unwrap()
++}
++
++/// Alias of [`norm`] (the whole-input form of the `norm` family).
++///
++/// See also [`norm`].
++pub fn norm_all_f<T, B, D>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    ord: impl TryInto<NormOrd, Error: Into<Error>>,
++) -> Result<B::TOut>
++where
++    D: DimAPI,
++    B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++    B::TOut: Clone,
++{
++    norm_f(tensor, ord)
++}
++
++/// Alias of [`norm`]; panicking version of [`norm_all_f`].
++///
++/// See also [`norm`].
++pub fn norm_all<T, B, D>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    ord: impl TryInto<NormOrd, Error: Into<Error>>,
++) -> B::TOut
++where
++    D: DimAPI,
++    B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++    B::TOut: Clone,
++{
++    norm(tensor, ord)
++}
++
++/// Computes vector or matrix norms along the given axes with the enforced
++/// norm order `ord`.
++///
++/// See also [`norm`]. One axis gives vector norms; two axes give matrix norms
++/// (axis order matters for ord=±1/±inf, NumPy semantics). The Frobenius order
++/// (`"fro"`) folds `sqrt(sum(|x|^2))` over both axes.
++pub fn norm_axes_f<T, B, D>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    ord: impl TryInto<NormOrd, Error: Into<Error>>,
++    axes: impl TryInto<AxesIndex<isize>, Error: Into<Error>>,
++) -> Result<Tensor<B::TOut, B, IxD>>
++where
++    D: DimAPI,
++    B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++{
++    let axes = axes.try_into().map_err(Into::into)?;
++    norm_with_args_f(tensor, ord, axes)
++}
++
++/// Computes vector or matrix norms along the given axes; panicking version of [`norm_axes_f`].
++///
++/// See also [`norm`].
++pub fn norm_axes<T, B, D>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    ord: impl TryInto<NormOrd, Error: Into<Error>>,
++    axes: impl TryInto<AxesIndex<isize>, Error: Into<Error>>,
++) -> Tensor<B::TOut, B, IxD>
++where
++    D: DimAPI,
++    B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++{
++    norm_axes_f(tensor, ord, axes).rstsr_unwrap()
++}
++
++/// Computes vector or matrix norms with [`ReduceArgs`] grouping `axes` and
++/// `keepdims`, on top of the enforced norm order `ord`.
++///
++/// See also [`norm`]. The args follow the same conventions as
++/// `sum_with_args`: `()` = whole reduction, `(axes, keepdims)` pairs, an
++/// `AxesIndex` alone, ...
++pub fn norm_with_args_f<T, B, D>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    ord: impl TryInto<NormOrd, Error: Into<Error>>,
++    args: impl Into<ReduceArgs>,
++) -> Result<Tensor<B::TOut, B, IxD>>
++where
++    D: DimAPI,
++    B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++{
++    let ReduceArgs { axes, keepdims } = args.into();
++    norm_dispatch_f(tensor, ord, axes, keepdims)
++}
++
++/// Computes vector or matrix norms with [`ReduceArgs`]; panicking version of [`norm_with_args_f`].
++///
++/// See also [`norm`].
++pub fn norm_with_args<T, B, D>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    ord: impl TryInto<NormOrd, Error: Into<Error>>,
++    args: impl Into<ReduceArgs>,
++) -> Tensor<B::TOut, B, IxD>
++where
++    D: DimAPI,
++    B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++{
++    norm_with_args_f(tensor, ord, args).rstsr_unwrap()
++}
++
++impl<R, T, B, D> TensorAny<R, T, B, D>
++where
++    R: DataAPI<Data = <B as DeviceRawAPI<T>>::Raw>,
++    D: DimAPI,
++    B: DeviceAPI<T>,
++{
++    pub fn norm_f(&self, ord: impl TryInto<NormOrd, Error: Into<Error>>) -> Result<B::TOut>
++    where
++        B::TOut: Clone,
++        B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++    {
++        norm_f(self, ord)
++    }
++
++    pub fn norm(&self, ord: impl TryInto<NormOrd, Error: Into<Error>>) -> B::TOut
++    where
++        B::TOut: Clone,
++        B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++    {
++        norm(self, ord)
++    }
++
++    pub fn norm_all_f(&self, ord: impl TryInto<NormOrd, Error: Into<Error>>) -> Result<B::TOut>
++    where
++        B::TOut: Clone,
++        B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++    {
++        norm_all_f(self, ord)
++    }
++
++    pub fn norm_all(&self, ord: impl TryInto<NormOrd, Error: Into<Error>>) -> B::TOut
++    where
++        B::TOut: Clone,
++        B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++    {
++        norm_all(self, ord)
++    }
++
++    pub fn norm_axes_f(
++        &self,
++        ord: impl TryInto<NormOrd, Error: Into<Error>>,
++        axes: impl TryInto<AxesIndex<isize>, Error: Into<Error>>,
++    ) -> Result<Tensor<B::TOut, B, IxD>>
++    where
++        B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++    {
++        norm_axes_f(self, ord, axes)
++    }
++
++    pub fn norm_axes(
++        &self,
++        ord: impl TryInto<NormOrd, Error: Into<Error>>,
++        axes: impl TryInto<AxesIndex<isize>, Error: Into<Error>>,
++    ) -> Tensor<B::TOut, B, IxD>
++    where
++        B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++    {
++        norm_axes(self, ord, axes)
++    }
++
++    pub fn norm_with_args_f(
++        &self,
++        ord: impl TryInto<NormOrd, Error: Into<Error>>,
++        args: impl Into<ReduceArgs>,
++    ) -> Result<Tensor<B::TOut, B, IxD>>
++    where
++        B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++    {
++        norm_with_args_f(self, ord, args)
++    }
++
++    pub fn norm_with_args(
++        &self,
++        ord: impl TryInto<NormOrd, Error: Into<Error>>,
++        args: impl Into<ReduceArgs>,
++    ) -> Tensor<B::TOut, B, IxD>
++    where
++        B: OpNormAPI<T, IxD> + DeviceCreationAnyAPI<B::TOut>,
++    {
++        norm_with_args(self, ord, args)
++    }
++}
++
++/* #endregion */
++
++/* #region custom reduce */
++
++/// Reduces the whole input with user-provided fold closures.
++///
++/// The accumulator type `TS` and output type `TO` are both free; `f_out`
++/// converts the final accumulator into the output. `f_sum` combines two
++/// partial accumulators and must be associative (devices may chunk the input
++/// in any order, e.g. parallel reduction on the rayon device); within one
++/// output cell, elements visit `f` in row-major order.
++///
++/// This function behaves identically under [`RowMajor`] and [`ColMajor`] device default orders.
++///
++/// # Parameters
++///
++/// - `tensor`: [`&TensorAny<R, T, B, D>`](TensorAny), the input.
++/// - `f_init`: the initial accumulator (called once per output cell / chunk).
++/// - `f`: folds one element into the accumulator, e.g. `|acc, x| acc + x`.
++/// - `f_sum`: combines two accumulators (associative).
++/// - `f_out`: converts the finished accumulator into the output.
++///
++/// # Returns
++///
++/// The reduced scalar of type `TO`.
++///
++/// # Examples
++///
++/// The 3-norm of a vector, spelled with the fold machinery (compare
++/// [`norm_all`] with [`NormOrd::P`]):
++///
++/// ```rust
++/// # use rstsr::prelude::*;
++/// # let mut device = DeviceCpu::default();
++/// # device.set_default_order(RowMajor);
++/// let v = rt::tensor_from_nested!([1.0, 2.0, 2.0], &device);
++/// let p3 = rt::reduce_all(
++///     &v,
++///     || 0.0_f64,
++///     |acc, x| acc + x * x * x,
++///     |acc1, acc2| acc1 + acc2,
++///     |acc| acc.cbrt(),
++/// );
++/// println!("{}", p3);
++/// // 2.571281590658235
++/// # assert_eq!(p3, rt::norm_all(&v, NormOrd::P(3.0)));
++/// ```
++///
++/// # Notes of API accordance
++///
++/// - array-api: no direct counterpart (this is an expert-level extension surface).
++///   `rt::reduce_all`/`rt::reduce_axes` mirror the internal reduction kernels that power the other
++///   reduction families.
++///
++/// # Panics
++///
++/// Panics if the closures' requirements are violated at the device level
++/// (e.g. the rayon pool is poisoned); for a fallible version, use [`reduce_all_f`].
++///
++/// # See also
++///
++/// ## Related functions in RSTSR
++///
++/// - [`reduce_axes`], [`reduce_with_args`]: axes / keepdims forms
++/// - [`sum`]: the built-in specialization
++///
++/// ## Variants of this function
++///
++/// - [`reduce_axes`], [`reduce_with_args`]
++/// - [`reduce_all_f`]: fallible version
++pub fn reduce_all_f<T, TS, TO, B, D, FI, FF, FC, FO>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    f_init: FI,
++    f: FF,
++    f_sum: FC,
++    f_out: FO,
++) -> Result<TO>
++where
++    D: DimAPI,
++    TS: Clone,
++    FI: Fn() -> TS + Send + Sync,
++    FF: Fn(TS, T) -> TS + Send + Sync,
++    FC: Fn(TS, TS) -> TS + Send + Sync,
++    FO: Fn(TS) -> TO + Send + Sync,
++    B: OpReduceCustomAPI<T, TS, TO, D>,
++{
++    let tensor = tensor.view();
++    tensor.device().reduce_all_custom(tensor.raw(), tensor.layout(), f_init, f, f_sum, f_out)
++}
++
++/// Reduces the whole input with user-provided fold closures; panicking version of [`reduce_all_f`].
++///
++/// See also [`reduce_all`].
++pub fn reduce_all<T, TS, TO, B, D, FI, FF, FC, FO>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    f_init: FI,
++    f: FF,
++    f_sum: FC,
++    f_out: FO,
++) -> TO
++where
++    D: DimAPI,
++    TS: Clone,
++    FI: Fn() -> TS + Send + Sync,
++    FF: Fn(TS, T) -> TS + Send + Sync,
++    FC: Fn(TS, TS) -> TS + Send + Sync,
++    FO: Fn(TS) -> TO + Send + Sync,
++    B: OpReduceCustomAPI<T, TS, TO, D>,
++{
++    reduce_all_f(tensor, f_init, f, f_sum, f_out).rstsr_unwrap()
++}
++
++/// Reduces along the given axes with user-provided fold closures.
++///
++/// See also [`reduce_all`]; `AxesIndex::None` reduces everything into a 0-D
++/// tensor. `f_sum` must be associative (see [`reduce_all`]).
++pub fn reduce_axes_f<T, TS, TO, B, D, FI, FF, FC, FO>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    axes: impl TryInto<AxesIndex<isize>, Error: Into<Error>>,
++    f_init: FI,
++    f: FF,
++    f_sum: FC,
++    f_out: FO,
++) -> Result<Tensor<TO, B, IxD>>
++where
++    D: DimAPI,
++    TS: Clone,
++    TO: Clone,
++    FI: Fn() -> TS + Send + Sync,
++    FF: Fn(TS, T) -> TS + Send + Sync,
++    FC: Fn(TS, TS) -> TS + Send + Sync,
++    FO: Fn(TS) -> TO + Send + Sync,
++    B: OpReduceCustomAPI<T, TS, TO, D> + DeviceCreationAnyAPI<TO>,
++{
++    let axes = axes.try_into().map_err(Into::into)?;
++    let tensor = tensor.view();
++
++    match axes {
++        AxesIndex::None => {
++            let val = tensor.device().reduce_all_custom(tensor.raw(), tensor.layout(), f_init, f, f_sum, f_out)?;
++            let storage = tensor.device().outof_cpu_vec(vec![val])?;
++            let layout = Layout::new(vec![], vec![], 0)?;
++            Tensor::new_f(storage, layout)
++        },
++        axes => {
++            let (storage, layout) = tensor.device().reduce_axes_custom(
++                tensor.raw(),
++                tensor.layout(),
++                axes.as_ref(),
++                f_init,
++                f,
++                f_sum,
++                f_out,
++            )?;
++            Tensor::new_f(storage, layout)
++        },
++    }
++}
++
++/// Reduces along the given axes with user-provided fold closures; panicking version of
++/// [`reduce_axes_f`].
++///
++/// See also [`reduce_all`].
++pub fn reduce_axes<T, TS, TO, B, D, FI, FF, FC, FO>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    axes: impl TryInto<AxesIndex<isize>, Error: Into<Error>>,
++    f_init: FI,
++    f: FF,
++    f_sum: FC,
++    f_out: FO,
++) -> Tensor<TO, B, IxD>
++where
++    D: DimAPI,
++    TS: Clone,
++    TO: Clone,
++    FI: Fn() -> TS + Send + Sync,
++    FF: Fn(TS, T) -> TS + Send + Sync,
++    FC: Fn(TS, TS) -> TS + Send + Sync,
++    FO: Fn(TS) -> TO + Send + Sync,
++    B: OpReduceCustomAPI<T, TS, TO, D> + DeviceCreationAnyAPI<TO>,
++{
++    reduce_axes_f(tensor, axes, f_init, f, f_sum, f_out).rstsr_unwrap()
++}
++
++/// Reduces with user-provided fold closures, [`ReduceArgs`] grouping `axes` and `keepdims`.
++///
++/// See also [`reduce_all`]; the args follow the same conventions as
++/// `sum_with_args` (`()` = whole reduction, `(axes, keepdims)` pairs, ...).
++pub fn reduce_with_args_f<T, TS, TO, B, D, FI, FF, FC, FO>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    args: impl Into<ReduceArgs>,
++    f_init: FI,
++    f: FF,
++    f_sum: FC,
++    f_out: FO,
++) -> Result<Tensor<TO, B, IxD>>
++where
++    D: DimAPI,
++    TS: Clone,
++    TO: Clone,
++    FI: Fn() -> TS + Send + Sync,
++    FF: Fn(TS, T) -> TS + Send + Sync,
++    FC: Fn(TS, TS) -> TS + Send + Sync,
++    FO: Fn(TS) -> TO + Send + Sync,
++    B: OpReduceCustomAPI<T, TS, TO, D> + DeviceCreationAnyAPI<TO>,
++{
++    let ReduceArgs { axes, keepdims } = args.into();
++    let tensor = tensor.view();
++
++    match axes {
++        AxesIndex::None => {
++            let val = tensor.device().reduce_all_custom(tensor.raw(), tensor.layout(), f_init, f, f_sum, f_out)?;
++            let storage = tensor.device().outof_cpu_vec(vec![val])?;
++            let out_layout = reduce_layout_whole(tensor.layout().ndim(), keepdims)?;
++            Tensor::new_f(storage, out_layout)
++        },
++        axes => {
++            let (storage, out_layout) = tensor.device().reduce_axes_custom(
++                tensor.raw(),
++                tensor.layout(),
++                axes.as_ref(),
++                f_init,
++                f,
++                f_sum,
++                f_out,
++            )?;
++            let out_layout = reduce_layout_keepdims(out_layout, &axes, tensor.layout().ndim(), keepdims)?;
++            Tensor::new_f(storage, out_layout)
++        },
++    }
++}
++
++/// Reduces with user-provided fold closures and [`ReduceArgs`]; panicking version of
++/// [`reduce_with_args_f`].
++///
++/// See also [`reduce_all`].
++pub fn reduce_with_args<T, TS, TO, B, D, FI, FF, FC, FO>(
++    tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>,
++    args: impl Into<ReduceArgs>,
++    f_init: FI,
++    f: FF,
++    f_sum: FC,
++    f_out: FO,
++) -> Tensor<TO, B, IxD>
++where
++    D: DimAPI,
++    TS: Clone,
++    TO: Clone,
++    FI: Fn() -> TS + Send + Sync,
++    FF: Fn(TS, T) -> TS + Send + Sync,
++    FC: Fn(TS, TS) -> TS + Send + Sync,
++    FO: Fn(TS) -> TO + Send + Sync,
++    B: OpReduceCustomAPI<T, TS, TO, D> + DeviceCreationAnyAPI<TO>,
++{
++    reduce_with_args_f(tensor, args, f_init, f, f_sum, f_out).rstsr_unwrap()
++}
++
++/* #endregion */
++
+ macro_rules! trait_reduction_arg {
+     ([$($with_args: ident)?] $OpReduceAPI: ident, $fn: ident, $fn_f: ident, $fn_axes: ident, $fn_axes_f: ident, $fn_all: ident, $fn_all_f: ident, $fn_with_args: ident, $fn_with_args_f: ident) => {
+         pub fn $fn_all_f<T, B, D>(tensor: impl TensorViewAPI<Type = T, Backend = B, Dim = D>) -> Result<D>
+@@ -1951,6 +2710,44 @@ mod test {
+         assert_eq!(bv.sum_axes([0, 1]).to_scalar(), 18i64);
+     }
+ 
++    #[test]
++    #[cfg(feature = "faer")]
++    fn test_norm_and_reduce_custom_faer() {
++        // rayon (DeviceFaer) paths of the norm family and custom reduce
++        let device = DeviceFaer::default();
++
++        let v: Tensor<f64, DeviceFaer> = asarray((vec![3.0, 4.0], &device));
++        assert_eq!(norm(&v, 2.0), 5.0);
++        assert_eq!(norm(&v, "l1"), 7.0);
++        assert_eq!(norm(&v, f64::NEG_INFINITY), 3.0);
++        assert_eq!(norm(&v, 0.0), 2.0);
++
++        let a: Tensor<f64, DeviceFaer> = asarray((vec![1.0, 2.0, 3.0, 4.0], [2, 2].c(), &device));
++        assert_eq!(norm(&a, "fro"), 30.0_f64.sqrt());
++        assert_eq!(norm(&a, 1.0), 6.0);
++        assert_eq!(norm(&a, -1.0), 4.0);
++        assert_eq!(norm(&a, f64::INFINITY), 7.0);
++        assert_eq!(norm(&a, f64::NEG_INFINITY), 3.0);
++        // complex input through the rayon fold (real output)
++        use num::Complex;
++        let cv: Tensor<Complex<f64>, DeviceFaer> =
++            asarray((vec![Complex::new(3.0, 4.0), Complex::new(0.0, 0.0)], &device));
++        assert_eq!(norm(&cv, 2.0), 5.0);
++        // matrix two-stage on stacked input (batch dim stays)
++        let m = asarray(((0..8).map(|v| v as f64).collect::<Vec<f64>>(), [2, 2, 2].c(), &device));
++        let n = norm_axes(&m, 1.0, [1, 2]);
++        assert_eq!(n.to_vec(), vec![4.0, 12.0]);
++        assert!(norm_f(&a, 2.0).is_err()); // matrix 2-norm needs SVD
++
++        // custom reduce (rayon kernels), incl. non-numeric accumulator
++        let r = reduce_all(&v, || 0.0_f64, |acc, x| acc + x, |acc1, acc2| acc1 + acc2, |acc| acc);
++        assert_eq!(r, 7.0);
++        let s = reduce_axes(&a, 1, || 0.0_f64, |acc, x| acc + x, |acc1, acc2| acc1 + acc2, |acc| acc);
++        assert_eq!(s.to_vec(), vec![3.0, 7.0]);
++        let any = reduce_with_args(&a, true, || false, |acc, x| acc || x > 2.0, |acc1, acc2| acc1 || acc2, |acc| acc);
++        assert!(any.to_scalar());
++    }
++
+     #[test]
+     fn test_all() {
+         let a = asarray((vec![true, true, false, true, true, true], [2, 3].c()));
+diff --git a/rstsr-core/tests/core_func/reduction/mod.rs b/rstsr-core/tests/core_func/reduction/mod.rs
+index 2cb3cc8..e895377 100644
+--- a/rstsr-core/tests/core_func/reduction/mod.rs
++++ b/rstsr-core/tests/core_func/reduction/mod.rs
+@@ -9,8 +9,10 @@ pub mod test_mean;
+ pub mod test_min;
+ pub mod test_nanargmax;
+ pub mod test_nanargmin;
++pub mod test_norm;
+ pub mod test_prod;
+ pub mod test_reduce_args;
++pub mod test_reduce_custom;
+ pub mod test_reduce_dtype;
+ pub mod test_reduce_stride0;
+ pub mod test_std;
+diff --git a/rstsr-core/tests/doc_draft/reduction/mod.rs b/rstsr-core/tests/doc_draft/reduction/mod.rs
+index f7a8bfe..ccd2e8c 100644
+--- a/rstsr-core/tests/doc_draft/reduction/mod.rs
++++ b/rstsr-core/tests/doc_draft/reduction/mod.rs
+@@ -1,4 +1,6 @@
+ // Most or all contents generated by AI (model glm-5.2).
++pub mod test_norm;
++pub mod test_reduce_custom;
+ pub mod test_reduction;
+ 
+ pub static CATEGORY: &str = "reduction";
+diff --git a/rstsr-core/tests/tracking/numpy_differences.md b/rstsr-core/tests/tracking/numpy_differences.md
+index 1f9159d..e83cf37 100644
+--- a/rstsr-core/tests/tracking/numpy_differences.md
++++ b/rstsr-core/tests/tracking/numpy_differences.md
+@@ -245,3 +245,26 @@ applies instead. For example, with `a = [[10, 21], [33, 44]]` and
+ (not the elementwise remainder `[[1, 1], [3, 2]]`). The free function
+ `rt::rem(&a, &b)` provides the NumPy-compatible elementwise remainder; the
+ parity test asserts both `rt::rem` (remainder) and `a % b` (matmul) accordingly.
++
++## `norm`: enforced `ord` positional; no integer-input promotion; zero-size semantics
++
++- **numpy:** linalg/_linalg.py::norm (L2599)
++- **rstsr:** entry_row_cpu::core_func::reduction::test_norm::numpy_norm::* and ::custom_norm_regression::*
++- **tag:** intentional
++- **status:** open
++
++Three deliberate differences from `numpy.linalg.norm`:
++
++1. `ord` is an enforced positional parameter (`rt::norm(x, ord)`); NumPy's
++   `ord=None` default corresponds to passing `2`, and the `ord=None` raveled
++   2-norm of an n-D array maps to `rt::l2_norm` (the fast path).
++2. NumPy casts integer input to float (`x.astype(float)`) before reducing;
++   RSTSR requires a float/complex dtype up front (same convention as
++   `l2_norm`; convert with an explicit cast first).
++3. Zero-size inputs follow RSTSR's zero-size reduction semantics: empty
++   `NegInf` norms return `inf` where NumPy raises, and the empty max stage of
++   matrix ±1/±Inf norms yields `0.0` (NumPy `max(initial=0)`, matched).
++
++Matrix `2`/`-2` orders raise `UnImplemented` (SVD-dependent, deferred to the
++linalg wave); the nuclear order is excluded entirely (`"nuc"` does not parse
++into [`NormOrd`]) instead of raising at fold time; NumPy computes both.

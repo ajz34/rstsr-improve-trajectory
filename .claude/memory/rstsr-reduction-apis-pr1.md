@@ -5,12 +5,12 @@ metadata:
   type: project
 ---
 
-PR1 of the 2026-10-05 reduction-apis task is COMMITTED on branch
-`261005/reduction-withargs-dtype` (e3c67cf feature + 8ae9c3d review round),
-not pushed; push/PR only on owner instruction. Review round 1 applied, then
-round 2 (stride-0 + empty axes kernel fixes, all_dtype removal, VarArgs
-correction in with_dtype, Float import style). A previous attempt (closed PR
-RESTGroup/rstsr#109) is discarded; its record was removed.
+PR1 of the 2026-10-05 reduction-apis task is MERGED as RESTGroup/rstsr#110
+(main f736987, merge of fork branch `ajz34:261005/reduction-withargs-dtype`).
+Review round 1 applied, then round 2 (stride-0 + empty axes kernel fixes,
+all_dtype removal, VarArgs correction in with_dtype, Float import style). A
+previous attempt (closed PR RESTGroup/rstsr#109) is discarded; its record was
+removed. PR2 work starts on branch `261005/norm-custom-reduce` (2026-10-05).
 
 Owner-review protocol learned: "you can git commit" authorizes THAT state
 only — each later round needs a fresh commit go (one soft-reset lesson).
