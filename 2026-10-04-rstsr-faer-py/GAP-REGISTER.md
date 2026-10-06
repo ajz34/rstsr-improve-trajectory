@@ -171,8 +171,9 @@ Mixed-dtype status after W2 (G-009 family refinements):
 Owner directive for this wave: rstsr-faer-py stays wrapper-only; bugs and
 missing algorithms are fixed on the rust side (this supersedes the W0-W2
 "register-only" stance for the duration of the task). Wheel = rstsr branch
-`261005/faer-py-stats` (uncommitted working tree at the time of the run, on
-top of main `cc65a48` = merged PR #111).
+`261005/faer-py-stats` (now PR #112: 7356137 shim stats + 36e0b7c round
+fix + ed22e4d round gated behind the std feature after the no-std CI
+failure; all 13 checks green, not merging without owner go).
 
 Suite result: **934 passed / 366 failed / 82 skipped of 1382** (stamp
 `20261006-002157`, NO_EXPLAIN, 19/19 chunks), up from 902/398/82. Flips:
@@ -192,7 +193,7 @@ New entries:
 
 | id | area | category | evidence | note |
 |---|---|---|---|---|
-| G-059 | `round` was ties-away, not ties-to-even | rust-side — **FIXED** | first surfaced by this wave's run: `test_special_cases[round(modf(i)[0]==0.5) -> ROUND_HALF_EVEN]` flipped passed->failed because the derandomized example set newly drew an exact halfway value; the kernel called `f64::round` (half away from zero), the spec requires the even neighbor | fixed on `261005/faer-py-stats`: `round_ties_even_f` helper in both device kernel tables (IEEE roundToIntegralTiesToEven, f32 exact via f64); regression test `core_func::math::test_unary_math::custom_math_basic::test_round_ties_to_even`; archived in `numpy_differences_resolved.md`. +1 suite test |
+| G-059 | `round` was ties-away, not ties-to-even | rust-side — **FIXED** | first surfaced by this wave's run: `test_special_cases[round(modf(i)[0]==0.5) -> ROUND_HALF_EVEN]` flipped passed->failed because the derandomized example set newly drew an exact halfway value; the kernel called `f64::round` (half away from zero), the spec requires the even neighbor | fixed on `261005/faer-py-stats`: `round_ties_even_f` in `rstsr-native-impl::scalar_math` behind a std feature gate (intrinsic arm + no_std arithmetic arm) after the plain `f64::round_ties_even` broke the no-std CI builds; regression test `core_func::math::test_unary_math::custom_math_basic::test_round_ties_to_even`; archived in `numpy_differences_resolved.md`. +1 suite test |
 
 Note on the shim's dtype policy: no promotion table was added to the Python
 layer; the accumulation dtype default is the spec's documented argument
