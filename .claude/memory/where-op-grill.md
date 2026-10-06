@@ -21,8 +21,10 @@ no rstsr commits without instruction. Full plan: `PROPOSAL.md`; decisions:
 IMPLEMENTED 2026-10-06 on rstsr branch `261006/rt-where`, UNCOMMITTED (no
 auto-commit): 4-layout kernel family in rstsr-common (`layout_col_major_dim_dispatch_4`
 + `_par_4`), native serial/rayon kernels with blocked-2d 4-layout macro, bridge
-trait, OpWhereAPI (serial + auto_impl, appended to op_ternary_common/op_with_func
-files to respect per-file symlinks), tensor layer `tensor/operators/op_where.rs`
+trait, OpWhereAPI in new quaternary files (owner review: where is quaternary, not
+ternary — operators/ops/op_quaternary_common.rs + device_cpu_serial +
+auto_impl, with per-file symlinks added to device_faer and all 5 BLAS
+crates), tensor layer `tensor/operators/op_where.rs`
 (IxD-intermediary 3-way broadcast — DimMaxAPI has no generic-projection impls),
 prelude `r#where`/`where_f`/`TensorWhereAPI`, docs status rows, 8 parity tests +
 doc_draft module, tracking CSV (11 rows) + 2 numpy_differences entries. Scalar
