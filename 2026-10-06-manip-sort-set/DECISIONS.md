@@ -109,8 +109,15 @@ elsewhere; fft out for this project at this time).
 
 - Stability: `stable=true` default and honored in both directions
   (descending = reversed comparator, not reversed array).
-- NaN in sort: last ascending, first descending (comparator reversal);
-  suite is silent — numpy-parity where visible.
+- NaN in sort: **last in BOTH directions** (NumPy 2.5 `numpy_tag.h`: "NaN
+  sorts to the end in reverse too"; `np.sort([3,nan,1,2], descending=True)
+  -> [3,2,1,nan]`). Amended by stage-2 review 2026-10-06 — plain comparator
+  reversal would put NaN first descending and fail translated parity tests;
+  the descending comparator must keep NaN pinned last, not reverse the
+  NaN relation.
+- Complex sort via `ExtSortCmp`: NaN-bearing complexes order by finite
+  parts (NumPy `numpy_tag.h` complex comparator), NaN part last within
+  each part; implemented in ext_sort_cmp.rs per stage-2 review.
 - Indices: `usize` rust-side everywhere; i64 py-side.
 
 ## rstsr-faer-py (interface-only)
