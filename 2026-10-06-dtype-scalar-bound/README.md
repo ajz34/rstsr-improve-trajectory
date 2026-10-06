@@ -1,7 +1,9 @@
 # Dtype scalar bound: replacing `num::Num` with an explicit marker (`DTypeScalarAPI`)
 
-**Status:** experiment done and committed on the rstsr side; family-wide rollout
-left as a **future discussion** (maintainer decision pending, 2026-10-06).
+**Status:** family-wide rollout **implemented** on rstsr branch
+`261006/dtype-scalar-bound` (commit 2aa1c55, 2026-10-06, maintainer-approved);
+based on main after PR #114 (`rt::where`) merged. Remaining open questions
+3/5/6 below stay open.
 
 **Context:** rstsr branch `261006/rt-where` (`rt::where` element-wise select).
 The code review flagged that the scalar overloads bound `TY: num::Num`
@@ -89,6 +91,37 @@ typing rejects bool x bool arithmetic today and would continue to.
 6. Long term: NumPy-weak-scalar bool x bool -> int arithmetic is impossible
    under the current promotion table; decide whether that divergence is
    acceptable (it is consistent with rstsr's strong-typing house rule).
+
+## Outcome (implementation, 2026-10-06)
+
+Questions 1 and 2 resolved as recommended: the 8 generic scalar impls
+(`op_binary_common.rs` 4 + `op_binary_arithmetic.rs` 4) swapped to
+`DTypeScalarAPI`; `op_binary_assign.rs` keeps `num::Num`. rstsr commit 2aa1c55.
+
+Implementation notes discovered while doing it:
+
+- The marker had to be widened to stay a strict superset of `num::Num`:
+  `i128`/`u128` and `Complex<f16>`/`Complex<bf16>` added (the latter two hold
+  `num::Num` only because rstsr's `half` dependency enables its `num-traits`
+  feature). Without them, e.g. `add(&i128_tensor, 3_i128)` (reflexive
+  `From<i128> for i128`) would have regressed.
+- `f64: From<i128>` does **not** exist in std - lossless `From` conversions
+  stop at i32/u32 (the earlier table's "f64: From<i128>" implication was
+  wrong). So wide-integer scalars only ever matter against same-width
+  tensors; nothing else changes for them.
+- Scalar-on-the-left arithmetic (`add(true, &i32_tensor)`, NumPy-legal) is
+  **not** unlocked by this swap: those overloads are concrete per-dtype impls
+  (`impl_arithmetic_scalar_lhs_all!`), not `num::Num`-generic. Widening them
+  is separate work if ever wanted. Scalar-on-the-left comparisons/min-max
+  (promote-based) *are* widened by the generic swap.
+- rstsr's `assert_equal` cannot verify `i128` tensors (`DTypeCastAPI<f64>`
+  unimplemented); i128 parity tests compare via `to_vec()`.
+
+Tests added: `test_scalar_bool` in `custom_add`, `custom_comparison`,
+`custom_maximum_minimum` (bool scalar arithmetic via `From<bool>`, bool
+comparisons, bool min/max, i128 non-regression, std-operator spelling
+`&a + true`). Verification: entry_row_cpu 364/364 (faer-free, rayon, and
+faer-default builds), doctests 197/0, clippy/fmt clean, col_major compiles.
 
 ## Reference
 
