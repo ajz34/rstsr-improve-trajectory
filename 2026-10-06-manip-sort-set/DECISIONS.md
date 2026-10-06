@@ -27,7 +27,13 @@ elsewhere; fft out for this project at this time).
 - Kernels: `&inputs`/`&mut output`, O(1) auxiliary memory beyond
   inputs/outputs (matmul-style exceptions must be efficiency-motivated and
   registered). Registered exceptions: `isin`'s O(m) sorted-x2 temp;
-  `unique_all`'s O(u)-bit `seen` vector (≤ the `indices` output itself).
+  `unique_all`'s O(u)-bit `seen` vector (≤ the `indices` output itself);
+  sort/argsort's O(axis_size) per-line `(value, position)` pairs scratch
+  (index-sort cannot write through in place; the buffer is reused per line,
+  not per output element — stage-3 review 2026-10-06).
+- sort/argsort on 0-d input: errors (AxisError — there is no axis to sort
+  along; NumPy's np.sort(0-d) succeeds returning a copy, deviation
+  registered, stage-3 review 2026-10-06).
 - Layout: kernels layout-generic; iteration with explicit order —
   C-order-flat contracts (repeat/roll axis=None, nonzero scan, unique
   flatten, first-occurrence indices) use `IndexedIterLayout::new(la,
