@@ -10,9 +10,10 @@ rstsr-core and related device implementations.
   `where` is in the array-api standard.
 - **Method**: grilling per repo convention — `GRILL-INIT-PROMPT.md`,
   `GRILL-R<N>-QUESTIONS.md` (agent), `GRILL-R<N>-ANSWERS.md` (user-owned).
-- **Status**: R1 asked (on screen + this directory); fact-finding sub-agents
-  (rstsr op mechanics, NumPy/array-api semantics + test surface) running;
-  R2 recomputes the frontier once they converge and R1 is answered.
+- **Status**: fact-finds converged (2026-10-06) — `FACTS-numpy-where.md`,
+  `FACTS-rstsr-where.md`. R1 + R2 asked (on screen + this directory);
+  awaiting user answers (`GRILL-R<N>-ANSWERS.md` or screen). Next:
+  DECISIONS.md + rstsr implementation plan once answers land.
 
 Not a benchmark task: no environment/numbers section planned unless the
 design calls for one (e.g. kernel variant comparison) — then this README
