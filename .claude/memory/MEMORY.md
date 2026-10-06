@@ -47,3 +47,4 @@
 - [PR1 reduction-apis state](rstsr-reduction-apis-pr1.md) - with_args/with_dtype implemented (slim axes-only dtype trait), astype POSTPONED (artifacts in task dir), uncommitted on 261005 branch; turbofish lesson; next PR2/PR3 gated on review.
 - [rstsr-reduction-apis-pr2](rstsr-reduction-apis-pr2.md) — branch 261005/custom-reduce: 24a09ef + UNCOMMITTED cumulative wave; no auto-commit; array_api_standard.md flip question open.
 - [rt::where grill closed](where-op-grill.md) — 2026-10-06: r#where, 3-arg, strict bool cond, 4-layout kernel family, scalar x/y strong w/ tensor-only fallback; proposal in 2026-10-06-where-op/PROPOSAL.md; impl awaits go.
+- [rstsr manip/sort/set grill](rstsr-manip-sort-set-grill.md) — 2026-10-06 closed: 17 fns, 3-tier vs composition split, ExtSortCmp, TypeId-dispatch dual unique, TensorViewAPI inputs, 9-stage plan; impl awaits go.
