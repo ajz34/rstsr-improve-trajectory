@@ -194,3 +194,13 @@ elsewhere; fft out for this project at this time).
   `AxisIndex` retrofit of existing single-axis fns; NumPy `kind=` knob;
   u64 scalar-carrier fix (G-013) and the 16 shim-side failures remain
   separate tracks.
+
+## Stage-6 amendment (2026-10-06, review round)
+
+- take_along_axis indices are **isize** at the rust layer, negatives
+  resolved from the back at the tensor layer (the pinned suite draws
+  ~half negative indices; NumPy resolves them). Zero-d nonzero input
+  errors (registered above); NumPy's np.sort(0-d)/np.nonzero(0-d)
+  succeed — deviations stand.
+- nonzero flat-index fill is host-side O(count) scratch; coordinate
+  tensors created from host Vecs via outof_cpu_vec.
