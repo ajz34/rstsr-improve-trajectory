@@ -107,10 +107,13 @@ where, nonzero, count_nonzero, searchsorted, take/take_along_axis, unique_*,
 isin, diff. Resolves the data-dependent-shapes claim (G-029) with reality.
 Acceptance: statistical/searching/set/utility files green or registered.
 
-> **Landed in two waves**: statistical 2026-10-06 (W3 wheel, 934/366/82 —
+> **Landed in three waves**: statistical 2026-10-06 (W3 wheel, 934/366/82 —
 > PR #112 merged); searching/indexing split off and landed as the session's
-> W5 wave (996/304/82, register v7). `where` (G-037), `nonzero`,
-> `searchsorted`, `take_along_axis`, `isin`, `unique_*` remain.
+> W5 wave (996/304/82, register v7); `where` itself landed on top of core
+> `rt::where` (PR #114) as the `where` slice — 1014/286/82, register v8,
+> `reports/SUMMARY-where.md` (also fixed the missing `i8 x i16` promotion,
+> G-069). Still absent: `nonzero`, `searchsorted`, `take_along_axis`, `isin`,
+> `unique_*`, `sort`/`argsort`.
 
 ### W4 — creation & manipulation complement (G-024)
 linspace, eye, tril/triu, zeros/ones/full/empty_like, meshgrid,

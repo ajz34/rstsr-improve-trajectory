@@ -260,3 +260,33 @@ at the binding (legal input per 2025.12), and the shim-side checks the
 review found were relocated into the kernels, so `api.py` is
 wrapper-only again. PR #113 merged by the owner (squash `c0ea36b`) after
 13/13 CI checks passed on the first run.
+
+## Entries v8 (the `where` slice of the searching wave, 2026-10-06)
+
+Suite result: **1014 passed / 286 failed / 82 skipped of 1382** — 18 flips /
+0 regressions. Canonical FRESH stamp `20261006-180651` (hypothesis DB deleted,
+19/19 chunks); warm-DB re-run `20261006-180325` gave identical totals and a
+test-level 0-flip diff. Tables
+`harness/reports/COMPLIANCE-FULL-20261006-180651.csv`; narrative
+`reports/SUMMARY-where.md`.
+
+Wheel = rstsr branch `261006/faer-py-where` (worktree `tmp/faer-py-where`,
+base main `1b09497` = merged #115); no rstsr commits made.
+
+RESOLVED:
+
+| id | area | resolution |
+|---|---|---|
+| G-037 | `where` absent | bound over rstsr's `rt::where_f` (core landed as PR #114 `076270b`): a 169-arm ternary dispatch derived from rstsr's promotion matrix (no shim-side table), bool-only condition, `_operands` weak-scalar marshalling. Flips 18 tests — the 12 blocked on `where` (test_where, test_where_with_scalars, has_names/signature, and the verification paths of getitem/asarray_arrays/eye/tril/triu/linspace/unstack/positive) plus 5 `test_nan_propagation[mean/prod/std/sum/var]` generators that build their input with `xp.where` |
+
+New entries:
+
+| id | area | category | evidence | note |
+|---|---|---|---|---|
+| G-069 | `DTypePromoteAPI<i16> for i8` missing | rust-side — **FIXED** | the where dispatch table surfaced it: every `DTypePromoteAPI`-bound op (maximum/minimum/floor_divide/atan2/copysign/hypot/nextafter/logaddexp, comparisons, where) declined int8×int16 while its mirror row int16×i8 existed; the suite draws both orderings | present since the 2025-09-29 promotion commit `ce977a1`, where a section comment swallowed the impl line (`// internal typeimpl_promotion_asable!(i8, i16, …)`); restored with flags mirroring the i16×i8 row, plus an inline `#[cfg(test)]` module in `promotion.rs` (compile-time completeness over the 13×13 matrix, `Res` checks, restored-row values) |
+| G-070 | `where` declined-case registry | shim-side (policy) | non-bool condition → TypeError; both-scalars → TypeError; complex Python scalar vs real array → TypeError | the first two are spec-aligned (condition "should" be boolean; "at least one of x1 and x2 must be an array"); the third is the pre-existing G-009 weak-scalar limit shared by every binary op, not `where`-specific |
+
+Residual red around the new surface (unchanged): `test_nan_propagation[max]`
+and `[min]` (reduction NaN propagation, G-056 family — verified independent of
+where: `xp.max([1.0, nan]) → 2.0` while sum/mean/prod/std/var propagate);
+`nonzero`/`searchsorted`/`sort` still absent (G-029 remainder).
