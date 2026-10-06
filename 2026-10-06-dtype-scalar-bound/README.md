@@ -1,9 +1,16 @@
 # Dtype scalar bound: replacing `num::Num` with an explicit marker (`DTypeScalarAPI`)
 
-**Status:** family-wide rollout **implemented** on rstsr branch
-`261006/dtype-scalar-bound` (commit 2aa1c55, 2026-10-06, maintainer-approved);
-based on main after PR #114 (`rt::where`) merged. Remaining open questions
-3/5/6 below stay open.
+**Status:** **REVERSED** (2026-10-06, same day). The maintainer reviewed the
+rollout shape and decided against it: `DTypeScalarAPI` is dropped outright
+(rstsr branch `261006/dtype-scalar-bound`, commit d8c63b7) — `rt::where`'s
+scalar overloads are back on the `num::Num` family convention, bool scalars
+are rejected again, and the sanctioned spelling for a bool constant is a 0-d
+tensor via the new `rt::from_scalar(value, &device)` (commit 95c87ac, same
+branch). Reasons: the rollout would have been a rare-path break for
+downstream code generic over `num::Num`; the bool-scalar use case is thin;
+family consistency beats the shorthand. The analysis below and the coherence
+negative result remain the record of why the explicit list was the only
+viable form of the marker, should the topic ever return.
 
 **Context:** rstsr branch `261006/rt-where` (`rt::where` element-wise select).
 The code review flagged that the scalar overloads bound `TY: num::Num`
