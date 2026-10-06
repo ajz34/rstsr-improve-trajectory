@@ -8,7 +8,11 @@ rstsr; any missing capability is a rust-side gap. Rust-side *bug* fixes are
 authorized for this task series (W3–W5 directive).
 
 Wheel = rstsr branch **`261006/faer-py-where`** (worktree `tmp/faer-py-where`,
-base `1b09497` = merged #115). No rstsr commits made (none-wanted policy).
+base `1b09497` = merged #115). Two commits (`155e48f` trait fix, `8d4cb28`
+binding), pushed to the fork; **PR #116, all 13 checks green on the first
+run** (rustfmt, clippy, 4× unittests, col-major, faer-linalg, pthread,
+doctests, integration, 2× no-std), **merged by the agent on the owner's go
+as squash `05cf6ce`** — no fix-up commits needed.
 
 ## Result
 

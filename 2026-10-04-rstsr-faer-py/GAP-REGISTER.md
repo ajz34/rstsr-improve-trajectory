@@ -271,7 +271,8 @@ test-level 0-flip diff. Tables
 `reports/SUMMARY-where.md`.
 
 Wheel = rstsr branch `261006/faer-py-where` (worktree `tmp/faer-py-where`,
-base main `1b09497` = merged #115); no rstsr commits made.
+base main `1b09497` = merged #115); PR #116 (13/13 checks green first run)
+merged as squash `05cf6ce`.
 
 RESOLVED:
 
