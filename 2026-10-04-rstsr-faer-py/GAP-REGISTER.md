@@ -291,3 +291,20 @@ Residual red around the new surface (unchanged): `test_nan_propagation[max]`
 and `[min]` (reduction NaN propagation, G-056 family — verified independent of
 where: `xp.max([1.0, nan]) → 2.0` while sum/mean/prod/std/var propagate);
 `nonzero`/`searchsorted`/`sort` still absent (G-029 remainder).
+
+## Entries v9 (current-failure census, 2026-10-06)
+
+No new divergences surfaced by the census; it re-measured the merged `where`
+state after the local workspace was relocated to
+`~/rstsr_pack/rstsr-local-workspace` (the common local workspace — the wheel
+is rebuilt there from scratch). Fresh chunked stamp `20261006-183350`
+(FRESH, NO_EXPLAIN, 19/19 chunks): **1014 / 286 / 82 of 1382**, test-for-test
+0-flip vs the canonical `20261006-180651`. Full partition of the 286 in
+`reports/STATUS-2026-10-06-failure-census.md`; roll-up: missing surface 114
+(61 names) · rust-side semantics/kernels 156 · shim-side fixes 16.
+
+Status changes:
+
+| id | change |
+|---|---|
+| G-013 | upgraded from "ungraded edge" to **graded**: `bitwise_invert` on uint64 is value-correct in the tensor, but scalar extraction / `tolist` wraps through the i64 PyScalar carrier (`~[1] → -2`, `0xFFFFFFFFFFFFFFFE → -1`); `test_bitwise_invert` grades it (2 tests). Shim-side fix (u64-capable carrier). |

@@ -8,7 +8,8 @@ rstsr; any missing capability is a rust-side gap. Rust-side *bug* fixes are
 authorized for this task series (W3–W5 directive).
 
 Wheel = rstsr branch **`261006/faer-py-where`** (worktree `tmp/faer-py-where`,
-base `1b09497` = merged #115). Two commits (`155e48f` trait fix, `8d4cb28`
+later relocated to `~/rstsr_pack/rstsr-local-workspace` on 2026-10-06; base
+`1b09497` = merged #115). Two commits (`155e48f` trait fix, `8d4cb28`
 binding), pushed to the fork; **PR #116, all 13 checks green on the first
 run** (rustfmt, clippy, 4× unittests, col-major, faer-linalg, pthread,
 doctests, integration, 2× no-std), **merged by the agent on the owner's go
@@ -105,7 +106,7 @@ propagation for `max`/`min` (G-056 family, verified independent of `where`:
 ## Reproduce
 
 ```bash
-cd <worktree `/home/a/rstsr_pack/tmp/faer-py-where`>/crates-interop/rstsr-faer-py
+cd <workspace `/home/a/rstsr_pack/rstsr-local-workspace`>/crates-interop/rstsr-faer-py
 CARGO_PROFILE_RELEASE_OPT_LEVEL=0 maturin build --release -i "$TEST_PY" -o /tmp/wheels
 "$TEST_PY" -m pip install --force-reinstall --no-deps /tmp/wheels/rstsr_faer_py-*.whl
 cd <task>/harness && NO_EXPLAIN=1 MODULE=rstsr_faer.api CHUNKED=1 ./run.sh   # FRESH=1 for canonical
