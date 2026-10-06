@@ -107,6 +107,11 @@ where, nonzero, count_nonzero, searchsorted, take/take_along_axis, unique_*,
 isin, diff. Resolves the data-dependent-shapes claim (G-029) with reality.
 Acceptance: statistical/searching/set/utility files green or registered.
 
+> **Landed in two waves**: statistical 2026-10-06 (W3 wheel, 934/366/82 —
+> PR #112 merged); searching/indexing split off and landed as the session's
+> W5 wave (996/304/82, register v7). `where` (G-037), `nonzero`,
+> `searchsorted`, `take_along_axis`, `isin`, `unique_*` remain.
+
 ### W4 — creation & manipulation complement (G-024)
 linspace, eye, tril/triu, zeros/ones/full/empty_like, meshgrid,
 broadcast_to/arrays/shapes, concat, stack, unstack, expand_dims, squeeze,
@@ -114,12 +119,23 @@ flip, moveaxis, tile, repeat, roll (roll/repeat = known rust gaps G-002/G-003
 — register, don't hack). Acceptance: manipulation + creation green modulo
 those entries.
 
+> **Landed 2026-10-06** (`7447350` + fixes `4bd2ab5`/`6fcabe6`; part of
+> PR #113, merged as squash `c0ea36b`): red map **984/316/82** at stamp
+> `20261006-121144` (+50/0) — creation complete, manipulation complete
+> except `repeat`/`roll`/`tile`. Finds fixed on the way: triu k-range panic
+> (G-060) and the linspace endpoint/drift (G-061); input declines
+> registered G-062/G-063. Details in `reports/SUMMARY-w4.md`.
+
 ### W5 — dtype-introspection decision point (G-027/G-008; needs a user decision)
 can_cast / result_type / isdtype: rstsr has no token-level promotion query.
 Options to grill at review: (a) shim-side static table mirroring
 DTypePromoteAPI (value-exact, drifts with rstsr), (b) tiny rust-side helper
 (proper, needs permission), (c) SKIPS_FILE scope-out (recorded, honest, costs
 ~16 tests). Also G-032 finfo-complex fix lands here if not earlier.
+
+> **Still open** — the 2026-10-06 session wave numbered "W5" was the
+> searching/indexing complement instead (register v7); dtype introspection
+> (G-027/G-008/G-032) awaits its decision round.
 
 ### W6 — linalg (G-023) + Array method dunders tail
 `xp.matmul`, `matrix_transpose`, `vecdot`, `tensordot` + the `xp.linalg`

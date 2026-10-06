@@ -202,3 +202,61 @@ cast reuses the shim's registered astype path (G-007/G-018 machinery).
 `median` is NOT in the 2025.12 statistical surface (checked the stubs:
 cumulative_sum/prod, max, mean, min, prod, std, sum, var) — no rust-side
 median work is needed for conformance.
+
+## Entries v6 (W4 creation & manipulation complement, 2026-10-06)
+
+Owner directive carries over: rstsr-faer-py wrapper-only; bugs fixed
+rust-side. Wheel = rstsr branch `261006/faer-py-creation-manip` (worktree
+`tmp/faer-py-w4`, base main `2ce2afd` = merged #112); the branch later grew
+W5 + the review round and was merged as PR #113 (squash `c0ea36b`).
+
+Suite result: **984 passed / 316 failed / 82 skipped of 1382** (stamp
+`20261006-121144`), up from 934/366/82 — 50 flips / 0 regressions. Flips
+and blocked checks in `reports/SUMMARY-w4.md`; table
+`harness/reports/COMPLIANCE-FULL-20261006-121144.csv`.
+
+RESOLVED (partial): G-024 creation & manipulation complement — creation
+complete; manipulation complete except `repeat`/`roll`/`tile`
+(G-002/G-003, no rstsr primitive).
+
+New entries:
+
+| id | area | category | evidence | note |
+|---|---|---|---|---|
+| G-060 | `triu`/`tril` k outside the matrix | rust-side — **FIXED** (`4bd2ab5`) | `rt::triu(ones((3, 3)), 2)` panicked: `j_end = max(i + k, 0)` was not clamped to `ncol`; a huge \|k\| wrapped in tril (zeroed the wrong range) | row clamp + saturating `i + k`; regression tests `custom_tril_triu::{test_k_outside_row_bounds, test_extreme_k}`; archived in `numpy_differences_resolved.md` |
+| G-061 | `linspace` endpoint + serial drift | rust-side — **FIXED** (`6fcabe6`) | `linspace(0, 6.4913965932284536e16, 25)[-1]` one ulp short of `stop` (`start + (n-1)*step` rounds to a neighbor); `linspace(2, 10, 100)[-1] = 9.999999999999996` (the serial kernel accumulated `v += step`) | both kernels now compute `y[i] = start + i * step` and assign the endpoint directly; test `custom_linspace::test_endpoint_exact`; NumPy parity is float64-only |
+| G-062 | `eye`/`tril`/`triu` bool dtype | rust-side | declines: eye through the name dispatch (no bool arm), tril/triu through `dispatch_t_numeric_same!` ("not defined for bool dtype") | kernels are `Num`-bound (bool has no `Num` impl); outside the suite's generators (`hh.numeric_dtypes` excludes bool); needs a bool-capable creation/tri path (G-016 family) |
+| G-063 | `linspace` non-floating dtype | rust-side (policy) | declines with a TypeError naming the `ComplexFloat` bound (float32/float64/complex64/complex128 only) | the spec says the dtype "should be a floating-point data type" — non-float output is not required; the suite draws `real_floating_dtypes` only |
+
+## Entries v7 (W5 searching & indexing + branch review, 2026-10-06)
+
+Suite result: **996 passed / 304 failed / 82 skipped of 1382** (stamp
+`20261006-131221`, re-verified `20261006-132433`) — 12 flips / 0
+regressions; the review round's fixes then changed no test outcome
+(test-level 0-flip diff `20261006-132433` → `20261006-144402`). Tables
+`harness/reports/COMPLIANCE-FULL-20261006-{131221,144402}.csv`; narrative
+`reports/SUMMARY-w5.md`.
+
+RESOLVED (partial): G-029 searching/set — `argmax`, `argmin`,
+`count_nonzero` bound (`test_searching_functions` now passes them;
+`where`/`nonzero`/`searchsorted` remain), and `take` bound from the
+indexing side. Still absent: `where` (G-037), `nonzero`, `searchsorted`,
+`take_along_axis`, `isin`, `unique_*`, `sort`/`argsort`.
+
+New entries — all surfaced by the `/code-review max` round on the branch;
+fixes in `4bce438`, each with a core regression test and a
+`numpy_differences_resolved.md` entry:
+
+| id | area | category | evidence | note |
+|---|---|---|---|---|
+| G-064 | `Layout::diagonal` super-diagonal gate | rust-side — **FIXED** | `eye(2, 4, k=2)` all-zero; `eye(3, 1, k=2)` a bogus layout-overflow error | the super-diagonal range was gated on `d1` (rows) instead of `d2` (cols); gate is `(0..d2)` now; consumers eye/diag/diagonal |
+| G-065 | `squeeze` mixed negative axis list | rust-side — **FIXED** | `(-4, 0)` accepted: only the descending-sort head was checked, so the invalid `-1` survived and addressed a real axis | every mapped axis is validated; test `custom_squeeze_mixed_axes` |
+| G-066 | `take`/`index_select` empty indices | rust-side — **FIXED** | empty indices on a zero-length axis raised IndexError (`indices.iter().max().unwrap_or(&0)` tested the sentinel `0`) | returns the empty selection; test `custom_indexing_take` |
+| G-067 | argmax/argmin empty output | rust-side — **FIXED** | `argmax(zeros((2, 0)), axis=0)` raised before the axes split; the guard tested the total size | guard applies to the split *reduced* axes: empty output is legal, an empty reduced axis still raises; test `custom_arg_empty` |
+| G-068 | tril/triu rank-1 error class | rust-side — **FIXED** | rank-1 input surfaced as a bare AxisError → IndexError in the array-API wrapper | kernels assert `ndim >= 2` up front (InvalidLayout → ValueError); test `custom_tril_triu::test_ndim1_error` |
+
+Also in the review commit: `meshgrid()` with zero vectors now returns `()`
+at the binding (legal input per 2025.12), and the shim-side checks the
+review found were relocated into the kernels, so `api.py` is
+wrapper-only again. PR #113 merged by the owner (squash `c0ea36b`) after
+13/13 CI checks passed on the first run.
