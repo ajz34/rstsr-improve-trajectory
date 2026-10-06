@@ -10,11 +10,12 @@ rstsr-core and related device implementations.
   `where` is in the array-api standard.
 - **Method**: grilling per repo convention — `GRILL-INIT-PROMPT.md`,
   `GRILL-R<N>-QUESTIONS.md` (agent), `GRILL-R<N>-ANSWERS.md` (user-owned).
-- **Status**: fact-finds converged (2026-10-06) — `FACTS-numpy-where.md`,
-  `FACTS-rstsr-where.md`. Consolidated **R1** (full frontier, 10 questions)
-  asked on screen + this directory; awaiting user answers
-  (`GRILL-R1-ANSWERS.md` or screen). Next: DECISIONS.md + rstsr
-  implementation plan once answers land.
+- **Status**: **grill closed 2026-10-06** — all 10 R1 recommendations
+  accepted (Q8 with a tensor-only fallback contingency). Records:
+  `GRILL-INIT-PROMPT.md`, `GRILL-R1-QUESTIONS.md`, `FACTS-numpy-where.md`,
+  `FACTS-rstsr-where.md`, `DECISIONS.md`, `PROPOSAL.md`. Next: implement in
+  rstsr on branch `261006/rt-where` on user go (no rstsr commits without
+  instruction).
 
 Not a benchmark task: no environment/numbers section planned unless the
 design calls for one (e.g. kernel variant comparison) — then this README
