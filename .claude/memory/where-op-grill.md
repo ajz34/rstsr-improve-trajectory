@@ -18,8 +18,8 @@ contingency: fall back to tensor-only v1 if scalar trait impls get too
 complicated**; test transfer list per Q9; rstsr branch `261006/rt-where`,
 no rstsr commits without instruction. Full plan: `PROPOSAL.md`; decisions:
 `DECISIONS.md`; facts: `FACTS-numpy-where.md`, `FACTS-rstsr-where.md`.
-IMPLEMENTED 2026-10-06 on rstsr branch `261006/rt-where`, UNCOMMITTED (no
-auto-commit): 4-layout kernel family in rstsr-common (`layout_col_major_dim_dispatch_4`
+IMPLEMENTED 2026-10-06, committed b0054c3 on rstsr branch `261006/rt-where`
+(owner-approved commit; not pushed): 4-layout kernel family in rstsr-common (`layout_col_major_dim_dispatch_4`
 + `_par_4`), native serial/rayon kernels with blocked-2d 4-layout macro, bridge
 trait, OpWhereAPI in new quaternary files (owner review: where is quaternary, not
 ternary — operators/ops/op_quaternary_common.rs + device_cpu_serial +
