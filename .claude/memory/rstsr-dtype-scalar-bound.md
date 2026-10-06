@@ -5,7 +5,7 @@ metadata:
   type: project
 ---
 
-`num::Num` on rstsr scalar overloads (op_binary_common/arithmetic/assign, op_where) is a **dispatch discriminator**: it prunes the scalar impl when a tensor reference is passed (else E0283 ambiguity on every tensor-tensor call). No Num method is ever called. Self-promotion cannot discriminate: `promotion.rs:41` has a reflexive blanket `impl<T> DTypePromoteAPI<T> for T` (same for DTypeCastAPI at :56); `DeviceAPI<T> for DeviceCpuSerial` is an unconstrained blanket; `ExtNum` lacks bool. Stable Rust has no negative bounds → an explicit per-dtype marker is the only shape.
+`num::Num` on rstsr scalar overloads (op_binary_common/arithmetic/assign, op_where) is a **dispatch discriminator**: it prunes the scalar impl when a tensor reference is passed (else E0283 ambiguity on every tensor-tensor call). No Num method is ever called. Self-promotion cannot discriminate: `promotion.rs:41` has a reflexive blanket `impl<T> DTypePromoteAPI<T> for T` (same for DTypeCastAPI at :56); `DeviceAPI<T> for DeviceCpuSerial` is an unconstrained blanket; `ExtNum` lacks bool. Stable Rust has no negative bounds → an explicit per-dtype marker is the only shape. Compiler-proven (2026-10-06): `impl<T: num::Num> DTypeScalarAPI for T` + `impl DTypeScalarAPI for bool` is E0119 — coherence must assume upstream (std) may add `Add/Sub/Mul/Div/Rem for bool`, which could make `bool: num::Num` provable; `negative_impls` doesn't help (same orphan rules).
 
 Done: `DTypeScalarAPI` marker (`rstsr-dtype-traits/src/scalar.rs`, promotion-matrix dtype set incl. bool, feature-gated halves) replaces num::Num on rt::where's scalar overloads (branch 261006/rt-where, e960119); bool scalars accepted, no ambiguity, all suites green.
 
