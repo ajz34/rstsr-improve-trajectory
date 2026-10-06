@@ -18,4 +18,17 @@ contingency: fall back to tensor-only v1 if scalar trait impls get too
 complicated**; test transfer list per Q9; rstsr branch `261006/rt-where`,
 no rstsr commits without instruction. Full plan: `PROPOSAL.md`; decisions:
 `DECISIONS.md`; facts: `FACTS-numpy-where.md`, `FACTS-rstsr-where.md`.
-Implementation awaits user go.
+IMPLEMENTED 2026-10-06 on rstsr branch `261006/rt-where`, UNCOMMITTED (no
+auto-commit): 4-layout kernel family in rstsr-common (`layout_col_major_dim_dispatch_4`
++ `_par_4`), native serial/rayon kernels with blocked-2d 4-layout macro, bridge
+trait, OpWhereAPI (serial + auto_impl, appended to op_ternary_common/op_with_func
+files to respect per-file symlinks), tensor layer `tensor/operators/op_where.rs`
+(IxD-intermediary 3-way broadcast — DimMaxAPI has no generic-projection impls),
+prelude `r#where`/`where_f`/`TensorWhereAPI`, docs status rows, 8 parity tests +
+doc_draft module, tracking CSV (11 rows) + 2 numpy_differences entries. Scalar
+variants bound `num::Num` (coherence: DTypePromoteAPI blanket same-type impl
+would collide with the tensor impl) — bool scalars unsupported at scalar
+positions, no fallback needed. Verified: 351/351 serial+faer entry_row_cpu,
+196 doctests, clippy clean, rustdoc clean (fn.where.html), openblas + col_major
+compile. Gotchas: single-axis slicing has no 1-tuple TryFrom (use `&[expr.into()]`);
+`slice!(0, None, -2)` == numpy `[0::-2]` not `[::-2]`; to_vec is 1-D only.

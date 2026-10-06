@@ -24,6 +24,15 @@ rt::r#where(&c, 0.5, &y)         // scalar x                            [Q8]
 
 **Milestone 1 — 4-layout kernel family (Q7):**
 
+> IMPLEMENTED 2026-10-06 (branch `261006/rt-where`, uncommitted). Naming note
+> (user, mid-run): the mutable output operand is **`d`**, inputs are
+> **a/b/c** (a = cond, b = x, c = y) — kernel
+> `op_mutd_refa_refb_refc_func[_cpu_serial|_cpu_rayon]`, bridge trait
+> `Op_MutD_RefA_RefB_RefC_API`, device methods
+> `op_mutd_refa_refb_refc` / `op_mutd_refa_refb_numc` / `op_mutd_refa_numb_refc`.
+> Scalar variants reuse the existing 3-layout `op_mutc_refa_refb_func` kernels
+> with the scalar captured in the closure (no new native scalar kernels).
+
 1. `rstsr-common/src/layout/iterator.rs` — serial
    `layout_col_major_dim_dispatch_4` (mirror of `_3`, line ~917).
 2. `rstsr-common/src/par_iter.rs` — `_par_4` (mirror of `_par_3`, ~166).
