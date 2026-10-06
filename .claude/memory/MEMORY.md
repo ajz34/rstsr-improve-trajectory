@@ -1,4 +1,5 @@
 # Memory Index
+- [Dtype scalar bound](rstsr-dtype-scalar-bound.md) - num::Num is a dispatch discriminator; DTypeScalarAPI marker on rt-where e960119; rollout verdicts per family; ExtReal-bool gap.
 
 - [OpenBLAS ILP64 on CI](rstsr-openblas-ilp64-ci.md) - CI blas_int = i64 vs local i32; never fixed-width-cast blas_int in tests (PR #106 clippy hit).
 - [T1 unsafe audit + 2026-09-17 recheck](rstsr-soundness-t1-unsafe-audit.md) - 5 bugs + R1/R2 residue fixed (fb45e78: AtomicPtr hoist in device crates, broadcast gates x5); R3 BLAS3/getrf/getri/gesvd fixed via PR #106 (2026-09-21), still open tblis shared-ptr output + vendor thread state; facade-dev-dep test gotcha inside.
