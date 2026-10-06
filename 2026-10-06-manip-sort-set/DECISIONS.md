@@ -30,7 +30,13 @@ elsewhere; fft out for this project at this time).
   `unique_all`'s O(u)-bit `seen` vector (≤ the `indices` output itself);
   sort/argsort's O(axis_size) per-line `(value, position)` pairs scratch
   (index-sort cannot write through in place; the buffer is reused per line,
-  not per output element — stage-3 review 2026-10-06).
+  not per output element — stage-3 review 2026-10-06);
+  unique's O(n) scratch — naive `Vec<&T>` seen-scan, sorted `(T, usize)`
+  pairs, and LineAccess's O(n) offsets collection even for contiguous
+  inputs (first-pass implementations; a contiguous fast path can drop the
+  offsets — stage-5 review 2026-10-06). Unique outputs retain the written
+  prefix only: raw Vecs are truncated to the unique count before
+  assume-init (stage-5 review fix).
 - sort/argsort on 0-d input: errors (AxisError — there is no axis to sort
   along; NumPy's np.sort(0-d) succeeds returning a copy, deviation
   registered, stage-3 review 2026-10-06).
