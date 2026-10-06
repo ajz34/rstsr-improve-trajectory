@@ -22,6 +22,9 @@ Full maps, 19/19 chunks, `NO_EXPLAIN=1`:
 - warm-DB stamp `20261006-180325` — 18 flips, 0 regressions
 - **canonical FRESH stamp `20261006-180651`** (hypothesis DB deleted first) —
   totals identical and a test-level 0-flip diff versus the warm run
+- final-source wheel (a comment-only edit to the section header landed after
+  the recorded build) rebuilt and re-run chunked: same 1014/286/82, 19/19
+  chunks; smoke probe and both `where` tests re-verified
 
 Table `harness/reports/COMPLIANCE-FULL-20261006-180651.csv`; per-test diff
 against W5 (`…-144402.csv`) printed 18 `failed → passed`, nothing else.
