@@ -123,6 +123,36 @@ comparisons, bool min/max, i128 non-regression, std-operator spelling
 `&a + true`). Verification: entry_row_cpu 364/364 (faer-free, rayon, and
 faer-default builds), doctests 197/0, clippy/fmt clean, col_major compiles.
 
+## Negative result: `DTypeScalarAPI` as a `num::Num` blanket + `bool` (2026-10-06)
+
+Asked by the maintainer after the rollout: can the marker be *defined* as
+`num::Num` + `bool` instead of an explicit list?
+
+```rust
+impl<T> DTypeScalarAPI for T where T: num::Num + Send + Sync + Clone + 'static {}
+impl DTypeScalarAPI for bool {}   // E0119: conflicting implementations
+```
+
+**Does not compile.** Coherence rejects the overlap and the note names the
+real culprit - not `num-traits`, but the supertrait chain: `Num: PartialEq +
+Zero + One + NumOps`, bottoming out in `std::ops::{Add, Sub, Mul, Div, Rem}`:
+
+```
+= note: upstream crates may add a new impl of trait `core::ops::Add` for type `bool` in future versions
+= note: (likewise Sub/Mul/Div/Rem, ...)
+```
+
+Since `bool` is a primitive and the ops traits are foreign, rustc must assume
+std could one day add `impl Add for bool`, which could make `bool: num::Num`
+provable - so the overlap is rejected today on behalf of a hypothetical
+tomorrow. `negative_impls`/`with_negative_coherence` cannot help either:
+`impl !num::Num for bool` violates the same orphan rules.
+
+Conclusion: the explicit per-dtype list is the **only stable-Rust form** of
+this set; the "never via a blanket" design note from the original experiment
+is confirmed with a concrete compiler error. Recorded in the marker's
+docstring (rstsr commit 84919e3, amended) so it is not re-attempted.
+
 ## Reference
 
 - rstsr branch `261006/rt-where`: b0054c3 (feature), 06e3b58 (review fixes),
