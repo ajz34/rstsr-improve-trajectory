@@ -5,9 +5,10 @@ metadata:
   type: project
 ---
 
-W4/W5 (2026-10-06, branch `261006/faer-py-creation-manip`, worktree
-`tmp/faer-py-w4`) completed the creation and manipulation categories and
-bound the searching/indexing entries over rstsr's existing `rt::` surface.
+W4/W5 (2026-10-06, branch `261006/faer-py-creation-manip`; its worktree
+`tmp/faer-py-w4` was removed after the merge) completed the creation and
+manipulation categories and bound the searching/indexing entries over
+rstsr's existing `rt::` surface.
 Suite: 934/366/82 → **984/316/82** (W4, stamp `20261006-121144`) →
 **996/304/82** (W5, stamp `20261006-131221`); the review round's fixes were
 a test-level 0-flip diff (`20261006-132433` → `20261006-144402`). Details in
