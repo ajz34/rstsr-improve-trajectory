@@ -11,9 +11,10 @@ rstsr-core and related device implementations.
 - **Method**: grilling per repo convention — `GRILL-INIT-PROMPT.md`,
   `GRILL-R<N>-QUESTIONS.md` (agent), `GRILL-R<N>-ANSWERS.md` (user-owned).
 - **Status**: fact-finds converged (2026-10-06) — `FACTS-numpy-where.md`,
-  `FACTS-rstsr-where.md`. R1 + R2 asked (on screen + this directory);
-  awaiting user answers (`GRILL-R<N>-ANSWERS.md` or screen). Next:
-  DECISIONS.md + rstsr implementation plan once answers land.
+  `FACTS-rstsr-where.md`. Consolidated **R1** (full frontier, 10 questions)
+  asked on screen + this directory; awaiting user answers
+  (`GRILL-R1-ANSWERS.md` or screen). Next: DECISIONS.md + rstsr
+  implementation plan once answers land.
 
 Not a benchmark task: no environment/numbers section planned unless the
 design calls for one (e.g. kernel variant comparison) — then this README
