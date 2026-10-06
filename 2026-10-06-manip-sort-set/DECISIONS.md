@@ -88,10 +88,15 @@ elsewhere; fft out for this project at this time).
   = same machinery with default comparator; complex sort = documented
   docstring example + doctest, not shipped as a named fn; NumPy `kind=`
   recorded as intentional deviation; not exposed in the python wrapper.
-- `searchsorted_f(x1, x2, args: impl Into<SearchSortedArgs>)`;
+- `searchsorted_f(x1, x2, args: impl TryInto<SearchSortedArgs>)` (deviation
+  from `Into`: side strings are fallible to parse; stage-4 review 2026-10-06);
   `SearchSortedArgs { side: SearchSide = Left, sorter: Option<Vec<usize>>
-  }` (numpy-parity rust-native `sorter`); output dtype must equal
-  `default_dtypes()["indexing"]` (= int64 py-side, via idx_lift).
+  }` (numpy-parity rust-native `sorter`, length/bounds validated at the
+  tensor layer); output dtype must equal `default_dtypes()["indexing"]`
+  (= int64 py-side, via idx_lift). Complex-NaN keys: binary search hoists
+  NaN-bearing keys after finite entries (differs from ExtSortCmp's
+  part-wise complex order); complex searchsorted remains a registered
+  follow-up.
 - `nonzero_f(x) -> Vec<Tensor<usize, B, IxD>>` (one per dim, strict C
   order, 0-d raises); two-pass count+fill kernels; all dtypes.
 - `unique_values_f(x) -> Tensor`; `unique_counts_f -> UniqueCounts`;
