@@ -17,6 +17,19 @@ arraytypes.c.src semantics, 0/2000 mismatches vs np.sort); isin now treats
 NaN membership as value equality (NumPy parity). Gates all green; suite
 test-for-test unchanged (1059/241/82).
 
+## NumPy test-parity review round (2026-10-07)
+
+Second review (scope: NumPy test parity) found 16 issues; all fixed in the
+rstsr working tree (uncommitted — no rstsr auto-commit); dispositions in
+`code-review-findings/RESPONSE-numpy-parity.md`. Headline: the wave's
+sort/searching/set/indexing tests were tracked in neither `numpy_coverage.csv`
+(204→250 rows) nor `sync_numpy.py`'s SURFACE (now 0 MISSING); `unique`/`isin`/
+`nonzero`/`take_along_axis` were written as `custom_*` despite dedicated NumPy
+classes (now `numpy_*` with provenance); `diff` had no core_func/doc_draft test
+(new `test_diff.rs`); three docstrings asserted phantom NumPy deviations
+(`tile`, `take_along_axis`, `unique_*`); and five provenance headers cited
+nonexistent NumPy paths/classes. Entry tests 462→499, clippy 0, fmt clean.
+
 ## Final state
 
 - **17 functions** implemented rstsr-core side and bound in rstsr-faer-py:
