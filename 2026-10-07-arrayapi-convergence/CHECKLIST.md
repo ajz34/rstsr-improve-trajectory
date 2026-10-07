@@ -4,12 +4,13 @@ Ordered by ROI and by blocking. Counts are "suite nodes moved" (fails flipped,
 plus currently-skipped tests that get *activated* where noted). Register ids
 (G-nnn) refer to `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-Working baseline to beat: **1059 / 241 / 82 of 1382** (stamp `20261007-212921`).
+Working baseline to beat: **1144 / 156 / 82 of 1382** (stamp `20261007-153214`,
+`FRESH=1`, `CHUNKED=1`, `NO_EXPLAIN=1`).
 
-**Progress — `log1p` + complex `expm1` done (2026-10-07, rstsr PR #121, branch
-`261007/log1p-kernel`).** New baseline: **1091 / 209 / 82** (+32, 0 regressions;
-log1p 20 + complex expm1 12). See C3. Group A (shim quick wins) is now the
-cheapest remaining block.
+**Progress — C1 (complex transcendentals) done (2026-10-07, rstsr PR #122,
+squash `b2e22ab`, branch `261007/complex-transcendentals`).** Baseline moved
+**1091 / 209 / 82 → 1144 / 156 / 82** (+53, 0 regressions, node set identical).
+See C1. Group A (shim quick wins) is now the cheapest remaining block.
 
 ## A. Shim-side quick wins — do first (~18 fails, no rust changes)
 
@@ -24,7 +25,7 @@ no algorithms. Lowest risk, immediate payoff.
 - [ ] **A5. `astype(..., device=)` acceptance** (G-046) — 1
 - [ ] **A6. u64 PyScalar carrier** for `bitwise_invert` (G-013) — 2
 
-Exit check: full chunked run, expect **1091 + ~18 = ~1109 passed / ~191 failed
+Exit check: full chunked run, expect **1144 + ~18 = ~1162 passed / ~138 failed
 / 82 skipped**, 0 regressions (test-for-test diff).
 
 ## B. Decisions needed before more binding work (each is a fork, not code)
@@ -45,9 +46,16 @@ Exit check: full chunked run, expect **1091 + ~18 = ~1109 passed / ~191 failed
 
 Register + request; never fix agent-side.
 
-- [ ] **C1. G-055 complex transcendental values/accuracy — 53**
-      (one work item: special-value propagation + complex64 accuracy for
-      acos…tanh, sqrt)
+- [x] **C1. G-055 complex transcendentals — DONE** (rstsr PR #122, squash
+      `b2e22ab`): new `rstsr-dtype-traits::c99_complex` carries the C99 Annex G
+      routines for `sqrt/cosh/sinh/tanh/tan/acos/asin/acosh/asinh/atanh` — the
+      inverse trig via the Hull–Fairgrieve–Tang crossover for large `|z|`;
+      `ExtComplexFloat` gained one method per function (real `f32`/`f64`
+      delegate to libm, so only complex takes the new path) and both device
+      tables were re-pointed. All 53 fixed (48 special values + 5 elementwise).
+      Also fixed the *draw-dependent* `expm1(±0±0i)` and `tanh(±inf+iy)`
+      zero-sign cases (G-075/G-076). Note: the oracle is the spec stub
+      docstrings, **not** numpy — see the register's v11 method note.
 - [ ] **C2. G-009 mixed-dtype arithmetic & joins — 29**
       (`add/sub/mul/div`, `bitwise_*`/shifts, `concat`/`stack`: Rust bounds are
       same-type only)
@@ -81,9 +89,14 @@ Register + request; never fix agent-side.
       the state that builds the recorded wheel.
 - [ ] Every divergence gets a `GAP-REGISTER` entry (rust-side / shim-side /
       suite); no rstsr-core edits without owner permission.
+- [ ] Heavy Rust builds — notably `cargo test --doc` — need
+      `TMPDIR=$HOME/.cache/tmp-cargo`: `/tmp` is a tmpfs with a per-user quota,
+      so rustdoc's parallel temp writes hit `EDQUOT` and surface as phantom
+      "Couldn't compile the test" failures (env, not code; CI is green).
 
 ## Suggested next session
 
 Take **group A** (≈18 fails, low risk, all shim-side) and, in parallel, put the
 **B1 (linalg)** decision to the owner — it moves the most tests of any single
-item.
+item. On the rust queue the order is now **C2** (mixed-dtype arithmetic/joins,
+29), then **C4/C5** (`remainder` 12, `signbit` 9).

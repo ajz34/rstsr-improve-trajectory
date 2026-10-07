@@ -156,7 +156,7 @@ New divergences confirmed during the pass:
 | G-052 | dtype-preserving unary kernels for integers | rust-side | `rt::{ceil,floor,trunc,round}_f` promote integer inputs to float64 (`TOut = T::FloatType`); the spec requires the input dtype (suite grades integers for ceil/floor/trunc/round) | shim declines integer inputs per owner ruling 2026-10-05 ("decline now, fix later"). Also `conj` (integers routed through the into-float block) |
 | G-053 | `pow` dtype coverage | rust-side | integer bases: `num::Pow` needs an unsigned exponent type (`i8: Pow<i8>` undefined); complex: `num_complex` has no `Complex<T>: Pow<Complex<T>>` (documented upstream limitation) | shim serves float32/float64 same-dtype only; mixed pairs stay G-009 |
 | G-054 | `rt::signbit` semantics inverted | rust-side | `signbit(-2.0)` returns False, `signbit(1.0)` returns True (kernel writes `is_positive()`) | wrong values are worse than a decline: the shim raises with this register reference; suite probe `_has_functional_signbit()` consequently reports "unavailable" (only affects zero-sign checks) |
-| G-055 | complex transcendental coverage and special-value propagation | rust-side | `expm1(complex)` has no kernel (`Float`-bound impl only); num-based kernels return `nan+nanj` where the spec requires specific values (acos/acosh/asinh/atanh/cosh/sinh/tanh/sqrt special cases, ~35 tests); accuracy diverges at large magnitudes in complex64 (`acos(7281-1j)`, `asinh(-2731+1j)`, `tan(1+45j)` vs numpy/cmath) | rust-side numerical work; register first, no shim workaround |
+| G-055 | complex transcendental coverage and special-value propagation | rust-side | `expm1(complex)` has no kernel (`Float`-bound impl only); num-based kernels return `nan+nanj` where the spec requires specific values (acos/acosh/asinh/atanh/cosh/sinh/tanh/sqrt special cases, ~35 tests); accuracy diverges at large magnitudes in complex64 (`acos(7281-1j)`, `asinh(-2731+1j)`, `tan(1+45j)` vs numpy/cmath) | **RESOLVED** (v11, rstsr PR #122 squash `b2e22ab`): `rstsr-dtype-traits::c99_complex` (C99 Annex G port) + one `ExtComplexFloat` method per function, both device op tables re-pointed; all 53 suite nodes flipped. See v11 for G-075/G-076 and the "oracle is the spec stubs, not numpy" note |
 | G-056 | elementwise `maximum`/`minimum` do not propagate NaN | rust-side | `maximum(NaN, 0.0)` returns 0.0, spec requires NaN (2 tests); consistent with the 2026-10-02 compliance directive for min/max | rust-side fix |
 | G-057 | `remainder` signed zero / infinite divisor | rust-side | `remainder(-0.0, 2.0)` → -0.0 (spec: +0), `remainder(1.0, -inf)` → 1.0 (spec: -inf); rstsr's float `%` is fmod-style, the spec's `remainder` follows the divisor's sign (Python `%` semantics) | 8 tests across remainder/`__mod__`/`__imod__` |
 | G-058 | `log1p` has no device kernel | rust-side | `TensorLog1pAPI`/`OpLog1pAPI` are declared, but every device impl file carries only `// TODO: log1p` (`device_cpu_serial/operators/op_binary_common.rs`, `feature_rayon/auto_impl/op_binary_common.rs`) — `rt::log1p_f` cannot be instantiated for `DeviceFaer` | 20 suite failures (name neither bound nor bindable); shim side is trivial once a kernel exists (float-only, like `expm1`) |
@@ -357,3 +357,44 @@ Stage-8 notes for existing gaps:
   0-d now; `test_all`/`test_any` pass again (they had passed at census only
   because hypothesis had not yet drawn the 0-d keepdims example; the DB
   grew during this stage's runs).
+
+## Entries v11 (C1 — complex transcendentals, 2026-10-07, rstsr PR #122)
+
+Suite stamp `20261007-153214` (NO_EXPLAIN, CHUNKED, `FRESH=1`) against rstsr
+`main` @ `b2e22ab` (squash of branch `261007/complex-transcendentals`):
+**1144 / 156 / 82 of 1382** — +53 flips, 0 regressions, node set identical
+(1382) versus the previous stamp `20261007-144313` (1091 / 209 / 82). The 53 =
+48 `test_special_cases::test_unary` + the `test_acos` / `test_asin` /
+`test_asinh` / `test_tan` / `test_tanh` elementwise nodes.
+
+RESOLVED in this wave:
+
+| id | surface | class | observed behavior | disposition |
+|---|---|---|---|---|
+| G-055 | complex elementary functions (`sqrt`, `cosh`, `sinh`, `tanh`, `tan`, `acos`, `asin`, `acosh`, `asinh`, `atanh`) | rust-side — **FIXED** (`b2e22ab`) | the `num-complex` formulas return `nan + nanj` where the standard prescribes a specific `±inf` / `±0` / `π` combination (its `FIXME #1284`), and `acos`/`asin`/`asinh` lose accuracy at large magnitude | new `rstsr-dtype-traits` module `c99_complex` carries the C99 Annex G routines (inverse trig via the Hull–Fairgrieve–Tang crossover); `ExtComplexFloat` gained one method per function — the real `f32`/`f64` impls delegate to libm, so only complex inputs take the new path — and both device op tables were re-pointed |
+| G-075 | `expm1(±0 ± 0i)` | rust-side — **FIXED** (`b2e22ab`) | returned the sign of the input zeros (`-0 + 0j` for a `-0` real part); the standard fixes `+0 + 0j` | zero-input guard in `ext_exp_m1` |
+| G-076 | `tanh(±inf + iy)`, `y` finite | rust-side — **FIXED** (`b2e22ab`) | took its imaginary zero from `sin(y)*cos(y)`, whose sign flips at a floating-point zero crossing; the standard fixes `+0` for finite `y` (it leaves the sign open only for `y = ±inf` / `NaN`) | the zero now follows `y` |
+
+G-075/G-076 are **draw-dependent** nodes: they looked green in earlier stamps
+only because the warm hypothesis DB had drawn `+0` inputs; a `FRESH=1` run
+exposed them. Both are deterministic now.
+
+Method note — **the oracle is the spec stubs, not numpy.** The special-case
+table that `test_special_cases.py` grades against is parsed from the *stub
+docstrings* (`array-api/src/array_api_stubs/_2025_12/elementwise_functions.py`).
+Two things this wave confirmed:
+
+- numpy on this machine calls the **system** complex math (glibc), not the
+  vendored `npy_math_complex.c.src` fallbacks it ships — the two disagree in
+  the NaN corners (`cacosh(0+NaN i)`, `ccosh(0+i∞)`, `ctanh(0+i∞)`). Probe with
+  a *runtime* `-fno-builtin` C program: constant folding of `INFINITY`/`NAN`
+  literals yields a third, wrong answer.
+- the stub table is **stricter than numpy** in exactly the G-075/G-076
+  zero-sign cases; numpy passes them by draw luck. rstsr now passes them
+  deterministically, i.e. it is ahead of numpy on that axis.
+
+Known deviation (documented in the code): numpy's `ccosh`/`csinh` middle branch
+(`710 < |x| < 1455`) uses `frexp`/`ldexp` so an exactly-zero `cos y` yields `0`
+rather than `NaN`; `libm`/`num` expose no `frexp`, so that branch is merged
+into `exp(|x|)·0.5` — identical except when the trig factor is exactly zero,
+which generated floats do not reach.
