@@ -308,3 +308,52 @@ Status changes:
 | id | change |
 |---|---|
 | G-013 | upgraded from "ungraded edge" to **graded**: `bitwise_invert` on uint64 is value-correct in the tensor, but scalar extraction / `tolist` wraps through the i64 PyScalar carrier (`~[1] → -2`, `0xFFFFFFFFFFFFFFFE → -1`); `test_bitwise_invert` grades it (2 tests). Shim-side fix (u64-capable carrier). |
+
+## Entries v10 (W6-8 manip/sort/set binding wave, stage 8 of 2026-10-06-manip-sort-set)
+
+Suite stamp `20261006-235845` (NO_EXPLAIN, CHUNKED, warm DB) against branch
+`261006/manip-sort-set` @ stage-8 shims + G-072 fix: **1059 / 241 / 82 of
+1382** — +45 flips, 0 regressions vs census `20261006-183350` (1014 / 286 /
+82), test-for-test (44 binding flips + `test_tile` from the G-072 fix): 14
+`test_has_names` + 14 `test_signatures` +
+17 runtime (repeat, roll, searchsorted+scalars, nonzero, isin+scalars,
+unique_*×4, sort, argsort, take_along_axis, diff, diff_append_prepend,
+tile).
+`test_concat`/`test_stack` remain red
+(pre-existing G-009 joins).
+
+New gaps surfaced:
+
+| id | surface | class | observed behavior | disposition |
+|---|---|---|---|---|
+| G-071 | `default_dtypes()["indexing"]` key | shim-side — **FIXED** (stage 8) | `searchsorted`'s dtype assertion raised `KeyError: 'indexing'`: the 2025.12 `DefaultDataTypes` TypedDict requires an `"indexing"` key that the `_NamespaceInfo.default_dtypes` dict did not carry (only real/integral/complex) | added `"indexing": int64` — consistent with every index output going through `idx_lift`; 2 suite tests (`searchsorted`, `searchsorted_with_scalars`) |
+| G-072 | `tile` with a zero-size input axis | rust-side — **FIXED** (stage 8 review round, 2026-10-07) | `tile(zeros((0, 3)), (1, 2))` panics in `assign_arbitary_uninit_cpu_serial` (assignment.rs:53): the contiguous fast path slices `c[offset_c..offset_c+size]` with a nonzero `offset_c` against a length-0 source slice — the per-block source is empty but the destination block offset is still applied to an (empty) contig destination | fixed in `rstsr-native-impl` `cpu_serial/assignment.rs` + `cpu_rayon/assignment.rs`: early `Ok(())` return when `lc.size() == 0` in the contig fast path (empty dest writes nothing; offsets may point past empty storages); regression test `test_zero_size_input_axis` in `test_tile.rs`; `test_tile` green (suite 1059/241/82) |
+| G-073 | 0-d integer Array as a scalar index | shim-side — **FIXED** (stage 8) | suite's reference computation `a_1d[i_1d[j]]` uses a 0-d int Array as index; the `__getitem__` gap gate declined it as integer-array indexing (G-039) | 0-d integral arrays marshal through `__index__` (NumPy scalar-index semantics); genuine mask / multi-element array keys still decline under G-038/G-039; `test_take_along_axis` |
+
+Stage-8 notes for existing gaps:
+
+- G-009 (cross-dtype) grew an intentional, spec-table-driven exception:
+  `isin` promotes mixed *integer* pairs to their common int dtype through the
+  existing astype path (`_common_int_dtype` mirrors the standard's promotion
+  table — value-preserving for every pair the suite draws); mixed
+  non-integer pairs still decline. `test_isin` draws promotable int pairs
+  (e.g. uint8×uint16), so the same-dtype-only kernel needed the marshal.
+- The 16 `test_signatures` flips include `sort`/`argsort`/`repeat`/`roll`/
+  `tile`/`searchsorted`/`nonzero`/`isin`/`unique_*`×4/`take_along_axis`/
+  `diff` — pos-only `/` and kw-only `*` shapes match the 2025.12 stubs;
+  `roll.shift` is pos-or-keyword with default `None` per the stub.
+- `repeat`/`roll`/`tile`/`searchsorted`/`sort`/`argsort`/`nonzero`/`diff`/
+  `take_along_axis`/`unique_values`/`unique_counts`/`unique_inverse`/
+  `unique_all`/`isin` are now **bound** (G-001/G-002/G-003/G-012 fulfilled
+  rust-side by stages 1–7; this stage only marshals). `unique_all` is the
+  first namedtuple-precedent return (`collections.namedtuple` built in
+  api.py); `unique_counts`/`unique_inverse` are namedtuples too (the spec
+  text requires `.values`/`.counts` attribute access, and the suite's
+  `hasattr` checks grade it).
+- Pre-existing all/any fix bundled with this stage (G-074): `op_all_axes`/
+  `op_any_axes` built their truthiness zero as a shape-`(1,)` tensor, which
+  broadcast-lifted 0-d inputs to `(1,)` before the reduction —
+  `all(0-d, keepdims=True)` returned `(1,)` instead of `()`. The zero is
+  0-d now; `test_all`/`test_any` pass again (they had passed at census only
+  because hypothesis had not yet drawn the 0-d keepdims example; the DB
+  grew during this stage's runs).
