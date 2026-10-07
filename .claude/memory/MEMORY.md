@@ -49,3 +49,5 @@
 - [rt::where grill closed](where-op-grill.md) — 2026-10-06: r#where, 3-arg, strict bool cond, 4-layout kernel family, scalar x/y strong w/ tensor-only fallback; proposal in 2026-10-06-where-op/PROPOSAL.md; impl awaits go.
 - [rstsr manip/sort/set grill](rstsr-manip-sort-set-grill.md) — 2026-10-06 closed: 17 fns, 3-tier vs composition split, ExtSortCmp, TypeId-dispatch dual unique, TensorViewAPI inputs, 9-stage plan; impl awaits go.
 - [NumPy unique_* aliases](numpy-unique-aliases.md) - array-API aliases are unordered + equal_nan=False (>=2.3), unlike np.unique; 0-d np.nonzero raises.
+- [Array API special-value oracle](arrayapi-special-value-oracle.md) — special_cases grades against the spec stub docstrings, NOT numpy; numpy uses glibc complex math on Linux; the table is stricter than numpy on two zero-sign cases (draw-dependent nodes).
+- [tmpfs /tmp per-user quota](tmp-tmpfs-usrquota.md) — `/tmp` has `usrquota`; EDQUOT surfaces as ~93 phantom doctest compile failures — use `TMPDIR=$HOME/.cache/tmp-cargo`.
