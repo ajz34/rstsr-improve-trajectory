@@ -93,6 +93,9 @@ Register + request; never fix agent-side.
       `TMPDIR=$HOME/.cache/tmp-cargo`: `/tmp` is a tmpfs with a per-user quota,
       so rustdoc's parallel temp writes hit `EDQUOT` and surface as phantom
       "Couldn't compile the test" failures (env, not code; CI is green).
+      
+      Human user note: only when error happens, then use this way as last resort.
+      In common case, simply `cargo test --doc` should enough.
 
 ## Suggested next session
 
