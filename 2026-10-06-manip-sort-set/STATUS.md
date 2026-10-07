@@ -1,8 +1,21 @@
-# STATUS — wave COMPLETE (2026-10-07)
+# STATUS — wave COMPLETE (2026-10-07, incl. external-review round)
 
 All stages delivered; branch `261006/manip-sort-set` in the main repo holds
-the full wave (12 commits, base `e7cdc6a`), committed but **not pushed** (no
+the full wave (13 commits, base `e7cdc6a`), committed but **not pushed** (no
 PR, per wave grants). See SUMMARY.md for the full record.
+
+## External review round (2026-10-07, post-wave)
+
+`code-review-findings/REVIEW-manip-sort-set.md` (15 findings + below-cut
+list) addressed in rstsr @ `4444fbe`; dispositions in
+`code-review-findings/RESPONSE-manip-sort-set.md`. Headline fixes: the five
+crates-device crates were broken (E0433 `half` in a symlinked module);
+take_along_axis read index views in storage order and rejected legal
+broadcast indices; naive unique_all undercounted complex multiplicities;
+ExtSortCmp complex ordering was not NumPy's (rewritten as the exact
+arraytypes.c.src semantics, 0/2000 mismatches vs np.sort); isin now treats
+NaN membership as value equality (NumPy parity). Gates all green; suite
+test-for-test unchanged (1059/241/82).
 
 ## Final state
 
