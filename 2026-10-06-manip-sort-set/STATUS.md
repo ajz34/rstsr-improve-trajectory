@@ -1,33 +1,41 @@
-# STATUS — implementation paused (2026-10-06, "temporary terminate")
+# STATUS — wave COMPLETE (2026-10-07)
 
-Not yet restarted after this pause; nothing implemented yet.
+All stages delivered; branch `261006/manip-sort-set` in the main repo holds
+the full wave (12 commits, base `e7cdc6a`), committed but **not pushed** (no
+PR, per wave grants). See SUMMARY.md for the full record.
 
-## State at pause
+## Final state
 
-- Grill CLOSED: DECISIONS.md authoritative (this directory); committed
-  `59de84b` (grill artifacts + memory).
-- User go received: implementation proceeds in the **main repo**
-  `/home/a/rstsr_pack/rstsr` (NOT rstsr-local-workspace — user redirected;
-  that folder is out of scope for this wave; its stray branch
-  `261006/manip-sort-set` was reused: worktree detached to e7cdc6a, branch
-  checked out in main repo at e7cdc6a, tree clean).
-- Grants in effect for this wave: auto-commit allowed in rstsr; NO push,
-  NO gh pr. Procedure per stage: implement (glm-5.3-flash, sonnet slot,
-  max) → review once (deepseek-flash, haiku slot, high; final review max)
-  → implement review findings (reviewer never edits) → commit → next stage.
-  Main session orchestrates only; subagents do detail work (user directive).
-- Stage 1 (repeat/roll/tile) dispatched twice, both stopped BEFORE writing
-  any code (first returned a garbled report; second user-killed during
-  NumPy edge verification). Tree verified clean after each. Stage 1 spec
-  is in the dispatch prompts of this session; DECISIONS.md remains the
-  source of truth.
-- A fork session that briefly held the implementation go stood down
-  permanently (cross-session handoff resolved; it created nothing).
+- **17 functions** implemented rstsr-core side and bound in rstsr-faer-py:
+  repeat, roll, tile, sort, argsort, sort_custom, argsort_custom,
+  searchsorted, nonzero, unique_values/counts/inverse/all, isin,
+  take_along_axis, diff.
+- **Gates green at close**: 460 entry tests, 243 doctests, clippy 0,
+  fmt clean.
+- **Suite**: 1014/286/82 → **1059/241/82** (+45, 0 regressions,
+  test-for-test vs census `20261006-183350`).
+- Both repos' trees clean: rstsr @ `e0bcb9f`, trajectory @ SUMMARY/STATUS
+  commit.
 
-## Resume checklist
+## Procedure audit (vs standing directives)
 
-1. `git -C /home/a/rstsr_pack/rstsr` on `261006/manip-sort-set`, clean tree.
-2. Re-dispatch stage 1 per DECISIONS.md §tensor API (repeat/roll/tile,
-   composition ops, concat pattern) — full spec was in the killed prompts;
-   rebuild from DECISIONS.md + creation_from_tensor.rs/flip.rs patterns.
-3. Follow with stages 2–9 per DECISIONS.md delivery plan.
+- Implement (glm-5.3-flash, sonnet slot) → review once (deepseek-flash,
+  haiku slot, high) → apply/justify → commit → next stage: followed for
+  stages 1–8. Stage 7's diff review was bundled into the stage-8 round
+  (single `e6ed99a` commit carried both).
+- Reviewer never edited code; every finding noticed; two findings
+  **justified-not-applied** with evidence (stage-8 roll-mismatch premise —
+  refuted by NumPy probe; stage-7 bound-nit — refuted by compile error).
+- No push, no `gh pr`, main repo only (rstsr-local-workspace untouched).
+- Subagent model routing honored: sonnet slot = glm/glm-5.3-flash
+  (implementation), haiku slot = deepseek/deepseek-flash (review).
+- The user-cancelled final total-level review (directive amended mid-wave:
+  "not going to do the total-level code review job; after all stages
+  finishes, you can pause") was NOT run.
+
+## Follow-ups parked (not this wave)
+
+- Complex searchsorted ordering (registered follow-up; see SUMMARY).
+- nonzero 0-d raise-vs-empty deviation (DECISIONS).
+- test_concat/test_stack red via pre-existing G-009.
+- Col-major entry test binary (ADR-0002) still unwired.
