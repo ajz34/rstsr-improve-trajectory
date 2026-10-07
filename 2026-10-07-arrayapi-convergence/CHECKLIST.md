@@ -6,6 +6,11 @@ plus currently-skipped tests that get *activated* where noted). Register ids
 
 Working baseline to beat: **1059 / 241 / 82 of 1382** (stamp `20261007-212921`).
 
+**Progress — `log1p` + complex `expm1` done (2026-10-07, rstsr PR #121, branch
+`261007/log1p-kernel`).** New baseline: **1091 / 209 / 82** (+32, 0 regressions;
+log1p 20 + complex expm1 12). See C3. Group A (shim quick wins) is now the
+cheapest remaining block.
+
 ## A. Shim-side quick wins — do first (~18 fails, no rust changes)
 
 Wrapper-only edits in `crates-interop/rstsr-faer-py`; each is a register entry,
@@ -19,7 +24,7 @@ no algorithms. Lowest risk, immediate payoff.
 - [ ] **A5. `astype(..., device=)` acceptance** (G-046) — 1
 - [ ] **A6. u64 PyScalar carrier** for `bitwise_invert` (G-013) — 2
 
-Exit check: full chunked run, expect **1059 + ~18 = ~1077 passed / ~223 failed
+Exit check: full chunked run, expect **1091 + ~18 = ~1109 passed / ~191 failed
 / 82 skipped**, 0 regressions (test-for-test diff).
 
 ## B. Decisions needed before more binding work (each is a fork, not code)
@@ -33,8 +38,8 @@ Exit check: full chunked run, expect **1059 + ~18 = ~1077 passed / ~223 failed
 - [ ] **B3. dtype functions `can_cast/isdtype/result_type`** (G-027/G-008) —
       rstsr promotion exists only as associated types, no token-level query;
       needs a rust-side design decision. 12 fails.
-- [ ] **B4. `clip`** (no rstsr primitive) and **`log1p`** (kernel is a
-      `// TODO`) — rust-side; 3 + 2 name fails, `log1p` also 18 rust fails.
+- [ ] **B4. `clip`** (no rstsr primitive) — rust-side; 3 fails. (`log1p` done —
+      see C3.)
 
 ## C. Rust-side queue — ordered by failures per work item
 
@@ -42,11 +47,17 @@ Register + request; never fix agent-side.
 
 - [ ] **C1. G-055 complex transcendental values/accuracy — 53**
       (one work item: special-value propagation + complex64 accuracy for
-      acos…tanh, sqrt; `expm1` complex is a further 12)
+      acos…tanh, sqrt)
 - [ ] **C2. G-009 mixed-dtype arithmetic & joins — 29**
       (`add/sub/mul/div`, `bitwise_*`/shifts, `concat`/`stack`: Rust bounds are
       same-type only)
-- [ ] **C3. G-058 `log1p` kernel — 18** (declared but every device impl is a TODO)
+- [x] **C3. G-058 `log1p` kernel — DONE** (rstsr PR #121, branch
+      `261007/log1p-kernel`): new `rstsr-dtype-traits` trait `ExtComplexFloat`
+      (`ext_log_1p` / `ext_exp_m1`) with one device-table row per backend
+      serving real + complex; real via `libm::log1p`/`expm1`, complex via the
+      compensated `ln(u) − rho/u` and `2 exp(z/2) sinh(z/2)`. Fixed `log1p` (20
+      nodes) **and** complex `expm1` (12). Also required exporting
+      `log1p`/`log1p_f`/`TensorLog1pAPI` from the rstsr-core prelude.
 - [ ] **C4. G-057 `remainder` signed-zero / infinite-divisor — 12**
 - [ ] **C5. G-054 `signbit` inverted semantics — 9**
 - [ ] **C6. G-038/G-039 mask & fancy indexing — 6**
