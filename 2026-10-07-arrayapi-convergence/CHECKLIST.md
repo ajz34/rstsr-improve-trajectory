@@ -118,9 +118,21 @@ Register + request; never fix agent-side.
       value (general broadcast values are a follow-on). 2 nodes
       (`test_getitem_masking`, `test_setitem_masking`) → 1212 / 88 / 82.
       `capabilities()["boolean indexing"] == True` (G-051) is now truthful.
-- [ ] **C6b. G-039 integer-array (fancy) indexing — 4**
-      (multi-axis mutually-broadcast index arrays + NumPy's advanced-indexing
-      rule; binary — partial support flips nothing)
+- [x] **C6b. G-039 integer-array (fancy) indexing — DONE** (rstsr branch
+      `261009/array-indexing`, commits `d53128f` (core) + `0e789b1` (faer-py) +
+      `97456a1` (docs/tracking); not pushed): new `ArrayIndexer` / `ArrayIndexArgs`
+      and `rt::array_index` / `TensorAny::array_index` (returning `TensorCow`)
+      implement NumPy's vectorized indexing — basic indexers mixed with integer
+      index arrays, mutual broadcasting, and the placement rule (a contiguous
+      advanced run stays in place, a separated one moves to the front; integers
+      count as advanced for the grouping). Layout-generic `DeviceArrayIndexAPI`
+      with a serial kernel (`rstsr-native-impl/cpu_serial/array_indexing.rs`); the
+      faer-py shim routes integer-array keys through it (a lone boolean array keeps
+      its mask route; a boolean array mixed into a tuple and advanced-key
+      assignment stay declined). All 4 nodes
+      (`test_getitem_arrays_and_ints_{1,2}[{1,None}]`) → **1216 / 84 / 82**.
+      Also fixed `Layout::dim_narrow`'s negative-step bounds to Python slicing
+      rules — surfaced by the 1000-case NumPy-generated differential harness.
 - [x] **C7. G-053 `pow` int/bool/complex bases — DONE** (rstsr branch
       `261008/signbit-pow`, `bacc07b`, PR pending): `OpPowAPI` moved off the
       `num::Pow` special case to a promoted binary op (`TOut = TA::Res`, the
@@ -199,7 +211,8 @@ Register + request; never fix agent-side.
 
 Take **group A** (≈18 fails, low risk, all shim-side) and, in parallel, put the
 **B1 (linalg)** decision to the owner — it moves the most tests of any single
-item. On the rust queue the order is now **C6b** (integer-array / fancy
-indexing — a genuine feature, not a bug fix), then the surface levers (the B
-decisions: `linalg` 86 tests, `fft` 42). C2, C6a (mask), C10 (G-044 + G-045)
-and the shim-side joins are done (see above).
+item. On the rust queue, **C6b** (integer-array / fancy
+indexing) is now done (2026-10-08, branch `261009/array-indexing`); the remaining
+lever is the surface decisions (the B decisions: `linalg` 86 tests, `fft` 42).
+C2, C6a (mask), C6b (array indexing), C10 (G-044 + G-045) and the shim-side
+joins are done (see above).
