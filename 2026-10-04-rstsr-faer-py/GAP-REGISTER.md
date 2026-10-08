@@ -33,7 +33,7 @@ outcome, issue (filled at review points, opened only on user go).
 | G-006 | `__pos__` / `__ifloordiv__` / `__ipow__` | rust-side | D | pending run | fulfillment-table D |
 | G-007 | astype / tensor-level dtype cast | rust-side | ? | pending run | no astype/into_dtype API in rstsr 0.9.0; shim casts element-wise via DTypeCastAPI in Rust (lossy semantics ungraded) |
 | G-008 | runtime dtype introspection / result_type / can_cast | rust-side | ? | pending run | rstsr dtype is a static type param; promotion exists only as associated types (DTypePromoteAPI), no token-level query |
-| G-009 | cross-dtype arithmetic (add etc.) | rust-side | ? | pending run | tensor-tensor arithmetic impls are same-dtype only; comparisons/maximum/minimum/pow are promotion-capable in rstsr |
+| G-009 | cross-dtype arithmetic (add etc.) | rust-side — **FIXED (v16)** | ? | `3ec30aa` | tensor-tensor arithmetic impls were same-dtype only; comparisons/maximum/minimum/pow were already promotion-capable in rstsr |
 | G-010 | matmul (`%` / `@`) | rust-side | C(%) | pending run | table's C-status column; suite grades `xp.matmul` |
 | G-011 | DLPack exchange (`__dlpack__`, from_dlpack) | shim-side | planned | S2 | PyCapsule over rt::dlpack; import copy-only |
 | G-012 | nonzero / where / unique_* / searchsorted / take | rust-side? | ? | pending run | unconfirmed surface; first run decides |
@@ -122,8 +122,8 @@ v0/v1 wave items:
 | G-041 | `all`/`any` ignore `keepdims=True` | shim-side | `xp.all(xp.asarray([False]), keepdims=True).shape == ()`, expected `(1,)` | also `any`; bind `*_axes` with keepdims |
 | G-042 | `sum` lacks `axis=` and `dtype=` | shim-side | `sum(x, axis=0)` → NotImplementedError; `sum(x, dtype=None)` → TypeError | `rt::sum_axes` exists; `dtype` acceptance + accumulation semantics = G-043 |
 | G-043 | integer reductions keep the input dtype; spec uses the default integer accumulator | rust-side | suite `out.dtype=uint8, but should be uint64 [sum(uint8)]` | affects sum/prod (mean/std/var promotion to float to verify when bound) |
-| G-044 | `negative`/unary minus refused for unsigned dtypes | rust-side | `negative: not defined for bool/unsigned dtypes` on `uint8`; suite grades uint8 and numpy wraps | spec expects defined semantics; gates `__neg__` (bool exclusion is spec-correct) |
-| G-045 | assigning into an empty (size-0) tensor raises InvalidLayout | rust-side | `Array(shape=(0,0))[:, :] = v` → `cannot assign to broadcasted tensor` | zero-size dims give stride 0, read as broadcast by the write gate; shim-side special-casing barred by the wrapper-only rule |
+| G-044 | `negative`/unary minus refused for unsigned dtypes | rust-side — **FIXED (v16)** | `negative: not defined for bool/unsigned dtypes` on `uint8`; suite grades uint8 and numpy wraps | spec expects defined semantics; gates `__neg__` (bool exclusion is spec-correct) |
+| G-045 | assigning into an empty (size-0) tensor raises InvalidLayout | rust-side — **FIXED (v16)** | `Array(shape=(0,0))[:, :] = v` → `cannot assign to broadcasted tensor` | zero-size dims give stride 0, read as broadcast by the write gate; shim-side special-casing barred by the wrapper-only rule |
 | G-046 | `astype` signature lacks `device=` | shim-side | `Argument 'device' missing from signature` | spec 2025.12 astype is `(x, dtype, /, *, copy=True, device=None)` |
 | G-047 | `reshape` declares `shape` positional-only | shim-side | `shape is a pos-only argument, but should be a pos or kw argument` ×4 | suite signs off on pos-or-kw |
 | G-048 | namespace-info `devices()` returns a list; `default_device()` absent | shim-side | `isinstance(out.devices(), tuple)` (2025.12); `hasattr(out, "default_device")` | Python-layer only |
@@ -522,3 +522,44 @@ Corrections and caveats:
 - `conj` — the other half of the original G-052 note — is **untouched**
   (`dispatch_t_float_complex_same!` still declines integer inputs). `test_conj`
   draws `complex_dtypes` only, so this is ungraded; leaving it is deliberate.
+
+## Entries v16 (C2 + joins + C10/G-045 — mixed-dtype arithmetic, cross-dtype joins, empty `setitem`, 2026-10-08)
+
+Suite stamps, all `FRESH=1 CHUNKED=1 NO_EXPLAIN=1`:
+
+| step | rstsr ref | before → after |
+|---|---|---|
+| C2 mixed-dtype arithmetic/bitwise/shifts (27) + G-044 (2) | PR #125, squash `3ec30aa` | 1178 / 122 / 82 → 1207 / 93 / 82 (+29) |
+| cross-dtype `concat` / `stack` (shim) | branch `261008/various-fixes`, `a3eb0e5` | 1207 / 93 / 82 → 1209 / 91 / 82 (+2) |
+| G-045 empty `setitem` | branch `261008/various-fixes`, `e64de57` | 1209 / 91 / 82 → **1210 / 90 / 82** (+1) |
+
+RESOLVED in this wave:
+
+| id | surface | class | observed behavior | disposition |
+|---|---|---|---|---|
+| G-009 | cross-dtype arithmetic (`add`/`subtract`/`multiply`/`divide`), `bitwise_*` / shifts | rust-side — **FIXED** (`3ec30aa`) | the tensor arithmetic ops were same-dtype only (Rust `Add`/`Sub`/… bounds), so mixed-dtype operands declined; the comparison family (`maximum`/`pow`/`floor_divide`) already promoted via `DTypePromoteAPI` but no arithmetic op did | new promoted operator family `OpExt{Add,Sub,Mul,Div,BitAnd,BitOr,BitXor,Shl,Shr}API` + `TensorExt{…}API` with `TOut = TA::Res` (the `maximum`/`pow` shape); device kernel `c = a.promote() + b.promote()` under `TA: DTypePromoteAPI<TB>`. The native `Op`-bound operators are **unchanged**, so Rust scalar/tensor `+`/`-`/… stay same-type-addable. Shifts are width-aware (`num::PrimInt`: left shift → 0 past the element width, right shift pins at `bits-1`). Both devices; the shim re-points its arithmetic/bitwise wrappers at the `ext_*` fns. |
+| G-044 | `negative` / unary minus on unsigned dtypes | rust-side — **FIXED** (`eb0c0b4`, PR #124) | `negative`/`__neg__` raised `not defined for bool/unsigned dtypes`; the spec expects NumPy's wrap-around, so the shim declined `uint8` | NumPy-style `ext_neg` (`OpExtNegAPI`/`TensorExtNegAPI`, the same `ext_*` naming family as C2); bool stays refused (spec-correct). Flipped the 2 `test_negative` nodes. Recorded retroactively here — the fix predates this wave but was never entered; it lands in the C2 run's diff, so the +29 there is 27 arithmetic + 2 G-044. |
+| — | `concat` / `stack` across dtypes | shim-side — **FIXED** (`a3eb0e5`) | a Rust join's inputs must share one element type, so mixed-dtype `concat`/`stack` raised | shim-side marshalling: `_promote_pair`/`_cast_parts` cast each part to the array-API common dtype, then call the same-dtype join; the Rust joins stay single-dtype. 2 nodes (`test_concat`, `test_stack`). |
+| G-045 | assigning into an empty (size-0) tensor raises InvalidLayout | rust-side — **FIXED** (`e64de57`) | `(0,0)[:,:] = v` (also `(3,0)`) → `cannot assign to broadcasted tensor` | `Layout::is_broadcasted` tested only for a zero stride, but a zero-size shape propagates zero strides into outer axes (contiguous `(3,0)` → `[0,1]`), so every write gate keyed on it refused the write. It now returns `false` when `size() == 0` (an empty layout cannot alias), matching `check_strides` / `bounds_index` / `size_non_broadcast`; non-empty layouts keep the conservative rule (a zero stride still counts as broadcasted). 1 node (`test_setitem`). |
+
+Corrections and caveats:
+
+- G-009's bucket is 29 nodes = 27 mixed-**arithmetic** / bitwise / shift draws
+  + 2 joins (`test_concat`/`test_stack`, handled shim-side). The
+  suite's `_promotion_table` only draws **within-kind** operand pairs, so
+  `DTypePromoteAPI`'s NumPy table reproduces the expected result dtype
+  pair-for-pair; no cross-kind case is graded. The shim's
+  `dispatch_bin_promote_int!` drops the `u64 × signed` pairs (their promoted
+  type is `f64`, which the array API never uses as an integer result).
+- the `ext_*` operators are the **array-API-fulfilment** forms; the module docs
+  (`tensor/operators/op_binary_common.rs`) state that the native `+ - * /`
+  operators remain the recommended Rust-facing spelling.
+- G-045's rider — a same-D empty `assign` reaching `assign_promote_*` in
+  `rstsr-native-impl`, which lacks the arbitrary variant's `size == 0` early
+  return — needed no kernel change: the empty path is a clean no-op (verified
+  by the flipped node and the empty-repro set).
+- the G-045 predicate change is a **behavior change** to a public `Layout`
+  method: the read-path users (`op_binary_arithmetic` reuse checks,
+  `op_unary_*`) also flip for size-0 inputs. For zero elements there is nothing
+  to process, so each is benign; non-empty layouts are bit-identical.
+

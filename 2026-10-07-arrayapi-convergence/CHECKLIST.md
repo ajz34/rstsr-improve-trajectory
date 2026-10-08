@@ -4,8 +4,9 @@ Ordered by ROI and by blocking. Counts are "suite nodes moved" (fails flipped,
 plus currently-skipped tests that get *activated* where noted). Register ids
 (G-nnn) refer to `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-Working baseline to beat: **1178 / 122 / 82 of 1382** (stamp `20261008-061227`,
-`FRESH=1`, `CHUNKED=1`, `NO_EXPLAIN=1`).
+Working baseline to beat: **1210 / 90 / 82 of 1382** (stamp `20261008-120824`,
+`FRESH=1`, `CHUNKED=1`, `NO_EXPLAIN=1`). (The checklist was authored against
+`20261008-061227` = 1178 / 122 / 82; see **Progress** for what has landed since.)
 
 **Progress (2026-10-08).** C4 (`remainder`) merged — rstsr PR #123, squash
 `8a09076` — moved 1144 / 156 / 82 → 1156 / 144 / 82 (+12). C5 (`signbit`) and
@@ -15,8 +16,15 @@ propagation) is done on the stacked branch `261008/maxmin-nan` and moved
 1170 / 130 / 82 → 1174 / 126 / 82 (+4). C8 (integer `ceil`/`floor`/`trunc`/
 `round` dtype preservation) is done on the further-stacked branch
 `261008/int-round-dtypes` and moves 1174 / 126 / 82 → **1178 / 122 / 82** (+4,
-0 regressions, node set identical). See C5, C7, C8, C9. Group A (shim quick
-wins) is still the cheapest remaining block.
+0 regressions, node set identical). See C5, C7, C8, C9. **C2**
+(`add`/`sub`/`mul`/`div`, `bitwise_*`, shifts — the new `ext_*` promoted
+operators) merged as rstsr PR #125, squash `3ec30aa`, moving 1178 / 122 / 82 →
+1207 / 93 / 82 (+29 = 27 arithmetic/bitwise/shift + 2 `test_negative`, G-044 —
+`ext_neg` had landed on main in PR #124). Cross-dtype `concat`/`stack`
+(`a3eb0e5`, shim-side) → 1209 / 91 / 82 (+2). **C10's G-045** (empty
+`setitem`, `e64de57`, `rstsr-common`) → **1210 / 90 / 82** (+1). All 0
+regressions. See C2, C10.
+Group A (shim quick wins) is still the cheapest remaining block.
 
 ## A. Shim-side quick wins — do first (~18 fails, no rust changes)
 
@@ -31,7 +39,7 @@ no algorithms. Lowest risk, immediate payoff.
 - [ ] **A5. `astype(..., device=)` acceptance** (G-046) — 1
 - [ ] **A6. u64 PyScalar carrier** for `bitwise_invert` (G-013) — 2
 
-Exit check: full chunked run, expect **1178 + ~18 = ~1196 passed / ~104 failed
+Exit check: full chunked run, expect **1210 + ~18 ≈ ~1228 passed / ~72 failed
 / 82 skipped**, 0 regressions (test-for-test diff).
 
 ## B. Decisions needed before more binding work (each is a fork, not code)
@@ -62,9 +70,15 @@ Register + request; never fix agent-side.
       Also fixed the *draw-dependent* `expm1(±0±0i)` and `tanh(±inf+iy)`
       zero-sign cases (G-075/G-076). Note: the oracle is the spec stub
       docstrings, **not** numpy — see the register's v11 method note.
-- [ ] **C2. G-009 mixed-dtype arithmetic & joins — 29**
-      (`add/sub/mul/div`, `bitwise_*`/shifts, `concat`/`stack`: Rust bounds are
-      same-type only)
+- [x] **C2. G-009 mixed-dtype arithmetic — DONE** (rstsr PR #125, squash
+      `3ec30aa`): new promoted operator family `OpExt{Add,Sub,Mul,Div,BitAnd,
+      BitOr,BitXor,Shl,Shr}API` + `TensorExt{…}API` (`TOut = TA::Res`, device
+      kernel `a.promote() op b.promote()` under `TA: DTypePromoteAPI<TB>`); the
+      native `Op`-bound operators are unchanged, so Rust `+ - * /` stay
+      same-type-addable. All 27 arithmetic/bitwise/shift nodes fixed (the G-009
+      bucket's other 2 are the joins). Shifts are width-aware. The
+      `concat`/`stack` half went shim-side instead (see C10 — a Rust join's
+      inputs must share one element type).
 - [x] **C3. G-058 `log1p` kernel — DONE** (rstsr PR #121, branch
       `261007/log1p-kernel`): new `rstsr-dtype-traits` trait `ExtComplexFloat`
       (`ext_log_1p` / `ext_exp_m1`) with one device-table row per backend
@@ -125,7 +139,22 @@ Register + request; never fix agent-side.
       change alone fixed all 4 nodes (`test_binary[maximum/minimum(NaN)->NaN]`
       + `test_nan_propagation[max/min]`) → 1174 / 126 / 82 (stamp
       `20261008-053535`, 0 regressions, node set identical).
-- [ ] **C10. G-044 `negative` on unsigned — 2; G-045 empty `setitem` — 1**
+- [x] **C10. G-044 `negative` on unsigned + G-045 empty `setitem` — DONE**
+  - **G-044** (rstsr PR #124, squash `aff7a10`, commit `eb0c0b4` "NumPy-style
+    `ext_neg`"): `negative`/`__neg__` on unsigned now wraps like NumPy
+    (`uint8` → `uint8`); bool stays refused (spec-correct). 2 nodes
+    (`test_negative[negative]`, `test_negative[__neg__]`), flipped inside the
+    C2 run above.
+  - **G-045** (rstsr-common, branch `261008/various-fixes`, `e64de57`):
+    `Layout::is_broadcasted` tested only for a zero stride, but a zero-size
+    shape propagates zero strides into outer axes (contiguous `(3, 0)` →
+    `[0, 1]`), so every write gate (`assign`/`fill`/in-place ops/mutable
+    iteration) refused writes into empty tensors. It now returns `false` when
+    `size() == 0` (an empty layout cannot alias), matching
+    `check_strides`/`bounds_index`/`size_non_broadcast`; the non-empty
+    conservative rule is unchanged. 1 node (`test_setitem`) → 1210 / 90 / 82.
+  - Cross-dtype `concat`/`stack` (same branch, `a3eb0e5`, shim-side
+    `_promote_pair`/`_cast_parts`) flipped `test_concat`/`test_stack` (+2).
 
 ## D. Process / measurement hygiene
 
@@ -154,8 +183,7 @@ Register + request; never fix agent-side.
 
 Take **group A** (≈18 fails, low risk, all shim-side) and, in parallel, put the
 **B1 (linalg)** decision to the owner — it moves the most tests of any single
-item. On the rust queue the order is now **C2** (mixed-dtype arithmetic/joins,
-29 — note `pow` already gained the promotion path, so the arithmetic ops can
-follow the same shape), then **C6** (mask/fancy indexing 6), then **C10**
-(`negative` on unsigned 2, empty `setitem` 1 — another small `ExtReal`
-element-trait fix alongside C5/C8/C9).
+item. On the rust queue the order is now **C6** (mask/fancy indexing 6), then
+the surface levers (C3/B-decisions aside, the biggest remaining blocks are
+`linalg` and `fft`). C2, C10 (G-044 + G-045) and the shim-side joins are done
+(see above).
