@@ -457,3 +457,35 @@ Corrections and caveats:
   complex64/128 arms; the `pow` output dtype is the promotion, matching the
   array API's `result_type` for every pair the suite draws (the rstsr and
   array-api promotion tables agree on all of them).
+
+## Entries v14 (C9 — NaN propagation in `maximum`/`minimum` and `max`/`min`, 2026-10-08)
+
+Suite stamp `20261008-053535` (NO_EXPLAIN, CHUNKED, `FRESH=1`) against the
+C5/C7 branch `261008/signbit-pow` @ `bacc07b` plus the stacked C9 branch
+`261008/maxmin-nan`: **1174 / 126 / 82 of 1382** — +4 flips, 0 regressions,
+node set identical (1382) versus the `20261008-045659` baseline. The 4 =
+`test_special_cases::test_binary[maximum/minimum(x1_i is NaN or x2_i is NaN)
+-> NaN]` and `test_nan_propagation[max]`/`[min]`.
+
+RESOLVED in this wave:
+
+| id | surface | class | observed behavior | disposition |
+|---|---|---|---|---|
+| G-056 | elementwise `maximum`/`minimum` (and the `max`/`min` reductions) do not propagate NaN | rust-side — **FIXED** | the float/half `ExtReal::ext_max`/`ext_min` delegated to the IEEE 754-2008 `minNum`/`maxNum` (Rust `f32::min`/`max`), which return the *non*-NaN operand, so `maximum(NaN, 0.0)` → `0.0` and `max([1.0, nan])` → the NaN-free max; the spec requires NaN | `ext_max`/`ext_min` now propagate NaN (IEEE 754-2019 `maximum`/`minimum`); elementwise `maximum`/`minimum` and the `max`/`min` reductions both route through these two methods on **both** devices, so the kernel-body change alone fixed all 4 nodes |
+
+Corrections and caveats:
+
+- the reduction tests `test_max`/`test_min` draw `allow_nan=False`, so the only
+  failing reduction nodes are `test_nan_propagation[max/min]`; the elementwise
+  `test_maximum`/`test_minimum` already passed (their value check is skipped —
+  they pass no `check_values`), so the two elementwise failures were the
+  `test_special_cases::test_binary` NaN→NaN cases. G-056's original note
+  attributed the elementwise failures to `test_maximum`, which was imprecise.
+- the fix is **convergence**, not divergence — NumPy propagates NaN here too —
+  so it carries no `numpy_differences.md` entry.
+- blast radius is limited to the two trait methods: `argmin`/`argmax` use
+  `ArgCmp` (`PartialOrd`) and sorting uses the separate `ExtSortCmp` total
+  order, neither of which calls `ext_max`/`ext_min`; the now-stale contrast
+  comment in `ext_sort_cmp.rs` was reworded.
+- the `half` impls (f16/bf16) were changed too for a uniform contract, but the
+  shim exposes only float32/float64, so the suite cannot exercise them.

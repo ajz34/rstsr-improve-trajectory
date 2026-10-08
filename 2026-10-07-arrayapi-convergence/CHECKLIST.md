@@ -4,15 +4,17 @@ Ordered by ROI and by blocking. Counts are "suite nodes moved" (fails flipped,
 plus currently-skipped tests that get *activated* where noted). Register ids
 (G-nnn) refer to `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-Working baseline to beat: **1170 / 130 / 82 of 1382** (stamp `20261008-045659`,
+Working baseline to beat: **1174 / 126 / 82 of 1382** (stamp `20261008-053535`,
 `FRESH=1`, `CHUNKED=1`, `NO_EXPLAIN=1`).
 
 **Progress (2026-10-08).** C4 (`remainder`) merged — rstsr PR #123, squash
 `8a09076` — moved 1144 / 156 / 82 → 1156 / 144 / 82 (+12). C5 (`signbit`) and
 C7 (`pow`) are done on rstsr branch `261008/signbit-pow` (`bacc07b`, PR
-pending) and move 1156 / 144 / 82 → **1170 / 130 / 82** (+14, 0 regressions,
-node set identical). See C5 and C7. Group A (shim quick wins) is still the
-cheapest remaining block.
+pending) and move 1156 / 144 / 82 → 1170 / 130 / 82 (+14). C9 (NaN
+propagation) is done on the stacked branch `261008/maxmin-nan` and moves
+1170 / 130 / 82 → **1174 / 126 / 82** (+4, 0 regressions, node set identical).
+See C5, C7, C9. Group A (shim quick wins) is still the cheapest remaining
+block.
 
 ## A. Shim-side quick wins — do first (~18 fails, no rust changes)
 
@@ -27,7 +29,7 @@ no algorithms. Lowest risk, immediate payoff.
 - [ ] **A5. `astype(..., device=)` acceptance** (G-046) — 1
 - [ ] **A6. u64 PyScalar carrier** for `bitwise_invert` (G-013) — 2
 
-Exit check: full chunked run, expect **1170 + ~18 = ~1188 passed / ~112 failed
+Exit check: full chunked run, expect **1174 + ~18 = ~1192 passed / ~108 failed
 / 82 skipped**, 0 regressions (test-for-test diff).
 
 ## B. Decisions needed before more binding work (each is a fork, not code)
@@ -96,7 +98,16 @@ Register + request; never fix agent-side.
       the array API leaves it unspecified) instead of an unrepresentable value.
       All 5 fixed (every `test_pow` param).
 - [ ] **C8. G-052 int `ceil/floor/trunc/round` dtype preservation — 4**
-- [ ] **C9. G-056 NaN propagation (`max/min`, `maximum/minimum`) — 4**
+- [x] **C9. G-056 NaN propagation (`max/min`, `maximum/minimum`) — DONE**
+      (rstsr branch `261008/maxmin-nan`, stacked on `261008/signbit-pow`): the
+      float/half `ExtReal::ext_max`/`ext_min` delegated to the IEEE 754-2008
+      `minNum`/`maxNum` (Rust `f32::min`/`max`), which *drop* NaN; they now
+      propagate NaN (IEEE 754-2019 `maximum`/`minimum`), the array-API
+      contract. Elementwise `maximum`/`minimum` and the `max`/`min` reductions
+      both route through these two methods on both devices, so the kernel-body
+      change alone fixed all 4 nodes (`test_binary[maximum/minimum(NaN)->NaN]`
+      + `test_nan_propagation[max/min]`) → 1174 / 126 / 82 (stamp
+      `20261008-053535`, 0 regressions, node set identical).
 - [ ] **C10. G-044 `negative` on unsigned — 2; G-045 empty `setitem` — 1**
 
 ## D. Process / measurement hygiene
