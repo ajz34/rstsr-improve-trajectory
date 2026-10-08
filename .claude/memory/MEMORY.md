@@ -51,3 +51,5 @@
 - [NumPy unique_* aliases](numpy-unique-aliases.md) - array-API aliases are unordered + equal_nan=False (>=2.3), unlike np.unique; 0-d np.nonzero raises.
 - [Array API special-value oracle](arrayapi-special-value-oracle.md) — special_cases grades against the spec stub docstrings, NOT numpy; numpy uses glibc complex math on Linux; the table is stricter than numpy on two zero-sign cases (draw-dependent nodes).
 - [tmpfs /tmp per-user quota](tmp-tmpfs-usrquota.md) — `/tmp` has `usrquota`; EDQUOT surfaces as ~93 phantom doctest compile failures — use `TMPDIR=$HOME/.cache/tmp-cargo`.
+- [Array-API convergence harness env](arrayapi-convergence-harness.md) — exact TEST_PY / SUITE_DIR / maturin-from-crate-dir for the rstsr_faer.api conformance runs; run from a scratch dir; node-for-node diff recipe.
+- [pow / signbit decisions (C5+C7)](rstsr-pow-signbit-decisions.md) — pow is a promoted binary op (TOut = promotion); negative integer exponent -> InvalidValue/ValueError (NOT a numpy divergence); signbit lives on ExtReal.

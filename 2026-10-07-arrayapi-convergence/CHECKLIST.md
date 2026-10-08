@@ -4,14 +4,15 @@ Ordered by ROI and by blocking. Counts are "suite nodes moved" (fails flipped,
 plus currently-skipped tests that get *activated* where noted). Register ids
 (G-nnn) refer to `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-Working baseline to beat: **1156 / 144 / 82 of 1382** (stamp `20261008-040224`,
+Working baseline to beat: **1170 / 130 / 82 of 1382** (stamp `20261008-045659`,
 `FRESH=1`, `CHUNKED=1`, `NO_EXPLAIN=1`).
 
-**Progress — C4 (`remainder` signed-zero / infinite-divisor) done (2026-10-08,
-rstsr PR #123, squash `8a09076`, branch `261008/rem-remainder`).** Baseline
-moved **1144 / 156 / 82 → 1156 / 144 / 82** (+12, 0 regressions, node set
-identical). See C4. Group A (shim quick wins) is still the cheapest remaining
-block.
+**Progress (2026-10-08).** C4 (`remainder`) merged — rstsr PR #123, squash
+`8a09076` — moved 1144 / 156 / 82 → 1156 / 144 / 82 (+12). C5 (`signbit`) and
+C7 (`pow`) are done on rstsr branch `261008/signbit-pow` (`bacc07b`, PR
+pending) and move 1156 / 144 / 82 → **1170 / 130 / 82** (+14, 0 regressions,
+node set identical). See C5 and C7. Group A (shim quick wins) is still the
+cheapest remaining block.
 
 ## A. Shim-side quick wins — do first (~18 fails, no rust changes)
 
@@ -26,7 +27,7 @@ no algorithms. Lowest risk, immediate payoff.
 - [ ] **A5. `astype(..., device=)` acceptance** (G-046) — 1
 - [ ] **A6. u64 PyScalar carrier** for `bitwise_invert` (G-013) — 2
 
-Exit check: full chunked run, expect **1156 + ~18 = ~1174 passed / ~126 failed
+Exit check: full chunked run, expect **1170 + ~18 = ~1188 passed / ~112 failed
 / 82 skipped**, 0 regressions (test-for-test diff).
 
 ## B. Decisions needed before more binding work (each is a fork, not code)
@@ -77,9 +78,23 @@ Register + request; never fix agent-side.
       Floats now match numpy incl. the 4 special cases; integers keep Rust's
       `%` for now (noted in the operator module docs). All 12 fixed
       (`remainder` / `__mod__` / `__imod__` × 4).
-- [ ] **C5. G-054 `signbit` inverted semantics — 9**
+- [x] **C5. G-054 `signbit` inverted semantics — DONE** (rstsr branch
+      `261008/signbit-pow`, `bacc07b`, PR pending): the kernel wrote
+      `is_positive()` — the inverse of the sign-bit test — under a `Signed`
+      bound. New `ExtReal::ext_signbit` (unsigned `false`, signed `< 0`,
+      float/half `is_sign_negative`, so `-0.0`/`-NaN` are correct);
+      `OpSignBitAPI` split out of the boolean-output table, bound re-pointed
+      `Signed` → `ExtReal`, so unsigned/half are covered. All 9 fixed
+      (`test_signbit` + 8 `test_special_cases::test_unary[signbit(±0/±inf/±NaN)]`).
 - [ ] **C6. G-038/G-039 mask & fancy indexing — 6**
-- [ ] **C7. G-053 `pow` int/bool/complex bases — 5**
+- [x] **C7. G-053 `pow` int/bool/complex bases — DONE** (rstsr branch
+      `261008/signbit-pow`, `bacc07b`, PR pending): `OpPowAPI` moved off the
+      `num::Pow` special case to a promoted binary op (`TOut = TA::Res`, the
+      `atan2`/`maximum` shape) with the kernel in `ExtNum::ext_pow` — integer
+      bases with integer exponents and complex bases now work, and a negative
+      integer exponent is rejected with an `InvalidValue` error (NumPy raises;
+      the array API leaves it unspecified) instead of an unrepresentable value.
+      All 5 fixed (every `test_pow` param).
 - [ ] **C8. G-052 int `ceil/floor/trunc/round` dtype preservation — 4**
 - [ ] **C9. G-056 NaN propagation (`max/min`, `maximum/minimum`) — 4**
 - [ ] **C10. G-044 `negative` on unsigned — 2; G-045 empty `setitem` — 1**
@@ -112,4 +127,6 @@ Register + request; never fix agent-side.
 Take **group A** (≈18 fails, low risk, all shim-side) and, in parallel, put the
 **B1 (linalg)** decision to the owner — it moves the most tests of any single
 item. On the rust queue the order is now **C2** (mixed-dtype arithmetic/joins,
-29), then **C5** (`signbit` 9), **C6** (mask/fancy indexing 6).
+29 — note `pow` already gained the promotion path, so the arithmetic ops can
+follow the same shape), then **C6** (mask/fancy indexing 6), **C8** (int
+`ceil`/`floor`/`trunc`/`round` dtype preservation, 4).

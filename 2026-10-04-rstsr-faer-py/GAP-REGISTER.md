@@ -422,3 +422,38 @@ Corrections and caveats:
   device dispatch is float-only by design, so the array-API floored guarantee
   holds for the floating dtypes the standard exercises; the operator module doc
   records the split.
+
+## Entries v13 (C5 + C7 — `signbit` and `pow`, 2026-10-08)
+
+Suite stamp `20261008-045659` (NO_EXPLAIN, CHUNKED, `FRESH=1`) against rstsr
+`main` @ `8a09076` (the C4 squash) plus the C5/C7 branch
+`261008/signbit-pow` @ `bacc07b` (PR pending): **1170 / 130 / 82 of 1382** —
++14 flips, 0 regressions, node set identical (1382) versus the baseline stamp.
+The 14 = the 9 `signbit` nodes (`test_signbit` + 8
+`test_special_cases::test_unary[signbit(±0/±inf/±NaN)]`) and the 5 `test_pow`
+params (`pow`/`__pow__`/`__ipow__` × array/array, array/scalar).
+
+RESOLVED in this wave:
+
+| id | surface | class | observed behavior | disposition |
+|---|---|---|---|---|
+| G-054 | `signbit` inverted semantics | rust-side — **FIXED** (`bacc07b`) | the kernel wrote `is_positive()` (`Signed`-bound) — `signbit(-2.0)` was False; unsigned and half had no impl | `ExtReal::ext_signbit` (unsigned `false`, signed `< 0`, float/half `is_sign_negative` — the sign bit, so `-0.0`/`-NaN` are correct); `OpSignBitAPI` split out of the boolean-output table and re-bound `Signed` → `ExtReal`, both device modules |
+| G-053 | `pow` dtype coverage | rust-side — **FIXED** (`bacc07b`) | `OpPowAPI` was `TA: num::Pow<TB>`, and `num` provides no `Int: Pow<Int>` (signed exponent) nor `Complex: Pow<Complex>`; the shim served float32/64 same-dtype only | `OpPowAPI` reworked into a promoted binary op (`TOut = TA::Res`, the `atan2`/`maximum` shape) with the kernel in `ExtNum::ext_pow` (`pow`/`powf`/`powc`), covering integer bases (with integer exponents) and complex bases; both device modules |
+
+Corrections and caveats:
+
+- **negative integer exponent** — the array API leaves `int ** int` with a
+  negative exponent unspecified and NumPy raises `ValueError`; rstsr rejects it
+  too (`ExtNum::ext_pow` returns `None` → an `InvalidValue` error, which the
+  panic form `rt::pow` unwraps and the Python binding surfaces as `ValueError`)
+  rather than returning a fabricated integer. This is **not** a NumPy
+  divergence, so it carries no `numpy_differences.md` entry.
+- switching `signbit` from a stub to a working kernel flips the suite's
+  `_has_functional_signbit()` probe to true, which turns **on** the ±0 sign
+  checks inside every strict float comparison — a latent-regression surface. The
+  run showed no collateral flips (C1/C4 had already fixed the zero-sign cases).
+- the shim gained `dispatch_t_real_bool!` and `dispatch_bin_pow!` — the latter
+  reuses the real promotion arms of `dispatch_bin_promote!` and adds the
+  complex64/128 arms; the `pow` output dtype is the promotion, matching the
+  array API's `result_type` for every pair the suite draws (the rstsr and
+  array-api promotion tables agree on all of them).
