@@ -398,3 +398,27 @@ Known deviation (documented in the code): numpy's `ccosh`/`csinh` middle branch
 rather than `NaN`; `libm`/`num` expose no `frexp`, so that branch is merged
 into `exp(|x|)·0.5` — identical except when the trig factor is exactly zero,
 which generated floats do not reach.
+
+## Entries v12 (C4 — floored `remainder`, 2026-10-08, rstsr PR #123)
+
+Suite stamp `20261008-040224` (NO_EXPLAIN, CHUNKED, `FRESH=1`) against rstsr
+`main` @ `8a09076` (squash of branch `261008/rem-remainder`; the same-session
+`main` @ `53ae4f2` baseline wheel re-measured 1144 / 156 / 82): **1156 / 144 /
+82 of 1382** — +12 flips, 0 regressions, node set identical (1382) versus the
+baseline stamp. The 12 = 4 special cases × {`remainder`, `__mod__`, `__imod__`}
+(`test_binary` twice + `test_iop`).
+
+RESOLVED in this wave:
+
+| id | surface | class | observed behavior | disposition |
+|---|---|---|---|---|
+| G-057 | `remainder` signed zero / infinite divisor | rust-side — **FIXED** (`8a09076`) | `rt::rem` was Rust's `%` — fmod-style, sign of the *dividend* — so `remainder(-0.0, 2.0)` → `-0.0` (spec `+0`) and `remainder(±finite, ∓inf)` → the dividend (spec the divisor); the stub prescribes the divisor's sign (Python `%`) | `ExtNum::ext_rem` (array-API floored remainder) + a specialised `OpRemAPI` that keeps the `Rem` bound and dispatches the float dtypes by `TypeId` to `ext_rem`; both device op tables |
+
+Corrections and caveats:
+
+- the v4 count for G-057 ("8 tests") undercounted — the chunked suite grades
+  **12** nodes.
+- integer `rt::rem` is **unchanged** (still Rust `%`, sign of the dividend): the
+  device dispatch is float-only by design, so the array-API floored guarantee
+  holds for the floating dtypes the standard exercises; the operator module doc
+  records the split.

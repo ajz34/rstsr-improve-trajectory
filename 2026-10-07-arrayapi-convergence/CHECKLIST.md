@@ -4,13 +4,14 @@ Ordered by ROI and by blocking. Counts are "suite nodes moved" (fails flipped,
 plus currently-skipped tests that get *activated* where noted). Register ids
 (G-nnn) refer to `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-Working baseline to beat: **1144 / 156 / 82 of 1382** (stamp `20261007-153214`,
+Working baseline to beat: **1156 / 144 / 82 of 1382** (stamp `20261008-040224`,
 `FRESH=1`, `CHUNKED=1`, `NO_EXPLAIN=1`).
 
-**Progress — C1 (complex transcendentals) done (2026-10-07, rstsr PR #122,
-squash `b2e22ab`, branch `261007/complex-transcendentals`).** Baseline moved
-**1091 / 209 / 82 → 1144 / 156 / 82** (+53, 0 regressions, node set identical).
-See C1. Group A (shim quick wins) is now the cheapest remaining block.
+**Progress — C4 (`remainder` signed-zero / infinite-divisor) done (2026-10-08,
+rstsr PR #123, squash `8a09076`, branch `261008/rem-remainder`).** Baseline
+moved **1144 / 156 / 82 → 1156 / 144 / 82** (+12, 0 regressions, node set
+identical). See C4. Group A (shim quick wins) is still the cheapest remaining
+block.
 
 ## A. Shim-side quick wins — do first (~18 fails, no rust changes)
 
@@ -25,7 +26,7 @@ no algorithms. Lowest risk, immediate payoff.
 - [ ] **A5. `astype(..., device=)` acceptance** (G-046) — 1
 - [ ] **A6. u64 PyScalar carrier** for `bitwise_invert` (G-013) — 2
 
-Exit check: full chunked run, expect **1144 + ~18 = ~1162 passed / ~138 failed
+Exit check: full chunked run, expect **1156 + ~18 = ~1174 passed / ~126 failed
 / 82 skipped**, 0 regressions (test-for-test diff).
 
 ## B. Decisions needed before more binding work (each is a fork, not code)
@@ -66,7 +67,16 @@ Register + request; never fix agent-side.
       compensated `ln(u) − rho/u` and `2 exp(z/2) sinh(z/2)`. Fixed `log1p` (20
       nodes) **and** complex `expm1` (12). Also required exporting
       `log1p`/`log1p_f`/`TensorLog1pAPI` from the rstsr-core prelude.
-- [ ] **C4. G-057 `remainder` signed-zero / infinite-divisor — 12**
+- [x] **C4. G-057 `remainder` signed-zero / infinite-divisor — DONE** (rstsr
+      PR #123, squash `8a09076`): `ExtNum::ext_rem` carries the array-API
+      floored remainder (sign of the divisor; unsigned unchanged, signed the
+      floored lift of `%`, floats fully special-cased, complex → num-complex's
+      Gaussian `%`). `OpRemAPI` keeps the `Rem` bound but dispatches the float
+      dtypes by `TypeId` to `ext_rem` (f32/f64; f16/bf16 on the serial device
+      only — the shared rayon module cannot name `half`); both device tables.
+      Floats now match numpy incl. the 4 special cases; integers keep Rust's
+      `%` for now (noted in the operator module docs). All 12 fixed
+      (`remainder` / `__mod__` / `__imod__` × 4).
 - [ ] **C5. G-054 `signbit` inverted semantics — 9**
 - [ ] **C6. G-038/G-039 mask & fancy indexing — 6**
 - [ ] **C7. G-053 `pow` int/bool/complex bases — 5**
@@ -102,4 +112,4 @@ Register + request; never fix agent-side.
 Take **group A** (≈18 fails, low risk, all shim-side) and, in parallel, put the
 **B1 (linalg)** decision to the owner — it moves the most tests of any single
 item. On the rust queue the order is now **C2** (mixed-dtype arithmetic/joins,
-29), then **C4/C5** (`remainder` 12, `signbit` 9).
+29), then **C5** (`signbit` 9), **C6** (mask/fancy indexing 6).
