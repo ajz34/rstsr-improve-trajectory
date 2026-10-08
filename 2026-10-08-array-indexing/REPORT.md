@@ -55,6 +55,46 @@ boolean-mask merge); not pushed, no PR.
   `test_getitem_arrays_and_ints_{1,2}[{1,None}]` nodes, no regressions
   (`test_array_object.py`: 27 passed).
 
+## Code review (max effort) and its outcome
+
+A max-effort review of `89556bf..80231bc` fanned out over ten angles and returned
+15 findings; all are addressed in `80231bc` (or were already correct and are now
+pinned by a test):
+
+**Correctness / build**
+1. The five BLAS device crates (`rstsr-{openblas,mkl,blis,aocl,kml}`) symlink
+   `rayon_auto_impl/mod.rs` and refused to compile (E0583) — the module symlink
+   was missing in each; added.
+2. *Real semantic bug*: a **zero-width ellipsis** (every axis consumed
+   explicitly) was dropped from the expanded index, so it no longer separated
+   the advanced indexers around it: `x[None, [0,1,2], ..., 2]` on a (4,5) tensor
+   returned `(1,3)` where NumPy gives `(3,1)`. Fixed (the ellipsis is kept as a
+   separator) and pinned by `custom_array_index::test_zero_width_ellipsis`; the
+   generator now emits zero-width ellipses (it structurally could not before).
+3. "Too many indices" is now an `IndexError` on both the array path and the
+   basic-slicing delegation (the Python exception kind at the faer-py boundary).
+4. The in-src unit tests failed under the CI **col-major** job; they now pin
+   `RowMajor`.
+5. `to_indexers` in the shim had a reachable `unreachable!()` for array keys
+   (via the setitem entry points); it now returns a `TypeError`.
+6. `array_index` now rejects index arrays on another device (`DeviceMismatch`).
+
+**Perf** — the kernel precomputes per-bulk (source delta, output offset) and
+per-base tables; the inner loop is two adds per element instead of recomputing
+the base unravel, the output multi-index and every indexer offset.
+
+**Tests / docs (policy MUSTs)** — NumPy assertion comments and `IndexError`-kind
+pins in the transferred tests, value assertions in the doc_draft twin,
+`TestMultiIndexingAutomated::test_1d` tracked (`partial`, covered by the
+generated differential), the resolved-difference note corrected to the real
+reproducers (`a[4:-1:-1]`, `a[-6::-1]` — `a[-4::-1]` never diverged), the
+`# See also` "Similar function" subsection, verbatim variant titles, and an
+`asarray`-style Overloads table.
+
+Re-verified after the fixes: 544 row-major suite tests, 253 doctests, col-major
+lib tests 143, rustfmt/clippy/rustdoc clean, 4000-case NumPy differential,
+array-api conformance still **1216 / 84 / 82**.
+
 ## Follow-ups (not done)
 
 - boolean index arrays mixed into a tuple; advanced-key `setitem` (scatter);
