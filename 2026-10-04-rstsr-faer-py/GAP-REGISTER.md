@@ -153,7 +153,7 @@ New divergences confirmed during the pass:
 
 | id | area | category | evidence | note |
 |---|---|---|---|---|
-| G-052 | dtype-preserving unary kernels for integers | rust-side | `rt::{ceil,floor,trunc,round}_f` promote integer inputs to float64 (`TOut = T::FloatType`); the spec requires the input dtype (suite grades integers for ceil/floor/trunc/round) | shim declines integer inputs per owner ruling 2026-10-05 ("decline now, fix later"). Also `conj` (integers routed through the into-float block) |
+| G-052 | dtype-preserving unary kernels for integers | rust-side — **FIXED (rounding family; see v15)** | `rt::{ceil,floor,trunc,round}_f` promoted integer inputs to float64 (`TOut = T::FloatType`); the spec requires the input dtype (suite grades integers for ceil/floor/trunc/round) | the four now preserve the input dtype via `ExtReal`/`ExtNum` kernels; `conj` (integers routed through the into-float block) is untouched — `test_conj` draws complex only, so ungraded |
 | G-053 | `pow` dtype coverage | rust-side | integer bases: `num::Pow` needs an unsigned exponent type (`i8: Pow<i8>` undefined); complex: `num_complex` has no `Complex<T>: Pow<Complex<T>>` (documented upstream limitation) | shim serves float32/float64 same-dtype only; mixed pairs stay G-009 |
 | G-054 | `rt::signbit` semantics inverted | rust-side | `signbit(-2.0)` returns False, `signbit(1.0)` returns True (kernel writes `is_positive()`) | wrong values are worse than a decline: the shim raises with this register reference; suite probe `_has_functional_signbit()` consequently reports "unavailable" (only affects zero-sign checks) |
 | G-055 | complex transcendental coverage and special-value propagation | rust-side | `expm1(complex)` has no kernel (`Float`-bound impl only); num-based kernels return `nan+nanj` where the spec requires specific values (acos/acosh/asinh/atanh/cosh/sinh/tanh/sqrt special cases, ~35 tests); accuracy diverges at large magnitudes in complex64 (`acos(7281-1j)`, `asinh(-2731+1j)`, `tan(1+45j)` vs numpy/cmath) | **RESOLVED** (v11, rstsr PR #122 squash `b2e22ab`): `rstsr-dtype-traits::c99_complex` (C99 Annex G port) + one `ExtComplexFloat` method per function, both device op tables re-pointed; all 53 suite nodes flipped. See v11 for G-075/G-076 and the "oracle is the spec stubs, not numpy" note |
@@ -489,3 +489,36 @@ Corrections and caveats:
   comment in `ext_sort_cmp.rs` was reworded.
 - the `half` impls (f16/bf16) were changed too for a uniform contract, but the
   shim exposes only float32/float64, so the suite cannot exercise them.
+
+## Entries v15 (C8 — dtype-preserving `ceil`/`floor`/`trunc`/`round`, 2026-10-08)
+
+Suite stamp `20261008-061227` (NO_EXPLAIN, CHUNKED, `FRESH=1`) against the C9
+branch `261008/maxmin-nan` (`76f4d3a`) plus the stacked C8 branch
+`261008/int-round-dtypes`: **1178 / 122 / 82 of 1382** — +4 flips, 0
+regressions, node set identical (1382) versus the `20261008-053535` baseline.
+The 4 = `test_ceil`, `test_floor`, `test_trunc`, `test_round`.
+
+RESOLVED in this wave:
+
+| id | surface | class | observed behavior | disposition |
+|---|---|---|---|---|
+| G-052 | dtype-preserving unary `ceil`/`floor`/`trunc`/`round` | rust-side — **FIXED** | the four shared the into-float `duplicate_item` table (`T: DTypeIntoFloatAPI`, `TOut = T::FloatType`, body `into_float()`), so integer inputs widened to f64; the spec requires "the same data type as x" | split into their own device impls with `TOut = T`: `ExtReal::ext_ceil`/`ext_floor`/`ext_trunc` (int/uint identity, `Float::…` for float/half) and `ExtNum::ext_round` (int/uint identity, ties-to-even for float/half, componentwise for complex) |
+
+Corrections and caveats:
+
+- `round` needed **complex** to flip, not just integers: the suite draws
+  `numeric_dtypes` for `test_round` and the 2024.12 spec added complex support
+  ("real and imaginary components must be independently rounded"). The three
+  others draw `real_dtypes` only, so they stay on `ExtReal` (no complex body) —
+  the `signbit`-style trait split.
+- ties-to-even moved: `rstsr_native_impl::scalar_math::round_ties_even_f` (a
+  std-feature-gated helper added in G-059) lost its only callers (the two op
+  tables) and was **deleted**; `ExtNum::ext_round` now uses `libm::roundeven` /
+  `roundevenf` (libm is already a `no_std` dependency of `rstsr-dtype-traits`).
+- the shim's `dispatch_t_real_float_same!` (float-only, with the "register
+  G-052" declination) was **removed**; `ceil`/`floor`/`trunc` now dispatch via
+  the existing `dispatch_t_real_numeric_same!` and `round` via
+  `dispatch_t_numeric_same!` (adds complex).
+- `conj` — the other half of the original G-052 note — is **untouched**
+  (`dispatch_t_float_complex_same!` still declines integer inputs). `test_conj`
+  draws `complex_dtypes` only, so this is ungraded; leaving it is deliberate.

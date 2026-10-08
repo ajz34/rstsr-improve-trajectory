@@ -4,17 +4,19 @@ Ordered by ROI and by blocking. Counts are "suite nodes moved" (fails flipped,
 plus currently-skipped tests that get *activated* where noted). Register ids
 (G-nnn) refer to `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-Working baseline to beat: **1174 / 126 / 82 of 1382** (stamp `20261008-053535`,
+Working baseline to beat: **1178 / 122 / 82 of 1382** (stamp `20261008-061227`,
 `FRESH=1`, `CHUNKED=1`, `NO_EXPLAIN=1`).
 
 **Progress (2026-10-08).** C4 (`remainder`) merged — rstsr PR #123, squash
 `8a09076` — moved 1144 / 156 / 82 → 1156 / 144 / 82 (+12). C5 (`signbit`) and
 C7 (`pow`) are done on rstsr branch `261008/signbit-pow` (`bacc07b`, PR
 pending) and move 1156 / 144 / 82 → 1170 / 130 / 82 (+14). C9 (NaN
-propagation) is done on the stacked branch `261008/maxmin-nan` and moves
-1170 / 130 / 82 → **1174 / 126 / 82** (+4, 0 regressions, node set identical).
-See C5, C7, C9. Group A (shim quick wins) is still the cheapest remaining
-block.
+propagation) is done on the stacked branch `261008/maxmin-nan` and moved
+1170 / 130 / 82 → 1174 / 126 / 82 (+4). C8 (integer `ceil`/`floor`/`trunc`/
+`round` dtype preservation) is done on the further-stacked branch
+`261008/int-round-dtypes` and moves 1174 / 126 / 82 → **1178 / 122 / 82** (+4,
+0 regressions, node set identical). See C5, C7, C8, C9. Group A (shim quick
+wins) is still the cheapest remaining block.
 
 ## A. Shim-side quick wins — do first (~18 fails, no rust changes)
 
@@ -29,7 +31,7 @@ no algorithms. Lowest risk, immediate payoff.
 - [ ] **A5. `astype(..., device=)` acceptance** (G-046) — 1
 - [ ] **A6. u64 PyScalar carrier** for `bitwise_invert` (G-013) — 2
 
-Exit check: full chunked run, expect **1174 + ~18 = ~1192 passed / ~108 failed
+Exit check: full chunked run, expect **1178 + ~18 = ~1196 passed / ~104 failed
 / 82 skipped**, 0 regressions (test-for-test diff).
 
 ## B. Decisions needed before more binding work (each is a fork, not code)
@@ -97,7 +99,22 @@ Register + request; never fix agent-side.
       integer exponent is rejected with an `InvalidValue` error (NumPy raises;
       the array API leaves it unspecified) instead of an unrepresentable value.
       All 5 fixed (every `test_pow` param).
-- [ ] **C8. G-052 int `ceil/floor/trunc/round` dtype preservation — 4**
+- [x] **C8. G-052 int `ceil/floor/trunc/round` dtype preservation — DONE**
+      (rstsr branch `261008/int-round-dtypes`, stacked on `261008/maxmin-nan`):
+      the four were in the into-float `duplicate_item` table
+      (`T: DTypeIntoFloatAPI`, `TOut = T::FloatType`), so integer inputs widened
+      to f64. Moved them out: `ExtReal::ext_ceil`/`ext_floor`/`ext_trunc`
+      (int/uint identity, `Float::…` for float/half) and `ExtNum::ext_round`
+      (int/uint identity, `libm::roundeven` ties-to-even for float/half,
+      componentwise for complex — spec 2024.12) with `TOut = T`; the four
+      rounding impls now sit in the same `/* #region same type */` right after
+      the into-float table, on both devices. The hand-rolled
+      `rstsr_native_impl::scalar_math::round_ties_even_f` was relocated into
+      `ExtNum::ext_round` and deleted (its only callers were the op tables). All
+      4 fixed (`test_ceil`/`test_floor`/`test_trunc`/`test_round`) → 1178 / 122 /
+      82 (stamp `20261008-061227`, 0 regressions, node set identical). Note
+      `conj` (the other half of G-052) is untouched — `test_conj` draws complex
+      dtypes only, so its integer declination is ungraded.
 - [x] **C9. G-056 NaN propagation (`max/min`, `maximum/minimum`) — DONE**
       (rstsr branch `261008/maxmin-nan`, stacked on `261008/signbit-pow`): the
       float/half `ExtReal::ext_max`/`ext_min` delegated to the IEEE 754-2008
@@ -139,5 +156,6 @@ Take **group A** (≈18 fails, low risk, all shim-side) and, in parallel, put th
 **B1 (linalg)** decision to the owner — it moves the most tests of any single
 item. On the rust queue the order is now **C2** (mixed-dtype arithmetic/joins,
 29 — note `pow` already gained the promotion path, so the arithmetic ops can
-follow the same shape), then **C6** (mask/fancy indexing 6), **C8** (int
-`ceil`/`floor`/`trunc`/`round` dtype preservation, 4).
+follow the same shape), then **C6** (mask/fancy indexing 6), then **C10**
+(`negative` on unsigned 2, empty `setitem` 1 — another small `ExtReal`
+element-trait fix alongside C5/C8/C9).
