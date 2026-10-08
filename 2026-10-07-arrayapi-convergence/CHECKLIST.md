@@ -4,7 +4,7 @@ Ordered by ROI and by blocking. Counts are "suite nodes moved" (fails flipped,
 plus currently-skipped tests that get *activated* where noted). Register ids
 (G-nnn) refer to `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-Working baseline to beat: **1210 / 90 / 82 of 1382** (stamp `20261008-120824`,
+Working baseline to beat: **1212 / 88 / 82 of 1382** (stamp `20261008-123235`,
 `FRESH=1`, `CHUNKED=1`, `NO_EXPLAIN=1`). (The checklist was authored against
 `20261008-061227` = 1178 / 122 / 82; see **Progress** for what has landed since.)
 
@@ -22,8 +22,9 @@ operators) merged as rstsr PR #125, squash `3ec30aa`, moving 1178 / 122 / 82 →
 1207 / 93 / 82 (+29 = 27 arithmetic/bitwise/shift + 2 `test_negative`, G-044 —
 `ext_neg` had landed on main in PR #124). Cross-dtype `concat`/`stack`
 (`a3eb0e5`, shim-side) → 1209 / 91 / 82 (+2). **C10's G-045** (empty
-`setitem`, `e64de57`, `rstsr-common`) → **1210 / 90 / 82** (+1). All 0
-regressions. See C2, C10.
+`setitem`, `e64de57`, `rstsr-common`) → 1210 / 90 / 82 (+1). **C6a**
+(boolean-mask indexing, branch `261008/various-fixes`) → **1212 / 88 / 82**
+(+2). All 0 regressions. See C2, C6, C10.
 Group A (shim quick wins) is still the cheapest remaining block.
 
 ## A. Shim-side quick wins — do first (~18 fails, no rust changes)
@@ -39,7 +40,7 @@ no algorithms. Lowest risk, immediate payoff.
 - [ ] **A5. `astype(..., device=)` acceptance** (G-046) — 1
 - [ ] **A6. u64 PyScalar carrier** for `bitwise_invert` (G-013) — 2
 
-Exit check: full chunked run, expect **1210 + ~18 ≈ ~1228 passed / ~72 failed
+Exit check: full chunked run, expect **1212 + ~18 ≈ ~1230 passed / ~70 failed
 / 82 skipped**, 0 regressions (test-for-test diff).
 
 ## B. Decisions needed before more binding work (each is a fork, not code)
@@ -104,7 +105,22 @@ Register + request; never fix agent-side.
       `OpSignBitAPI` split out of the boolean-output table, bound re-pointed
       `Signed` → `ExtReal`, so unsigned/half are covered. All 9 fixed
       (`test_signbit` + 8 `test_special_cases::test_unary[signbit(±0/±inf/±NaN)]`).
-- [ ] **C6. G-038/G-039 mask & fancy indexing — 6**
+- [x] **C6a. G-038 whole-tensor boolean-mask indexing — DONE** (branch
+      `261008/various-fixes`): new device trait `DeviceMaskIndexAPI` (gather +
+      scalar scatter) with serial kernels in `rstsr-native-impl`
+      (`cpu_serial/mask_indexing.rs`; the rayon device delegates for now),
+      tensor-tier `mask_select_f` / `mask_fill_f` (`tensor/adv_indexing.rs`)
+      and shim `getitem_mask` / `setitem_mask` / `setitem_mask_scalar`. The
+      mask must have no more axes than `x`, each matching `x`'s leading axis (a
+      zero-size axis is allowed and selects nothing — NumPy parity); the result
+      is `(count,) + x.shape[mask.ndim()..]`, and a 0-d mask gives
+      `x[True]`/`x[False]`. `x[mask] = value` accepts a scalar or size-1 array
+      value (general broadcast values are a follow-on). 2 nodes
+      (`test_getitem_masking`, `test_setitem_masking`) → 1212 / 88 / 82.
+      `capabilities()["boolean indexing"] == True` (G-051) is now truthful.
+- [ ] **C6b. G-039 integer-array (fancy) indexing — 4**
+      (multi-axis mutually-broadcast index arrays + NumPy's advanced-indexing
+      rule; binary — partial support flips nothing)
 - [x] **C7. G-053 `pow` int/bool/complex bases — DONE** (rstsr branch
       `261008/signbit-pow`, `bacc07b`, PR pending): `OpPowAPI` moved off the
       `num::Pow` special case to a promoted binary op (`TOut = TA::Res`, the
@@ -183,7 +199,7 @@ Register + request; never fix agent-side.
 
 Take **group A** (≈18 fails, low risk, all shim-side) and, in parallel, put the
 **B1 (linalg)** decision to the owner — it moves the most tests of any single
-item. On the rust queue the order is now **C6** (mask/fancy indexing 6), then
-the surface levers (C3/B-decisions aside, the biggest remaining blocks are
-`linalg` and `fft`). C2, C10 (G-044 + G-045) and the shim-side joins are done
-(see above).
+item. On the rust queue the order is now **C6b** (integer-array / fancy
+indexing — a genuine feature, not a bug fix), then the surface levers (the B
+decisions: `linalg` 86 tests, `fft` 42). C2, C6a (mask), C10 (G-044 + G-045)
+and the shim-side joins are done (see above).

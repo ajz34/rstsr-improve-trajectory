@@ -97,7 +97,7 @@ census over the 998: 522 marshalling-reject (TypeError), 253 wrong-value,
 | G-035 | advanced indexing mixed with slices | shim-side (algorithm; needs permission) | — | `x[idx, :]` raises NotImplementedError | suite's arrays_and_ints tests use ints+arrays only, so ungraded; gather would need the same machinery as G-036's fancy path |
 | G-036 | handle-model aliasing: indexing/astype results are copies, never views | shim-side | — | ops.rs getitem_int comment cites this id | spec permits copies; shared-storage views would need a TensorArc repr in the handle enum |
 | G-037 | `where` absent from rstsr | rust-side | ? | test_getitem verification calls `xp.where` (1st blocker of test_getitem/test_setitem) | elementwise ternary; rstsr has no primitive — **owner ruled: do not implement shim-side**; candidate for the rust-side batch |
-| G-038 | boolean-mask indexing (x[mask] getitem + setitem) | rust-side | ? | `x[bool_array]` / `x[mask]=v` raise NotImplementedError (reverted shim gather) | rstsr has only per-axis bool_select; needs whole-tensor mask gather/scatter or a nonzero primitive; candidate for the rust-side batch |
+| G-038 | boolean-mask indexing (x[mask] getitem + setitem) | rust-side — **FIXED (v17)** | `x[bool_array]` / `x[mask]=v` raise NotImplementedError (reverted shim gather) | rstsr has only per-axis bool_select; needs whole-tensor mask gather/scatter or a nonzero primitive; candidate for the rust-side batch |
 | G-039 | integer-array (fancy) indexing with broadcasting | rust-side | ? | `x[int_array, ...]` raises NotImplementedError (reverted shim gather) | needs multi-array broadcast gather (index_select is per-axis only); pairs with G-035 (array+slices mixing); candidate for the rust-side batch |
 
 Note on scoping: `test_has_names`/`test_signatures` grade extension names
@@ -129,7 +129,7 @@ v0/v1 wave items:
 | G-048 | namespace-info `devices()` returns a list; `default_device()` absent | shim-side | `isinstance(out.devices(), tuple)` (2025.12); `hasattr(out, "default_device")` | Python-layer only |
 | G-049 | `dtypes()` takes no `kind` argument | shim-side | `dtypes(kind=...)` TypeError; `test_array_namespace_info_dtypes` | needs the kind vocabulary incl. `signed/unsigned integer` |
 | G-050 | `default_dtypes()` keys wrong | shim-side | returns `real/integral/complex`; spec keys `"real floating"/"complex floating"/"integral"` + `"indexing"` | Python-layer only |
-| G-051 | `capabilities()["boolean indexing"] == True` while masking raises | shim-side | audit probe: `capabilities()` returns True; `x[mask]` is G-038 | latent overclaim (not the cause of any current failure): must be False until G-038 lands. `"data-dependent shapes": False` is correct today; `"max dimensions": 8` is a placeholder (rstsr has no cap) |
+| G-051 | `capabilities()["boolean indexing"] == True` while masking raises | shim-side — **resolved by G-038 (v17)** | audit probe: `capabilities()` returns True; `x[mask]` is G-038 | latent overclaim (not the cause of any current failure): must be False until G-038 lands. `"data-dependent shapes": False` is correct today; `"max dimensions": 8` is a placeholder (rstsr has no cap) |
 
 Cross-dtype operands (G-009 family) remain shim-declined: 10 unexpected
 exceptions + 14 promotion declines in the census. Note for the rust-side
@@ -562,4 +562,54 @@ Corrections and caveats:
   method: the read-path users (`op_binary_arithmetic` reuse checks,
   `op_unary_*`) also flip for size-0 inputs. For zero elements there is nothing
   to process, so each is benign; non-empty layouts are bit-identical.
+
+## Entries v17 (C6a — whole-tensor boolean-mask indexing, 2026-10-08)
+
+Suite stamp `20261008-123235` (`FRESH=1 CHUNKED=1 NO_EXPLAIN=1`) against rstsr
+branch `261008/various-fixes`: **1212 / 88 / 82 of 1382** — +2 flips, 0
+regressions, node set otherwise identical versus the `20261008-120824`
+baseline. The 2 = `test_getitem_masking`, `test_setitem_masking`. This is the
+**mask** half of C6; the integer-array (fancy) half stays G-039.
+
+RESOLVED in this wave:
+
+| id | surface | class | observed behavior | disposition |
+|---|---|---|---|---|
+| G-038 | boolean-mask indexing (`x[mask]` getitem, `x[mask] = v` setitem) | rust-side — **FIXED** | the shim declined every array key (`NotImplementedError`); the earlier Python-side gather was reverted under the wrapper-only rule | new device trait `DeviceMaskIndexAPI<TA, DA, DM>` (`mask_select` gather + `mask_fill` scalar scatter), serial kernels in `rstsr-native-impl/src/cpu_serial/mask_indexing.rs` (rayon device delegates for now), tensor tier `mask_select_f` / `mask_fill_f` (`tensor/adv_indexing.rs`, exported through `rt::`), shim entries `getitem_mask` / `setitem_mask` / `setitem_mask_scalar`. |
+| G-051 | `capabilities()["boolean indexing"] == True` while masking raises | shim-side — **resolved** | the claim was a latent overclaim until G-038 landed | now truthful; no code change needed (the key already returned `True`). |
+
+Semantics implemented (NumPy parity, verified against numpy in a repro set):
+
+- the mask must be a `bool` array with `ndim <= x.ndim`; each mask axis must
+  equal the corresponding leading axis of `x`, **or be 0** (NumPy allows a
+  zero-size mask axis; it selects nothing). A violation raises `IndexError`
+  (the suite asserts `IndexError`).
+- the result is `(count,) + x.shape[mask.ndim()..]`, `count` = number of true
+  entries, ordered by the mask's device-order visit sequence; a 0-d mask gives
+  `x[True]` → `(1,) + x.shape`, `x[False]` → `(0,) + x.shape`.
+- `x[mask] = value` accepts a Python scalar or a size-1 (same-dtype) array.
+
+Corrections and caveats:
+
+- the count is a data-dependent output length, so the gather is a two-pass
+  `nonzero_count` + fill (the `nonzero` shape); the trailing-block offsets are
+  precomputed once and reused across every selected block.
+- the shim routes a lone boolean Array key to the mask path; a **0-d integer**
+  array key still marshals through `__index__` (a scalar index, G-073), and
+  genuine integer-array keys still decline as G-039.
+- **row/column-major (owner ruling 2026-10-08)**: `mask_select` keeps RSTSR's
+  device-order convention — the mask is visited in the device default order and
+  the result's memory follows it — so under `ColMajor` it yields the
+  column-major analogue of NumPy's result. The Python array API *requires*
+  row-major (C-style) iteration of a boolean index array regardless of device;
+  that rule is deliberately **not** followed here, consistent with the existing
+  device-order convention of `nonzero` / `repeat(axis = None)`. The shipped
+  shim is built `row_major`, so conformance grading is unaffected. Documented in
+  the `mask_select` docstring (Row/Column Major Notice).
+- the setitem side is named `mask_fill` (a scalar → selection fill, matching
+  `rt::fill`), not `mask_assign` — the array-value generalization, if added,
+  would take the `assign` name.
+- follow-on (not done): a general array `value` broadcast to the selection
+  shape (only scalar / size-1 is accepted today, which is what the suite
+  draws); a parallel mask gather (prefix-sum) on the rayon device.
 
