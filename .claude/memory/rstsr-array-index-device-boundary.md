@@ -58,12 +58,24 @@ that task dir's `REVIEW-R1-RESPONSE.md`):
   arrays against the broadcast dimensions whenever their rank differs from the
   broadcast rank. Canonicalizing (copying through the layout in row-major order)
   or addressing the entries through their layouts both work and agree.
-- **Rayon is serial** (recorded 2026-10-09): `DeviceRayonAutoImpl::array_index`
-  (reached by `DeviceFaer` and the five BLAS crates through the `rayon_auto_impl`
-  symlink) delegates to `array_index_cpu_serial`; `mask_select` / `mask_fill` are
-  in the same state. The parallelization design — precompute the four
-  `src/out_{base,bulk}` tables, then flatten the base×bulk loop over the disjoint
-  output offsets with an `AtomicPtr` write, mirroring `searchsorted_cpu_rayon` /
-  `index_select_cpu_rayon` — is in
-  `2026-10-08-array-indexing/FOLLOWUP-rayon-array-index.md`. A gather is
-  memory-bound, so benchmark before implementing.
+- **Rayon advanced indexing is now parallel** (implemented 2026-10-09, rstsr
+  working tree; design + numbers in
+  `2026-10-08-array-indexing/FOLLOWUP-rayon-array-index.md`). `array_index`,
+  `mask_select`, `mask_fill`, `take_along_axis` got rayon kernels in
+  `rstsr-native-impl/src/cpu_rayon/` (`index_select` was already parallel;
+  `bool_select` rides it). `DeviceRayonAutoImpl` (reached by `DeviceFaer` and
+  the five BLAS crates) wires them via `get_current_pool()`.
+  - Kernel speedups ~5-6x (1-D and 2-indexer gather); `mask_select`/`mask_fill`
+    ~3x end-to-end. But **`array_index` is only ~1.5x end-to-end** because the
+    *tensor tier* (resolve every index into device storage + allocate output)
+    is serial and comparable in cost — the kernel is not the bottleneck for the
+    public call. Parallelizing `tensor/array_indexing.rs`'s resolution is the
+    next lever.
+  - Two design gotchas that cost most of the speedup if missed: build the four
+    offset tables **in parallel** (`for_each_init` scratch), and **never** flatten
+    with a per-element `k / n_bulk` integer division (nest the smaller dim
+    inside instead).
+  - Correctness pinned by in-src `*_parallel_matches_serial` tests (rayon vs
+    serial, sizes above the switch) and a scratch NumPy cross-check; no effect
+    on the serialize/`device_order` semantics or the array-API numbers
+    (1216/84/82).

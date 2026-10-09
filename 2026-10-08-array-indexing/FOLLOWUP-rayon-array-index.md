@@ -1,12 +1,16 @@
 # Follow-up: parallel rayon kernel for `array_index` (the gather)
 
-Status (2026-10-09): **not started.** `DeviceRayonAutoImpl::array_index`
+Status (2026-10-09): **implemented** (rstsr working tree, branch
+`261009/array-indexing`; not committed — rstsr no-auto-commit policy). See
+"Outcome" at the bottom for the measured numbers and the deviations from the
+sketch below.
+
+`DeviceRayonAutoImpl::array_index`
 (`rstsr-core/src/feature_rayon/auto_impl/array_indexing.rs`, also reached by
 `DeviceFaer` and the five BLAS crates through the `rayon_auto_impl` symlink)
-delegates straight to `array_index_cpu_serial`
-(`rstsr-native-impl/src/cpu_serial/array_indexing.rs`). The delegation comment
-already names the "perf pass" this note specifies. `mask_select` / `mask_fill`
-are in the same state (serial) and share the problem shape.
+used to delegate straight to `array_index_cpu_serial`
+(`rstsr-native-impl/src/cpu_serial/array_indexing.rs`). `mask_select` /
+`mask_fill` were in the same state.
 
 ## The constraint that makes it easy
 
@@ -83,3 +87,56 @@ speedup is sublinear and bandwidth-limited. Land it with a small benchmark
 before adding the complexity. The same table-based split later unblocks
 `mask_select` / `mask_fill`, which additionally need a prefix-sum for the write
 offsets.
+
+## Outcome (2026-10-09)
+
+Implemented, and the sketch above needed two corrections the design missed:
+
+1. **The four tables must be built in parallel too.** Building `src/out_bulk`
+   is itself an `O(n_bulk · n_indexers)` traversal that *reads the index
+   arrays* (the same random loads the copy does); left serial, it capped the
+   speedup at ~2x. Built with `par_iter_mut().zip().enumerate().for_each_init(||
+   scratch, ..)` (per-thread unravel scratch), the whole kernel parallelizes.
+2. **Do not flatten with `k / n_bulk`.** The per-element integer division by a
+   runtime value is ~20-30 cycles and, for `take_along_axis`, cancelled the
+   entire parallel gain (`rayon ≈ serial`). Nest the smaller of the two dims
+   inside instead (`if n_bulk >= n_base { par n_bulk { for b } } else { par n_base
+   { for q } }`) — same output, no division.
+
+Also implemented the two related kernels: `mask_select` / `mask_fill`
+(`cpu_rayon/mask_indexing.rs`) and `take_along_axis`
+(`cpu_rayon/adv_indexing_take_along.rs`).
+
+**kernel-only numbers** (hand-built layouts, bypassing the tensor-tier index
+resolution; 16 threads, f64, min-of-30):
+
+| case | serial | rayon | speedup |
+| --- | --- | --- | --- |
+| `array_index` 1-D gather, n=2·10⁶ | ~15 ms | ~2.5 ms | **~6x** |
+| `array_index` 2-indexer broadcast gather, 10⁶ | ~7.5 ms | ~1.5 ms | **~5x** |
+
+**end-to-end numbers** (public API, incl. the serial tensor-tier index
+resolution and the output allocation; min-of-30, same machine):
+
+| op | serial | rayon | speedup |
+| --- | --- | --- | --- |
+| `mask_select` (1500×1500, 1-D mask) | 0.59 ms | 0.18 ms | ~3.3x |
+| `mask_fill` (1500×1500) | 0.36 ms | 0.10 ms | ~3.6x |
+| `array_index` 1-D gather, n=2·10⁶ | ~40 ms | ~27 ms | ~1.5x |
+| `take_along_axis` (1500×1500) | ~25 ms | ~22 ms | ~1.1x |
+
+The gap between the two tables is the point: for `array_index` the end-to-end
+op is dominated by the *tensor-tier* work (resolve every index into device
+storage, allocate the output), which is serial and untouched here. The kernel
+is 6x; the public call is 1.5x. Attacking that next means parallelizing the
+index resolution in `tensor/array_indexing.rs` (out of scope for this kernel
+task).
+
+The mask kernels show their speedup end-to-end because they have no index
+resolution to dilute them.
+
+Correctness: rayon == serial on 2M-element random inputs (1-D gather, 2-D
+broadcast, displaced, mask select/fill, take_along axis 0/1), both row- and
+column-major; and byte-identical to NumPy for the row-major cases. Full rstsr
+test suite, col-major suite, doctests, fmt/clippy, and the array-API
+conformance suite (1216/84/82, unchanged) all pass.

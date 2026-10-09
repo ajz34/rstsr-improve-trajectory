@@ -136,8 +136,10 @@ and array-api conformance still **1216 / 84 / 82**.
 
 - advanced-key `setitem` (scatter); (boolean index arrays mixed into a tuple
   landed in `60d3e18` — no longer a follow-up)
-- a rayon kernel for the gather (the rayon device currently delegates to
-  serial) — design in `FOLLOWUP-rayon-array-index.md`;
+- a rayon kernel for the gather (the rayon device delegated to serial) —
+  **done 2026-10-09** for `array_index`, `mask_select`/`mask_fill` and
+  `take_along_axis`; design + measured numbers in
+  `FOLLOWUP-rayon-array-index.md`;
 - col-major divergence tests, once `entry_col_cpu` exists;
 - perf pass on the kernel (per-element multi-index recomputation).
 
