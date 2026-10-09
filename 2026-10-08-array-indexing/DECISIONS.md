@@ -83,6 +83,16 @@ array-api-tests `6c0b59f9`.
 - Edges: repeated `Ellipsis` → error; empty tuple → identity (view); all-basic
   tuple → view; empty index arrays → valid empty output.
 
+- **Column-major placement** (decided 2026-10-09, `5a42771`; see
+  `PLAN-col-major-placement.md`): the placement rule is measured in the device's
+  access order — a run of advanced indexers that other indexers displace goes to
+  the **back** under `ColMajor` instead of the front (the broadcast block keeps
+  its contiguity role: the most-strided axis), while a run that stays together
+  keeps its subscript position in both orders. Row-major is unchanged; 1-D
+  results are identical; the shape differs between the orders exactly when the
+  advanced indexers are apart. `mask_select` needs no change (its count axis
+  replaces the leading axes, i.e. the leading-together configuration).
+
 ## Errors
 
 - `IndexError`: out-of-bounds integer index, non-broadcastable index arrays,
