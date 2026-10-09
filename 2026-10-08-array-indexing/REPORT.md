@@ -134,7 +134,8 @@ and array-api conformance still **1216 / 84 / 82**.
 
 ## Follow-ups (not done)
 
-- boolean index arrays mixed into a tuple; advanced-key `setitem` (scatter);
+- advanced-key `setitem` (scatter); (boolean index arrays mixed into a tuple
+  landed in `60d3e18` — no longer a follow-up)
 - a rayon kernel for the gather (the rayon device currently delegates to serial);
 - col-major divergence tests, once `entry_col_cpu` exists;
 - perf pass on the kernel (per-element multi-index recomputation).
@@ -197,3 +198,28 @@ Tests: `custom_array_index::test_boolean_index_arrays` +
 `device_order::test_boolean_mask_orders`; docs updated (anchor docstring incl.
 the row/col difference example, `order_semantics`, tracking entries). Counts:
 lib 144 / 143, entry suite 552, doctests 255, fmt/clippy clean.
+
+Postscript (2026-10-09, final review): a max-effort review of the array-indexing
+branch returned seven findings; six were real and are fixed in the working tree
+(no commit — the rstsr no-auto-commit policy applies). Documentation: the
+array-API conformance note still claimed boolean index arrays in a tuple were
+unsupported (`src/docs/array_api_standard.md`), and `order_semantics.md`
+contradicted itself by calling a together run of advanced indexers
+value-order-independent while the same paragraph admits a rank ≥ 2 mask permutes
+its count axis — both corrected. Comments: the two 7-line blocks at the
+placement rule and the device-storage move were reduced to the 4-line CLAUDE.md
+limit. Docstring policy: the NumPy bullet in `# Notes of API accordance` now
+carries the inline link §7 requires, and the Overloads Table no longer lists a
+zero-dimensional integer tensor as an index array (it lowers to a `Select`).
+Diagnostics: the broadcast-mismatch message now lists *every* index array's
+shape (NumPy's form) instead of the accumulated partial shape paired with the
+current array. One finding — a claimed `isize::MIN` overflow in the negative-index
+resolve — was a false positive: adding a non-negative axis size to a negative
+`isize` cannot overflow (verified empirically; pinned by a new `test_edges`
+case). The 0-d-boolean decline is now recorded as `status: wontfix` in the
+registry, split from the still-open grouped-tuple entry. Re-verified: entry
+suite 552 (15/15 array_index tests, incl. the new pin), lib 143 col-major,
+doctests 255, `fmt`/`clippy`/`rustdoc -D warnings` clean. Findings left open
+(registered, not blocking): grouped index tuples, faer-py bool-in-key exposure,
+advanced-key `setitem`, the rayon gather kernel, and the host round-trip in the
+device boundary.

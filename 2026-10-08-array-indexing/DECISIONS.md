@@ -18,8 +18,9 @@ array-api-tests `6c0b59f9`.
   `ndim(mask)` axes and contributes one `(count,)` dimension (NumPy's rule,
   incl. the exact-shape check and the size-0 axis allowance); a lone bool array
   in the Python layer still routes to `mask_select`. A zero-dimensional boolean
-  stays deferred (it would add a `{0, 1}`-sized block without consuming an axis,
-  which the index-array lowering cannot express). The driver layer is untouched:
+  is declined — a permanent decision, not a follow-up (it would add a
+  `{0, 1}`-sized block without consuming an axis, which the index-array
+  lowering cannot express; registry `status: wontfix`). The driver layer is untouched:
   masks arrive as ordinary index arrays.
 - **0-d integer arrays:** advanced for the placement computation, but lowered as
   `Basic(Select)`; **no `From` path into `ArrayIndexer::ArrayIndex`**.
