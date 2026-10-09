@@ -173,3 +173,13 @@ Re-verified: 547 row-major suite tests, 253 doctests, lib 145 (default) / 144
 (col-major), 44 common tests, fmt/clippy/rustdoc clean, fresh 4000-case NumPy
 differential, array-api **1216 / 84 / 82** (unchanged; the four
 `test_getitem_arrays_and_ints_*` nodes still pass).
+
+Postscript (2026-10-09, test-organization follow-up): the order tests moved out
+of the in-src unit module into the `entry_row_cpu` integration suite —
+`core_func::indexing::test_array_index::device_order` now holds
+`test_array_index_order_invariance` / `test_array_index_order_arrangement` /
+`test_array_index_order_displaced_deep_base` (both orders still exercised at
+runtime via `set_default_order`; the other order-behavior tests of the suite
+already live in `device_order` modules). The in-src module keeps only the quick
+smoke tests. Counts after the move: lib 144 (row-major) / 143 (col-major), entry
+suite 550, doctests 253, fmt/clippy clean.

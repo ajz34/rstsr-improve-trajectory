@@ -22,10 +22,14 @@ that task dir's `REVIEW-R1-RESPONSE.md`):
   role: the most-strided axis), while a run that stays *together* keeps its
   subscript position. So the **shape** is order-dependent exactly when the
   indexers are apart; the arrangement (C- vs F-contiguous) always follows the
-  device for rank ≥ 2; 1-D results are identical. Pinned by in-src
+  device for rank ≥ 2; 1-D results are identical. Pinned by the `entry_row_cpu`
+  integration module `core_func::indexing::test_array_index::device_order` —
   `test_array_index_order_arrangement` (placement + arrangement, against NumPy's
-  `ravel()` / `ravel(order='F')`) and `test_array_index_order_invariance`
-  (together runs and 1-D values).
+  `ravel()` / `ravel(order='F')`), `test_array_index_order_invariance` (together
+  runs and 1-D values) and `test_array_index_order_displaced_deep_base`. (Moved
+  there 2026-10-09 from the in-src unit module, which keeps only quick smoke
+  tests; the other order-behavior tests of the suite live in `device_order`
+  modules too.)
 - **`mask_select` needs no placement change**: its count axis replaces the
   leading axes (the leading-together configuration), so `(count, *trailing)` is
   kept. Its selection *sequence* still follows the mask visit order (device
