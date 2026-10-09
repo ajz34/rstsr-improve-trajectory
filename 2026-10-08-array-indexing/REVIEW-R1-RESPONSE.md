@@ -158,6 +158,11 @@ Two in-src tests (both run in the row-major and the col-major CI unit-test jobs)
   1-D result ⇒ identical strides and sequence (`a[1, [0,1,2], [2,0,1]]`);
   3-D result from a *1-D* index array plus slices ⇒ C-contiguous vs
   F-contiguous strides and `ravel()` vs `ravel(order='F')` (`a[:, :, [0,1]]`);
+  two 1-D index arrays separated by a slice (`a[[0,1], :, [2,0]]` — the sharpest
+  case, since no multi-dimensional index array is involved: row-major strides
+  `[3, 1]` with buffer `[2, 6, 10, 12, 16, 20]`, column-major strides `[1, 2]`
+  with buffer `[2, 12, 6, 16, 10, 20]` = NumPy's `ravel()` / `ravel(order='F')`
+  of the same `[[2, 6, 10], [12, 16, 20]]`);
   multi-dimensional index arrays with the broadcast dimension in the middle
   (`consec = 1`, `a[0:2, [0,1], [1,0], :]` — the fancy dimension carries
   stride 2 under column-major) and leading (`consec = 0`,
