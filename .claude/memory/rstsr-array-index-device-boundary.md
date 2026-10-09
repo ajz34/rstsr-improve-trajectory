@@ -16,7 +16,16 @@ that task dir's `REVIEW-R1-RESPONSE.md`):
   **device default order**, but that is not part of the contract.
 - `DeviceArrayIndexAPI::array_index` takes `order: FlagOrder`; the kernel visits
   the broadcast dimensions in that order. Values/shape are order-independent;
-  the result arrangement follows the device.
+  the result arrangement follows the device, and so does the flattened visit
+  sequence (`to_vec()`); in-src `test_array_index_colmajor_iteration` pins this
+  against NumPy's `ravel()` / `ravel(order='F')`.
+- Do **not** generalize that order-independence to `mask_select`: its selection
+  sequence *is* the mask visit order, so it follows the device (visible even in
+  1-D results). Its Row/Column Major Notice says so; `order_semantics.md` and
+  the `col-major-transfer` tracking entry once claimed otherwise and were fixed.
+  Project policy: only the **row-major default order** is held to NumPy / the
+  array API; column-major divergence is the registered `col-major-transfer`
+  convention.
 - Index tensors are resolved element by element through `Storage::get_index` (no
   `raw()[..]` reads, no `Raw = Vec<isize>` pin) and the resolved `usize` buffer
   goes back into device storage with `outof_cpu_vec`.

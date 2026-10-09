@@ -99,6 +99,59 @@ test.
 - row-major behaviour is byte-for-byte what it was (fresh 4000-case NumPy
   differential, full test batteries below).
 
+## 5. Follow-up audit (the col-major framing)
+
+Reviewing my own framing after the reviewer's reminder that **only the
+row-major default order is held to NumPy/the standard** — a column-major device
+is allowed (and registered) to diverge — two tracking statements were wrong and
+are fixed:
+
+- `order_semantics.md` lumped `mask_select` in with the "order-independent"
+  gathers. It is not: its selection *sequence* is the mask visit order, i.e.
+  device-dependent, so on a column-major device even a 1-D result carries the
+  column-major sequence (its own Row/Column Major Notice always said so). The
+  page now separates the coordinate-described gathers (`index_select`,
+  `take_along_axis`, `array_index` — values/shape order-independent) from the
+  visit-sequence ones (`mask_select`).
+- the `col-major-transfer` entry in `numpy_differences.md` claimed "shape and
+  element values never differ; only the memory arrangement does", which is true
+  for `array_index` but false for `mask_select`; both are now stated separately,
+  with the policy spelled out: NumPy/array-API parity holds under the row-major
+  default order, the column-major device-order convention is the registered
+  transfer.
+
+No *behaviour* was found to be wrongly deferred under this label: the
+order-independence notices on `array_index` and the sole-index boolean path hold
+in the row-major case (differential + conformance + the order-equivalence test).
+
+## 6. Column-major iteration is now tested (not just documented)
+
+Follow-up ask: make tests that validate the column-major claim at the fancy
+indexing axis. New in-src test `test_array_index_colmajor_iteration` (runs in
+both order CI unit-test jobs) pins, on the same logical (3,2,2,4) input and with
+NumPy-derived expectations:
+
+- row-major device: C-contiguous strides, flattened sequence = NumPy's
+  `ravel()`;
+- column-major device: F-contiguous strides, with the broadcast (fancy)
+  dimension carrying its column-major stride — stride 1 when it leads, i.e. the
+  fancy axis is the fastest varying one — and the flattened sequence = NumPy's
+  `ravel(order='F')` of the same logical result;
+- the two flattenings together pin the values too (a flattening is a bijection),
+  so the test also asserts that the two devices hold one logical tensor.
+
+Two cases: the broadcast dimension in the middle (`consec = 1`,
+`a[0:2, [0,1], [1,0], :]`) and leading (`consec = 0`, `a[[0,1], :, [1,0], :]`).
+
+Note recorded in the test: the kernel's *internal* visit order is a locality
+choice and cannot show up in the result (each output position is written from
+exactly one source position); the arrangement is what carries the device order,
+so the test pins the arrangement and the visit sequence the result exposes.
+
+Also: the `col-major-transfer` entry pointed at the `doc_draft` twin for the
+array-indexing order caveat, which only pins RowMajor — the pointer now names
+the in-src test.
+
 ## Verification after the rework
 
 - 547 row-major entry-binary tests, 253 doctests;
