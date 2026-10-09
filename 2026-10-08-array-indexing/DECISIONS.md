@@ -46,9 +46,21 @@ array-api-tests `6c0b59f9`.
   codebase's `Op*API`/`Device*API` inconsistency is noted to fix later.
 - **Layout-generic**: no row/col-contiguity assumption for source, output, or
   index arrays (arbitrary strides/offset).
-- Boundary: `(&mut out_raw, &Layout<IxD>, &in_raw, &Layout<DA>,
-  indexers: &[(usize src_axis, &[usize], &Layout<IxD>)])`; all indices resolved
-  to `usize` and validated at the tensor tier; the device never sees a tensor.
+- Boundary (final, after the manual review — see `REVIEW-R1-RESPONSE.md`):
+  `(&mut out_raw, &Layout<IxD>, &in_raw, &Layout<DA>, &Layout<IxD> base,
+  indexers: &[ArrayAuxIndexer<{src_axis, indices: &DeviceRawAPI<usize>::Raw,
+  layout: Layout<IxD>}>], consec, order: FlagOrder)`. All indices are resolved to
+  `usize` and validated at the tensor tier; the entries live in **device
+  storage** and are read through their layout (the review's INIT-prompt tuple
+  `(axis, V data, Layout<IxD>)`, with `V` the device raw). The tensor tier keeps
+  host carriers as `Vec<isize>` and index tensors as tensors until the broadcast
+  shape is known, resolves through `Storage::get_index` in the device order, and
+  moves the resolved entries into device storage with `outof_cpu_vec`.
+  (Superseded: the first implementation passed `&[usize]` host slices and pinned
+  `DeviceAPI<isize, Raw = Vec<isize>>`.)
+- **Default-order aware**: the op takes the device default order; the index
+  arrays are resolved and the broadcast dimensions visited in that order, and
+  the result arrangement follows it. Values and shape stay order-independent.
 - Kernel: **fresh `array_index_cpu_serial`** (serial); rayon kernel as a
   follow-up. `take_along_axis` is the `fancy_ndim = 1`, same-rank special case.
 - **No transpose copy and no transpose view**: compute the output shape and

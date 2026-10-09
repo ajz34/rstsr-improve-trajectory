@@ -138,3 +138,33 @@ and array-api conformance still **1216 / 84 / 82**.
 - a rayon kernel for the gather (the rayon device currently delegates to serial);
 - col-major divergence tests, once `entry_col_cpu` exists;
 - perf pass on the kernel (per-element multi-index recomputation).
+
+## Manual review round (`REVIEW-R1-PROMPT.md`, 2026-10-09)
+
+The maintainer's manual review asked for the device boundary to carry the
+resolved index entries in **device storage** (`ArrayAuxIndexer.indices:
+&DeviceRawAPI<usize>::Raw`, any layout allowed) instead of host slices, for the
+device op to take the **device default order**, and for the tensor tier to move
+data into device storage rather than extracting index tensors to host slices.
+It also asked to try both column-major implementations (revert the index layouts
+to row-major vs. a column-major iterator) and keep one.
+
+Implemented and verified — the response is `REVIEW-R1-RESPONSE.md`; the
+superseded boundary line in `DECISIONS.md` was updated. Headlines:
+
+- `ArrayAuxIndexer<'a, B>` + `order: FlagOrder`; entries resolved element by
+  element through `Storage::get_index` (no raw-slice reads, no `Raw = Vec<..>`
+  pin) and moved into device storage with `outof_cpu_vec`.
+- Both strategies agree; the layout-generic one (no copy, entries addressed
+  through their layouts, broadcast dims visited in the device order) is kept. A
+  naive axis reversal of the index layouts is *not* equivalent — it flips the
+  trailing alignment for index arrays whose rank is below the broadcast rank;
+  that case is now a regression test.
+- New `test_array_index_order_equivalence` (in-src; runs in both CI order jobs):
+  hand-computed, NumPy-cross-checked expectations for a row-major and a
+  column-major device, plus the arrangement checks.
+
+Re-verified: 547 row-major suite tests, 253 doctests, lib 145 (default) / 144
+(col-major), 44 common tests, fmt/clippy/rustdoc clean, fresh 4000-case NumPy
+differential, array-api **1216 / 84 / 82** (unchanged; the four
+`test_getitem_arrays_and_ints_*` nodes still pass).
