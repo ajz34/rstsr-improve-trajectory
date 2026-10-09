@@ -13,8 +13,14 @@ array-api-tests `6c0b59f9`.
   row-major parity. The array-api reduced subset (all-int tuples, mutual
   broadcast, zipped gather) is the special case.
 - **This pass: getitem only.** Advanced-key `setitem` (scatter) deferred.
-- **Boolean indexers:** a lone bool array routes to existing `mask_select`;
-  bool *mixed into a tuple* deferred (and may be skipped if too difficult).
+- **Boolean indexers** (implemented 2026-10-09, rstsr `60d3e18`): a boolean
+  array in the index is lowered to its `nonzero` coordinates — it consumes
+  `ndim(mask)` axes and contributes one `(count,)` dimension (NumPy's rule,
+  incl. the exact-shape check and the size-0 axis allowance); a lone bool array
+  in the Python layer still routes to `mask_select`. A zero-dimensional boolean
+  stays deferred (it would add a `{0, 1}`-sized block without consuming an axis,
+  which the index-array lowering cannot express). The driver layer is untouched:
+  masks arrive as ordinary index arrays.
 - **0-d integer arrays:** advanced for the placement computation, but lowered as
   `Basic(Select)`; **no `From` path into `ArrayIndexer::ArrayIndex`**.
 

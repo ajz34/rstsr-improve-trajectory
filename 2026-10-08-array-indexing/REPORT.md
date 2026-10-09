@@ -183,3 +183,17 @@ runtime via `set_default_order`; the other order-behavior tests of the suite
 already live in `device_order` modules). The in-src module keeps only the quick
 smoke tests. Counts after the move: lib 144 (row-major) / 143 (col-major), entry
 suite 550, doctests 253, fmt/clippy clean.
+
+Postscript (2026-10-09, boolean masks): `rt::array_index` now accepts boolean
+masks in the key (rstsr `60d3e18`): a mask is lowered to its `nonzero`
+coordinates at the tensor tier, so it consumes one axis per mask axis and
+contributes one `(count,)` block — NumPy's boolean array indexing, including
+the placement rule, the exact-shape check and the count broadcast; a
+zero-dimensional boolean stays declined. The driver layer is untouched (masks
+arrive as ordinary index arrays); the added device requirement is
+`OpNonzeroAPI<bool, IxD>`. Under `ColMajor` a rank ≥ 2 mask permutes its count
+axis (the `nonzero` sequence), registered with `mask_select`'s divergence.
+Tests: `custom_array_index::test_boolean_index_arrays` +
+`device_order::test_boolean_mask_orders`; docs updated (anchor docstring incl.
+the row/col difference example, `order_semantics`, tracking entries). Counts:
+lib 144 / 143, entry suite 552, doctests 255, fmt/clippy clean.

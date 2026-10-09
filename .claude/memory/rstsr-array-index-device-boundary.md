@@ -30,6 +30,15 @@ that task dir's `REVIEW-R1-RESPONSE.md`):
   there 2026-10-09 from the in-src unit module, which keeps only quick smoke
   tests; the other order-behavior tests of the suite live in `device_order`
   modules too.)
+- **Boolean masks in a key** (2026-10-09, rstsr `60d3e18`): lowered at the tensor
+  tier to their `nonzero` coordinates (one 1-D index array per mask axis, kept in
+  device storage), so a mask consumes `ndim(mask)` axes and contributes one
+  `(count,)` block — the placement rule transfers verbatim and the driver is
+  untouched (masks arrive as ordinary index arrays; the new bound is
+  `OpNonzeroAPI<bool, IxD>`). A zero-dimensional boolean stays declined (it would
+  add a `{0, 1}`-sized block without consuming an axis). Under `ColMajor` a mask
+  of rank ≥ 2 permutes its count axis (the device `nonzero` sequence) — values,
+  not only arrangement; 1-D masks are order-independent.
 - **`mask_select` needs no placement change**: its count axis replaces the
   leading axes (the leading-together configuration), so `(count, *trailing)` is
   kept. Its selection *sequence* still follows the mask visit order (device
