@@ -91,7 +91,7 @@ test.
 ## 4. Column-major behaviour today
 
 - values and shape: order-independent (NumPy-parity; hand-computed,
-  NumPy-cross-checked expectations in `test_array_index_order_equivalence`);
+  NumPy-cross-checked expectations in `test_array_index_order_invariance`);
 - arrangement: follows the device order, unchanged from before (C-contiguous on
   a row-major device, F-contiguous on a column-major one);
 - new: the index arrays are read, resolved and traversed in the device order,
@@ -124,33 +124,53 @@ No *behaviour* was found to be wrongly deferred under this label: the
 order-independence notices on `array_index` and the sole-index boolean path hold
 in the row-major case (differential + conformance + the order-equivalence test).
 
-## 6. Column-major iteration is now tested (not just documented)
+## 6. Column-major behaviour is now tested (not just documented)
 
 Follow-up ask: make tests that validate the column-major claim at the fancy
-indexing axis. New in-src test `test_array_index_colmajor_iteration` (runs in
-both order CI unit-test jobs) pins, on the same logical (3,2,2,4) input and with
-NumPy-derived expectations:
+indexing axis, and restructure them around a sharper question — when do the two
+device orders actually differ?
 
-- row-major device: C-contiguous strides, flattened sequence = NumPy's
-  `ravel()`;
-- column-major device: F-contiguous strides, with the broadcast (fancy)
-  dimension carrying its column-major stride — stride 1 when it leads, i.e. the
-  fancy axis is the fastest varying one — and the flattened sequence = NumPy's
-  `ravel(order='F')` of the same logical result;
-- the two flattenings together pin the values too (a flattening is a bijection),
-  so the test also asserts that the two devices hold one logical tensor.
+**The bounded claim** (what the restructured tests encode): for the same logical
+inputs the two orders always gather the same *logical* result (shape + values at
+every position); what differs is the *arrangement*, and that differs exactly
+when the result has two or more dimensions. A 1-D result is identical on either
+device. An n-dimensional (n > 1) index array always broadcasts to an
+n-dimensional bulk and so always forces a multi-dimensional result — hence
+always lands in the difference — but **the index arrays' rank is not the
+criterion**: a 1-D index array only has to meet a slice (or another 1-D array
+across a slice) to produce a multi-dimensional result that also differs.
 
-Two cases: the broadcast dimension in the middle (`consec = 1`,
-`a[0:2, [0,1], [1,0], :]`) and leading (`consec = 0`, `a[[0,1], :, [1,0], :]`).
+Two in-src tests (both run in the row-major and the col-major CI unit-test jobs):
 
-Note recorded in the test: the kernel's *internal* visit order is a locality
-choice and cannot show up in the result (each output position is written from
-exactly one source position); the arrangement is what carries the device order,
-so the test pins the arrangement and the visit sequence the result exposes.
+- `test_array_index_order_invariance` — the "same logical result" half.
+  Arrangement-blind comparisons (element reads via `.i(...)`, plain flattenings
+  for 1-D results) across the two devices: a 1-D gather consuming every axis
+  (`a[1, [0,1,2], [2,0,1]]`), a slice keeping a base dimension
+  (`a[[1,0], .., 1]`), a mixed-rank trailing-aligned broadcast
+  (`a[1, [[2],[0]], [3,0,1,2]]`), and the *same logical* multi-dimensional index
+  arrays on both devices (a host listing is read in the device order, so the
+  column-major device is handed the F-order listing). It also documents the
+  construction trap: the *same* flat listing on the other order is the
+  transposed pair of index arrays, and the gather faithfully returns other
+  elements — construction, not gather.
+- `test_array_index_order_arrangement` — the "what differs" half. Each device is
+  compared against NumPy's flattening in the corresponding order:
+  1-D result ⇒ identical strides and sequence (`a[1, [0,1,2], [2,0,1]]`);
+  3-D result from a *1-D* index array plus slices ⇒ C-contiguous vs
+  F-contiguous strides and `ravel()` vs `ravel(order='F')` (`a[:, :, [0,1]]`);
+  multi-dimensional index arrays with the broadcast dimension in the middle
+  (`consec = 1`, `a[0:2, [0,1], [1,0], :]` — the fancy dimension carries
+  stride 2 under column-major) and leading (`consec = 0`,
+  `a[[0,1], :, [1,0], :]` — the fancy axis is the fastest varying one).
+
+Both test bodies carry the NumPy expressions their constants come from, and both
+record that the kernel's *internal* visit order is a locality choice that cannot
+show up in the result (each output position is written from exactly one source
+position): the arrangement is what carries the device order.
 
 Also: the `col-major-transfer` entry pointed at the `doc_draft` twin for the
 array-indexing order caveat, which only pins RowMajor — the pointer now names
-the in-src test.
+`test_array_index_order_arrangement`.
 
 ## Verification after the rework
 

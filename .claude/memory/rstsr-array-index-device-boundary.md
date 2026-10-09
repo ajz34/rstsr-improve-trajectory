@@ -16,9 +16,12 @@ that task dir's `REVIEW-R1-RESPONSE.md`):
   **device default order**, but that is not part of the contract.
 - `DeviceArrayIndexAPI::array_index` takes `order: FlagOrder`; the kernel visits
   the broadcast dimensions in that order. Values/shape are order-independent;
-  the result arrangement follows the device, and so does the flattened visit
-  sequence (`to_vec()`); in-src `test_array_index_colmajor_iteration` pins this
-  against NumPy's `ravel()` / `ravel(order='F')`.
+  the arrangement follows the device — **but only for results of rank ≥ 2**: a
+  1-D result is identical under both orders (one axis, one order), and the
+  index arrays' rank is not the criterion (a 1-D index array with a slice
+  already gives a multi-dimensional result). In-src
+  `test_array_index_order_arrangement` pins this against NumPy's `ravel()` /
+  `ravel(order='F')`; `test_array_index_order_invariance` pins the values.
 - Do **not** generalize that order-independence to `mask_select`: its selection
   sequence *is* the mask visit order, so it follows the device (visible even in
   1-D results). Its Row/Column Major Notice says so; `order_semantics.md` and

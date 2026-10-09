@@ -160,9 +160,14 @@ superseded boundary line in `DECISIONS.md` was updated. Headlines:
   naive axis reversal of the index layouts is *not* equivalent — it flips the
   trailing alignment for index arrays whose rank is below the broadcast rank;
   that case is now a regression test.
-- New `test_array_index_order_equivalence` (in-src; runs in both CI order jobs):
-  hand-computed, NumPy-cross-checked expectations for a row-major and a
-  column-major device, plus the arrangement checks.
+- New in-src order tests (they run in both CI order jobs), split by the question
+  they answer: `test_array_index_order_invariance` (the two orders gather the
+  same logical result — arrangement-blind comparisons, mixed-rank broadcast, the
+  same logical multi-dimensional index arrays on both devices, and the
+  flat-listing construction trap) and `test_array_index_order_arrangement` (the
+  arrangement differs exactly for results of rank ≥ 2; a 1-D result is
+  identical; both devices checked against NumPy's `ravel()` /
+  `ravel(order='F')`).
 
 Re-verified: 547 row-major suite tests, 253 doctests, lib 145 (default) / 144
 (col-major), 44 common tests, fmt/clippy/rustdoc clean, fresh 4000-case NumPy
