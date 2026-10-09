@@ -95,6 +95,43 @@ Re-verified after the fixes: 544 row-major suite tests, 253 doctests, col-major
 lib tests 143, rustfmt/clippy/rustdoc clean, 4000-case NumPy differential,
 array-api conformance still **1216 / 84 / 82**.
 
+## Second code review (max effort, 2026-10-09) and its outcome
+
+A fresh max-effort pass over the branch (finders + a ~100k-case randomized NumPy
+differential probe) found **no reachable functional bug beyond those fixed in
+`80231bc`** and returned three amendments, all addressed in `853279d`:
+
+1. *Residual in the in-flight slicing fix*: `dim_narrow`'s `step > 0` branch
+   evaluated emptiness before the stop was clamped, so `start == len_prev < stop`
+   (`rev[2:5]` on a negative-stride axis) still produced a wrapped offset; the
+   length is now computed after clamping (mirroring the `step < 0` branch) and
+   pinned by `custom_indexing::test_negative_step_and_empty_slices` (including the
+   offset itself).
+2. *Lazy index validation*: an empty broadcast never touches the index arrays, so
+   NumPy returns an empty result instead of raising for values that are never
+   gathered (`a[np.array([], int), np.array([99])]`); resolution and bounds
+   checking now happen only when the broadcast is non-empty.
+3. Test/doc/contract gaps: the NumPy fixture + Python generator moved out of
+   rstsr-core (its `CONTEXT.md` forbids external fixtures and Python regen steps in
+   core) and the cases are inlined as `NUMPY_CASES`; new strided-source,
+   `()`/`None` and laziness tests; `rstsr-faer-py`'s getitem rides one path so the
+   error kind is `IndexError` for both spellings, and `__setitem__` marshals a 0-d
+   integer-array key; `DeviceArrayIndexAPI` documents the
+   write-every-element-exactly-once obligation; the repeated-ellipsis and
+   `AxesIndex::None` panics are documented and raise `IndexError`; the stale module
+   docs and the `# Panics` list are complete; the col-major divergence is
+   registered (`col-major-transfer`) and noted on `order_semantics.md`.
+
+Known, deliberately unfixed (perf-only, recorded as follow-ups): the
+`From<&TensorAny>` index conversion copies the index tensor (the public
+`ArrayIndexer<B>` carries an owned tensor by design), and the tensor tier still
+walks the indexers itself rather than reusing `Layout::dim_slice` (it must keep a
+zero-width ellipsis, which `dim_slice` elides).
+
+Re-verified after `853279d`: 547 row-major suite tests, 253 doctests, col-major lib
+143, rstsr-common tests, fmt/clippy/rustdoc clean, a 4000-case NumPy differential,
+and array-api conformance still **1216 / 84 / 82**.
+
 ## Follow-ups (not done)
 
 - boolean index arrays mixed into a tuple; advanced-key `setitem` (scatter);
