@@ -15,13 +15,21 @@ that task dir's `REVIEW-R1-RESPONSE.md`):
   row-major buffer — the tensor tier hands over contiguous buffers in the
   **device default order**, but that is not part of the contract.
 - `DeviceArrayIndexAPI::array_index` takes `order: FlagOrder`; the kernel visits
-  the broadcast dimensions in that order. Values/shape are order-independent;
-  the arrangement follows the device — **but only for results of rank ≥ 2**: a
-  1-D result is identical under both orders (one axis, one order), and the
-  index arrays' rank is not the criterion (a 1-D index array with a slice
-  already gives a multi-dimensional result). In-src
-  `test_array_index_order_arrangement` pins this against NumPy's `ravel()` /
-  `ravel(order='F')`; `test_array_index_order_invariance` pins the values.
+  the broadcast dimensions in that order. **Placement rule** (2026-10-09,
+  `5a42771`): NumPy's rule measured in the device's access order — a run of
+  advanced indexers that other indexers *displace* goes to the **back** under
+  `ColMajor` instead of the front (the broadcast block keeps its contiguity
+  role: the most-strided axis), while a run that stays *together* keeps its
+  subscript position. So the **shape** is order-dependent exactly when the
+  indexers are apart; the arrangement (C- vs F-contiguous) always follows the
+  device for rank ≥ 2; 1-D results are identical. Pinned by in-src
+  `test_array_index_order_arrangement` (placement + arrangement, against NumPy's
+  `ravel()` / `ravel(order='F')`) and `test_array_index_order_invariance`
+  (together runs and 1-D values).
+- **`mask_select` needs no placement change**: its count axis replaces the
+  leading axes (the leading-together configuration), so `(count, *trailing)` is
+  kept. Its selection *sequence* still follows the mask visit order (device
+  order) — a separate, registered sequence divergence, not a placement question.
 - Do **not** generalize that order-independence to `mask_select`: its selection
   sequence *is* the mask visit order, so it follows the device (visible even in
   1-D results). Its Row/Column Major Notice says so; `order_semantics.md` and
