@@ -58,3 +58,12 @@ that task dir's `REVIEW-R1-RESPONSE.md`):
   arrays against the broadcast dimensions whenever their rank differs from the
   broadcast rank. Canonicalizing (copying through the layout in row-major order)
   or addressing the entries through their layouts both work and agree.
+- **Rayon is serial** (recorded 2026-10-09): `DeviceRayonAutoImpl::array_index`
+  (reached by `DeviceFaer` and the five BLAS crates through the `rayon_auto_impl`
+  symlink) delegates to `array_index_cpu_serial`; `mask_select` / `mask_fill` are
+  in the same state. The parallelization design — precompute the four
+  `src/out_{base,bulk}` tables, then flatten the base×bulk loop over the disjoint
+  output offsets with an `AtomicPtr` write, mirroring `searchsorted_cpu_rayon` /
+  `index_select_cpu_rayon` — is in
+  `2026-10-08-array-indexing/FOLLOWUP-rayon-array-index.md`. A gather is
+  memory-bound, so benchmark before implementing.
