@@ -1,12 +1,18 @@
-# Convergence checklist — rstsr_faer.api × array-api-tests (2026-10-07)
+# Convergence checklist — rstsr_faer.api × array-api-tests (2026-10-07, updated 2026-10-09)
 
 Ordered by ROI and by blocking. Counts are "suite nodes moved" (fails flipped,
 plus currently-skipped tests that get *activated* where noted). Register ids
 (G-nnn) refer to `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-Working baseline to beat: **1212 / 88 / 82 of 1382** (stamp `20261008-123235`,
-`FRESH=1`, `CHUNKED=1`, `NO_EXPLAIN=1`). (The checklist was authored against
-`20261008-061227` = 1178 / 122 / 82; see **Progress** for what has landed since.)
+**Current: 1249 / 51 / 82 of 1382** (suite `6c0b59f`, API `2025.12`; measured
+after rstsr PR #132, commit `9db98e8`). Every remaining graded failure is one
+of the **two namespace decisions** below — `linalg` (37 fails + activates 49
+skips) and `fft` (14 fails + 28 skips). Everything else has converged: the
+entire rust-side queue (C1–C10), the shim-side quick wins (group A), and the
+dtype-function / `clip` surface items. Of the 82 skips, the other 5 are the
+backend-independent `@pytest.mark.skip("flaky")` on `test_remainder`. See
+**Progress** for the merge chain and **Suggested next session** for the two
+remaining forks.
 
 **Progress (2026-10-08).** C4 (`remainder`) merged — rstsr PR #123, squash
 `8a09076` — moved 1144 / 156 / 82 → 1156 / 144 / 82 (+12). C5 (`signbit`) and
@@ -25,25 +31,43 @@ operators) merged as rstsr PR #125, squash `3ec30aa`, moving 1178 / 122 / 82 →
 `setitem`, `e64de57`, `rstsr-common`) → 1210 / 90 / 82 (+1). **C6a**
 (boolean-mask indexing, branch `261008/various-fixes`) → **1212 / 88 / 82**
 (+2). All 0 regressions. See C2, C6, C10.
-Group A (shim quick wins) is still the cheapest remaining block.
 
-## A. Shim-side quick wins — do first (~18 fails, no rust changes)
+**Progress (2026-10-09).** The red map collapsed to the two namespace
+decisions. In merge order (all squash-merged to `main`, 0 regressions and a
+test-for-test stable node set at each step):
 
-Wrapper-only edits in `crates-interop/rstsr-faer-py`; each is a register entry,
-no algorithms. Lowest risk, immediate payoff.
+- **C6b** fancy indexing (PR #127, `40c0b07`) → **1216 / 84 / 82**; the rayon
+  gather kernels (PR #128, `ce72db2`) are perf-only (no node movement), and the
+  integer-array / mask **assignment** family `array_index_assign` followed
+  (PR #129, `36788f9`).
+- **Group A** shim quick wins (PR #130, `634db34`) → **1234 / 66 / 82** (+18;
+  A1–A6 all done).
+- **B3** runtime dtype-promotion queries (PR #131, `1c03c55`) →
+  **1246 / 54 / 82** (+12; the `data_type_functions` file goes 6 → 0 failures).
+- **B4** `clip` (PR #132, `9db98e8`) → **1249 / 51 / 82** (+3: `test_clip`,
+  `test_func_signature[clip]`, `test_has_names[elementwise-clip]`).
 
-- [ ] **A1. `finfo` accepts complex dtypes** (G-032) — 4
-- [ ] **A2. namespace-info** — `devices()` → tuple, add `default_device()`,
+Net over the wave: **1178 → 1249 passed / 122 → 51 failed**; the rust-side
+queue and the shim-side remainder are both fully drained.
+
+## A. Shim-side quick wins — DONE (rstsr PR #130, `634db34`; +18)
+
+Wrapper-only edits in `crates-interop/rstsr-faer-py`; each was a register entry,
+no algorithms.
+
+- [x] **A1. `finfo` accepts complex dtypes** (G-032) — 4
+- [x] **A2. namespace-info** — `devices()` → tuple, add `default_device()`,
       `dtypes(kind=)`, fix `default_dtypes()` keys (G-048/49/50) — 4
-- [ ] **A3. 0-d result shape** in `isnan/isfinite/isinf` int/bool fallback (G-040) — 3
-- [ ] **A4. creation `empty/full/ones/zeros` `shape` pos-or-kw** (G-047) — 4
-- [ ] **A5. `astype(..., device=)` acceptance** (G-046) — 1
-- [ ] **A6. u64 PyScalar carrier** for `bitwise_invert` (G-013) — 2
+- [x] **A3. 0-d result shape** in `isnan/isfinite/isinf` int/bool fallback (G-040) — 3
+- [x] **A4. creation `empty/full/ones/zeros` `shape` pos-or-kw** (G-047) — 4
+- [x] **A5. `astype(..., device=)` acceptance** (G-046) — 1
+- [x] **A6. u64 PyScalar carrier** for `bitwise_invert` (G-013) — 2
 
-Exit check: full chunked run, expect **1212 + ~18 ≈ ~1230 passed / ~70 failed
-/ 82 skipped**, 0 regressions (test-for-test diff).
+Exit check met: 1216 / 84 / 82 → **1234 / 66 / 82** (+18, 0 regressions). The
+`uint64` carrier also fixed `tolist`/`item` reading a large unsigned value back
+as signed, and the NumPy integer default-dtype rule in `asarray`/`arange`.
 
-## B. Decisions needed before more binding work (each is a fork, not code)
+## B. Decisions needed before more binding work (B1/B2 are forks, not code; B3/B4 landed)
 
 - [ ] **B1. `linalg` namespace** — implement `xp.linalg` vs. scope-out via
       task-side `SKIPS_FILE`. Implement: **flips 37 fails + activates 49 skips
@@ -51,11 +75,18 @@ Exit check: full chunked run, expect **1212 + ~18 ≈ ~1230 passed / ~70 failed
       QR/slogdet/solve_symmetric do not (G-004/G-005). (G-023)
 - [ ] **B2. `fft`** — build an FFT subsystem vs. declare out of scope (W7 open).
       **42 tests** hinge (14 fails + 28 skips).
-- [ ] **B3. dtype functions `can_cast/isdtype/result_type`** (G-027/G-008) —
-      rstsr promotion exists only as associated types, no token-level query;
-      needs a rust-side design decision. 12 fails.
-- [ ] **B4. `clip`** (no rstsr primitive) — rust-side; 3 fails. (`log1p` done —
-      see C3.)
+- [x] **B3. dtype functions `can_cast/isdtype/result_type`** (G-027/G-008) —
+      **DONE** (rstsr PR #131, `1c03c55`): added a `dtype_promote` binding whose
+      every arm is derived from the `DTypePromoteAPI` associated `Res`, so the
+      runtime answers track the very impls the ops use rather than a
+      hand-maintained table; `result_type` treats Python scalars as weak,
+      `can_cast` mirrors reachable-by-promotion, `isdtype` is kind membership.
+      All 12 fails (`data_type_functions` 6 → 0).
+- [x] **B4. `clip`** (no rstsr primitive) — **DONE** (rstsr PR #132, `9db98e8`):
+      new `OpClipAPI` device trait + `rt::clip(&x, (lo, hi))` / `x.clip((lo, hi))`
+      — each bound a scalar, a broadcasting tensor, or `None`; result dtype
+      follows `x`; both bounds `None` returns an identity copy (array-API;
+      NumPy raises). All 3 fails.
 
 ## C. Rust-side queue — ordered by failures per work item
 
@@ -80,8 +111,8 @@ Register + request; never fix agent-side.
       bucket's other 2 are the joins). Shifts are width-aware. The
       `concat`/`stack` half went shim-side instead (see C10 — a Rust join's
       inputs must share one element type).
-- [x] **C3. G-058 `log1p` kernel — DONE** (rstsr PR #121, branch
-      `261007/log1p-kernel`): new `rstsr-dtype-traits` trait `ExtComplexFloat`
+- [x] **C3. G-058 `log1p` kernel — DONE** (rstsr PR #121, squash
+      `a4bebf5`): new `rstsr-dtype-traits` trait `ExtComplexFloat`
       (`ext_log_1p` / `ext_exp_m1`) with one device-table row per backend
       serving real + complex; real via `libm::log1p`/`expm1`, complex via the
       compensated `ln(u) − rho/u` and `2 exp(z/2) sinh(z/2)`. Fixed `log1p` (20
@@ -97,16 +128,16 @@ Register + request; never fix agent-side.
       Floats now match numpy incl. the 4 special cases; integers keep Rust's
       `%` for now (noted in the operator module docs). All 12 fixed
       (`remainder` / `__mod__` / `__imod__` × 4).
-- [x] **C5. G-054 `signbit` inverted semantics — DONE** (rstsr branch
-      `261008/signbit-pow`, `bacc07b`, PR pending): the kernel wrote
+- [x] **C5. G-054 `signbit` inverted semantics — DONE** (rstsr PR #124,
+      squash `aff7a10`): the kernel wrote
       `is_positive()` — the inverse of the sign-bit test — under a `Signed`
       bound. New `ExtReal::ext_signbit` (unsigned `false`, signed `< 0`,
       float/half `is_sign_negative`, so `-0.0`/`-NaN` are correct);
       `OpSignBitAPI` split out of the boolean-output table, bound re-pointed
       `Signed` → `ExtReal`, so unsigned/half are covered. All 9 fixed
       (`test_signbit` + 8 `test_special_cases::test_unary[signbit(±0/±inf/±NaN)]`).
-- [x] **C6a. G-038 whole-tensor boolean-mask indexing — DONE** (branch
-      `261008/various-fixes`): new device trait `DeviceMaskIndexAPI` (gather +
+- [x] **C6a. G-038 whole-tensor boolean-mask indexing — DONE** (rstsr PR #126,
+      squash `89556bf`): new device trait `DeviceMaskIndexAPI` (gather +
       scalar scatter) with serial kernels in `rstsr-native-impl`
       (`cpu_serial/mask_indexing.rs`; the rayon device delegates for now),
       tensor-tier `mask_select_f` / `mask_fill_f` (`tensor/adv_indexing.rs`)
@@ -118,9 +149,9 @@ Register + request; never fix agent-side.
       value (general broadcast values are a follow-on). 2 nodes
       (`test_getitem_masking`, `test_setitem_masking`) → 1212 / 88 / 82.
       `capabilities()["boolean indexing"] == True` (G-051) is now truthful.
-- [x] **C6b. G-039 integer-array (fancy) indexing — DONE** (rstsr branch
-      `261009/array-indexing`, commits `d53128f` (core) + `0e789b1` (faer-py) +
-      `97456a1` (docs/tracking); not pushed): new `ArrayIndexer` / `ArrayIndexArgs`
+- [x] **C6b. G-039 integer-array (fancy) indexing — DONE** (rstsr PR #127,
+      squash `40c0b07`; rayon gather PR #128 `ce72db2`, perf-only; scatter
+      assignment PR #129 `36788f9`): new `ArrayIndexer` / `ArrayIndexArgs`
       and `rt::array_index` / `TensorAny::array_index` (returning `TensorCow`)
       implement NumPy's vectorized indexing — basic indexers mixed with integer
       index arrays, mutual broadcasting, and the placement rule (a contiguous
@@ -128,13 +159,15 @@ Register + request; never fix agent-side.
       count as advanced for the grouping). Layout-generic `DeviceArrayIndexAPI`
       with a serial kernel (`rstsr-native-impl/cpu_serial/array_indexing.rs`); the
       faer-py shim routes integer-array keys through it (a lone boolean array keeps
-      its mask route; a boolean array mixed into a tuple and advanced-key
-      assignment stay declined). All 4 nodes
-      (`test_getitem_arrays_and_ints_{1,2}[{1,None}]`) → **1216 / 84 / 82**.
+      its mask route; a boolean array mixed into a tuple stays declined). All 4
+      nodes (`test_getitem_arrays_and_ints_{1,2}[{1,None}]`) → **1216 / 84 / 82**.
       Also fixed `Layout::dim_narrow`'s negative-step bounds to Python slicing
-      rules — surfaced by the 1000-case NumPy-generated differential harness.
-- [x] **C7. G-053 `pow` int/bool/complex bases — DONE** (rstsr branch
-      `261008/signbit-pow`, `bacc07b`, PR pending): `OpPowAPI` moved off the
+      rules — surfaced by the 1000-case NumPy-generated differential harness. The
+      scatter half followed in PR #129: `rt::array_index_assign` plus
+      `put_along_axis` / `index_put` / `mask_assign`, and shim `__setitem__` for
+      integer-array and array-valued boolean-mask keys.
+- [x] **C7. G-053 `pow` int/bool/complex bases — DONE** (rstsr PR #124,
+      squash `aff7a10`): `OpPowAPI` moved off the
       `num::Pow` special case to a promoted binary op (`TOut = TA::Res`, the
       `atan2`/`maximum` shape) with the kernel in `ExtNum::ext_pow` — integer
       bases with integer exponents and complex bases now work, and a negative
@@ -142,7 +175,8 @@ Register + request; never fix agent-side.
       the array API leaves it unspecified) instead of an unrepresentable value.
       All 5 fixed (every `test_pow` param).
 - [x] **C8. G-052 int `ceil/floor/trunc/round` dtype preservation — DONE**
-      (rstsr branch `261008/int-round-dtypes`, stacked on `261008/maxmin-nan`):
+      (merged via rstsr PR #124, squash `aff7a10`; built on stacked branches
+      `261008/int-round-dtypes` ← `261008/maxmin-nan`):
       the four were in the into-float `duplicate_item` table
       (`T: DTypeIntoFloatAPI`, `TOut = T::FloatType`), so integer inputs widened
       to f64. Moved them out: `ExtReal::ext_ceil`/`ext_floor`/`ext_trunc`
@@ -158,7 +192,8 @@ Register + request; never fix agent-side.
       `conj` (the other half of G-052) is untouched — `test_conj` draws complex
       dtypes only, so its integer declination is ungraded.
 - [x] **C9. G-056 NaN propagation (`max/min`, `maximum/minimum`) — DONE**
-      (rstsr branch `261008/maxmin-nan`, stacked on `261008/signbit-pow`): the
+      (merged via rstsr PR #124, squash `aff7a10`; built on `261008/maxmin-nan`
+      stacked on `261008/signbit-pow`): the
       float/half `ExtReal::ext_max`/`ext_min` delegated to the IEEE 754-2008
       `minNum`/`maxNum` (Rust `f32::min`/`max`), which *drop* NaN; they now
       propagate NaN (IEEE 754-2019 `maximum`/`minimum`), the array-API
@@ -173,7 +208,7 @@ Register + request; never fix agent-side.
     (`uint8` → `uint8`); bool stays refused (spec-correct). 2 nodes
     (`test_negative[negative]`, `test_negative[__neg__]`), flipped inside the
     C2 run above.
-  - **G-045** (rstsr-common, branch `261008/various-fixes`, `e64de57`):
+  - **G-045** (rstsr-common, merged via PR #126, squash `89556bf`):
     `Layout::is_broadcasted` tested only for a zero stride, but a zero-size
     shape propagates zero strides into outer axes (contiguous `(3, 0)` →
     `[0, 1]`), so every write gate (`assign`/`fill`/in-place ops/mutable
@@ -181,7 +216,7 @@ Register + request; never fix agent-side.
     `size() == 0` (an empty layout cannot alias), matching
     `check_strides`/`bounds_index`/`size_non_broadcast`; the non-empty
     conservative rule is unchanged. 1 node (`test_setitem`) → 1210 / 90 / 82.
-  - Cross-dtype `concat`/`stack` (same branch, `a3eb0e5`, shim-side
+  - Cross-dtype `concat`/`stack` (same PR #126, shim-side
     `_promote_pair`/`_cast_parts`) flipped `test_concat`/`test_stack` (+2).
 
 ## D. Process / measurement hygiene
@@ -209,10 +244,14 @@ Register + request; never fix agent-side.
 
 ## Suggested next session
 
-Take **group A** (≈18 fails, low risk, all shim-side) and, in parallel, put the
-**B1 (linalg)** decision to the owner — it moves the most tests of any single
-item. On the rust queue, **C6b** (integer-array / fancy
-indexing) is now done (2026-10-08, branch `261009/array-indexing`); the remaining
-lever is the surface decisions (the B decisions: `linalg` 86 tests, `fft` 42).
-C2, C6a (mask), C6b (array indexing), C10 (G-044 + G-045) and the shim-side
-joins are done (see above).
+The graded red map is now **only** the two namespace decisions — everything
+agent-doable (group A, the whole C queue, B3, B4) has landed, so this is a
+decision round, not a coding one:
+
+- **B1. `linalg`** — 37 fails **+ activates 49 skips = 86 tests**, the single
+  biggest lever. Most kernels exist rust-side; QR / `slogdet` /
+  `solve_symmetric` do not (G-004/G-005). Implement-vs-scope-out call needed.
+- **B2. `fft`** — 14 fails **+ 28 skips = 42 tests**. Build-vs-scope-out (W7).
+
+Put both to the owner. If implemented, `linalg` is the larger and better-guarded
+first slice (it also unlocks a `test_signatures` block).
