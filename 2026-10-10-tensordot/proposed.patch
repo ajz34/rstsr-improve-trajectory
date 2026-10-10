@@ -1043,10 +1043,10 @@ index 9deb740..38e2ccd 100644
  pub mod vecdot;
 diff --git a/rstsr-native-impl/src/cpu_rayon/tensordot.rs b/rstsr-native-impl/src/cpu_rayon/tensordot.rs
 new file mode 100644
-index 0000000..38e20b8
+index 0000000..4546146
 --- /dev/null
 +++ b/rstsr-native-impl/src/cpu_rayon/tensordot.rs
-@@ -0,0 +1,77 @@
+@@ -0,0 +1,76 @@
 +//! Rayon twin of the naive `tensordot` kernel.
 +
 +use crate::prelude_dev::*;
@@ -1067,7 +1067,6 @@ index 0000000..38e20b8
 +    lb: &Layout<DB>,
 +    axes_a: &[isize],
 +    axes_b: &[isize],
-+    // Not order-dependent (see the serial kernel); forwarded to the fallback.
 +    order: FlagOrder,
 +    pool: Option<&ThreadPool>,
 +) -> Result<()>
@@ -1137,10 +1136,10 @@ index a599dff..47ad9b6 100644
  pub mod vecdot;
 diff --git a/rstsr-native-impl/src/cpu_serial/tensordot.rs b/rstsr-native-impl/src/cpu_serial/tensordot.rs
 new file mode 100644
-index 0000000..0792d9a
+index 0000000..1ec81c6
 --- /dev/null
 +++ b/rstsr-native-impl/src/cpu_serial/tensordot.rs
-@@ -0,0 +1,150 @@
+@@ -0,0 +1,148 @@
 +//! Naive generalized tensor contraction (`tensordot`) kernels.
 +
 +use crate::prelude_dev::*;
@@ -1163,8 +1162,6 @@ index 0000000..0792d9a
 +    lb: &Layout<DB>,
 +    axes_a: &[isize],
 +    axes_b: &[isize],
-+    // Unused: the contraction and its caller-supplied (array-API-fixed) layout
-+    // are order-independent; `order` matters only in `tensordot_gemm_layouts`.
 +    _order: FlagOrder,
 +) -> Result<()>
 +where
