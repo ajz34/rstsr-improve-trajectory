@@ -350,9 +350,17 @@ gates 13 of the 20 graded members the shim already exposes.
 - [ ] **R6. `qr`** (**G-004**): neither `faer_impl` nor `blas_impl` has a QR
       trait. Needs a `QRAPI` + both device columns (`geqrf`/`orgqr`; faer
       `qr::no_pivoting`). `test_qr` grades mode (`reduced`/`complete`/`r`).
-- [ ] **R7. `slogdet` on faer** (**G-005**): present on blas, absent on the
-      DeviceFaer column the shim uses (port the blas routine or derive from
-      `det` + sign). `test_slogdet` grades the `(sign, logabsdet)` pair.
+- [x] **R7. `slogdet` on faer** (**G-005**) — **done in #133** (`d7056ba`,
+      "array-API linalg extension for rstsr_faer.api with n-dimensional
+      slogdet"), already on `main` and so on this branch.
+      `rstsr-linalg-traits/src/faer_impl/slogdet.rs` provides
+      `impl SLogDetAPI<DeviceFaer> for Tr` (LU with partial pivoting in
+      `faer_slogdet_ix2`) plus the n-dim batch walk `faer_impl_slogdet_f`;
+      the shim exposes it as `linalg_slogdet` → `_LinalgNamespace.slogdet`,
+      and `test_slogdet` passes (3/3). **The slogdet half of G-005 is
+      resolved**; the other half (`solve_symmetric` on blas but not faer)
+      still stands — `faer_impl/` has no `solve_symmetric.rs` — but array-API
+      `solve` maps to `solve_general`, so it stays tangential.
 - [ ] **R8. `eig` / `eigvals`**: general (non-symmetric) eigenproblem, complex
       output. Not in the 2025.12 `linalg.__all__`, but `test_linalg.py` carries
       `test_eig`/`test_eigvals` gated on `min_version("2025.12")` = our pin, so
@@ -360,7 +368,8 @@ gates 13 of the 20 graded members the shim already exposes.
 
 ## 3. Shim-side work (`crates-interop/rstsr-faer-py`) — done on the branch
 
-Wrapper-only. S1–S4 landed on `261010/faer-py-linalg-init` (uncommitted):
+Wrapper-only. S1–S4 landed on `261010/faer-py-linalg-init`, merged as `#133`
+(`d7056ba`):
 
 - [x] **S1. `xp.linalg` namespace** — a `_LinalgNamespace` object exposing the
       available names (13 at init, 14 with R3's `tensordot`); missing members
