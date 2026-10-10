@@ -88,10 +88,11 @@ yet pushed. First **R4** member of the array-API linalg convergence
   block (the generic `D` block can't reach a pinned `Ix2` receiver).
 
 - **`trace` / `trace_with_dtype`** (R4, second member): pure composition,
-  `diagonal` + `sum_axes`, no device op. `diagonal`'s default axes are the first
-  two but array-API's are the **last two**, so a helper injects `(-2, -1)` when
-  the caller leaves them unset; `diagonal` appends the diagonal *last*, so
-  `sum_axes(-1)` is right for any axes. Signature pairs with the reductions:
+  `diagonal` + `sum_axes`, no device op. **Default axes follow the device
+  default order** (owner's rule): last two under `RowMajor`, first two under
+  `ColMajor`; explicit axes are order-independent. `diagonal` appends the
+  diagonal *last*, so `sum_axes(-1)` is right for any axes. Signature pairs with
+  the reductions:
   `trace(x, offset) -> Tensor<B::TOut, B, IxD>` + `trace_with_dtype::<TOut>`
   (the array-API `dtype=`). `offset: impl Into<DiagonalArgs>` reuses the local
   type (`()`, `None`, int, `(offset, a1, a2)`) — no new `*Args`, no orphan

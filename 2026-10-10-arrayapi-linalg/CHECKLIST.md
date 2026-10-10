@@ -166,10 +166,16 @@ derivable op.
 - **Pure composition, no new device op** (`tensor/linalg/trace.rs`):
   `trace` = `diagonal` + `sum_axes`, exactly the plan's suggestion. The one
   wrinkle is that `diagonal`'s *default* axes are the first two while array-API
-  `linalg.trace` uses the **last two**, so a small private helper injects
-  `axis1 = -2, axis2 = -1` when the caller leaves them unset; `diagonal` always
-  appends the diagonal as the *last* axis, so `sum_axes(-1)` is then correct for
-  any axes the caller does pass.
+  `linalg.trace` uses the **last two**, so a small private helper supplies the
+  default axes when the caller leaves them unset; `diagonal` always appends the
+  diagonal as the *last* axis, so `sum_axes(-1)` is then correct for any axes
+  the caller does pass.
+- **The default axes follow the device default order** (owner's rule): the last
+  two under `RowMajor` (the array-API contract the suite checks over stacks) and
+  the first two under `ColMajor` (NumPy's). Explicit axes are order-independent.
+  This is `diagonal`'s own convention generalized — rstsr already ties
+  "leading vs trailing" to the default order elsewhere (flatten order,
+  `l2_norm` axes). Recorded in `numpy_differences.md`.
 - **Signature follows the reduction pair**: `trace(x, offset)` returns
   `Tensor<B::TOut, B, IxD>` (sibling of `sum_with_args`), and
   `trace_with_dtype::<TOut>(x, offset)` is the array-API `dtype=` keyword
@@ -187,9 +193,9 @@ derivable op.
   with the sum identity, so the trace is `0` rather than an error.
 - **NumPy provenance is `_core/tests/test_numeric.py::TestNonarrayArgs::test_trace`**
   (L349, hash `eeea38bf1267`): a 3×2 input where NumPy's first-two and our
-  last-two defaults coincide. The stacked-input divergence is recorded in
-  `numpy_differences.md`; `sync_numpy.py` gained the SURFACE row.
-- Gates: 273 doctests (+1), 186 lib (+5), 596 entry-row (+5, incl. the
+  row-major last-two defaults coincide. The stacked-input divergence is recorded
+  in `numpy_differences.md`; `sync_numpy.py` gained the SURFACE row.
+- Gates: 273 doctests (+1), 187 lib (+6), 596 entry-row (+5, incl. the
   `doc_draft` twin `doc_trace`); fmt/clippy/rustdoc clean; `col_major` lib run
   green; `cargo check --all-targets` clean on `rstsr-openblas` and
   `rstsr-faer-py`.
