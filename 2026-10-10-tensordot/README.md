@@ -116,3 +116,15 @@ The tensor/device API is implemented and array-API-shaped; the only remaining
 red nodes are the two value tests blocked by the pre-existing G-009
 mixed-dtype promotion gap. Implementing promotion is a separate scope (it
 touches matmul/vecdot too) and was deferred in `PLAN.md`.
+
+## Review follow-up
+
+A `/code-review high` pass found no correctness bug (independent reference
+across shapes × orders × devices, incl. transposed / negative-stride /
+broadcast inputs and the rayon path). Its ten findings were addressed in
+`44b6216`: the unresolved `vecdot` doc link, the missing anchor docstring
+sections, the free `tensordot_from` return type, the array-API surface table,
+the shim's `bin_numeric!` error names, value/output assertions in the doc test,
+removal of the dead `order` parameter from the naive kernels, a shared
+split-and-check helper, the duplicated in-src pair-axes test, and a new rayon
+`PARALLEL_SWITCH` test.
