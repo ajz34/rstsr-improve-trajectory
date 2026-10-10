@@ -102,7 +102,7 @@ index 36a7ff4..754dbc4 100644
      m.add_function(wrap_pyfunction!(finfo, m)?)?;
      m.add_function(wrap_pyfunction!(iinfo, m)?)?;
 diff --git a/crates-interop/rstsr-faer-py/src/linalg.rs b/crates-interop/rstsr-faer-py/src/linalg.rs
-index c77d58d..36d24ef 100644
+index c77d58d..5758093 100644
 --- a/crates-interop/rstsr-faer-py/src/linalg.rs
 +++ b/crates-interop/rstsr-faer-py/src/linalg.rs
 @@ -15,6 +15,8 @@
@@ -114,7 +114,48 @@ index c77d58d..36d24ef 100644
  use rstsr::prelude::rt;
  use rstsr::prelude::*;
  
-@@ -236,6 +238,57 @@ pub fn linalg_vecdot(x1: &NativeArray, x2: &NativeArray, axis: isize) -> PyResul
+@@ -79,10 +81,11 @@ macro_rules! bin_fc {
+     };
+ }
+ 
+-/// Same-dtype binary dispatch over the twelve numeric dtypes (matmul, vecdot);
+-/// bool is declined (rstsr's product kernels are not defined on it).
++/// Same-dtype binary dispatch over the twelve numeric dtypes (matmul, vecdot,
++/// tensordot); bool is declined (rstsr's product kernels are not defined on it).
++/// `$name` names the calling function in the failure messages.
+ macro_rules! bin_numeric {
+-    ($x1:expr, $x2:expr, |$a:ident, $b:ident| $body:expr) => {
++    ($name:literal, $x1:expr, $x2:expr, |$a:ident, $b:ident| $body:expr) => {
+         match (&$x1.t, &$x2.t) {
+             (AnyTensor::I8($a), AnyTensor::I8($b)) => $body,
+             (AnyTensor::I16($a), AnyTensor::I16($b)) => $body,
+@@ -96,8 +99,10 @@ macro_rules! bin_numeric {
+             (AnyTensor::F64($a), AnyTensor::F64($b)) => $body,
+             (AnyTensor::C32($a), AnyTensor::C32($b)) => $body,
+             (AnyTensor::C64($a), AnyTensor::C64($b)) => $body,
+-            (AnyTensor::Bool(_), AnyTensor::Bool(_)) => type_err("matmul/vecdot: bool dtype is not defined"),
+-            _ => type_err("matmul/vecdot: operands must share one dtype (rstsr gap G-009); cast first"),
++            (AnyTensor::Bool(_), AnyTensor::Bool(_)) => type_err(concat!($name, ": bool dtype is not defined")),
++            _ => {
++                type_err(concat!($name, ": operands must share one dtype (rstsr gap G-009); cast first"))
++            },
+         }
+     };
+ }
+@@ -225,17 +230,68 @@ pub fn linalg_slogdet(x: &NativeArray) -> PyResult<(NativeArray, NativeArray)> {
+ /// Matrix product (also the `@` operator).
+ #[pyfunction]
+ pub fn linalg_matmul(x1: &NativeArray, x2: &NativeArray) -> PyResult<NativeArray> {
+-    let t = bin_numeric!(x1, x2, |a, b| any_res(rt::matmul_f(a, b)))?;
++    let t = bin_numeric!("matmul", x1, x2, |a, b| any_res(rt::matmul_f(a, b)))?;
+     Ok(NativeArray { t })
+ }
+ 
+ /// Vector dot product over `axis` (the first argument is conjugated).
+ #[pyfunction]
+ pub fn linalg_vecdot(x1: &NativeArray, x2: &NativeArray, axis: isize) -> PyResult<NativeArray> {
+-    let t = bin_numeric!(x1, x2, |a, b| any_res(rt::vecdot_f(a, b, axis)))?;
++    let t = bin_numeric!("vecdot", x1, x2, |a, b| any_res(rt::vecdot_f(a, b, axis)))?;
      Ok(NativeArray { t })
  }
  
@@ -129,7 +170,7 @@ index c77d58d..36d24ef 100644
 +    axes: Option<&pyo3::Bound<'_, pyo3::PyAny>>,
 +) -> PyResult<NativeArray> {
 +    let axes = parse_tensordot_axes(axes)?;
-+    let t = bin_numeric!(x1, x2, |a, b| match &axes {
++    let t = bin_numeric!("tensordot", x1, x2, |a, b| match &axes {
 +        TdAxes::Int(n) => any_res(rt::tensordot_f(a, b, *n)),
 +        TdAxes::Pair(va, vb) => any_res(rt::tensordot_f(a, b, (va.clone(), vb.clone()))),
 +    })?;
@@ -201,7 +242,7 @@ index 9e2d300..b0ee91d 100644
  pub mod vecdot;
 diff --git a/rstsr-core/src/device_cpu_serial/linalg/tensordot.rs b/rstsr-core/src/device_cpu_serial/linalg/tensordot.rs
 new file mode 100644
-index 0000000..180ecd1
+index 0000000..c85bb45
 --- /dev/null
 +++ b/rstsr-core/src/device_cpu_serial/linalg/tensordot.rs
 @@ -0,0 +1,36 @@
@@ -238,7 +279,7 @@ index 0000000..180ecd1
 +        if let Some((la2, lb2, lc2)) = tensordot_gemm_layouts(la, axes_a, lb, axes_b, lc, order)? {
 +            return self.matmul_uninit(c, &lc2, a, &la2, b, &lb2, TC::one());
 +        }
-+        tensordot_naive_cpu_serial(c, lc, a, la, b, lb, axes_a, axes_b, order)
++        tensordot_naive_cpu_serial(c, lc, a, la, b, lb, axes_a, axes_b)
 +    }
 +}
 diff --git a/rstsr-core/src/device_faer/rayon_auto_impl/tensordot.rs b/rstsr-core/src/device_faer/rayon_auto_impl/tensordot.rs
@@ -249,6 +290,19 @@ index 0000000..4963af8
 @@ -0,0 +1 @@
 +../../feature_rayon/auto_impl/tensordot.rs
 \ No newline at end of file
+diff --git a/rstsr-core/src/docs/array_api_standard.md b/rstsr-core/src/docs/array_api_standard.md
+index c0428b0..e7b0386 100644
+--- a/rstsr-core/src/docs/array_api_standard.md
++++ b/rstsr-core/src/docs/array_api_standard.md
+@@ -212,7 +212,7 @@ The reference implementation (as in [`DeviceCpuSerial`] and [`DeviceFaer`]), fol
+ |-|-|-|-|
+ | Y | [`matmul`] | [`matmul`](https://data-apis.org/array-api/latest/API_specification/generated/array_api.matmul.html) | Computes the matrix product. |
+ | Y | [`matrix_transpose`] <br> [`swapaxes`]`(-1, -2)` | [`matrix_transpose`](https://data-apis.org/array-api/latest/API_specification/generated/array_api.matrix_transpose.html) | Transposes a matrix (or a stack of matrices) x. |
+-| Y | [`rt::tblis::einsum`](https://docs.rs/rstsr-tblis/latest/rstsr_tblis/einsum_impl/fn.einsum.html)<br>[`rt::tblis::tensordot`](https://docs.rs/rstsr-tblis/latest/rstsr_tblis/einsum_impl/fn.tensordot.html) | [`tensordot`](https://data-apis.org/array-api/latest/API_specification/generated/array_api.tensordot.html) | Returns a tensor contraction of x1 and x2 over specific axes. |
++| Y | [`tensordot`]<br>[`rt::tblis::einsum`](https://docs.rs/rstsr-tblis/latest/rstsr_tblis/einsum_impl/fn.einsum.html)<br>[`rt::tblis::tensordot`](https://docs.rs/rstsr-tblis/latest/rstsr_tblis/einsum_impl/fn.tensordot.html) | [`tensordot`](https://data-apis.org/array-api/latest/API_specification/generated/array_api.tensordot.html) | Returns a tensor contraction of x1 and x2 over specific axes. |
+ | Y | [`vecdot`] | [`vecdot`](https://data-apis.org/array-api/latest/API_specification/generated/array_api.vecdot.html) | Computes the (vector) dot product of two arrays. |
+ 
+ ## Manipulation Functions
 diff --git a/rstsr-core/src/feature_rayon/auto_impl/mod.rs b/rstsr-core/src/feature_rayon/auto_impl/mod.rs
 index acc1c4e..0718dbe 100644
 --- a/rstsr-core/src/feature_rayon/auto_impl/mod.rs
@@ -261,7 +315,7 @@ index acc1c4e..0718dbe 100644
  pub mod vecdot;
 diff --git a/rstsr-core/src/feature_rayon/auto_impl/tensordot.rs b/rstsr-core/src/feature_rayon/auto_impl/tensordot.rs
 new file mode 100644
-index 0000000..45102ee
+index 0000000..90db73e
 --- /dev/null
 +++ b/rstsr-core/src/feature_rayon/auto_impl/tensordot.rs
 @@ -0,0 +1,37 @@
@@ -299,7 +353,7 @@ index 0000000..45102ee
 +            return self.matmul_uninit(c, &lc2, a, &la2, b, &lb2, TC::one());
 +        }
 +        let pool = self.get_current_pool();
-+        tensordot_naive_cpu_rayon(c, lc, a, la, b, lb, axes_a, axes_b, order, pool)
++        tensordot_naive_cpu_rayon(c, lc, a, la, b, lb, axes_a, axes_b, pool)
 +    }
 +}
 diff --git a/rstsr-core/src/operators/linalg.rs b/rstsr-core/src/operators/linalg.rs
@@ -370,10 +424,10 @@ index 7dabee5..2d2e647 100644
  }
 diff --git a/rstsr-core/src/tensor/linalg/tensordot.rs b/rstsr-core/src/tensor/linalg/tensordot.rs
 new file mode 100644
-index 0000000..fe8f42a
+index 0000000..3ad335b
 --- /dev/null
 +++ b/rstsr-core/src/tensor/linalg/tensordot.rs
-@@ -0,0 +1,368 @@
+@@ -0,0 +1,410 @@
 +use crate::prelude_dev::*;
 +use core::mem::transmute;
 +
@@ -414,12 +468,36 @@ index 0000000..fe8f42a
 +    }
 +}
 +
++/// The free (non-contracted) layouts of each operand, after asserting that the
++/// paired contracted shapes agree.
++fn split_tensordot_free<DA, DB>(
++    la: &Layout<DA>,
++    axes_a: &[isize],
++    lb: &Layout<DB>,
++    axes_b: &[isize],
++) -> Result<(Layout<IxD>, Layout<IxD>)>
++where
++    DA: DimAPI,
++    DB: DimAPI,
++{
++    let (las, lam) = la.dim_split_axes(axes_a)?;
++    let (lbs, lbm) = lb.dim_split_axes(axes_b)?;
++    rstsr_assert_eq!(
++        las.shape(),
++        lbs.shape(),
++        InvalidLayout,
++        "the dimensions of a and b along the contracted axes should be the same"
++    )?;
++    Ok((lam, lbm))
++}
++
 +/// Tensor contraction over specified axes.
 +///
 +/// Contracts the axes of `a` given by `axes` with the corresponding axes of `b`
 +/// (see the `axes` parameter below); the result holds the non-contracted axes of
 +/// `a` (in order) followed by the non-contracted axes of `b` (in order). No
-+/// conjugation is applied, unlike [`vecdot`](crate::prelude::vecdot).
++/// conjugation is applied, unlike [`vecdot`].
++/// This function behaves identically under [`RowMajor`] and [`ColMajor`] device default orders.
 +///
 +/// # Parameters
 +///
@@ -447,16 +525,65 @@ index 0000000..fe8f42a
 +///
 +/// # Examples
 +///
++/// Matrix product (`axes = 1`):
++///
 +/// ```rust
 +/// # use rstsr::prelude::*;
 +/// # let mut device = DeviceCpu::default();
 +/// # device.set_default_order(RowMajor);
-+/// // outer product (axes = 0)
++/// let a = rt::tensor_from_nested!([[1, 2], [3, 4]], &device);
++/// let b = rt::tensor_from_nested!([[5, 6], [7, 8]], &device);
++/// let c = rt::tensordot(&a, &b, 1);
++/// assert_eq!(c.shape(), &[2, 2]);
++/// println!("{c}");
++/// // [[ 19 22]
++/// //  [ 43 50]]
++/// ```
++///
++/// Outer product (`axes = 0`):
++///
++/// ```rust
++/// # use rstsr::prelude::*;
++/// # let mut device = DeviceCpu::default();
++/// # device.set_default_order(RowMajor);
 +/// let a = rt::tensor_from_nested!([1, 2], &device);
 +/// let b = rt::tensor_from_nested!([3, 4], &device);
 +/// let c = rt::tensordot(&a, &b, 0);
-+/// assert_eq!(c.shape(), &[2, 2]);
++/// println!("{c}");
++/// // [[ 3 4]
++/// //  [ 6 8]]
 +/// ```
++///
++/// # Notes of API accordance
++///
++/// - Array-API: `tensordot(x1, x2, /, *, axes=2)` ([`tensordot`](https://data-apis.org/array-api/latest/API_specification/generated/array_api.tensordot.html))
++/// - NumPy: `tensordot(a, b, axes=2)` ([`numpy.tensordot`](https://numpy.org/doc/stable/reference/generated/numpy.tensordot.html))
++/// - RSTSR: `rt::tensordot(a, b, axes)`
++///
++/// A bare collection (`[0, 1]`) is the rstsr shorthand for the *same* axes on both
++/// sides, whereas NumPy reads `tensordot(a, b, [0, 1])` as the pair `(0, 1)`. `None` and
++/// `()` are accepted as the default `2`; NumPy rejects `None`.
++///
++/// # Panics
++///
++/// - The paired contracted axes do not have equal sizes.
++/// - An integer `axes` is negative or exceeds the dimensionality of either input.
++///
++/// For a fallible version, use [`tensordot_f`].
++///
++/// # See also
++///
++/// ## Related functions in RSTSR
++///
++/// - [`matmul`] - Matrix-matrix product.
++/// - [`vecdot`] - Vector dot product (conjugates the first argument).
++/// - [`rt::tblis::tensordot`](https://docs.rs/rstsr-tblis/latest/rstsr_tblis/tensordot_impl/fn.tensordot.html)
++///   - Tensor dot product along specified axes.
++///
++/// ## Variants of this function
++///
++/// - [`tensordot`] / [`tensordot_f`]: Returning a new tensor.
++/// - [`tensordot_from`] / [`tensordot_from_f`]: Writing result to existing tensor.
 +pub fn tensordot<TA, TB, TC, DA, DB, B>(
 +    a: impl TensorViewAPI<Type = TA, Backend = B, Dim = DA>,
 +    b: impl TensorViewAPI<Type = TB, Backend = B, Dim = DB>,
@@ -501,14 +628,7 @@ index 0000000..fe8f42a
 +    }
 +    let (axes_a, axes_b) = resolve_tensordot_axes(&axes, a.ndim(), b.ndim())?;
 +
-+    let (las, lam) = a.layout().dim_split_axes(&axes_a)?;
-+    let (lbs, lbm) = b.layout().dim_split_axes(&axes_b)?;
-+    rstsr_assert_eq!(
-+        las.shape(),
-+        lbs.shape(),
-+        InvalidLayout,
-+        "the dimensions of a and b along the contracted axes should be the same"
-+    )?;
++    let (lam, lbm) = split_tensordot_free(a.layout(), &axes_a, b.layout(), &axes_b)?;
 +
 +    let mut shape_c = lam.shape().clone();
 +    shape_c.extend_from_slice(lbm.shape());
@@ -527,14 +647,13 @@ index 0000000..fe8f42a
 +    a: impl TensorViewAPI<Type = TA, Backend = B, Dim = DA>,
 +    b: impl TensorViewAPI<Type = TB, Backend = B, Dim = DB>,
 +    axes: impl TryInto<AxesPairIndex<isize>, Error: Into<Error>>,
-+) -> Result<()>
-+where
++) where
 +    DA: DimAPI,
 +    DB: DimAPI,
 +    DC: DimAPI,
 +    B: DeviceTensordotAPI<TA, TB, TC, DA, DB, DC> + DeviceAPI<TA> + DeviceAPI<TB> + DeviceAPI<TC>,
 +{
-+    tensordot_from_f(c, a, b, axes)
++    tensordot_from_f(c, a, b, axes).rstsr_unwrap()
 +}
 +
 +/// Tensor contraction over specified axes, writing into `c`.
@@ -566,14 +685,7 @@ index 0000000..fe8f42a
 +    }
 +    let (axes_a, axes_b) = resolve_tensordot_axes(&axes, a.ndim(), b.ndim())?;
 +
-+    let (las, lam) = a.layout().dim_split_axes(&axes_a)?;
-+    let (lbs, lbm) = b.layout().dim_split_axes(&axes_b)?;
-+    rstsr_assert_eq!(
-+        las.shape(),
-+        lbs.shape(),
-+        InvalidLayout,
-+        "the dimensions of a and b along the contracted axes should be the same"
-+    )?;
++    let (lam, lbm) = split_tensordot_free(a.layout(), &axes_a, b.layout(), &axes_b)?;
 +
 +    let mut shape_c_expect = lam.shape().clone();
 +    shape_c_expect.extend_from_slice(lbm.shape());
@@ -724,22 +836,6 @@ index 0000000..fe8f42a
 +        // swapped pairing: sum_{i,j} a[i,j] * b[j,i] = 5 + 14 + 18 + 32 = 69
 +        let c = rt::tensordot(&a, &b, ([1, 0], [0, 1]));
 +        assert!(rt::allclose(&c, &rt::asarray((69.0, &device)), None));
-+    }
-+
-+    #[test]
-+    fn test_tensordot_pair_axes() {
-+        let mut device = DeviceCpu::default();
-+        device.set_default_order(RowMajor);
-+
-+        let a = rt::arange((60.0, &device)).into_shape((3, 4, 5));
-+        let b = rt::arange((24.0, &device)).into_shape((4, 3, 2));
-+        let c = rt::tensordot(&a, &b, ([1, 0], [0, 1]));
-+        let target = rt::tensor_from_nested!(
-+            [[4400., 4730.], [4532., 4874.], [4664., 5018.], [4796., 5162.], [4928., 5306.]],
-+            &device
-+        );
-+        assert_eq!(c.shape(), &[5, 2]);
-+        assert!(rt::allclose(&c, &target, None));
 +    }
 +}
 diff --git a/rstsr-core/tests/core_func/linalg/mod.rs b/rstsr-core/tests/core_func/linalg/mod.rs
@@ -940,10 +1036,10 @@ index 402171c..0e3af87 100644
  pub static CATEGORY: &str = "linalg";
 diff --git a/rstsr-core/tests/doc_draft/linalg/test_tensordot.rs b/rstsr-core/tests/doc_draft/linalg/test_tensordot.rs
 new file mode 100644
-index 0000000..27dd97d
+index 0000000..790a002
 --- /dev/null
 +++ b/rstsr-core/tests/doc_draft/linalg/test_tensordot.rs
-@@ -0,0 +1,32 @@
+@@ -0,0 +1,41 @@
 +use rstsr::prelude::*;
 +
 +use super::CATEGORY;
@@ -961,19 +1057,28 @@ index 0000000..27dd97d
 +        let mut device = TESTCFG.device.clone();
 +        device.set_default_order(RowMajor);
 +
-+        // outer product (axes = 0)
-+        let a = rt::tensor_from_nested!([1, 2], &device);
-+        let b = rt::tensor_from_nested!([3, 4], &device);
-+        let c = rt::tensordot(&a, &b, 0);
-+        assert_eq!(c.shape(), &[2, 2]);
-+        println!("{c}");
-+
 +        // matrix product (axes = 1)
 +        let a = rt::tensor_from_nested!([[1, 2], [3, 4]], &device);
 +        let b = rt::tensor_from_nested!([[5, 6], [7, 8]], &device);
 +        let c = rt::tensordot(&a, &b, 1);
 +        assert_eq!(c.shape(), &[2, 2]);
 +        println!("{c}");
++        // [[ 19 22]
++        //  [ 43 50]]
++        let expected = rt::tensor_from_nested!([[19, 22], [43, 50]], &device);
++        assert!(rt::allclose(&c, &expected, None));
++        assert_eq!(format!("{c}"), "[[ 19 22]\n [ 43 50]]");
++
++        // outer product (axes = 0)
++        let a = rt::tensor_from_nested!([1, 2], &device);
++        let b = rt::tensor_from_nested!([3, 4], &device);
++        let c = rt::tensordot(&a, &b, 0);
++        println!("{c}");
++        // [[ 3 4]
++        //  [ 6 8]]
++        let expected = rt::tensor_from_nested!([[3, 4], [6, 8]], &device);
++        assert!(rt::allclose(&c, &expected, None));
++        assert_eq!(format!("{c}"), "[[ 3 4]\n [ 6 8]]");
 +    }
 +}
 diff --git a/rstsr-core/tests/tracking/numpy_coverage.csv b/rstsr-core/tests/tracking/numpy_coverage.csv
@@ -1043,10 +1148,10 @@ index 9deb740..38e2ccd 100644
  pub mod vecdot;
 diff --git a/rstsr-native-impl/src/cpu_rayon/tensordot.rs b/rstsr-native-impl/src/cpu_rayon/tensordot.rs
 new file mode 100644
-index 0000000..4546146
+index 0000000..cb6a6b7
 --- /dev/null
 +++ b/rstsr-native-impl/src/cpu_rayon/tensordot.rs
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,95 @@
 +//! Rayon twin of the naive `tensordot` kernel.
 +
 +use crate::prelude_dev::*;
@@ -1067,7 +1172,6 @@ index 0000000..4546146
 +    lb: &Layout<DB>,
 +    axes_a: &[isize],
 +    axes_b: &[isize],
-+    order: FlagOrder,
 +    pool: Option<&ThreadPool>,
 +) -> Result<()>
 +where
@@ -1080,17 +1184,10 @@ index 0000000..4546146
 +    TA: Mul<TB, Output = TC>,
 +{
 +    if la.size().max(lb.size()) < PARALLEL_SWITCH || pool.is_none() {
-+        return tensordot_naive_cpu_serial(c, lc, a, la, b, lb, axes_a, axes_b, order);
++        return tensordot_naive_cpu_serial(c, lc, a, la, b, lb, axes_a, axes_b);
 +    }
 +
-+    let (las, lam) = la.dim_split_axes(axes_a)?;
-+    let (lbs, lbm) = lb.dim_split_axes(axes_b)?;
-+    rstsr_assert_eq!(
-+        las.shape(),
-+        lbs.shape(),
-+        InvalidLayout,
-+        "the dimensions of a and b along the contracted axes should be the same"
-+    )?;
++    let (las, lam, lbs, lbm) = split_tensordot_axes(la, axes_a, lb, axes_b)?;
 +
 +    let lc = lc.to_dim::<IxD>()?;
 +    let offset_a = la.offset();
@@ -1123,6 +1220,33 @@ index 0000000..4546146
 +    };
 +    pool.map_or_else(task, |pool| pool.install(task))
 +}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// The parallel branch (operand size past `PARALLEL_SWITCH`) must agree with
++    /// the serial kernel element-for-element.
++    #[test]
++    fn test_parallel_branch_matches_serial() {
++        let pool = rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();
++        let (m, k, n) = (24usize, 24usize, 24usize);
++        let la = Layout::<Ix2>::new([m, k], [k as isize, 1], 0).unwrap();
++        let lb = Layout::<Ix2>::new([k, n], [n as isize, 1], 0).unwrap();
++        let lc = Layout::<Ix2>::new([m, n], [n as isize, 1], 0).unwrap();
++        let a: Vec<f64> = (0..m * k).map(|i| (i % 7) as f64 - 3.0).collect();
++        let b: Vec<f64> = (0..k * n).map(|i| (i % 5) as f64 + 1.0).collect();
++
++        let mut c_par = vec![MaybeUninit::<f64>::uninit(); m * n];
++        let mut c_ser = vec![MaybeUninit::<f64>::uninit(); m * n];
++        tensordot_naive_cpu_rayon(&mut c_par, &lc, &a, &la, &b, &lb, &[1], &[0], Some(&pool)).unwrap();
++        tensordot_naive_cpu_serial(&mut c_ser, &lc, &a, &la, &b, &lb, &[1], &[0]).unwrap();
++
++        let c_par: Vec<f64> = c_par.into_iter().map(|x| unsafe { x.assume_init() }).collect();
++        let c_ser: Vec<f64> = c_ser.into_iter().map(|x| unsafe { x.assume_init() }).collect();
++        assert_eq!(c_par, c_ser);
++    }
++}
 diff --git a/rstsr-native-impl/src/cpu_serial/mod.rs b/rstsr-native-impl/src/cpu_serial/mod.rs
 index a599dff..47ad9b6 100644
 --- a/rstsr-native-impl/src/cpu_serial/mod.rs
@@ -1136,16 +1260,39 @@ index a599dff..47ad9b6 100644
  pub mod vecdot;
 diff --git a/rstsr-native-impl/src/cpu_serial/tensordot.rs b/rstsr-native-impl/src/cpu_serial/tensordot.rs
 new file mode 100644
-index 0000000..1ec81c6
+index 0000000..1fc0b51
 --- /dev/null
 +++ b/rstsr-native-impl/src/cpu_serial/tensordot.rs
-@@ -0,0 +1,148 @@
+@@ -0,0 +1,156 @@
 +//! Naive generalized tensor contraction (`tensordot`) kernels.
 +
 +use crate::prelude_dev::*;
 +use core::ops::Mul;
 +use num::Zero;
 +use rstsr_common::layout::reshape::layout_reshapeable;
++
++/// Split both operands into `(contracted, free)` layouts for the given axes,
++/// asserting that the paired contracted shapes agree.
++pub fn split_tensordot_axes<DA, DB>(
++    la: &Layout<DA>,
++    axes_a: &[isize],
++    lb: &Layout<DB>,
++    axes_b: &[isize],
++) -> Result<(Layout<IxD>, Layout<IxD>, Layout<IxD>, Layout<IxD>)>
++where
++    DA: DimAPI,
++    DB: DimAPI,
++{
++    let (las, lam) = la.dim_split_axes(axes_a)?;
++    let (lbs, lbm) = lb.dim_split_axes(axes_b)?;
++    rstsr_assert_eq!(
++        las.shape(),
++        lbs.shape(),
++        InvalidLayout,
++        "the dimensions of a and b along the contracted axes should be the same"
++    )?;
++    Ok((las, lam, lbs, lbm))
++}
 +
 +/// Naive tensor contraction `c = tensordot(a, b, (axes_a, axes_b))`.
 +///
@@ -1162,7 +1309,6 @@ index 0000000..1ec81c6
 +    lb: &Layout<DB>,
 +    axes_a: &[isize],
 +    axes_b: &[isize],
-+    _order: FlagOrder,
 +) -> Result<()>
 +where
 +    TA: Clone,
@@ -1173,14 +1319,7 @@ index 0000000..1ec81c6
 +    DC: DimAPI,
 +    TA: Mul<TB, Output = TC>,
 +{
-+    let (las, lam) = la.dim_split_axes(axes_a)?;
-+    let (lbs, lbm) = lb.dim_split_axes(axes_b)?;
-+    rstsr_assert_eq!(
-+        las.shape(),
-+        lbs.shape(),
-+        InvalidLayout,
-+        "the dimensions of a and b along the contracted axes should be the same"
-+    )?;
++    let (las, lam, lbs, lbm) = split_tensordot_axes(la, axes_a, lb, axes_b)?;
 +
 +    let lc = lc.to_dim::<IxD>()?;
 +    let offset_a = la.offset();
@@ -1229,14 +1368,7 @@ index 0000000..1ec81c6
 +    DB: DimAPI,
 +    DC: DimAPI,
 +{
-+    let (las, lam) = la.dim_split_axes(axes_a)?;
-+    let (lbs, lbm) = lb.dim_split_axes(axes_b)?;
-+    rstsr_assert_eq!(
-+        las.shape(),
-+        lbs.shape(),
-+        InvalidLayout,
-+        "the dimensions of a and b along the contracted axes should be the same"
-+    )?;
++    let (las, lam, lbs, lbm) = split_tensordot_axes(la, axes_a, lb, axes_b)?;
 +    let lc = lc.to_dim::<IxD>()?;
 +    let (m, k, n) = (lam.size(), las.size(), lbm.size());
 +
