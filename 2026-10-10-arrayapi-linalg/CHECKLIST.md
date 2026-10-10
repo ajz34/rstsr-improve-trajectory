@@ -160,7 +160,7 @@ than the plan's broadcast-mul shortcut (the owner's call).
 
 ## Progress (2026-10-10): `trace` (R4, second member)
 
-Same branch. `matrix_power` was dropped (see the R4 item); this is the other
+Same branch. `matrix_power` is out of scope for rstsr-core (see the R4 item; deferred to `rstsr::linalg`); this is the other
 derivable op.
 
 - **Pure composition, no new device op** (`tensor/linalg/trace.rs`):
@@ -291,7 +291,7 @@ Rust linalg lives in **`rstsr-linalg-traits`** (`LinalgAPI` family, one
 | `outer` | `rt::outer` (tensor tier), `rt::ext_outer` (promotion) | ✓ same-dtype (R4, all devices); ✓ promote (R4, cpu_serial + faer) | ✓ |
 | `cross` | — (3-vector cross) | ✗ new | ✗ |
 | `trace` | `rt::trace` (+ `trace_with_dtype`) — `diagonal` + `sum_axes` | ✓ core (R4); no shim yet | ✗ |
-| `matrix_power` | — (repeated `matmul`) | ✗ new; **negative `n` needs an inverse ⇒ deferred** | ✗ |
+| `matrix_power` | — (repeated `matmul`) | ✗ **not in rstsr-core** — deferred to `rstsr::linalg` (needs `inv` for `n < 0`) | ✗ |
 | `matrix_rank` | — (via `svdvals`) | ✗ new | ✗ |
 | `vector_norm` | `l2_norm` family (ord=2 only) | ◐ general `ord` missing | ✗ |
 | `matrix_norm` | `l2_norm` family (ord=2 only) | ◐ general `ord` missing | ✗ |
@@ -329,21 +329,22 @@ gates 13 of the 20 graded members the shim already exposes.
       signature nodes pass; the 2 `test_linalg` value nodes now fail only on
       R2/G-009.
 - [~] **R4. small derivable ops** `outer` **landed**, `trace` **landed** (see
-      Progress; `matrix_power` **dropped** — see below) —
+      Progress; `matrix_power` **deferred to the linalg layer** — see below) —
       the plan's shortcut (`outer` = broadcast mul + reshape) was **not** taken:
       the owner chose a real device-op family (`DeviceOuterAPI` /
       `DeviceExtOuterAPI` + kernels), matching `matmul`/`vecdot`. `trace`
       landed as planned (`diagonal` + sum); `cross` and `matrix_rank` remain
       (`matrix_rank` = count of `svdvals > tol`). Low risk; each is a
       `test_linalg` + a `has_names` node.
-- **[dropped] `matrix_power`.** array-API draws `n` from −10..10 and requires
-  invertible input for `n < 0`, i.e. **the matrix inverse** — which does not
+- **[deferred, not dropped] `matrix_power`.** It is out of scope for
+  **rstsr-core** only, not abandoned — `rstsr::linalg` (`rstsr-linalg-traits`)
+  may implement it later. array-API draws `n` from −10..10 and requires
+  invertible input for `n < 0`, i.e. **the matrix inverse**, which does not
   exist in rstsr-core (`rt::inv` there is element-wise reciprocal; the real
-  `inv`/`solve` live in `rstsr-linalg-traits`, which *depends on* rstsr-core).
-  The owner chose to drop it rather than place it in the linalg layer. Revisit
-  if a `rstsr-linalg-traits`-side entry is ever wanted (it would also need the
+  `inv`/`solve` live in `rstsr-linalg-traits`, which *depends on* rstsr-core —
+  so the entry belongs on that side, not here). When it lands it wants the
   `n ≥ 0` fast path: `1` → clone, `2/3` → products, `4` → `A2·A2`, `>4` →
-  repeated squaring with a memo list).
+  repeated squaring with a memo list.
 - [ ] **R5. norms general `ord`** — today only the `l2_norm` family exists.
       `test_vector_norm` / `test_matrix_norm` grade every `ord` (`inf`, `-inf`,
       `0`, `1`, `2`, `-1`, `-2`, `fro`, `nuc`, …).

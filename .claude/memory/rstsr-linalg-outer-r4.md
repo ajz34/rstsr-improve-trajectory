@@ -99,10 +99,13 @@ yet pushed. First **R4** member of the array-API linalg convergence
   issue. Only new bound: `B: OpSumAPI<T, D::SmallerOne>` (+ `DimSmallerOneAPI`).
   Out-of-range offset → empty diagonal → trace `0` (the `la.size()==0` branch).
   Provenance `_core/tests/test_numeric.py::TestNonarrayArgs::test_trace` (L349).
-- **`matrix_power` dropped** (owner's call): array-API tests `n` in −10..10
-  with `n < 0` needing the **matrix inverse**, absent from rstsr-core
-  (`rt::inv` is element-wise; `rstsr-linalg-traits` has the real one but depends
-  on rstsr-core).
+- **`matrix_power` deferred, not dropped** (owner's clarification): it is out
+  of scope for **rstsr-core** only — `rstsr::linalg` (`rstsr-linalg-traits`)
+  may implement it later, which is where the real `inv` lives. Reason it cannot
+  be core-side: array-API tests `n` in −10..10 and `n < 0` needs the **matrix
+  inverse** (`rt::inv` in rstsr-core is element-wise; `rstsr-linalg-traits` has
+  the real one but *depends on* rstsr-core, so the dependency cannot point the
+  other way).
 
 See `2026-10-10-arrayapi-linalg/CHECKLIST.md` (R4). Related:
 [[rstsr-ext-linalg-r2]], [[rstsr-linalg-batching-r1]],
