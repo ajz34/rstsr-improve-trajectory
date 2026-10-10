@@ -158,6 +158,44 @@ than the plan's broadcast-mul shortcut (the owner's call).
   listed in `outer`'s "Variants of this function". Lib tests: overwrite
   semantics + method equivalence, wrong-shape error, broadcast-layout error.
 
+## Progress (2026-10-10): `trace` (R4, second member)
+
+Same branch. `matrix_power` was dropped (see the R4 item); this is the other
+derivable op.
+
+- **Pure composition, no new device op** (`tensor/linalg/trace.rs`):
+  `trace` = `diagonal` + `sum_axes`, exactly the plan's suggestion. The one
+  wrinkle is that `diagonal`'s *default* axes are the first two while array-API
+  `linalg.trace` uses the **last two**, so a small private helper injects
+  `axis1 = -2, axis2 = -1` when the caller leaves them unset; `diagonal` always
+  appends the diagonal as the *last* axis, so `sum_axes(-1)` is then correct for
+  any axes the caller does pass.
+- **Signature follows the reduction pair**: `trace(x, offset)` returns
+  `Tensor<B::TOut, B, IxD>` (sibling of `sum_with_args`), and
+  `trace_with_dtype::<TOut>(x, offset)` is the array-API `dtype=` keyword
+  (sibling of `sum_with_dtype`, which already folds in `TOut` with no cast copy).
+  The `offset` parameter is the existing local `DiagonalArgs`, so `()`, `None`,
+  an integer, and `(offset, axis1, axis2)` all work (per the "argument groups
+  travel as one tuple" convention) — no new `*Args` type, so no orphan-rule
+  trouble.
+- **Bounds stay on the device, not the element type**: the only new requirement
+  is `B: OpSumAPI<T, D::SmallerOne>` (or `OpSumDtypeAPI<T, TOut, D::SmallerOne>`)
+  plus `D: DimAPI + DimSmallerOneAPI`, i.e. the reduction bound re-indexed at
+  the reduced rank. No new element-type bound.
+- **Zero-size diagonals work**: an out-of-range offset yields an empty diagonal,
+  and `reduce_axes_cpu_serial`'s `la.size() == 0` branch fills every output cell
+  with the sum identity, so the trace is `0` rather than an error.
+- **NumPy provenance is `_core/tests/test_numeric.py::TestNonarrayArgs::test_trace`**
+  (L349, hash `eeea38bf1267`): a 3×2 input where NumPy's first-two and our
+  last-two defaults coincide. The stacked-input divergence is recorded in
+  `numpy_differences.md`; `sync_numpy.py` gained the SURFACE row.
+- Gates: 273 doctests (+1), 186 lib (+5), 596 entry-row (+5, incl. the
+  `doc_draft` twin `doc_trace`); fmt/clippy/rustdoc clean; `col_major` lib run
+  green; `cargo check --all-targets` clean on `rstsr-openblas` and
+  `rstsr-faer-py`.
+- **Not done here**: the shim binding (`linalg.trace` / `linalg.matrix_power`)
+  — this wave is rstsr-core only.
+
 ## 0. The red map this checklist must clear
 
 **Init-time failures (62) = `linalg` 48 + `fft` 14** — the groups below. R3 has
@@ -216,8 +254,8 @@ Rust linalg lives in **`rstsr-linalg-traits`** (`LinalgAPI` family, one
 | `tensordot` | `rt::tensordot` (tensor tier), `rt::ext_tensordot` (promotion) | ✓ same-dtype (R3); ✓ promote (R2) | ✓ |
 | `outer` | `rt::outer` (tensor tier), `rt::ext_outer` (promotion) | ✓ same-dtype (R4, all devices); ✓ promote (R4, cpu_serial + faer) | ✓ |
 | `cross` | — (3-vector cross) | ✗ new | ✗ |
-| `trace` | — (diagonal + sum) | ✗ new (trivial) | ✗ |
-| `matrix_power` | — (repeated `matmul`) | ✗ new | ✗ |
+| `trace` | `rt::trace` (+ `trace_with_dtype`) — `diagonal` + `sum_axes` | ✓ core (R4); no shim yet | ✗ |
+| `matrix_power` | — (repeated `matmul`) | ✗ new; **negative `n` needs an inverse ⇒ deferred** | ✗ |
 | `matrix_rank` | — (via `svdvals`) | ✗ new | ✗ |
 | `vector_norm` | `l2_norm` family (ord=2 only) | ◐ general `ord` missing | ✗ |
 | `matrix_norm` | `l2_norm` family (ord=2 only) | ◐ general `ord` missing | ✗ |
@@ -254,14 +292,22 @@ gates 13 of the 20 graded members the shim already exposes.
       exposes it top-level and on `_LinalgNamespace`. Its 4 `has_names` +
       signature nodes pass; the 2 `test_linalg` value nodes now fail only on
       R2/G-009.
-- [~] **R4. small derivable ops** `outer` **landed** (see Progress) —
+- [~] **R4. small derivable ops** `outer` **landed**, `trace` **landed** (see
+      Progress; `matrix_power` **dropped** — see below) —
       the plan's shortcut (`outer` = broadcast mul + reshape) was **not** taken:
       the owner chose a real device-op family (`DeviceOuterAPI` /
-      `DeviceExtOuterAPI` + kernels), matching `matmul`/`vecdot`. `cross, trace,
-      matrix_power, matrix_rank` remain — all expressible from existing pieces
-      (`trace` = `diagonal` + sum; `matrix_rank` = count of `svdvals > tol`;
-      `matrix_power` = repeated `matmul` with `n` sign handling). Low risk; each
-      is a `test_linalg` + a `has_names` node.
+      `DeviceExtOuterAPI` + kernels), matching `matmul`/`vecdot`. `trace`
+      landed as planned (`diagonal` + sum); `cross` and `matrix_rank` remain
+      (`matrix_rank` = count of `svdvals > tol`). Low risk; each is a
+      `test_linalg` + a `has_names` node.
+- **[dropped] `matrix_power`.** array-API draws `n` from −10..10 and requires
+  invertible input for `n < 0`, i.e. **the matrix inverse** — which does not
+  exist in rstsr-core (`rt::inv` there is element-wise reciprocal; the real
+  `inv`/`solve` live in `rstsr-linalg-traits`, which *depends on* rstsr-core).
+  The owner chose to drop it rather than place it in the linalg layer. Revisit
+  if a `rstsr-linalg-traits`-side entry is ever wanted (it would also need the
+  `n ≥ 0` fast path: `1` → clone, `2/3` → products, `4` → `A2·A2`, `>4` →
+  repeated squaring with a memo list).
 - [ ] **R5. norms general `ord`** — today only the `l2_norm` family exists.
       `test_vector_norm` / `test_matrix_norm` grade every `ord` (`inf`, `-inf`,
       `0`, `1`, `2`, `-1`, `-2`, `fro`, `nuc`, …).

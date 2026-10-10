@@ -87,6 +87,22 @@ yet pushed. First **R4** member of the array-API linalg convergence
   form `c.outer_from(&a, &b)` needs its own `impl<R,T,B> TensorAny<R,T,B,Ix2>`
   block (the generic `D` block can't reach a pinned `Ix2` receiver).
 
+- **`trace` / `trace_with_dtype`** (R4, second member): pure composition,
+  `diagonal` + `sum_axes`, no device op. `diagonal`'s default axes are the first
+  two but array-API's are the **last two**, so a helper injects `(-2, -1)` when
+  the caller leaves them unset; `diagonal` appends the diagonal *last*, so
+  `sum_axes(-1)` is right for any axes. Signature pairs with the reductions:
+  `trace(x, offset) -> Tensor<B::TOut, B, IxD>` + `trace_with_dtype::<TOut>`
+  (the array-API `dtype=`). `offset: impl Into<DiagonalArgs>` reuses the local
+  type (`()`, `None`, int, `(offset, a1, a2)`) — no new `*Args`, no orphan
+  issue. Only new bound: `B: OpSumAPI<T, D::SmallerOne>` (+ `DimSmallerOneAPI`).
+  Out-of-range offset → empty diagonal → trace `0` (the `la.size()==0` branch).
+  Provenance `_core/tests/test_numeric.py::TestNonarrayArgs::test_trace` (L349).
+- **`matrix_power` dropped** (owner's call): array-API tests `n` in −10..10
+  with `n < 0` needing the **matrix inverse**, absent from rstsr-core
+  (`rt::inv` is element-wise; `rstsr-linalg-traits` has the real one but depends
+  on rstsr-core).
+
 See `2026-10-10-arrayapi-linalg/CHECKLIST.md` (R4). Related:
 [[rstsr-ext-linalg-r2]], [[rstsr-linalg-batching-r1]],
 [[arrayapi-convergence-harness]], [[rstsr-faer-py-wrapper-only]].
