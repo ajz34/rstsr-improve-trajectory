@@ -128,3 +128,12 @@ the shim's `bin_numeric!` error names, value/output assertions in the doc test,
 removal of the dead `order` parameter from the naive kernels, a shared
 split-and-check helper, the duplicated in-src pair-axes test, and a new rayon
 `PARALLEL_SWITCH` test.
+
+## PR and CI
+
+Pushed to the fork (`ajz34:261010/tensordot`) and opened as
+[RESTGroup/rstsr#135](https://github.com/RESTGroup/rstsr/pull/135) against
+`main`. Head `a189f5b` (four commits, the fourth applying rustfmt + clippy
+fixes). All 13 CI checks pass (rustfmt, clippy `-D warnings`, doctests,
+integration-tests, unittest matrix incl. col-major / faer / pthread, and both
+no-std builds). Reported `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`.

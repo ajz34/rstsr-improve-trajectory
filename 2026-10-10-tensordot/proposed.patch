@@ -102,14 +102,15 @@ index 36a7ff4..754dbc4 100644
      m.add_function(wrap_pyfunction!(finfo, m)?)?;
      m.add_function(wrap_pyfunction!(iinfo, m)?)?;
 diff --git a/crates-interop/rstsr-faer-py/src/linalg.rs b/crates-interop/rstsr-faer-py/src/linalg.rs
-index c77d58d..5758093 100644
+index c77d58d..035af5d 100644
 --- a/crates-interop/rstsr-faer-py/src/linalg.rs
 +++ b/crates-interop/rstsr-faer-py/src/linalg.rs
-@@ -15,6 +15,8 @@
+@@ -14,7 +14,9 @@
+ //! general-`ord` norms) are absent from the namespace, never stubbed — they
  //! are rust-side gaps.
  
- use pyo3::prelude::*;
 +use pyo3::exceptions::PyTypeError;
+ use pyo3::prelude::*;
 +use pyo3::types::{PySequence, PySequenceMethods};
  use rstsr::prelude::rt;
  use rstsr::prelude::*;
@@ -129,20 +130,18 @@ index c77d58d..5758093 100644
          match (&$x1.t, &$x2.t) {
              (AnyTensor::I8($a), AnyTensor::I8($b)) => $body,
              (AnyTensor::I16($a), AnyTensor::I16($b)) => $body,
-@@ -96,8 +99,10 @@ macro_rules! bin_numeric {
+@@ -96,8 +99,8 @@ macro_rules! bin_numeric {
              (AnyTensor::F64($a), AnyTensor::F64($b)) => $body,
              (AnyTensor::C32($a), AnyTensor::C32($b)) => $body,
              (AnyTensor::C64($a), AnyTensor::C64($b)) => $body,
 -            (AnyTensor::Bool(_), AnyTensor::Bool(_)) => type_err("matmul/vecdot: bool dtype is not defined"),
 -            _ => type_err("matmul/vecdot: operands must share one dtype (rstsr gap G-009); cast first"),
 +            (AnyTensor::Bool(_), AnyTensor::Bool(_)) => type_err(concat!($name, ": bool dtype is not defined")),
-+            _ => {
-+                type_err(concat!($name, ": operands must share one dtype (rstsr gap G-009); cast first"))
-+            },
++            _ => type_err(concat!($name, ": operands must share one dtype (rstsr gap G-009); cast first")),
          }
      };
  }
-@@ -225,17 +230,68 @@ pub fn linalg_slogdet(x: &NativeArray) -> PyResult<(NativeArray, NativeArray)> {
+@@ -225,17 +228,68 @@ pub fn linalg_slogdet(x: &NativeArray) -> PyResult<(NativeArray, NativeArray)> {
  /// Matrix product (also the `@` operator).
  #[pyfunction]
  pub fn linalg_matmul(x1: &NativeArray, x2: &NativeArray) -> PyResult<NativeArray> {
@@ -424,7 +423,7 @@ index 7dabee5..2d2e647 100644
  }
 diff --git a/rstsr-core/src/tensor/linalg/tensordot.rs b/rstsr-core/src/tensor/linalg/tensordot.rs
 new file mode 100644
-index 0000000..3ad335b
+index 0000000..913aedd
 --- /dev/null
 +++ b/rstsr-core/src/tensor/linalg/tensordot.rs
 @@ -0,0 +1,410 @@
@@ -831,11 +830,11 @@ index 0000000..3ad335b
 +        assert!(rt::allclose(&c, &target, None));
 +
 +        let c = rt::tensordot(&a, &b, 2);
-+        assert!(rt::allclose(&c, &rt::asarray((70.0, &device)), None));
++        assert!(rt::allclose(&c, rt::asarray((70.0, &device)), None));
 +
 +        // swapped pairing: sum_{i,j} a[i,j] * b[j,i] = 5 + 14 + 18 + 32 = 69
 +        let c = rt::tensordot(&a, &b, ([1, 0], [0, 1]));
-+        assert!(rt::allclose(&c, &rt::asarray((69.0, &device)), None));
++        assert!(rt::allclose(&c, rt::asarray((69.0, &device)), None));
 +    }
 +}
 diff --git a/rstsr-core/tests/core_func/linalg/mod.rs b/rstsr-core/tests/core_func/linalg/mod.rs
@@ -851,10 +850,10 @@ index 50debba..376164f 100644
  pub static CATEGORY: &str = "linalg";
 diff --git a/rstsr-core/tests/core_func/linalg/test_tensordot.rs b/rstsr-core/tests/core_func/linalg/test_tensordot.rs
 new file mode 100644
-index 0000000..7bea6b1
+index 0000000..36703fa
 --- /dev/null
 +++ b/rstsr-core/tests/core_func/linalg/test_tensordot.rs
-@@ -0,0 +1,169 @@
+@@ -0,0 +1,168 @@
 +#[allow(unused_imports)]
 +use crate::test_utils::*;
 +use rstsr::prelude::*;
@@ -869,7 +868,8 @@ index 0000000..7bea6b1
 +
 +    #[test]
 +    fn test_rejects_duplicate_axes() {
-+        // numpy: v2.5.2 | _core/tests/test_numeric.py::TestTensordot::test_rejects_duplicate_axes (L4234)
++        // numpy: v2.5.2 | _core/tests/test_numeric.py::TestTensordot::test_rejects_duplicate_axes
++        // (L4234)
 +        crate::specify_test!("test_rejects_duplicate_axes");
 +
 +        let mut device = TESTCFG.device.clone();
@@ -989,10 +989,8 @@ index 0000000..7bea6b1
 +        let a = rt::arange((60, &device)).into_shape((3, 4, 5));
 +        let b = rt::arange((24, &device)).into_shape((4, 3, 2));
 +        let actual = rt::tensordot(&a, &b, ([1, 0], [0, 1]));
-+        let expected = rt::tensor_from_nested!(
-+            [[4400, 4730], [4532, 4874], [4664, 5018], [4796, 5162], [4928, 5306]],
-+            &device
-+        );
++        let expected =
++            rt::tensor_from_nested!([[4400, 4730], [4532, 4874], [4664, 5018], [4796, 5162], [4928, 5306]], &device);
 +        assert_eq!(actual.shape(), &[5, 2]);
 +        assert_equal(&actual, &expected, None);
 +
@@ -1148,7 +1146,7 @@ index 9deb740..38e2ccd 100644
  pub mod vecdot;
 diff --git a/rstsr-native-impl/src/cpu_rayon/tensordot.rs b/rstsr-native-impl/src/cpu_rayon/tensordot.rs
 new file mode 100644
-index 0000000..cb6a6b7
+index 0000000..bc7c92f
 --- /dev/null
 +++ b/rstsr-native-impl/src/cpu_rayon/tensordot.rs
 @@ -0,0 +1,95 @@
@@ -1194,8 +1192,8 @@ index 0000000..cb6a6b7
 +    let offset_b = lb.offset();
 +
 +    let shape_c = lc.shape().clone();
-+    let stride_a = lam.stride().iter().copied().chain(core::iter::repeat(0isize).take(lbm.ndim())).collect_vec();
-+    let stride_b = core::iter::repeat(0isize).take(lam.ndim()).chain(lbm.stride().iter().copied()).collect_vec();
++    let stride_a = lam.stride().iter().copied().chain(core::iter::repeat_n(0isize, lbm.ndim())).collect_vec();
++    let stride_b = core::iter::repeat_n(0isize, lam.ndim()).chain(lbm.stride().iter().copied()).collect_vec();
 +    // SAFETY: both are valid (read-only) broadcast views of real layouts.
 +    let lam_e = unsafe { Layout::<IxD>::new_unchecked(shape_c.clone(), stride_a, offset_a) };
 +    let lbm_e = unsafe { Layout::<IxD>::new_unchecked(shape_c, stride_b, offset_b) };
@@ -1260,16 +1258,22 @@ index a599dff..47ad9b6 100644
  pub mod vecdot;
 diff --git a/rstsr-native-impl/src/cpu_serial/tensordot.rs b/rstsr-native-impl/src/cpu_serial/tensordot.rs
 new file mode 100644
-index 0000000..1fc0b51
+index 0000000..dc8bd09
 --- /dev/null
 +++ b/rstsr-native-impl/src/cpu_serial/tensordot.rs
-@@ -0,0 +1,156 @@
+@@ -0,0 +1,162 @@
 +//! Naive generalized tensor contraction (`tensordot`) kernels.
 +
 +use crate::prelude_dev::*;
 +use core::ops::Mul;
 +use num::Zero;
 +use rstsr_common::layout::reshape::layout_reshapeable;
++
++/// `(contracted_a, free_a, contracted_b, free_b)` layouts of a contraction.
++pub type SplitTensordotAxes = (Layout<IxD>, Layout<IxD>, Layout<IxD>, Layout<IxD>);
++
++/// Canonical `(M, K)`, `(K, N)`, `(M, N)` layouts for a GEMM contraction.
++pub type GemmLayouts = (Layout<Ix2>, Layout<Ix2>, Layout<Ix2>);
 +
 +/// Split both operands into `(contracted, free)` layouts for the given axes,
 +/// asserting that the paired contracted shapes agree.
@@ -1278,7 +1282,7 @@ index 0000000..1fc0b51
 +    axes_a: &[isize],
 +    lb: &Layout<DB>,
 +    axes_b: &[isize],
-+) -> Result<(Layout<IxD>, Layout<IxD>, Layout<IxD>, Layout<IxD>)>
++) -> Result<SplitTensordotAxes>
 +where
 +    DA: DimAPI,
 +    DB: DimAPI,
@@ -1329,8 +1333,8 @@ index 0000000..1fc0b51
 +    // the *other* operand gets zero stride (a broadcast view). Only read, so
 +    // aliasing is sound.
 +    let shape_c = lc.shape().clone();
-+    let stride_a = lam.stride().iter().copied().chain(core::iter::repeat(0isize).take(lbm.ndim())).collect_vec();
-+    let stride_b = core::iter::repeat(0isize).take(lam.ndim()).chain(lbm.stride().iter().copied()).collect_vec();
++    let stride_a = lam.stride().iter().copied().chain(core::iter::repeat_n(0isize, lbm.ndim())).collect_vec();
++    let stride_b = core::iter::repeat_n(0isize, lam.ndim()).chain(lbm.stride().iter().copied()).collect_vec();
 +    // SAFETY: both are valid (read-only) broadcast views of real layouts.
 +    let lam_e = unsafe { Layout::<IxD>::new_unchecked(shape_c.clone(), stride_a, offset_a) };
 +    let lbm_e = unsafe { Layout::<IxD>::new_unchecked(shape_c, stride_b, offset_b) };
@@ -1362,7 +1366,7 @@ index 0000000..1fc0b51
 +    axes_b: &[isize],
 +    lc: &Layout<DC>,
 +    order: FlagOrder,
-+) -> Result<Option<(Layout<Ix2>, Layout<Ix2>, Layout<Ix2>)>>
++) -> Result<Option<GemmLayouts>>
 +where
 +    DA: DimAPI,
 +    DB: DimAPI,
