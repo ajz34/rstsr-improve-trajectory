@@ -217,6 +217,15 @@ derivable op.
   `order_semantics` link), and the `trace` row was missing from
   `array_api_standard.md`'s Linear Algebra table. Both shim docstrings said
   `trace` was a *rust-side gap*, now false.
+- **CI round**: `unittests-col-major` failed on the new parity test — its 3-d
+  input was `rt::arange(8).into_shape([2, 2, 2])`, and reshape fills in the
+  device default order, so under `ColMajor` it holds different values than
+  NumPy's row-major `np.arange(8).reshape(2,2,2)` (which is where the expected
+  values came from). Rebuilt from `tensor_from_nested!` literals. **Generalizable:
+  `arange().into_shape()` is not order-independent in content; a local
+  `--features col_major` lib run is not a substitute for the CI job's full suite.**
+  Branch pushed, **PR RESTGroup/rstsr#138** open (14/14 checks green, no
+  auto-merge).
 - **Not acted on**: the reviewer's `ext_outer`-driver duplication and the
   `outer_from` `Ix2` pin (deliberate — the device op takes `Layout<Ix2>`; a
   dim-generic form would need `into_dim` in the entry). Its CRLF claim about
