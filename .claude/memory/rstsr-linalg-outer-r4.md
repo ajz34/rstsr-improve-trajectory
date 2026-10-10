@@ -44,6 +44,19 @@ yet pushed. First **R4** member of the array-API linalg convergence
   (`rstsr_assert!` → `InvalidValue`) and by `to_dim::<Ix1>()`. **No
   conjugation** (unlike `vecdot`). Result is `Tensor<TC, B, Ix2>` — rank-2, so
   the shim narrows it with `into_dim::<IxD>()`.
+- **The result's memory arrangement follows the input's `device.default_order()`**
+  (owner's rule), not `TensorIterOrder::default()` — the latter is `K`, so a
+  `match TensorIterOrder::default()` with a `_` arm silently means "always C"
+  (the first cut had exactly that bug; `vecdot`'s identical-looking match is
+  safe only because its `_` arm calls `get_layout_for_binary_op(..., order)`).
+  Fixed in `aa9e345` with a layout test. **Generalizable:** never use
+  `TensorIterOrder::default()` to pick a fresh result's contiguity.
+- **NumPy provenance is `linalg/tests/test_linalg.py::TestOuter`** (the array-API
+  shaped `np.linalg.outer`: 1-D only, raises for a non-vector) — the only value
+  source for `outer`; `np.outer` (top-level) instead flattens, and that
+  distinction now lives in `numpy_differences.md`. NumPy holds `TestOuter`'s
+  checks as **class-body asserts**, so `sync_numpy.py` gained a class-body index
+  (empty method name) to hash it.
 - **`test_outer` DOES grade binary promotion**: `two_mutual_arrays(dtypes=
   dh.real_dtypes, …)` + `ph.assert_dtype(..., in_dtype=[x1,x2])` with no
   `expected`, which resolves to `dh.result_type(x1.dtype, x2.dtype)`. So the

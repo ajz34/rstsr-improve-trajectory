@@ -124,11 +124,27 @@ than the plan's broadcast-mul shortcut (the owner's call).
 - **Measured: `1300 / 49 / 33` → `1303 / 46 / 33`**, 0 regressions. Flipped:
   `test_linalg.py::test_outer`, `test_has_names[linalg-outer]`,
   `test_extension_func_signature[linalg.outer]`.
-- Gates: 272 doctests (+2), 178 lib (+9), 592 entry-row; `cargo check
+- Gates: 272 doctests (+2), 179 lib (+10), 591 entry-row (+5); `cargo check
   --all-targets` clean on `rstsr-openblas` (the BLAS test tree symlinks
   `core_func`, so this covers it) and `--all-targets`-free checks on the other
   four BLAS crates; fmt/clippy/rustdoc clean; lib tests re-run clean under
   `col_major`.
+- **Review round (`/code-review high`, fixed in `aa9e345`).** One real defect:
+  the fresh result's arrangement came from `TensorIterOrder::default()`, which
+  is `K`, so the match always took `_ => [n, m].c()` and every result was
+  C-contiguous even on a ColMajor device — against the sibling entries and
+  `docs/order_semantics.md`. `outer` now allocates in the input device's
+  `default_order()` (the owner's rule: *the output follows the input's default
+  order*), with a layout test pinning it against `tensordot(a, b, 0)`. Also:
+  kernel-level parallel-branch tests for both new rayon twins (all earlier cases
+  sat below `PARALLEL_SWITCH`, so those paths never ran); the parity test
+  rewritten as a true transfer of NumPy's `linalg/tests/test_linalg.py::TestOuter`
+  (the only value source — a **class-body assert**, so `sync_numpy.py` gained a
+  class-body index and the header cites `path::Class` with an empty method); the
+  `np.outer` (flattens) vs `np.linalg.outer` (1-D, raises) distinction recorded
+  in `numpy_differences.md`; a stale `slogdet` dropped from the shim's
+  absent-names doc. Conformance re-run after the fix: **`1303 / 46 / 33`
+  unchanged**.
 
 ## 0. The red map this checklist must clear
 
