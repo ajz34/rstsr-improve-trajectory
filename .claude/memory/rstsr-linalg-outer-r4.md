@@ -77,6 +77,16 @@ yet pushed. First **R4** member of the array-API linalg convergence
   BLAS column build" check) plus plain checks on the other four BLAS crates;
   lib tests re-run clean under `--no-default-features --features col_major`.
 
+- **`outer_from` / `outer_from_f`** (follow-up, owner-requested; no
+  `ext_outer_from`): the output-providing variant, mirroring `vecdot_from` —
+  `c: impl TensorViewMutAPI<Dim = **Ix2**>` (the device op is pinned to
+  `Layout<Ix2>`, so unlike `vecdot_from`'s generic `DC` the rank is fixed),
+  broadcast gate + shape check, then `transmute::<&mut Raw<TC>, &mut
+  Raw<MaybeUninit<TC>>>(c.raw_mut())`. **No `alpha`/`beta`** — `outer` has no
+  accumulate form, so `c` is fully overwritten (contrast `matmul_from`). Method
+  form `c.outer_from(&a, &b)` needs its own `impl<R,T,B> TensorAny<R,T,B,Ix2>`
+  block (the generic `D` block can't reach a pinned `Ix2` receiver).
+
 See `2026-10-10-arrayapi-linalg/CHECKLIST.md` (R4). Related:
 [[rstsr-ext-linalg-r2]], [[rstsr-linalg-batching-r1]],
 [[arrayapi-convergence-harness]], [[rstsr-faer-py-wrapper-only]].

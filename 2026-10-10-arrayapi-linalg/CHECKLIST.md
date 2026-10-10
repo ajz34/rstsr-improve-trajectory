@@ -145,6 +145,18 @@ than the plan's broadcast-mul shortcut (the owner's call).
   in `numpy_differences.md`; a stale `slogdet` dropped from the shim's
   absent-names doc. Conformance re-run after the fix: **`1303 / 46 / 33`
   unchanged**.
+- **Follow-up: `rt::outer_from` / `outer_from_f`** (owner's request; **no**
+  `ext_outer_from`). The output-providing variant of `outer`, mirroring
+  `vecdot_from`: `c: impl TensorViewMutAPI<Dim = Ix2>` (the device op is pinned
+  to `Layout<Ix2>`, so the rank is fixed rather than a generic `DC`), a broadcast
+  gate (`cannot write into broadcasted tensor`), a shape check against
+  `(a.size, b.size)`, and the same `transmute::<Raw<TC>, Raw<MaybeUninit<TC>>>`
+  to hand the initialized buffer to the uninit-taking device op. Unlike
+  `matmul_from` there is no `alpha`/`beta` — `outer` has no accumulate form, so
+  `c` is fully overwritten. Method form lives in an `Ix2`-specialized
+  `TensorAny` impl block (`c.outer_from(&a, &b)`); exported from the prelude;
+  listed in `outer`'s "Variants of this function". Lib tests: overwrite
+  semantics + method equivalence, wrong-shape error, broadcast-layout error.
 
 ## 0. The red map this checklist must clear
 
