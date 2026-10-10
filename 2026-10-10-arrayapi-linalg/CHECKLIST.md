@@ -201,6 +201,27 @@ derivable op.
   `rstsr-faer-py`.
 - **Not done here**: the shim binding (`linalg.trace` / `linalg.matrix_power`)
   — this wave is rstsr-core only.
+- **Review round (`/code-review high`).** One real bug, and it is *not* in
+  `trace`: `Layout::diagonal` had no duplicate-axis guard, so `axis1 == axis2`
+  dropped only one axis while still appending the diagonal — `[2,2].c()
+  .diagonal(None, Some(0), Some(0))` yields shape `[2,2]` stride `[1,4]` over a
+  4-element buffer. Reproduced: `rt::sum_axes(&a.into_dyn().diagonal((0,0,0)),
+  -1)` panics with `range end index 6 out of range for slice of length 4`; the
+  `into_diagonal_f` SAFETY comment ("addresses a subset") is violated, so this
+  is a soundness hole in **rstsr-common**, reachable from `rt::diagonal` before
+  `trace` existed (trace just made the `(offset, axis1, axis2)` form more
+  visible). Fixed with a `rstsr_assert!(axis1 != axis2, InvalidValue, ...)`
+  (NumPy raises `ValueError` here) plus a layout test. Doc policy §4 also
+  requires the (b) **Row/Column Major Notice** div for order-dependent
+  functions, which `trace` now carries (div + one example per order +
+  `order_semantics` link), and the `trace` row was missing from
+  `array_api_standard.md`'s Linear Algebra table. Both shim docstrings said
+  `trace` was a *rust-side gap*, now false.
+- **Not acted on**: the reviewer's `ext_outer`-driver duplication and the
+  `outer_from` `Ix2` pin (deliberate — the device op takes `Layout<Ix2>`; a
+  dim-generic form would need `into_dim` in the entry). Its CRLF claim about
+  `numpy_coverage.csv` was **false** (`git show` diff is 1 insertion; 281 → 282
+  CRLF lines, zero bare-LF).
 
 ## 0. The red map this checklist must clear
 
