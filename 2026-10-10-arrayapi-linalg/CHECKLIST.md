@@ -9,14 +9,20 @@ and the other (now-drained) buckets live in
 `../2026-10-07-arrayapi-convergence/`; register ids (G-nnn) refer to
 `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-**Current: 1296 / 53 / 33 of 1382** (suite `array-api-tests@6c0b59f`, API
-`2025.12`, module `rstsr_faer.api`). The shim-side init is merged (`#133`,
-`d7056ba`); it exposed 13 of the 23 members and flipped the 49 `linalg` skips
-into graded tests. The remaining failures are `linalg` plus 14 out-of-scope
-`fft` nodes; the 33 skips are 28 `fft` + the 5 backend-independent
-`test_remainder`. `tensordot` (R3) and batched linalg (R1) landed after the
-init — see **Progress**; `1287 / 62 / 33` → `1294 / 55 / 33` (R3) →
-**`1296 / 53 / 33`** (R1).
+**Current: two open branches, not yet combined** (suite `array-api-tests@6c0b59f`,
+API `2025.12`, module `rstsr_faer.api`):
+
+- `261010/linalg-nbatch` (R1, batched linalg, PR RESTGroup/rstsr#136):
+  **`1296 / 53 / 33`** of 1382.
+- `261010/ext-matmul` (R2, mixed-dtype linalg, PR RESTGroup/rstsr#137), off the
+  post-`#135` main: **`1300 / 49 / 33`** of 1382.
+
+The shim-side init is merged (`#133`, `d7056ba`); it exposed 13 of the 23
+members and flipped the 49 `linalg` skips into graded tests. The remaining
+failures are `linalg` plus 14 out-of-scope `fft` nodes; the 33 skips are 28
+`fft` + the 5 backend-independent `test_remainder`. `tensordot` (R3) and batched
+linalg (R1) landed after the init — see **Progress**; `1287 / 62 / 33` →
+`1294 / 55 / 33` (R3) → `1296 / 53 / 33` (R1); R2 → `1300 / 49 / 33`.
 
 ## Progress (2026-10-10): shim-side init
 
@@ -99,11 +105,41 @@ lever" from the init finding (stacked inputs are the array-API contract).
   `pinv`/`svd` = faer SVD `NoConvergence` on degenerate huge-magnitude matrices
   (hits 2-D too).
 
+## Progress (2026-10-10): mixed-dtype linalg (R2)
+
+Branch `261010/ext-matmul` (off rstsr `main` `2f5cf1d`, i.e. post-`#135`; PR
+RESTGroup/rstsr#137, CI 13/13 green). A rust-side `ext_linalg` family plus the
+shim rewiring that consumes it — this is the G-009 promotion gap, closed for
+the whole product family.
+
+- New `rt::ext_matmul` / `rt::ext_vecdot` / `rt::ext_tensordot`: the
+  promotion-compatible siblings of the same-dtype entries; each operand pair is
+  computed in its promoted common dtype (`DTypePromoteAPI`, the NumPy rule).
+  Implemented on `DeviceCpuSerial` and `DeviceFaer`; `ext_vecdot` conjugates its
+  first operand per the array-API contract.
+- Promotion is **fused into the kernel inner loop** (`promote_pair`), not done
+  by promoting into intermediate buffers, so the mixed-dtype path allocates no
+  temporaries (the cost is a thin per-dtype copy of the kernel).
+  `ext_tensordot` reuses the view-only GEMM fast path.
+- Shim: `linalg_matmul` / `linalg_vecdot` / `linalg_tensordot` route both
+  same- and mixed-dtype pairs through the `ext_` entries, so the G-009 fallback
+  is gone for them. The binary dispatch gained the missing `i8 × i16` arm, and
+  `conj` now preserves integer dtypes (the array-API rule) — the latter was
+  **required**: `test_vecdot`'s reference computes `xp.conj(int)`.
+- **Measured: `1294 / 55 / 33` → `1296 / 53 / 33` (matmul) → `1300 / 49 / 33`
+  (vecdot + tensordot)**, 0 regressions. Flipped nodes:
+  `test_matmul`, `test_linalg_matmul`, `test_vecdot`, `test_linalg_vecdot`,
+  `test_tensordot`, `test_linalg_tensordot`.
+- Note the branch carries **no batching** (that is R1, a separate PR); `matmul`
+  and `vecdot` are already n-D capable, so their value tests pass without it.
+  The two branches are not yet combined.
+
 ## 0. The red map this checklist must clear
 
 **Init-time failures (62) = `linalg` 48 + `fft` 14** — the groups below. R3 has
 since removed the two `tensordot` has_names/signature rows and turned
-`test_tensordot` / `test_linalg_tensordot` into G-009 failures (see
+`test_tensordot` / `test_linalg_tensordot` into G-009 failures, and R2 has since
+flipped the six `matmul` / `vecdot` / `tensordot` value nodes to pass (see
 **Progress**); re-derive the group columns on the next full run (the suite is
 hypothesis-based; expect ±2 wobble).
 
@@ -139,9 +175,9 @@ Rust linalg lives in **`rstsr-linalg-traits`** (`LinalgAPI` family, one
 
 | array-API name | rstsr entry today | rust | shim |
 |---|---|---|---|
-| `matmul` | `rt::matmul` (tensor tier) | ✓ same-dtype | ✓ |
+| `matmul` | `rt::matmul` (tensor tier), `rt::ext_matmul` (promotion) | ✓ same-dtype; ✓ promote (R2) | ✓ |
 | `matrix_transpose` | `rt::matrix_transpose` | ✓ | ✓ |
-| `vecdot` | `rt::vecdot` | ✓ same-dtype | ✓ |
+| `vecdot` | `rt::vecdot` (tensor tier), `rt::ext_vecdot` (promotion) | ✓ same-dtype; ✓ promote (R2) | ✓ |
 | `diagonal` | `rt::diagonal` (indexing) | ✓ | ✓ |
 | `cholesky` | `CholeskyAPI` (faer) | ✓ batched (R1) | ✓ |
 | `det` | `DetAPI` (faer) | ✓ batched (R1) | ✓ |
@@ -152,7 +188,7 @@ Rust linalg lives in **`rstsr-linalg-traits`** (`LinalgAPI` family, one
 | `solve` | `SolveGeneralAPI` (faer) | ✓ batched (R1) | ✓ |
 | `svd` | `SVDAPI` (faer) | ✓ batched (R1) | ✓ |
 | `svdvals` | `SVDvalsAPI` (faer) | ✓ batched (R1) | ✓ |
-| `tensordot` | `rt::tensordot` (tensor tier) | ✓ same-dtype (R3) | ✓ |
+| `tensordot` | `rt::tensordot` (tensor tier), `rt::ext_tensordot` (promotion) | ✓ same-dtype (R3); ✓ promote (R2) | ✓ |
 | `outer` | — (reshape + broadcast mul) | ✗ new | ✗ |
 | `cross` | — (3-vector cross) | ✗ new | ✗ |
 | `trace` | — (diagonal + sum) | ✗ new (trivial) | ✗ |
@@ -181,10 +217,13 @@ gates 13 of the 20 graded members the shim already exposes.
       `iter_axes` and stack. Cheapest, largest payoff: unblocks `cholesky, det,
       eigh, eigvalsh, inv, pinv, solve, svd, svdvals` at once. **Landed** — PR
       RESTGroup/rstsr#136 (branch `261010/linalg-nbatch`), see **Progress**.
-- [ ] **R2. mixed-dtype `matmul`/`vecdot`** (G-009) — promote the operands to
-      their common dtype (the `DTypePromoteAPI` lattice already exists) before
-      the kernel, so `u8 @ u16` works. Gates `test_matmul` / `test_vecdot` /
-      `test_linalg_vecdot` beyond the batching issue.
+- [x] **R2. mixed-dtype `matmul`/`vecdot`/`tensordot`** (G-009) — **landed**
+      (PR RESTGroup/rstsr#137, branch `261010/ext-matmul`): the `ext_linalg`
+      family computes each operand pair in its promoted common dtype
+      (`DTypePromoteAPI`), fused into the kernel inner loop, so `u8 @ u16`
+      works. Gates `test_matmul` / `test_linalg_matmul` / `test_vecdot` /
+      `test_linalg_vecdot` / `test_tensordot` / `test_linalg_tensordot`; all six
+      now pass — see **Progress**.
 - [x] **R3. `tensordot`** (tensor tier, `tensor/linalg/`) — **landed** (PR
       RESTGroup/rstsr#135): `rt::tensordot` (`axes` int or pair-of-lists) with
       serial + rayon device kernels and a view-only GEMM fast path; the shim
@@ -224,9 +263,10 @@ Wrapper-only. S1–S4 landed on `261010/faer-py-linalg-init` (uncommitted):
 - [x] **S4. return structures** — `eigh` → namedtuple `(eigenvalues,
       eigenvectors)`, `svd` → `(U, S, Vh)`, `det`/`svdvals`/`eigvalsh` →
       arrays, `pinv` → array (rank dropped).
-- [ ] **S5. dtype/stack semantics** — *not* done: the shim is a pass-through, so
-      there is no batching (that is R1) and `matmul`/`vecdot` do not promote
-      (that is R2). `eig`/`eigvals` complex promotion is moot until R8.
+- [ ] **S5. dtype/stack semantics** — half done: promotion is wired
+      (`matmul`/`vecdot`/`tensordot` route through the `ext_` entries — R2), so
+      mixed dtypes work; batching is still absent (that is R1). `eig`/`eigvals`
+      complex promotion is moot until R8.
 
 ## 4. Ordering
 
@@ -236,9 +276,10 @@ happened. Going forward:
 1. **R1 (batched linalg) first** — it is the largest single move and needs no
    new shim code; the 13 exposed-but-failing value tests start passing as soon
    as the rust entries accept stacks.
-2. Then R2, R4–R8 as members land; each new member is a shim one-liner plus a
+2. Then R4–R8 as members land; each new member is a shim one-liner plus a
    `_LinalgNamespace` entry (add the name only when its rust entry is real, so a
-   new gap never becomes a fresh failure). R3 (`tensordot`) is already done.
+   new gap never becomes a fresh failure). R2 (mixed-dtype products) and R3
+   (`tensordot`) are already done.
 3. Re-run per §5 after each landed item.
 
 If instead the namespace should be **held** until the surface is more complete
@@ -273,6 +314,14 @@ FRESH=1 NO_EXPLAIN=1 CHUNKED=1 MODULE=rstsr_faer.api \
   absent-member nodes (`cross, eig, eigvals, matrix_norm, matrix_power,
   matrix_rank, outer, qr, trace, vector_norm`) remain. (The suite is
   hypothesis-based; expect ±2 wobble.)
+- **Recorded (mixed-dtype linalg / R2):** `1294 / 55 / 33` → `1296 / 53 / 33`
+  (matmul) → **`1300 / 49 / 33`** (vecdot + tensordot), 0 regressions, on the
+  `261010/ext-matmul` branch (post-`#135` base, so **no R1 batching** — the two
+  branches are not yet combined). Flipped: `test_matmul`,
+  `test_linalg_matmul`, `test_vecdot`, `test_linalg_vecdot`, `test_tensordot`,
+  `test_linalg_tensordot`. The residual `linalg` value failures are `solve`
+  (G-009 on the solve path) and `pinv`/`svd` (faer SVD `NoConvergence`), plus
+  the not-yet-implemented members.
 
 ## 6. Decisions
 
