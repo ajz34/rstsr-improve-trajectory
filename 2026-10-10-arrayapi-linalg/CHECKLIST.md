@@ -9,20 +9,23 @@ and the other (now-drained) buckets live in
 `../2026-10-07-arrayapi-convergence/`; register ids (G-nnn) refer to
 `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-**Current: two open branches, not yet combined** (suite `array-api-tests@6c0b59f`,
-API `2025.12`, module `rstsr_faer.api`):
+**Current: R2 merged; `outer`/`ext_outer` open on a new branch** (suite
+`array-api-tests@6c0b59f`, API `2025.12`, module `rstsr_faer.api`):
 
 - `261010/linalg-nbatch` (R1, batched linalg, PR RESTGroup/rstsr#136):
   **`1296 / 53 / 33`** of 1382.
-- `261010/ext-matmul` (R2, mixed-dtype linalg, PR RESTGroup/rstsr#137), off the
-  post-`#135` main: **`1300 / 49 / 33`** of 1382.
+- `261010/ext-matmul` (R2, mixed-dtype linalg, PR RESTGroup/rstsr#137) — now
+  **merged** to main as `f03c3ca`: **`1300 / 49 / 33`** of 1382.
+- `261010/linalg-outer` (R4, `outer`/`ext_outer`), off the post-`#137` main
+  `f03c3ca`: **`1303 / 46 / 33`** of 1382.
 
 The shim-side init is merged (`#133`, `d7056ba`); it exposed 13 of the 23
 members and flipped the 49 `linalg` skips into graded tests. The remaining
 failures are `linalg` plus 14 out-of-scope `fft` nodes; the 33 skips are 28
 `fft` + the 5 backend-independent `test_remainder`. `tensordot` (R3) and batched
 linalg (R1) landed after the init — see **Progress**; `1287 / 62 / 33` →
-`1294 / 55 / 33` (R3) → `1296 / 53 / 33` (R1); R2 → `1300 / 49 / 33`.
+`1294 / 55 / 33` (R3) → `1296 / 53 / 33` (R1); R2 → `1300 / 49 / 33`;
+R4 (`outer`) → `1303 / 46 / 33`.
 
 ## Progress (2026-10-10): shim-side init
 
@@ -134,6 +137,42 @@ the whole product family.
   and `vecdot` are already n-D capable, so their value tests pass without it.
   The two branches are not yet combined.
 
+## Progress (2026-10-10): `outer` / `ext_outer` (R4, first member)
+
+Branch `261010/linalg-outer` (off rstsr `main` `f03c3ca`, i.e. post-`#137`; not
+yet pushed). The first R4 member, implemented as a real device-op family rather
+than the plan's broadcast-mul shortcut (the owner's call).
+
+- New same-dtype `rt::outer` + promotion `rt::ext_outer`, mirroring the
+  `matmul`/`vecdot` pair: device traits `DeviceOuterAPI` / `DeviceExtOuterAPI`,
+  a naive serial kernel + rayon twin (promotion fused via `promote_pair` in the
+  ext twin), and per-device impls. `outer` returns a rank-2 `Tensor<_, _, Ix2>`
+  (the shim narrows it to its `IxD` handles).
+- **Device scope** mirrors the family: same-dtype `outer` is on *all* devices —
+  `DeviceCpuSerial` explicitly, every `DeviceRayonAutoImpl` (faer + the five
+  BLAS crates) through the shared `feature_rayon/auto_impl/outer.rs`, reached by
+  one symlink per crate (the same mechanism as `vecdot`/`tensordot`).
+  `ext_outer` is `DeviceCpuSerial` + `DeviceFaer` only, like the rest of `ext_`.
+- **Contract: 1-D only**, per array-API `linalg.outer` (the suite draws only 1-D
+  and comments "outer does not work on stacks"); a non-1-D operand is
+  `InvalidValue` from `outer_f` (panic otherwise). No conjugation (unlike
+  `vecdot`); the result is `(N, M)` in the operands' common dtype.
+- **`outer` does grade binary promotion**: `test_outer` draws its operands from
+  `two_mutual_arrays(dtypes=dh.real_dtypes, …)` and asserts
+  `assert_dtype(..., expected=result_type(x1.dtype, x2.dtype))`, so the shim
+  routes `linalg.outer` through `ext_outer`, never the same-dtype entry.
+- Shim: `linalg_outer` (+ `_LinalgNamespace.outer`, the native import, and a
+  positional-only `def outer(x1, x2, /)` wrapper); `outer` dropped from the
+  module's "absent members" prose.
+- **Measured: `1300 / 49 / 33` → `1303 / 46 / 33`**, 0 regressions. Flipped:
+  `test_linalg.py::test_outer`, `test_has_names[linalg-outer]`,
+  `test_extension_func_signature[linalg.outer]`.
+- Gates: 272 doctests (+2), 178 lib (+9), 592 entry-row; `cargo check
+  --all-targets` clean on `rstsr-openblas` (the BLAS test tree symlinks
+  `core_func`, so this covers it) and `--all-targets`-free checks on the other
+  four BLAS crates; fmt/clippy/rustdoc clean; lib tests re-run clean under
+  `col_major`.
+
 ## 0. The red map this checklist must clear
 
 **Init-time failures (62) = `linalg` 48 + `fft` 14** — the groups below. R3 has
@@ -147,15 +186,16 @@ hypothesis-based; expect ±2 wobble).
 
 | group | nodes | what it checks |
 |---|---|---|
-| `test_has_names[linalg-*]` | 10 | the 10 members still absent from `xp.linalg` |
+| `test_has_names[linalg-*]` | 10 | the members still absent from `xp.linalg` (9 after R4) |
 | `test_has_names[linear_algebra-tensordot]` | 1 | top-level `tensordot` absent |
-| `test_signatures.py::test_extension_func_signature[linalg.*]` | 10 | the same 10 members |
+| `test_signatures.py::test_extension_func_signature[linalg.*]` | 10 | the same members (9 after R4) |
 | `test_signatures.py::test_func_signature[tensordot]` | 1 | top-level `tensordot` signature |
-| `test_linalg.py` (name absent) | 12 | `test_{cross,eig,eigvals,matrix_norm,matrix_power,matrix_rank,outer,qr,slogdet,trace,vector_norm,tensordot}` |
+| `test_linalg.py` (name absent) | 12 | `test_{cross,eig,eigvals,matrix_norm,matrix_power,matrix_rank,outer,qr,slogdet,trace,vector_norm,tensordot}` (11 after R4) |
 | `test_linalg.py` (exposed, value-failing) | 13 | `test_{cholesky,det,eigh,eigvalsh,inv,linalg_matmul,linalg_vecdot,matmul,pinv,solve,svd,svdvals,vecdot}` |
 
 The 10 absent `linalg` members: `cross, matrix_norm, matrix_power,
-matrix_rank, outer, qr, slogdet, tensordot, trace, vector_norm`.
+matrix_rank, outer, qr, slogdet, tensordot, trace, vector_norm` (9 after R4,
+which landed `outer`).
 
 `test_linalg.py` **passing** today (4): `test_diagonal`,
 `test_linalg_matrix_transpose`, `test_matrix_transpose`, `test_vecdot_conj`.
@@ -189,7 +229,7 @@ Rust linalg lives in **`rstsr-linalg-traits`** (`LinalgAPI` family, one
 | `svd` | `SVDAPI` (faer) | ✓ batched (R1) | ✓ |
 | `svdvals` | `SVDvalsAPI` (faer) | ✓ batched (R1) | ✓ |
 | `tensordot` | `rt::tensordot` (tensor tier), `rt::ext_tensordot` (promotion) | ✓ same-dtype (R3); ✓ promote (R2) | ✓ |
-| `outer` | — (reshape + broadcast mul) | ✗ new | ✗ |
+| `outer` | `rt::outer` (tensor tier), `rt::ext_outer` (promotion) | ✓ same-dtype (R4, all devices); ✓ promote (R4, cpu_serial + faer) | ✓ |
 | `cross` | — (3-vector cross) | ✗ new | ✗ |
 | `trace` | — (diagonal + sum) | ✗ new (trivial) | ✗ |
 | `matrix_power` | — (repeated `matmul`) | ✗ new | ✗ |
@@ -230,11 +270,14 @@ gates 13 of the 20 graded members the shim already exposes.
       exposes it top-level and on `_LinalgNamespace`. Its 4 `has_names` +
       signature nodes pass; the 2 `test_linalg` value nodes now fail only on
       R2/G-009.
-- [ ] **R4. small derivable ops** `outer, cross, trace, matrix_power,
-      matrix_rank` — all expressible from existing pieces (`outer` = broadcast
-      mul + reshape; `trace` = `diagonal` + sum; `matrix_rank` = count of
-      `svdvals > tol`; `matrix_power` = repeated `matmul` with `n` sign
-      handling). Low risk; each is a `test_linalg` + a `has_names` node.
+- [~] **R4. small derivable ops** `outer` **landed** (see Progress) —
+      the plan's shortcut (`outer` = broadcast mul + reshape) was **not** taken:
+      the owner chose a real device-op family (`DeviceOuterAPI` /
+      `DeviceExtOuterAPI` + kernels), matching `matmul`/`vecdot`. `cross, trace,
+      matrix_power, matrix_rank` remain — all expressible from existing pieces
+      (`trace` = `diagonal` + sum; `matrix_rank` = count of `svdvals > tol`;
+      `matrix_power` = repeated `matmul` with `n` sign handling). Low risk; each
+      is a `test_linalg` + a `has_names` node.
 - [ ] **R5. norms general `ord`** — today only the `l2_norm` family exists.
       `test_vector_norm` / `test_matrix_norm` grade every `ord` (`inf`, `-inf`,
       `0`, `1`, `2`, `-1`, `-2`, `fro`, `nuc`, …).
@@ -312,8 +355,8 @@ FRESH=1 NO_EXPLAIN=1 CHUNKED=1 MODULE=rstsr_faer.api \
   `NoConvergence` on degenerate huge-magnitude matrices, a 2-D robustness limit,
   not batching; `solve` stays red on R2/G-009. The `matrix_norm`-family and the
   absent-member nodes (`cross, eig, eigvals, matrix_norm, matrix_power,
-  matrix_rank, outer, qr, trace, vector_norm`) remain. (The suite is
-  hypothesis-based; expect ±2 wobble.)
+  matrix_rank, qr, trace, vector_norm`) remain — `outer` has since landed (R4).
+  (The suite is hypothesis-based; expect ±2 wobble.)
 - **Recorded (mixed-dtype linalg / R2):** `1294 / 55 / 33` → `1296 / 53 / 33`
   (matmul) → **`1300 / 49 / 33`** (vecdot + tensordot), 0 regressions, on the
   `261010/ext-matmul` branch (post-`#135` base, so **no R1 batching** — the two
@@ -322,6 +365,12 @@ FRESH=1 NO_EXPLAIN=1 CHUNKED=1 MODULE=rstsr_faer.api \
   `test_linalg_tensordot`. The residual `linalg` value failures are `solve`
   (G-009 on the solve path) and `pinv`/`svd` (faer SVD `NoConvergence`), plus
   the not-yet-implemented members.
+- **Recorded (outer / R4):** `1300 / 49 / 33` → **`1303 / 46 / 33`**, 0
+  regressions, on `261010/linalg-outer` (off the post-`#137` main `f03c3ca`).
+  Flipped: `test_outer`, `test_has_names[linalg-outer]`,
+  `test_extension_func_signature[linalg.outer]`. The residual `linalg` value
+  failures are unchanged (`solve` = G-009; `pinv`/`svd` = faer SVD
+  `NoConvergence`) plus the members still absent.
 
 ## 6. Decisions
 

@@ -1,0 +1,69 @@
+---
+name: rstsr-linalg-outer-r4
+description: "outer/ext_outer (array-API linalg R4): dedicated DeviceOuterAPI family, outer on all devices via feature_rayon auto_impl symlinks, ext_outer cpu_serial+faer, 1-D-only, conformance 1303/46/33"
+metadata:
+  type: project
+---
+
+2026-10-10, branch `261010/linalg-outer` (off post-`#137` main `f03c3ca`), not
+yet pushed. First **R4** member of the array-API linalg convergence
+([[rstsr-ext-linalg-r2]] is R2). Suite `1300 / 49 / 33` → **`1303 / 46 / 33`**,
+0 regressions.
+
+- **Owner decision (asked, since the checklist's R4 note said "outer = broadcast
+  mul + reshape")**: implement as a *real device-op family*, not composition —
+  mirroring `matmul`/`vecdot`. Also: `outer` for **all** devices, `ext_outer`
+  for **cpu_serial + faer** only.
+- **Shape**: `DeviceOuterAPI<TA,TB,TC>` in `operators/linalg.rs` and
+  `DeviceExtOuterAPI<TA,TB,TC>` in `operators/ext_linalg.rs`. These two traits
+  are **not generic over dims** (unlike the vecdot/tensordot traits): the
+  signature is fixed at `Layout<Ix1>`/`Layout<Ix1>` → `Layout<Ix2>`, which
+  enforces the 1-D contract at the device layer.
+- **Kernel** (`rstsr-native-impl/src/cpu_{serial,rayon}/outer.rs` +
+  `.../ext_linalg/outer.rs`): builds the two broadcast operand layouts by hand
+  (`Layout::new([n,m], [sa,0], off)` — `Layout::new` accepts zero strides, its
+  `check_strides` runs with `skip_zero = true`), then
+  `translate_to_col_major(..., TensorIterOrder::K)` +
+  `layout_col_major_dim_dispatch_3` (serial) /
+  `layout_col_major_dim_dispatch_par_3` with an `AtomicPtr`-hoisted output
+  (rayon, `PARALLEL_SWITCH = 512` on `n*m`). The ext twin swaps the inner
+  product for `promote_pair`.
+- **Device coverage = the family's convention, and it is the interesting bit**:
+  same-dtype `outer` is implemented (a) explicitly for `DeviceCpuSerial` in
+  `device_cpu_serial/linalg/outer.rs`, and (b) for **`DeviceRayonAutoImpl`** in
+  `feature_rayon/auto_impl/outer.rs`. Because `DeviceRayonAutoImpl` is a
+  *per-crate alias of that crate's own device* (`device_faer/device.rs:10`
+  `pub(crate) use self::DeviceFaer as DeviceRayonAutoImpl;`), one shared file
+  plus **one symlink per crate** (`device_faer/rayon_auto_impl/outer.rs` +
+  the five BLAS crates' `src/rayon_auto_impl/outer.rs`) gives `outer` to faer
+  and every BLAS device for free. `ext_outer` instead goes explicit
+  (`device_cpu_serial/ext_linalg/`, `device_faer/ext_linalg/`) so the BLAS
+  devices do **not** get it — the same asymmetry as ext_matmul/vecdot/tensordot.
+- **Contract**: 1-D only (array-API `linalg.outer`; the suite comments "outer
+  does not work on stacks"), enforced at runtime in `op_refa_refb_outer`
+  (`rstsr_assert!` → `InvalidValue`) and by `to_dim::<Ix1>()`. **No
+  conjugation** (unlike `vecdot`). Result is `Tensor<TC, B, Ix2>` — rank-2, so
+  the shim narrows it with `into_dim::<IxD>()`.
+- **`test_outer` DOES grade binary promotion**: `two_mutual_arrays(dtypes=
+  dh.real_dtypes, …)` + `ph.assert_dtype(..., in_dtype=[x1,x2])` with no
+  `expected`, which resolves to `dh.result_type(x1.dtype, x2.dtype)`. So the
+  shim must route `linalg.outer` through `ext_outer`; the same-dtype entry would
+  fail the first mixed draw (G-009). (This was the answer to the owner's
+  pre-implementation question.)
+- **Shim** (`crates-interop/rstsr-faer-py`): `op_ext_outer` + `linalg_outer`
+  pyfunction via `dispatch_bin_promote_arith!`, registered in `lib.rs`; Python
+  `api.py` gains the native import, a positional-only `def outer(x1, x2, /)`,
+  and `_LinalgNamespace.outer`; the module prose drops `outer` from the absent
+  list. `outer` is `xp.linalg`-only (not top-level), so `__all__` is unchanged.
+- **Flipped (3)**: `test_linalg.py::test_outer`,
+  `test_has_names[linalg-outer]`,
+  `test_extension_func_signature[linalg.outer]`.
+- **Gates**: 272 doctests (+2), 178 lib (+9), 592 entry-row (+6); clippy/rustdoc
+  clean; `cargo check -p rstsr-openblas --all-targets` clean (this compiles the
+  `core_func` test tree the BLAS crates symlink, so it is the real "does the
+  BLAS column build" check) plus plain checks on the other four BLAS crates;
+  lib tests re-run clean under `--no-default-features --features col_major`.
+
+See `2026-10-10-arrayapi-linalg/CHECKLIST.md` (R4). Related:
+[[rstsr-ext-linalg-r2]], [[rstsr-linalg-batching-r1]],
+[[arrayapi-convergence-harness]], [[rstsr-faer-py-wrapper-only]].
