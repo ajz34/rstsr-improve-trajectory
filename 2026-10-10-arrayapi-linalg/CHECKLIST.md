@@ -9,18 +9,19 @@ and the other (now-drained) buckets live in
 `../2026-10-07-arrayapi-convergence/`; register ids (G-nnn) refer to
 `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-**Current: 1287 / 62 / 33 of 1382** (suite `array-api-tests@6c0b59f`, API
-`2025.12`, module `rstsr_faer.api`). The shim-side init landed (uncommitted,
-branch `261010/faer-py-linalg-init` off rstsr `main` `9db98e8`) — see
-**Progress**; it exposed 13 of the 23 members and flipped the 49 `linalg` skips
-into graded tests. The 62 failures are exactly **`linalg` 48 + `fft` 14**; the
-33 skips are 28 `fft` + the 5 backend-independent `test_remainder`.
+**Current: 1294 / 55 / 33 of 1382** (suite `array-api-tests@6c0b59f`, API
+`2025.12`, module `rstsr_faer.api`). The shim-side init is merged (`#133`,
+`d7056ba`); it exposed 13 of the 23 members and flipped the 49 `linalg` skips
+into graded tests. The remaining failures are `linalg` plus 14 out-of-scope
+`fft` nodes; the 33 skips are 28 `fft` + the 5 backend-independent
+`test_remainder`. `tensordot` (R3) landed after the init — see **Progress**;
+`1287 / 62 / 33` → `1294 / 55 / 33`.
 
 ## Progress (2026-10-10): shim-side init
 
-Branch `261010/faer-py-linalg-init` (off rstsr `main` `9db98e8`, **not yet
-committed**). Purely shim-side — thin pass-throughs, no algorithm and no
-batching in the wrapper:
+Branch `261010/faer-py-linalg-init` (off rstsr `main` `9db98e8`; since merged
+as `#133`, `d7056ba`). Purely shim-side — thin pass-throughs, no algorithm and
+no batching in the wrapper:
 
 - New `crates-interop/rstsr-faer-py/src/linalg.rs` (13 `#[pyfunction]`s) +
   registration in `src/lib.rs`; the `rstsr` dep gains the `linalg` feature.
@@ -41,9 +42,29 @@ batching in the wrapper:
 - Second finding: `matmul`/`vecdot` are same-dtype only (mixed pairs need the
   G-009 promotion table), so their value tests fail on the first mixed pair.
 
+## Progress (2026-10-10): tensordot (R3)
+
+Landed rust-side + shim-side (branch `261010/tensordot` off `d7056ba`, PR
+RESTGroup/rstsr#135). `rt::tensordot` is a new tensor-tier entry
+(`tensor/linalg/tensordot.rs`) with a device op on `DeviceCpuSerial` and the
+rayon auto-impl, and a view-only GEMM fast path; the shim exposes it as a
+top-level `tensordot` and a `_LinalgNamespace` member.
+
+- **4 nodes flipped to pass:** `test_has_names[linear_algebra-tensordot]`,
+  `test_has_names[linalg-tensordot]`, `test_func_signature[tensordot]`,
+  `test_extension_func_signature[linalg.tensordot]`.
+- `test_tensordot` and `test_linalg_tensordot` now **run** (were name-absent)
+  and fail **only** on R2/G-009 — the mixed-dtype promotion gap shared with
+  `matmul`/`vecdot`, not a tensordot defect.
+- Measured: **`1287 / 62 / 33` → `1294 / 55 / 33`**, 0 regressions.
+
 ## 0. The red map this checklist must clear
 
-**Current failures (62) = `linalg` 48 + `fft` 14.**
+**Init-time failures (62) = `linalg` 48 + `fft` 14** — the groups below. R3 has
+since removed the two `tensordot` has_names/signature rows and turned
+`test_tensordot` / `test_linalg_tensordot` into G-009 failures (see
+**Progress**); re-derive the group columns on the next full run (the suite is
+hypothesis-based; expect ±2 wobble).
 
 `linalg` 48:
 
@@ -90,7 +111,7 @@ Rust linalg lives in **`rstsr-linalg-traits`** (`LinalgAPI` family, one
 | `solve` | `SolveGeneralAPI` (faer) | ◐ 2-D only | ✓ |
 | `svd` | `SVDAPI` (faer) | ◐ 2-D only | ✓ |
 | `svdvals` | `SVDvalsAPI` (faer) | ◐ 2-D only | ✓ |
-| `tensordot` | — | ✗ tensor-tier new | ✗ |
+| `tensordot` | `rt::tensordot` (tensor tier) | ✓ same-dtype (R3) | ✓ |
 | `outer` | — (reshape + broadcast mul) | ✗ new | ✗ |
 | `cross` | — (3-vector cross) | ✗ new | ✗ |
 | `trace` | — (diagonal + sum) | ✗ new (trivial) | ✗ |
@@ -122,9 +143,12 @@ gates 13 of the 20 graded members the shim already exposes.
       their common dtype (the `DTypePromoteAPI` lattice already exists) before
       the kernel, so `u8 @ u16` works. Gates `test_matmul` / `test_vecdot` /
       `test_linalg_vecdot` beyond the batching issue.
-- [ ] **R3. `tensordot`** (tensor tier, `tensor/linalg/`) — the one top-level
-      member with no kernel (`axes` int or pair-of-lists). Its absence costs
-      1 `has_names` + 1 signature + 2 `test_linalg` nodes.
+- [x] **R3. `tensordot`** (tensor tier, `tensor/linalg/`) — **landed** (PR
+      RESTGroup/rstsr#135): `rt::tensordot` (`axes` int or pair-of-lists) with
+      serial + rayon device kernels and a view-only GEMM fast path; the shim
+      exposes it top-level and on `_LinalgNamespace`. Its 4 `has_names` +
+      signature nodes pass; the 2 `test_linalg` value nodes now fail only on
+      R2/G-009.
 - [ ] **R4. small derivable ops** `outer, cross, trace, matrix_power,
       matrix_rank` — all expressible from existing pieces (`outer` = broadcast
       mul + reshape; `trace` = `diagonal` + sum; `matrix_rank` = count of
@@ -149,10 +173,10 @@ gates 13 of the 20 graded members the shim already exposes.
 Wrapper-only. S1–S4 landed on `261010/faer-py-linalg-init` (uncommitted):
 
 - [x] **S1. `xp.linalg` namespace** — a `_LinalgNamespace` object exposing the
-      13 available names; missing members stay absent (rendered as gaps, never
-      stubbed). `api.py` §linalg.
-- [x] **S2. top-level members** — `matmul`, `matrix_transpose`, `vecdot` on
-      `xp`; `tensordot` absent (rust gap R3).
+      available names (13 at init, 14 with R3's `tensordot`); missing members
+      stay absent (rendered as gaps, never stubbed). `api.py` §linalg.
+- [x] **S2. top-level members** — `matmul`, `matrix_transpose`, `vecdot`, and
+      `tensordot` (R3, landed — also added to `_LinalgNamespace`) on `xp`.
 - [x] **S3. `__matmul__`** on `Array` (the `@` operator), delegating to
       `matmul`.
 - [x] **S4. return structures** — `eigh` → namedtuple `(eigenvalues,
@@ -170,9 +194,9 @@ happened. Going forward:
 1. **R1 (batched linalg) first** — it is the largest single move and needs no
    new shim code; the 13 exposed-but-failing value tests start passing as soon
    as the rust entries accept stacks.
-2. Then R2–R8 as members land; each new member is a shim one-liner plus a
+2. Then R2, R4–R8 as members land; each new member is a shim one-liner plus a
    `_LinalgNamespace` entry (add the name only when its rust entry is real, so a
-   new gap never becomes a fresh failure).
+   new gap never becomes a fresh failure). R3 (`tensordot`) is already done.
 3. Re-run per §5 after each landed item.
 
 If instead the namespace should be **held** until the surface is more complete
@@ -195,6 +219,9 @@ FRESH=1 NO_EXPLAIN=1 CHUNKED=1 MODULE=rstsr_faer.api \
   (init branch). The `+38` passed / `-49` skipped is the 49 activated `linalg`
   tests (16 pass / 33 fail); expect **0 regressions** in the node set outside
   the linalg/fft name family.
+- **Recorded (tensordot / R3):** `1287 / 62 / 33` → **`1294 / 55 / 33`**. The 4
+  `tensordot` has_names/signature nodes flip to pass; the 2 `test_linalg` value
+  nodes now run and fail only on G-009; 0 regressions.
 - Expected after **R1** lands: `test_{cholesky,det,eigh,eigvalsh,inv,pinv,
   solve,svd,svdvals}` move to passed (≈ +9), the `matrix_norm`-family blockers
   remain. Confirm per-item counts against §0 as work lands (the suite is
