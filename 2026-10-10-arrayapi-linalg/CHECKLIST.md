@@ -9,13 +9,14 @@ and the other (now-drained) buckets live in
 `../2026-10-07-arrayapi-convergence/`; register ids (G-nnn) refer to
 `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-**Current: 1294 / 55 / 33 of 1382** (suite `array-api-tests@6c0b59f`, API
+**Current: 1296 / 53 / 33 of 1382** (suite `array-api-tests@6c0b59f`, API
 `2025.12`, module `rstsr_faer.api`). The shim-side init is merged (`#133`,
 `d7056ba`); it exposed 13 of the 23 members and flipped the 49 `linalg` skips
 into graded tests. The remaining failures are `linalg` plus 14 out-of-scope
 `fft` nodes; the 33 skips are 28 `fft` + the 5 backend-independent
-`test_remainder`. `tensordot` (R3) landed after the init — see **Progress**;
-`1287 / 62 / 33` → `1294 / 55 / 33`.
+`test_remainder`. `tensordot` (R3) and batched linalg (R1) landed after the
+init — see **Progress**; `1287 / 62 / 33` → `1294 / 55 / 33` (R3) →
+**`1296 / 53 / 33`** (R1).
 
 ## Progress (2026-10-10): shim-side init
 
@@ -57,6 +58,46 @@ top-level `tensordot` and a `_LinalgNamespace` member.
   and fail **only** on R2/G-009 — the mixed-dtype promotion gap shared with
   `matmul`/`vecdot`, not a tensordot defect.
 - Measured: **`1287 / 62 / 33` → `1294 / 55 / 33`**, 0 regressions.
+
+## Progress (2026-10-10): batched linalg (R1)
+
+Branch `261010/linalg-nbatch` (off rstsr `main` `50e7b6e`; PR RESTGroup/rstsr#136).
+The n-dimensional generalization of the faer linalg column — the "dominant
+lever" from the init finding (stacked inputs are the array-API contract).
+
+- All 11 single-operand faer entries (`cholesky, det, eigh` standard **and**
+  generalized, `eigvalsh, inv, pinv, slogdet, svd, svdvals`) plus the two solves
+  (`solve_general, solve_triangular`) now accept `(..., M, N)` / `(..., M)` /
+  `(..., M, K)`: each existing 2-D body became a `*_ix2` kernel and a `*_nd`
+  wrapper walks the batch. The walk peels the **leading** axis under row-major
+  and the **trailing** axis under column-major (the device order rule), so the
+  2-D kernels keep their matrix orientation untouched. **Do not** reach for
+  `reverse_axes` (the old slogdet trick) — it transposes the matrix and is only
+  safe for transpose-invariants such as `det`.
+- Shared machinery in `rstsr-linalg-traits/src/linalg_util.rs`: a batch walk
+  (`map_batch_matrices`, plus a square-checking `map_batch_square_matrices`) and
+  a broadcast-aware `map_batch_solve_into_output` / `map_batch_solve_inplace`.
+  The helpers are `pub` so the BLAS column can reuse them later.
+- `Out` types moved `D` / `T` → `IxD` (breaking; mirrors the `slogdet`
+  precedent): a 2-D `det` now returns a 0-d tensor. The shim returns the stacked
+  `det` / `slogdet`.
+- Mutability: the in-place `solve` variants (`TensorMut` / owned `b`) solve
+  straight into `b`'s buffer (no copy, output buffer is `b`); the allocating
+  path copies the broadcast `b` into the output once and walks the same in-place
+  kernel. Column-major stacked `solve` errors (the broadcast would need
+  left-alignment); 2-D col-major works.
+- Two `/code-review high` rounds. The second caught a **real regression** the
+  retrofit had introduced: every square entry had been routed through a
+  non-square-checking shape split, so non-square `det`/`cholesky`/`inv`/`eigh`/
+  `eigvalsh`/`slogdet` *panicked* inside faer — now `InvalidLayout`. (A flagged
+  finding that the nd solve kernels "dropped" `clone_to_mut` was a **false
+  positive**: the callee's `clone_to_mut` writes back as a side effect.)
+- **Measured: `1294 / 55 / 33` → `1296 / 53 / 33`**, 0 regressions. Flipped
+  nodes: `test_linalg::{cholesky, det, eigh, eigvalsh, inv, svdvals}` + the 3
+  `slogdet` nodes. The residual `linalg` value failures are *not* batching:
+  `solve` (and `matmul`/`vecdot`/`tensordot`) = R2/G-009 mixed dtype;
+  `pinv`/`svd` = faer SVD `NoConvergence` on degenerate huge-magnitude matrices
+  (hits 2-D too).
 
 ## 0. The red map this checklist must clear
 
@@ -102,15 +143,15 @@ Rust linalg lives in **`rstsr-linalg-traits`** (`LinalgAPI` family, one
 | `matrix_transpose` | `rt::matrix_transpose` | ✓ | ✓ |
 | `vecdot` | `rt::vecdot` | ✓ same-dtype | ✓ |
 | `diagonal` | `rt::diagonal` (indexing) | ✓ | ✓ |
-| `cholesky` | `CholeskyAPI` (faer) | ◐ 2-D only | ✓ |
-| `det` | `DetAPI` (faer) | ◐ 2-D only | ✓ |
-| `eigh` | `EighAPI` (faer) | ◐ 2-D only | ✓ |
-| `eigvalsh` | `EigvalshAPI` (faer) | ◐ 2-D only | ✓ |
-| `inv` | `InvAPI` (faer) | ◐ 2-D only | ✓ |
-| `pinv` | `PinvAPI` (faer) | ◐ 2-D only | ✓ |
-| `solve` | `SolveGeneralAPI` (faer) | ◐ 2-D only | ✓ |
-| `svd` | `SVDAPI` (faer) | ◐ 2-D only | ✓ |
-| `svdvals` | `SVDvalsAPI` (faer) | ◐ 2-D only | ✓ |
+| `cholesky` | `CholeskyAPI` (faer) | ✓ batched (R1) | ✓ |
+| `det` | `DetAPI` (faer) | ✓ batched (R1) | ✓ |
+| `eigh` | `EighAPI` (faer) | ✓ batched (R1) | ✓ |
+| `eigvalsh` | `EigvalshAPI` (faer) | ✓ batched (R1) | ✓ |
+| `inv` | `InvAPI` (faer) | ✓ batched (R1) | ✓ |
+| `pinv` | `PinvAPI` (faer) | ✓ batched (R1) | ✓ |
+| `solve` | `SolveGeneralAPI` (faer) | ✓ batched (R1) | ✓ |
+| `svd` | `SVDAPI` (faer) | ✓ batched (R1) | ✓ |
+| `svdvals` | `SVDvalsAPI` (faer) | ✓ batched (R1) | ✓ |
 | `tensordot` | `rt::tensordot` (tensor tier) | ✓ same-dtype (R3) | ✓ |
 | `outer` | — (reshape + broadcast mul) | ✗ new | ✗ |
 | `cross` | — (3-vector cross) | ✗ new | ✗ |
@@ -120,7 +161,7 @@ Rust linalg lives in **`rstsr-linalg-traits`** (`LinalgAPI` family, one
 | `vector_norm` | `l2_norm` family (ord=2 only) | ◐ general `ord` missing | ✗ |
 | `matrix_norm` | `l2_norm` family (ord=2 only) | ◐ general `ord` missing | ✗ |
 | `qr` | — | ✗ **G-004** | ✗ |
-| `slogdet` | `SLogDetAPI` (blas only) | ◐ faer missing — **G-005** | ✗ |
+| `slogdet` | `SLogDetAPI` (faer + blas) | ✓ batched (R1); faer landed in #133 | ✓ |
 | `eig` | — (general, non-symmetric) | ✗ new (tested; not in 2025.12 `__all__`) | ✗ |
 | `eigvals` | — (general, non-symmetric) | ✗ new (ibid.) | ✗ |
 
@@ -132,13 +173,14 @@ array-API `solve` maps to `solve_general`, so this is tangential.
 Ordered by failures-per-item. **R1 is now the dominant lever** — it alone
 gates 13 of the 20 graded members the shim already exposes.
 
-- [ ] **R1. Batched (stacked) linalg** — every faer factorization today asserts
+- [x] **R1. Batched (stacked) linalg** — every faer factorization today asserts
       `ndim == 2`. The array-API contract is "a matrix *or a stack of matrices*"
       (`(..., M, M)`), and the value tests exercise stacks immediately. Give
       the faer linalg entries (and the tensor-tier `solve`/`pinv` route) a
       leading-axis loop — either iterate the batch in the device op or map over
       `iter_axes` and stack. Cheapest, largest payoff: unblocks `cholesky, det,
-      eigh, eigvalsh, inv, pinv, solve, svd, svdvals` at once.
+      eigh, eigvalsh, inv, pinv, solve, svd, svdvals` at once. **Landed** — PR
+      RESTGroup/rstsr#136 (branch `261010/linalg-nbatch`), see **Progress**.
 - [ ] **R2. mixed-dtype `matmul`/`vecdot`** (G-009) — promote the operands to
       their common dtype (the `DTypePromoteAPI` lattice already exists) before
       the kernel, so `u8 @ u16` works. Gates `test_matmul` / `test_vecdot` /
@@ -222,10 +264,15 @@ FRESH=1 NO_EXPLAIN=1 CHUNKED=1 MODULE=rstsr_faer.api \
 - **Recorded (tensordot / R3):** `1287 / 62 / 33` → **`1294 / 55 / 33`**. The 4
   `tensordot` has_names/signature nodes flip to pass; the 2 `test_linalg` value
   nodes now run and fail only on G-009; 0 regressions.
-- Expected after **R1** lands: `test_{cholesky,det,eigh,eigvalsh,inv,pinv,
-  solve,svd,svdvals}` move to passed (≈ +9), the `matrix_norm`-family blockers
-  remain. Confirm per-item counts against §0 as work lands (the suite is
-  hypothesis-based; expect ±2 wobble).
+- **Recorded (batched linalg / R1):** `1294 / 55 / 33` → **`1296 / 53 / 33`**,
+  0 regressions. Flipped to pass: `test_linalg::{cholesky, det, eigh, eigvalsh,
+  inv, svdvals}` + the 3 `slogdet` nodes (has_names, signature, value). `pinv`
+  and `svd` did **not** flip — their remaining failure is faer SVD
+  `NoConvergence` on degenerate huge-magnitude matrices, a 2-D robustness limit,
+  not batching; `solve` stays red on R2/G-009. The `matrix_norm`-family and the
+  absent-member nodes (`cross, eig, eigvals, matrix_norm, matrix_power,
+  matrix_rank, outer, qr, trace, vector_norm`) remain. (The suite is
+  hypothesis-based; expect ±2 wobble.)
 
 ## 6. Decisions
 
