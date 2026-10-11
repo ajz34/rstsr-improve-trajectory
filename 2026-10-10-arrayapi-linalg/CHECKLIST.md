@@ -9,31 +9,107 @@ and the other (now-drained) buckets live in
 `../2026-10-07-arrayapi-convergence/`; register ids (G-nnn) refer to
 `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-**Current: R1 (batched linalg) on branch `261011/batched-linalg` —
-`1309 / 40 / 33`** (suite `array-api-tests@6c0b59f`, API `2025.12`, module
+**Current: norms (R5) on branch `261011/worktree` (PR RESTGroup/rstsr#142) —
+`1318 / 31 / 33`** (suite `array-api-tests@6c0b59f`, API `2025.12`, module
 `rstsr_faer.api`):
 
-- Main (`39f83d0`, the post-`#138` faer 0.24 update): **`1303 / 46 / 33`** of
-  1382.
-- `261011/batched-linalg` (R1), off main `39f83d0`: **`1309 / 40 / 33`** of 1382
-  — **+6 passed / −6 failed, 0 regressions, test-for-test identical node set**
-  (flipped: `test_{cholesky,det,eigh,eigvalsh,inv,svdvals}`). The whole
-  rust-side faer `linalg` inventory is now batched — see **Progress**.
+- Main (`bbc6a19`, post-`#141` matrix_power): **`1312 / 37 / 33`** of 1382
+  (recorded by the matrix_power wave; inherited here, hypothesis ±2 wobble).
+- `261011/worktree` (R5), off main `bbc6a19`: **`1318 / 31 / 33`** of 1382 — **+6
+  passed / −6 failed, 0 regressions** (flipped: `test_has_names[linalg-{matrix,vector}_norm]`,
+  `test_extension_func_signature[linalg.{matrix,vector}_norm]`,
+  `test_linalg.py::test_{matrix,vector}_norm`).
 
-The shim-side init is merged (`#133`, `d7056ba`); it exposed 13 of the 23
-members and flipped the 49 `linalg` skips into graded tests. The remaining **40
-failures** = 14 out-of-scope `fft` name nodes + 14 `linalg` absent-member
-name/signature nodes (`cross, matrix_norm, matrix_power, matrix_rank, qr,
-trace, vector_norm`) + 12 value tests (`cross, eig, eigvals, matrix_norm,
-matrix_power, matrix_rank, pinv, qr, solve, svd, trace, vector_norm`); the 33
-skips are 28 `fft` + the 5 backend-independent `test_remainder`. Earlier chain
-(all merged): init → `1287 / 62 / 33`; R3 `tensordot` → `1294 / 55 / 33`; R2
-mixed-dtype → `1300 / 49 / 33`; R4 `outer` → `1303 / 46 / 33`.
+The `linalg` extension is now down to **17 graded failures** on top of the 14
+out-of-scope `fft` name nodes (§0 lists every remaining node): the four members
+still absent from the surface (`cross, matrix_rank, qr, trace` — 4
+`test_has_names` + 4 `test_extension_func_signature`) and 9 value tests
+(`cross, eig, eigvals, matrix_rank, pinv, qr, solve, svd, trace`). The 33 skips
+are 28 `fft` + the 5 backend-independent `test_remainder`. Merged chain (all on
+main): shim init `#133` → `1287 / 62 / 33`; R3 `tensordot` `#135` →
+`1294 / 55 / 33`; R2 mixed-dtype `#137` → `1300 / 49 / 33`; R4 `outer` `#138` →
+`1303 / 46 / 33`; R1 batched `#140` → `1309 / 40 / 33`; `matrix_power` `#141` →
+`1312 / 37 / 33`; R5 norms `#142` → `1318 / 31 / 33`.
+
+## Progress (2026-10-11): norms (`matrix_norm`, `vector_norm`) — R5
+
+Branch `261011/worktree` (off main `bbc6a19`, i.e. post-`#141`; PR
+RESTGroup/rstsr#142). Two new faer entries plus their shim bindings; **faer
+device only** (no BLAS column), as the plan predicted (the `nuc` order needs the
+singular values).
+
+- New traits `MatrixNormAPI` / `VectorNormAPI<Inp>` in
+  `rstsr-linalg-traits/src/traits_def.rs` (added to the three `duplicate_item`
+  tables + `prelude.rs`), kernel in the new `faer_impl/norm.rs`. Receivers are
+  the usual `(Tr, A)` where `A: TryInto<MatrixNormArgs|VectorNormArgs>`, plus a
+  bare-`Tr` impl for the no-argument form.
+- **Shared `NormOrd { None, Fro, Nuc, P(f64), Inf, NegInf }`** — `None` is the
+  default and resolves *per operation* (`'fro'` for a matrix, `2` for a vector),
+  so the same value names different orders. Each op rejects the other's orders
+  with `InvalidValue` (a matrix only takes `±1`/`±2` numerically; a vector
+  rejects `'fro'`/`'nuc'`). Overloads come from `TryFrom` impls on the args
+  structs (`()`, `Option<()>`, `bool`, `NormOrd`, `&str`, `isize`, `f64`, the
+  2/3-tuples) — concrete impls, no blanket `TryFrom<O>` (coherence), per the
+  `AxesIndex` orphan-rule note.
+- **Composition, not new kernels:** `matrix_norm` = core reductions
+  (`'fro'` → the `l2_norm` reduction; `1/-1` → abs → sum → max/min over rows;
+  `inf/-inf` → abs → sum over columns → max/min; `2/-2/'nuc'` → the **batched
+  `svdvals` entry** → max/min/sum). `vector_norm` reduces `|x|` (l2 for `p = 2`,
+  a plain sum for `p = 1`, a nonzero count for `p = 0`, the general
+  `(Σ|x|^p)^(1/p)` otherwise). The matrix axes follow the **device order**
+  (`batch_and_matrix_shape`), like `matrix_power`. Output is dynamic `IxD` (rank
+  depends on `keepdims`), with the real element type pinned to a generic `TR`
+  (`T: ComplexField<Real = TR> + ExtNum<AbsOut = TR>`) so the faer SVD and the
+  core reductions agree on one scalar.
+- **Empty input yields `0` under every order** — a deliberate divergence from
+  NumPy, which is inconsistent here (it raises for the matrix `-2` and `-inf`
+  and returns `inf` for the vector `-1`). The cause is not a norm decision: the
+  faer `max`/`min` reductions reject *any* zero-size input, so both entries
+  early-return `zeros_f` whenever the input has any zero dim (this also covers
+  the empty **stack** dims the suite's `finite_matrices` draws). Stated in the
+  module doc and locked by the empty-input test.
+- Shim: `linalg_matrix_norm` / `linalg_vector_norm` `#[pyfunction]`s +
+  `_LinalgNamespace` entries + the `api.py` wrappers. `ord` is marshalled by
+  `py_to_ord` (`None`/`'fro'`/`'nuc'`/int/float); `axis` reuses the Python
+  layer's existing `_norm_axes` (`None` / int / tuple → `Option<Vec<isize>>`),
+  so the Rust entry takes `Option<Vec<isize>>` rather than a `PyAny`.
+- **Measured `1312 / 37 / 33` → `1318 / 31 / 33`** (+6: the two name nodes, the
+  two signature nodes, `test_matrix_norm`, `test_vector_norm`), 0 regressions.
+  Gates: faer tests **50/50** (NumPy's own `test_matrix_2x2` goldens for
+  `[[1,3],[5,7]]` → `fro` √84, `nuc` 10, `1`/`inf` 10/12, `±2`
+  9.123105625617661 / 0.8768943743823404, plus n-dim / col-major / empty cases);
+  fmt / clippy clean.
+- **Review round** (`/code-review high`, fixes in `2c2e8f9`): validate the
+  vector-norm axes **before** the empty-input short-circuit (otherwise a bad
+  axis was swallowed on an empty input); drop the redundant `abs` copy in the
+  `'fro'` and vector `p = 2` paths (`l2_norm` already takes the magnitude); add
+  `FromStr` on `NormOrd` and both args structs; route the shim axis through
+  `_norm_axes`; extend the empty-input test to the min-based orders. Conformance
+  re-run after the fixes: `1318 / 31 / 33` unchanged.
+
+## Progress (2026-10-11): `matrix_power` — R4 deferred member landed
+
+Merged as `#141` (`bbc6a19`), branch `261011/matrix-power` (off `2e93deb`, i.e.
+post-`#140`). This is exactly where the deferral note below predicted it would
+land: **not** rstsr-core (the `n < 0` case needs the matrix inverse, which lives
+in `rstsr-linalg-traits`).
+
+- New faer-only `MatrixPowerAPI<Inp>` (`(Tr, isize)` receiver) + the
+  `faer_impl/matrix_power.rs` kernel, composing the **batched `inv_f`** (R1) with
+  the tensor-tier matmul (`matmul_f`). NumPy-parity: `n = 0` → identity, `n < 0`
+  → invert once then the positive power, and the general case by repeated
+  squaring LSB→MSB.
+- **Measured `1309 / 40 / 33` → `1312 / 37 / 33`** (3 nodes:
+  `test_has_names[linalg-matrix_power]`,
+  `test_extension_func_signature[linalg.matrix_power]`,
+  `test_linalg.py::test_matrix_power`), 0 regressions. `matrix_power` is now
+  exposed by the shim (all three of its nodes pass), so it is no longer an
+  absent member.
 
 ## Progress (2026-10-11): batched (stacked) linalg — R1, the dominant lever
 
-Branch `261011/batched-linalg` (off main `39f83d0`, i.e. post-`#138` faer 0.24),
-5 commits. Every faer linalg entry that asserted `ndim == 2` now accepts a
+Branch `261011/batched-linalg` (off main `39f83d0`, i.e. post-`#138` faer 0.24;
+**merged as `#140`**), 5 commits. Every faer linalg entry that asserted `ndim == 2` now accepts a
 matrix **or a stack of matrices** (`(..., M, N)` / `(..., M, M)`) — the array-API
 contract the value tests exercise immediately. **Measured: `1303 / 46 / 33` →
 `1308 / 41 / 33`** (batch wave: `test_{cholesky,eigh,eigvalsh,inv,svdvals}`)
@@ -311,39 +387,59 @@ derivable op.
 
 ## 0. The red map this checklist must clear
 
-**Init-time failures (62) = `linalg` 48 + `fft` 14** — the groups below. R3 has
-since removed the two `tensordot` has_names/signature rows and turned
-`test_tensordot` / `test_linalg_tensordot` into G-009 failures, and R2 has since
-flipped the six `matmul` / `vecdot` / `tensordot` value nodes to pass (see
-**Progress**); re-derive the group columns on the next full run (the suite is
-hypothesis-based; expect ±2 wobble).
+**Current failures (31) = `fft` 14 + `linalg` 17** — every remaining node, from
+the R5 run (§5). The `fft` 14 are declared **out of scope** for this version;
+the `linalg` 17 are this checklist's remaining work.
 
-> **Superseded for the batched half (2026-10-11, R1).** The table below is the
-> *init-time* red map. R1 has since batched every faer entry, so the "exposed,
-> value-failing" row is now only the genuine gaps: `solve` (G-009), `pinv` /
-> `svd` (faer SVD `NoConvergence`). The current 40 failures are listed in the
-> header: 14 `fft` + 14 absent-member name/signature + 12 value tests.
+`fft` 14 (out of scope) — `test_has_names[fft-*]`:
+`fft, fftfreq, fftn, fftshift, hfft, ifft, ifftn, ifftshift, ihfft, irfft,
+irfftn, rfft, rfftfreq, rfftn`.
 
-`linalg` 48:
+`linalg` 17:
 
 | group | nodes | what it checks |
 |---|---|---|
-| `test_has_names[linalg-*]` | 10 | the members still absent from `xp.linalg` (9 after R4) |
-| `test_has_names[linear_algebra-tensordot]` | 1 | top-level `tensordot` absent |
-| `test_signatures.py::test_extension_func_signature[linalg.*]` | 10 | the same members (9 after R4) |
-| `test_signatures.py::test_func_signature[tensordot]` | 1 | top-level `tensordot` signature |
-| `test_linalg.py` (name absent) | 12 | `test_{cross,eig,eigvals,matrix_norm,matrix_power,matrix_rank,outer,qr,slogdet,trace,vector_norm,tensordot}` (11 after R4) |
-| `test_linalg.py` (exposed, value-failing) | 13 | `test_{cholesky,det,eigh,eigvalsh,inv,linalg_matmul,linalg_vecdot,matmul,pinv,solve,svd,svdvals,vecdot}` |
+| `test_has_names[linalg-*]` | 4 | the members still absent from `xp.linalg`: `cross, matrix_rank, qr, trace` |
+| `test_signatures.py::test_extension_func_signature[linalg.*]` | 4 | the same four members |
+| `test_linalg.py` (value tests) | 9 | `test_{cross, eig, eigvals, matrix_rank, pinv, qr, solve, svd, trace}` |
 
-The 10 absent `linalg` members: `cross, matrix_norm, matrix_power,
-matrix_rank, outer, qr, slogdet, tensordot, trace, vector_norm` (9 after R4,
-which landed `outer`).
+Every remaining `linalg` node, with its blocker:
 
-`test_linalg.py` **passing** today (4): `test_diagonal`,
-`test_linalg_matrix_transpose`, `test_matrix_transpose`, `test_vecdot_conj`.
+| node | status | blocker |
+|---|---|---|
+| `test_has_names[linalg-cross]` + `..._signature[linalg.cross]` + `test_cross` | absent | `cross` not implemented (R4 leftover) |
+| `test_has_names[linalg-matrix_rank]` + `..._signature[linalg.matrix_rank]` + `test_matrix_rank` | absent | `matrix_rank` not implemented (R4 leftover; = count of `svdvals > tol`) |
+| `test_has_names[linalg-qr]` + `..._signature[linalg.qr]` + `test_qr` | absent | `qr` not implemented (R6, **G-004**) |
+| `test_has_names[linalg-trace]` + `..._signature[linalg.trace]` + `test_trace` | absent (**shim only**) | `rt::trace` landed rust-side (R4); the shim binding is not done |
+| `test_eig`, `test_eigvals` | absent | general (non-symmetric) eigenproblem (R8; not in the 2025.12 `__all__`, but tested at our pin) |
+| `test_pinv`, `test_svd` | exposed, batched | faer SVD `NoConvergence` (hits 2-D too — **not** a batching defect) |
+| `test_solve` | exposed, batched | **G-009** (mixed dtype on the solve path), not batching |
+
+So the four absent **members** are `cross, matrix_rank, qr, trace`; of those,
+`trace` needs shim work only. The residual `solve` / `pinv` / `svd` value
+failures are the two correctness gaps, not missing surface.
 
 **Skips (33)** — 28 `fft` (out of scope) + 5 `test_remainder` (upstream
 `@pytest.mark.skip("flaky")`). No `linalg` skips remain.
+
+> **Historical — the init-time red map (62 = `linalg` 48 + `fft` 14)**, kept for
+> provenance. R1 has since batched every faer entry, R4 landed `outer` +
+> `trace` (rust), the matrix_power and norm waves have landed, so the two
+> "exposed, value-failing" / "absent" rows below are long superseded — the
+> current map is the table above.
+
+| group | nodes | what it checked |
+|---|---|---|
+| `test_has_names[linalg-*]` | 10 | the members then absent from `xp.linalg` |
+| `test_has_names[linear_algebra-tensordot]` | 1 | top-level `tensordot` absent |
+| `test_signatures.py::test_extension_func_signature[linalg.*]` | 10 | the same members |
+| `test_signatures.py::test_func_signature[tensordot]` | 1 | top-level `tensordot` signature |
+| `test_linalg.py` (name absent) | 12 | `test_{cross,eig,eigvals,matrix_norm,matrix_power,matrix_rank,outer,qr,slogdet,trace,vector_norm,tensordot}` |
+| `test_linalg.py` (exposed, value-failing) | 13 | `test_{cholesky,det,eigh,eigvalsh,inv,linalg_matmul,linalg_vecdot,matmul,pinv,solve,svd,svdvals,vecdot}` |
+
+At init, the 10 absent members were `cross, matrix_norm, matrix_power,
+matrix_rank, outer, qr, slogdet, tensordot, trace, vector_norm`; all but
+`cross, matrix_rank, qr, trace` have since landed.
 
 ## 1. Rust-side inventory — what exists today
 
@@ -374,10 +470,10 @@ Rust linalg lives in **`rstsr-linalg-traits`** (`LinalgAPI` family, one
 | `outer` | `rt::outer` (tensor tier), `rt::ext_outer` (promotion) | ✓ same-dtype (R4, all devices); ✓ promote (R4, cpu_serial + faer) | ✓ |
 | `cross` | — (3-vector cross) | ✗ new | ✗ |
 | `trace` | `rt::trace` (+ `trace_with_dtype`) — `diagonal` + `sum_axes` | ✓ core (R4); no shim yet | ✗ |
-| `matrix_power` | — (repeated `matmul`) | ✗ **not in rstsr-core** — deferred to `rstsr::linalg` (needs `inv` for `n < 0`) | ✗ |
+| `matrix_power` | `MatrixPowerAPI` (faer) | ✓ faer (R4, `#141`) | ✓ |
 | `matrix_rank` | — (via `svdvals`) | ✗ new | ✗ |
-| `vector_norm` | `l2_norm` family (ord=2 only) | ◐ general `ord` missing | ✗ |
-| `matrix_norm` | `l2_norm` family (ord=2 only) | ◐ general `ord` missing | ✗ |
+| `vector_norm` | `VectorNormAPI` (faer) | ✓ faer (R5) | ✓ |
+| `matrix_norm` | `MatrixNormAPI` (faer) | ✓ faer (R5) | ✓ |
 | `qr` | — | ✗ **G-004** | ✗ |
 | `slogdet` | `SLogDetAPI` (faer + blas) | ✓ faer landed in #133 | ✓ |
 | `eig` | — (general, non-symmetric) | ✗ new (tested; not in 2025.12 `__all__`) | ✗ |
@@ -388,10 +484,11 @@ array-API `solve` maps to `solve_general`, so this is tangential.
 
 ## 2. Rust-side work (register + request; never fix agent-side)
 
-Ordered by failures-per-item. **R1 (the dominant lever) has landed** (see
-**Progress**); what remains is R4's `cross`/`matrix_rank`/`trace` shim hookups,
-R5 (norms `ord`), R6 (`qr`), R8 (`eig`/`eigvals`), and the two correctness gaps
-that gate the residual `solve` / `pinv` / `svd` value tests.
+Ordered by failures-per-item. **R1 (the dominant lever) has landed**, along with
+R2, R3, R4 (`outer`, `trace`, `matrix_power`) and **R5 (norms)** — see
+**Progress**. What remains is R4's `cross`/`matrix_rank` (plus the `trace` shim
+hookup), R6 (`qr`), R8 (`eig`/`eigvals`), and the two correctness gaps that gate
+the residual `solve` / `pinv` / `svd` value tests.
 
 - [x] **R1. Batched (stacked) linalg** — **landed** (branch
       `261011/batched-linalg`, off main `39f83d0`). Every faer linalg entry now
@@ -418,26 +515,28 @@ that gate the residual `solve` / `pinv` / `svd` value tests.
       exposes it top-level and on `_LinalgNamespace`. Its 4 `has_names` +
       signature nodes pass; the 2 `test_linalg` value nodes now fail only on
       R2/G-009.
-- [~] **R4. small derivable ops** `outer` **landed**, `trace` **landed** (see
-      Progress; `matrix_power` **deferred to the linalg layer** — see below) —
-      the plan's shortcut (`outer` = broadcast mul + reshape) was **not** taken:
-      the owner chose a real device-op family (`DeviceOuterAPI` /
-      `DeviceExtOuterAPI` + kernels), matching `matmul`/`vecdot`. `trace`
-      landed as planned (`diagonal` + sum); `cross` and `matrix_rank` remain
-      (`matrix_rank` = count of `svdvals > tol`). Low risk; each is a
+- [~] **R4. small derivable ops** — `outer` **landed** (#138), `trace`
+      **landed rust-side** (shim binding still pending), `matrix_power`
+      **landed** (#141, see the note below). The plan's shortcut (`outer` =
+      broadcast mul + reshape) was **not** taken: the owner chose a real
+      device-op family (`DeviceOuterAPI` / `DeviceExtOuterAPI` + kernels),
+      matching `matmul`/`vecdot`; `trace` landed as planned (`diagonal` + sum).
+      **`cross` and `matrix_rank` remain** (`matrix_rank` = count of
+      `svdvals > tol`), plus the `trace` shim hookup. Low risk; each is a
       `test_linalg` + a `has_names` node.
-- **[deferred, not dropped] `matrix_power`.** It is out of scope for
-  **rstsr-core** only, not abandoned — `rstsr::linalg` (`rstsr-linalg-traits`)
-  may implement it later. array-API draws `n` from −10..10 and requires
-  invertible input for `n < 0`, i.e. **the matrix inverse**, which does not
-  exist in rstsr-core (`rt::inv` there is element-wise reciprocal; the real
-  `inv`/`solve` live in `rstsr-linalg-traits`, which *depends on* rstsr-core —
-  so the entry belongs on that side, not here). When it lands it wants the
-  `n ≥ 0` fast path: `1` → clone, `2/3` → products, `4` → `A2·A2`, `>4` →
-  repeated squaring with a memo list.
-- [ ] **R5. norms general `ord`** — today only the `l2_norm` family exists.
-      `test_vector_norm` / `test_matrix_norm` grade every `ord` (`inf`, `-inf`,
-      `0`, `1`, `2`, `-1`, `-2`, `fro`, `nuc`, …).
+- [x] **`matrix_power`** — **landed as `#141`** (branch `261011/matrix-power`,
+      off `2e93deb`). As the earlier deferral note predicted, it belongs on the
+      **`rstsr-linalg-traits`** side, not in rstsr-core: array-API draws `n`
+      from −10..10 and requires invertible input for `n < 0`, i.e. the matrix
+      inverse (rstsr-core's `rt::inv` is the *element-wise* reciprocal; the real
+      `inv` lives in `rstsr-linalg-traits`, which depends on rstsr-core). Faer
+      device only; composes the batched `inv_f` with the tensor-tier matmul;
+      `n = 0` → identity, `n < 0` → invert once, general case by repeated
+      squaring LSB→MSB — see **Progress**.
+- [x] **R5. norms general `ord`** — **landed** (branch `261011/worktree`, PR
+      RESTGroup/rstsr#142): `MatrixNormAPI` / `VectorNormAPI` on faer, sharing
+      one `NormOrd` (`None`/`fro`/`nuc`/`inf`/`-inf`/numeric), composing the
+      core reductions + the batched `svdvals` — see **Progress**.
 - [ ] **R6. `qr`** (**G-004**): neither `faer_impl` nor `blas_impl` has a QR
       trait. Needs a `QRAPI` + both device columns (`geqrf`/`orgqr`; faer
       `qr::no_pivoting`). `test_qr` grades mode (`reduced`/`complete`/`r`).
@@ -485,10 +584,12 @@ happened. Going forward:
 1. ~~**R1 (batched linalg) first**~~ — **done** (2026-10-11, branch
    `261011/batched-linalg`; +6 nodes, no shim code). The remaining exposed
    value failures are the two genuine gaps, not the stack handling.
-2. Then R4–R8 as members land; each new member is a shim one-liner plus a
-   `_LinalgNamespace` entry (add the name only when its rust entry is real, so a
-   new gap never becomes a fresh failure). R2 (mixed-dtype products) and R3
-   (`tensordot`) are already done.
+2. Then the remaining members as they land — R4's `cross` / `matrix_rank` (and
+   the `trace` shim hookup), R6 (`qr`), R8 (`eig` / `eigvals`); each is a shim
+   one-liner plus a `_LinalgNamespace` entry (add the name only when its rust
+   entry is real, so a new gap never becomes a fresh failure). R2
+   (mixed-dtype), R3 (`tensordot`), R4 (`outer` / `trace` / `matrix_power`) and
+   R5 (norms) are already done.
 3. Re-run per §5 after each landed item.
 
 If instead the namespace should be **held** until the surface is more complete
@@ -532,11 +633,22 @@ FRESH=1 NO_EXPLAIN=1 CHUNKED=1 MODULE=rstsr_faer.api \
   (G-009 on the solve path) and `pinv`/`svd` (faer SVD `NoConvergence`), plus
   the not-yet-implemented members.
 - **Recorded (outer / R4):** `1300 / 49 / 33` → **`1303 / 46 / 33`**, 0
-  regressions, on `261010/linalg-outer` (off the post-`#137` main `f03c3ca`).
-  Flipped: `test_outer`, `test_has_names[linalg-outer]`,
+  regressions, on `261010/linalg-outer` (off the post-`#137` main `f03c3ca`;
+  merged as `#138`). Flipped: `test_outer`, `test_has_names[linalg-outer]`,
   `test_extension_func_signature[linalg.outer]`. The residual `linalg` value
   failures are unchanged (`solve` = G-009; `pinv`/`svd` = faer SVD
   `NoConvergence`) plus the members still absent.
+- **Recorded (matrix_power / `#141`):** `1309 / 40 / 33` → **`1312 / 37 / 33`**,
+  0 regressions (flipped: `test_has_names[linalg-matrix_power]`,
+  `test_extension_func_signature[linalg.matrix_power]`,
+  `test_linalg.py::test_matrix_power`). `#140` (batched linalg) is the
+  `39f83d0` → `1309 / 40 / 33` step above, now merged.
+- **Recorded (norms / R5):** `1312 / 37 / 33` → **`1318 / 31 / 33`**, 0
+  regressions, on `261011/worktree` (off main `bbc6a19`, PR
+  RESTGroup/rstsr#142). Flipped: the `matrix_norm`/`vector_norm` name +
+  signature nodes and `test_matrix_norm` / `test_vector_norm`. Gates: faer tests
+  50/50; fmt/clippy clean. Re-run after the `/code-review high` fixes: unchanged.
+  The residual `linalg` failures are exactly the 17 in §0.
 
 ## 6. Decisions
 

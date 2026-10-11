@@ -16,6 +16,11 @@ the rstsr_faer.api conformance convergence.
   are left as-is by request.
 - Therefore the **entire remaining red map is `linalg`**: 37 fails + 49 skips.
 
+**Current state (2026-10-11): `1318 / 31 / 33`** — `linalg` is down to 17 graded
+failures (`cross`, `matrix_rank`, `qr`, `trace` absent; `eig`/`eigvals` absent;
+`solve` = G-009; `pinv`/`svd` = faer SVD `NoConvergence`), on top of the 14
+out-of-scope `fft` name nodes. The per-node list is `CHECKLIST.md` §0.
+
 ## Files
 
 - `CHECKLIST.md` — the ordered work plan (red map, rust inventory, work items,
