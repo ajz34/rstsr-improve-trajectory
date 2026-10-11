@@ -1,4 +1,5 @@
 # Memory Index
+- [LAPACKE layer grill closed](rstsr-lapacke-layer-grill.md) — 14 decisions 2026-10-11; execution awaits go; parked: MT-transpose policy, _adv_ trait refactor
 - [Dtype scalar bound](rstsr-dtype-scalar-bound.md) - num::Num is a dispatch discriminator; DTypeScalarAPI marker on rt-where e960119; rollout verdicts per family; ExtReal-bool gap.
 
 - [OpenBLAS ILP64 on CI](rstsr-openblas-ilp64-ci.md) - CI blas_int = i64 vs local i32; never fixed-width-cast blas_int in tests (PR #106 clippy hit).
