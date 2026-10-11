@@ -613,3 +613,28 @@ Corrections and caveats:
   shape (only scalar / size-1 is accepted today, which is what the suite
   draws); a parallel mask gather (prefix-sum) on the rayon device.
 
+## Entries v18 (shim-side dtype-cheating pre-casts, 2026-10-11)
+
+The wrapper-only rule forbids algorithms in the shim. A narrow, deliberate
+exception: where the array API makes an operation multi-dtype but the rstsr
+kernel is single-dtype, the Python layer casts the operands to their promoted
+common dtype before the call. The graded result is correct, but the promotion
+happens **outside** rstsr -- "dtype-cheating". The shim crate records the full
+rationale and the site list in `crates-interop/rstsr-faer-py/DTYPE-CASTS.md`.
+
+This is distinct from the casts the standard itself mandates (weak scalars, the
+`sum`/`prod`/`trace` accumulation dtype, `mean`/`std`/`var` int-to-float,
+`clip` bounds, `astype`), which are shim-side *binding* work, not a bridge over
+a missing rstsr feature.
+
+| id | area | category | table row | evidence (suite) | note |
+|---|---|---|---|---|---|
+| G-077 | `linalg.solve`, mixed dtype | shim-side (dtype-cheat) | ? | `TestLinalg::test_solve` draws `mutually_promotable_dtypes` float/complex pairs and asserts `result_type` out | both operands -> `_promote_pair` before the same-dtype solve (`bin_fc!`); the cast fixes the **result** dtype too, so the node flips. |
+| G-078 | `isin`, mixed integer dtype | shim-side (dtype-cheat) | ? | `TestIsin::test_isin` draws `mutually_promotable_dtypes(2, dtypes=all_int_dtypes)` | both operands -> `_common_int_dtype` (a hand-written mixed-sign table); the result is `bool`, so the cast is **input-only**. Mixed non-integer pairs still raise. |
+| G-079 | `concat` / `stack`, mixed dtype | shim-side (dtype-cheat) | ? | `test_concat` / `test_stack` mixed-dtype draws | every part -> `_promote_pair` folded over the parts; input-only. The rust join bindings decline a mismatched variant (`typed_part`), so the cast is Python-side. |
+
+All three are the same shape: rstsr's set / join / solve kernels are
+single-dtype (the G-009 family), so promotion is done by a pre-cast on the
+Python side. A rust-side promotion on those kernels would make the casts
+unnecessary and remove the entries.
+
