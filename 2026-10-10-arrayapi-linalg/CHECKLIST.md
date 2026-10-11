@@ -9,20 +9,96 @@ and the other (now-drained) buckets live in
 `../2026-10-07-arrayapi-convergence/`; register ids (G-nnn) refer to
 `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-**Current: R2 merged; `outer`/`ext_outer` open on a new branch** (suite
-`array-api-tests@6c0b59f`, API `2025.12`, module `rstsr_faer.api`):
+**Current: R1 (batched linalg) on branch `261011/batched-linalg` —
+`1309 / 40 / 33`** (suite `array-api-tests@6c0b59f`, API `2025.12`, module
+`rstsr_faer.api`):
 
-- `261010/ext-matmul` (R2, mixed-dtype linalg, PR RESTGroup/rstsr#137) — now
-  **merged** to main as `f03c3ca`: **`1300 / 49 / 33`** of 1382.
-- `261010/linalg-outer` (R4, `outer`/`ext_outer`), off the post-`#137` main
-  `f03c3ca`: **`1303 / 46 / 33`** of 1382.
+- Main (`39f83d0`, the post-`#138` faer 0.24 update): **`1303 / 46 / 33`** of
+  1382.
+- `261011/batched-linalg` (R1), off main `39f83d0`: **`1309 / 40 / 33`** of 1382
+  — **+6 passed / −6 failed, 0 regressions, test-for-test identical node set**
+  (flipped: `test_{cholesky,det,eigh,eigvalsh,inv,svdvals}`). The whole
+  rust-side faer `linalg` inventory is now batched — see **Progress**.
 
 The shim-side init is merged (`#133`, `d7056ba`); it exposed 13 of the 23
-members and flipped the 49 `linalg` skips into graded tests. The remaining
-failures are `linalg` plus 14 out-of-scope `fft` nodes; the 33 skips are 28
-`fft` + the 5 backend-independent `test_remainder`. `tensordot` (R3) landed
-after the init — see **Progress**; `1287 / 62 / 33` → `1294 / 55 / 33` (R3);
-R2 → `1300 / 49 / 33`; R4 (`outer`) → `1303 / 46 / 33`.
+members and flipped the 49 `linalg` skips into graded tests. The remaining **40
+failures** = 14 out-of-scope `fft` name nodes + 14 `linalg` absent-member
+name/signature nodes (`cross, matrix_norm, matrix_power, matrix_rank, qr,
+trace, vector_norm`) + 12 value tests (`cross, eig, eigvals, matrix_norm,
+matrix_power, matrix_rank, pinv, qr, solve, svd, trace, vector_norm`); the 33
+skips are 28 `fft` + the 5 backend-independent `test_remainder`. Earlier chain
+(all merged): init → `1287 / 62 / 33`; R3 `tensordot` → `1294 / 55 / 33`; R2
+mixed-dtype → `1300 / 49 / 33`; R4 `outer` → `1303 / 46 / 33`.
+
+## Progress (2026-10-11): batched (stacked) linalg — R1, the dominant lever
+
+Branch `261011/batched-linalg` (off main `39f83d0`, i.e. post-`#138` faer 0.24),
+5 commits. Every faer linalg entry that asserted `ndim == 2` now accepts a
+matrix **or a stack of matrices** (`(..., M, N)` / `(..., M, M)`) — the array-API
+contract the value tests exercise immediately. **Measured: `1303 / 46 / 33` →
+`1308 / 41 / 33`** (batch wave: `test_{cholesky,eigh,eigvalsh,inv,svdvals}`)
+**→ `1309 / 40 / 33`** (det wave: `test_det`); node set test-for-test identical,
+0 regressions. Provenance: built from `rstsr` `261011/batched-linalg` @ `95e089f`
+(clean tree), `maturin build --release` (opt-level 3) →
+`/tmp/wheels/rstsr_faer_py-0.10.0a1-cp310-abi3-manylinux_2_39_x86_64.whl`, sha256
+`cc46566c…b34610`, built 2026-10-11 05:20; run `FRESH=1 NO_EXPLAIN=1 CHUNKED=1`,
+19/19 chunks.
+
+- **Members now n-dim:** `cholesky`, `inv`, `eigh` (standard), `eigvalsh`,
+  `svd`, `svdvals`, `pinv`, `det`; the master (`#133`) `slogdet` was rerouted
+  through the same walk. `solve_general` / `solve_triangular` are n-dim too, and
+  generalized `eigh` gained batch **broadcast** (below). Only the
+  **BLAS-device** solve stays 2-D (out of scope for this branch).
+- **Shared helper — `rstsr-linalg-traits/src/faer_impl/batch.rs`** (`pub(crate)`):
+  `map_stack_slices{,2,3}` / `map_stack_slices2x2` (1–3 outputs),
+  `map_stack_scalars` / `map_stack_scalars2` (scalar-per-matrix), and
+  `map_stack_slices_inplace` (the in-place solve walk), plus `stack_shape`,
+  `batch_and_matrix_shape`, `with_parallel`. The layout splits into
+  (batch, inner) by the device order (matrix axes **last** under `RowMajor`,
+  **first** under `ColMajor`); each output is pre-allocated as a fresh
+  contiguous `zeros_f`; then the input batch offsets and every output's batch
+  offsets are walked **in lockstep** (`IterLayout::new(.., TensorIterOrder::C)`)
+  and each entry's private 2-D `*_ix2` kernel is called on a per-slice view.
+  Design mirrors the `cholesky` entry (`2586c37`) — *pre-allocated outputs,
+  lockstep offset walk* — not the rejected recursive `linalg_util` collect.
+- **In-place solve (no clone).** An owned / contiguous-mutable `b` is solved
+  **in place**; an immutable view `b` allocates one output; a non-contiguous
+  mutable `b` falls back to a contiguous scratch buffer with write-back. This is
+  `overwritable_convert` (`Mut` / `Owned` / `ToBeCloned`) at the entry, with
+  `map_stack_slices_inplace` walking a's and b's batch offsets in lockstep and
+  widening a 1-D `(M,)` slice to `(M, 1)` **per slice** (order-agnostic) for the
+  vector case. **RSS-verified no clone** (gitignored scratch `rstsr/tmp/memtest/`):
+  a 4-GiB owned `b` (524288×32×32) solved in place → **RSS +0 MiB** for both
+  `solve_general` and `solve_triangular`; an explicit `b.clone()` control →
+  +4096 MiB; the allocating (view-`b`) path → +4096 MiB.
+- **Broadcast (following numpy / `array-api-tests` `solve_args`)**:
+  `solve_general`, `solve_triangular` and generalized `eigh` broadcast their
+  **batch** dims. Key rule from the reference: **`b` is a vector iff `ndim ==
+  1`**, otherwise it is a `(..., M, K)` matrix stack; only batch dims broadcast.
+  `SolvePlan` / `solve_plan` compute the broadcast batch shape and the
+  order-aware `a_shape` / `out_shape`; the target broadcasts through the fallible
+  `to_broadcast_f`.
+- **API change (approved):** the allocating `solve_general` /
+  `solve_triangular` impls now return `Tensor<_, IxD>` (was the fixed `DB`),
+  generalized `eigh` returns `EighResult<_, IxD, IxD>` (+ `Num`), and `det`
+  returns `Tensor<T, DeviceFaer, IxD>` (0-dim for a 2-D input). The faer-py shim
+  is unchanged except `linalg_det` (returns the tensor directly now) — the
+  wrappers route through `rt::linalg::*_f`, so **no new shim code was needed for
+  R1**.
+- **`linalg_util` removed:** the square split moved into `faer_impl::batch`;
+  `slogdet` dropped its recursive collect-into-Vecs walk and the `reverse_axes`
+  col-major hack.
+- Gates: faer tests **35/35**; fmt / clippy clean. **ColMajor gotcha** (for n-D
+  linalg tests): `asarray((v, shape, &dev))` follows the device order, but
+  `asarray((v, layout, &dev))` uses the layout verbatim — so `[B,M,K].c()` on an
+  F device pins C-contiguous and lands the batch axis where an F device expects
+  a matrix axis; use the bare-shape form (or pin `RowMajor`) in n-D tests.
+- **Not shim-visible:** `solve` still fails on **G-009** (mixed-dtype on the
+  solve path), `pinv` / `svd` still fail on faer SVD `NoConvergence` (hits 2-D
+  too — not a batching defect), and generalized `eigh` is not an array-API
+  member. So the wave's graded flips are exactly the 6 above; the rest of R1 is
+  rust-side capability (the R1 unblock is real, but `solve`'s node is gated by
+  G-009, not by batching).
 
 ## Progress (2026-10-10): shim-side init
 
@@ -45,7 +121,8 @@ no batching in the wrapper:
   array-API value tests are hypothesis-generated and hit stacks on the first
   example, so of the 13 exposed members only `diagonal` and `matrix_transpose`
   pass their value tests today. **Batched (stacked) linalg is a rust-side
-  gap** — it is now the single biggest lever.
+  gap** — it is now the single biggest lever. *(Resolved 2026-10-11 by R1 —
+  see the batched-linalg Progress section.)*
 - Second finding: `matmul`/`vecdot` are same-dtype only (mixed pairs need the
   G-009 promotion table), so their value tests fail on the first mixed pair.
 
@@ -241,6 +318,12 @@ flipped the six `matmul` / `vecdot` / `tensordot` value nodes to pass (see
 **Progress**); re-derive the group columns on the next full run (the suite is
 hypothesis-based; expect ±2 wobble).
 
+> **Superseded for the batched half (2026-10-11, R1).** The table below is the
+> *init-time* red map. R1 has since batched every faer entry, so the "exposed,
+> value-failing" row is now only the genuine gaps: `solve` (G-009), `pinv` /
+> `svd` (faer SVD `NoConvergence`). The current 40 failures are listed in the
+> header: 14 `fft` + 14 absent-member name/signature + 12 value tests.
+
 `linalg` 48:
 
 | group | nodes | what it checks |
@@ -278,15 +361,15 @@ Rust linalg lives in **`rstsr-linalg-traits`** (`LinalgAPI` family, one
 | `matrix_transpose` | `rt::matrix_transpose` | ✓ | ✓ |
 | `vecdot` | `rt::vecdot` (tensor tier), `rt::ext_vecdot` (promotion) | ✓ same-dtype; ✓ promote (R2) | ✓ |
 | `diagonal` | `rt::diagonal` (indexing) | ✓ | ✓ |
-| `cholesky` | `CholeskyAPI` (faer) | ◐ 2-D only | ✓ |
-| `det` | `DetAPI` (faer) | ◐ 2-D only | ✓ |
-| `eigh` | `EighAPI` (faer) | ◐ 2-D only | ✓ |
-| `eigvalsh` | `EigvalshAPI` (faer) | ◐ 2-D only | ✓ |
-| `inv` | `InvAPI` (faer) | ◐ 2-D only | ✓ |
-| `pinv` | `PinvAPI` (faer) | ◐ 2-D only | ✓ |
-| `solve` | `SolveGeneralAPI` (faer) | ◐ 2-D only | ✓ |
-| `svd` | `SVDAPI` (faer) | ◐ 2-D only | ✓ |
-| `svdvals` | `SVDvalsAPI` (faer) | ◐ 2-D only | ✓ |
+| `cholesky` | `CholeskyAPI` (faer) | ✓ n-dim (R1) | ✓ |
+| `det` | `DetAPI` (faer) | ✓ n-dim (R1) | ✓ |
+| `eigh` | `EighAPI` (faer) | ✓ n-dim (R1) | ✓ |
+| `eigvalsh` | `EigvalshAPI` (faer) | ✓ n-dim (R1) | ✓ |
+| `inv` | `InvAPI` (faer) | ✓ n-dim (R1) | ✓ |
+| `pinv` | `PinvAPI` (faer) | ✓ n-dim (R1) | ✓ |
+| `solve` | `SolveGeneralAPI` (faer) | ✓ n-dim (R1) | ✓ |
+| `svd` | `SVDAPI` (faer) | ✓ n-dim (R1) | ✓ |
+| `svdvals` | `SVDvalsAPI` (faer) | ✓ n-dim (R1) | ✓ |
 | `tensordot` | `rt::tensordot` (tensor tier), `rt::ext_tensordot` (promotion) | ✓ same-dtype (R3); ✓ promote (R2) | ✓ |
 | `outer` | `rt::outer` (tensor tier), `rt::ext_outer` (promotion) | ✓ same-dtype (R4, all devices); ✓ promote (R4, cpu_serial + faer) | ✓ |
 | `cross` | — (3-vector cross) | ✗ new | ✗ |
@@ -305,16 +388,23 @@ array-API `solve` maps to `solve_general`, so this is tangential.
 
 ## 2. Rust-side work (register + request; never fix agent-side)
 
-Ordered by failures-per-item. **R1 is now the dominant lever** — it alone
-gates 13 of the 20 graded members the shim already exposes.
+Ordered by failures-per-item. **R1 (the dominant lever) has landed** (see
+**Progress**); what remains is R4's `cross`/`matrix_rank`/`trace` shim hookups,
+R5 (norms `ord`), R6 (`qr`), R8 (`eig`/`eigvals`), and the two correctness gaps
+that gate the residual `solve` / `pinv` / `svd` value tests.
 
-- [ ] **R1. Batched (stacked) linalg** — every faer factorization today asserts
-      `ndim == 2`. The array-API contract is "a matrix *or a stack of matrices*"
-      (`(..., M, M)`), and the value tests exercise stacks immediately. Give
-      the faer linalg entries (and the tensor-tier `solve`/`pinv` route) a
-      leading-axis loop — either iterate the batch in the device op or map over
-      `iter_axes` and stack. Cheapest, largest payoff: unblocks `cholesky, det,
-      eigh, eigvalsh, inv, pinv, solve, svd, svdvals` at once.
+- [x] **R1. Batched (stacked) linalg** — **landed** (branch
+      `261011/batched-linalg`, off main `39f83d0`). Every faer linalg entry now
+      accepts `(..., M, N)` / `(..., M, M)`: `cholesky, det, eigh, eigvalsh,
+      inv, pinv, solve, svd, svdvals` (+ the master `slogdet`). Implemented as a
+      shared `faer_impl::batch` walk over per-matrix 2-D kernels (pre-allocated
+      outputs, lockstep offsets), **not** an `iter_axes` stack loop; the solving
+      entries keep an owned `b` in place (RSS-verified), and `solve` /
+      generalized `eigh` also broadcast batch dims. **Measured `1303 / 46 / 33`
+      → `1309 / 40 / 33`** (+6: `test_{cholesky,det,eigh,eigvalsh,inv,svdvals}`),
+      0 regressions — see **Progress**. Residual `solve` / `pinv` / `svd` value
+      nodes are gated by G-009 (mixed dtype) and the faer SVD `NoConvergence`
+      gap, not by batching.
 - [x] **R2. mixed-dtype `matmul`/`vecdot`/`tensordot`** (G-009) — **landed**
       (PR RESTGroup/rstsr#137, branch `261010/ext-matmul`): the `ext_linalg`
       family computes each operand pair in its promoted common dtype
@@ -382,19 +472,19 @@ Wrapper-only. S1–S4 landed on `261010/faer-py-linalg-init`, merged as `#133`
 - [x] **S4. return structures** — `eigh` → namedtuple `(eigenvalues,
       eigenvectors)`, `svd` → `(U, S, Vh)`, `det`/`svdvals`/`eigvalsh` →
       arrays, `pinv` → array (rank dropped).
-- [ ] **S5. dtype/stack semantics** — half done: promotion is wired
+- [x] **S5. dtype/stack semantics** — **done**: promotion is wired
       (`matmul`/`vecdot`/`tensordot` route through the `ext_` entries — R2), so
-      mixed dtypes work; batching is still absent (that is R1). `eig`/`eigvals`
-      complex promotion is moot until R8.
+      mixed dtypes work; batching landed rust-side (R1, no shim change).
+      `eig`/`eigvals` complex promotion is moot until R8.
 
 ## 4. Ordering
 
 The namespace is now exposed (partial), so the skip→run flip has already
 happened. Going forward:
 
-1. **R1 (batched linalg) first** — it is the largest single move and needs no
-   new shim code; the 13 exposed-but-failing value tests start passing as soon
-   as the rust entries accept stacks.
+1. ~~**R1 (batched linalg) first**~~ — **done** (2026-10-11, branch
+   `261011/batched-linalg`; +6 nodes, no shim code). The remaining exposed
+   value failures are the two genuine gaps, not the stack handling.
 2. Then R4–R8 as members land; each new member is a shim one-liner plus a
    `_LinalgNamespace` entry (add the name only when its rust entry is real, so a
    new gap never becomes a fresh failure). R2 (mixed-dtype products) and R3
@@ -424,10 +514,15 @@ FRESH=1 NO_EXPLAIN=1 CHUNKED=1 MODULE=rstsr_faer.api \
 - **Recorded (tensordot / R3):** `1287 / 62 / 33` → **`1294 / 55 / 33`**. The 4
   `tensordot` has_names/signature nodes flip to pass; the 2 `test_linalg` value
   nodes now run and fail only on G-009; 0 regressions.
-- Expected after **R1** lands: `test_{cholesky,det,eigh,eigvalsh,inv,pinv,
-  solve,svd,svdvals}` move to passed (≈ +9), the `matrix_norm`-family blockers
-  remain. Confirm per-item counts against §0 as work lands (the suite is
-  hypothesis-based; expect ±2 wobble).
+- **Recorded (batched linalg / R1):** `1303 / 46 / 33` → `1308 / 41 / 33`
+  (batch wave) → **`1309 / 40 / 33`** (det wave), 0 regressions, node set
+  **test-for-test identical**, on `261011/batched-linalg` (off main `39f83d0`).
+  Flipped: `test_{cholesky,det,eigh,eigvalsh,inv,svdvals}`. The pre-R1 plan
+  predicted ≈ +9 (`{cholesky,det,eigh,eigvalsh,inv,pinv,solve,svd,svdvals}`);
+  it landed **+6** because `solve` is gated by G-009 (mixed dtype, not
+  batching), and `pinv`/`svd` by the faer SVD `NoConvergence` gap. Confirm
+  per-item counts against §0 as work lands (the suite is hypothesis-based;
+  expect ±2 wobble).
 - **Recorded (mixed-dtype linalg / R2):** `1294 / 55 / 33` → `1296 / 53 / 33`
   (matmul) → **`1300 / 49 / 33`** (vecdot + tensordot), 0 regressions, on the
   `261010/ext-matmul` branch (post-`#135` base, so **no R1 batching** — the two
@@ -452,9 +547,12 @@ FRESH=1 NO_EXPLAIN=1 CHUNKED=1 MODULE=rstsr_faer.api \
       (16 pass / 33 fail today). Keep it exposed and drive the failures down
       via R1–R8, or gate `xp.linalg` until the surface is more complete? (The
       owner's call; the branch makes either a one-line change.)
-- [ ] **D3. Batching location** — implement stacked linalg inside the faer
-      device ops (R1), or as a tensor-tier batch loop over the 2-D kernels?
-      Affects every linalg entry's signature and the blas column too.
+- [x] **D3. Batching location** — resolved: **inside the faer device ops** (R1).
+      A shared `faer_impl::batch` walk over the existing per-matrix 2-D kernels
+      (pre-allocated outputs, lockstep offsets), not a tensor-tier loop and not
+      the earlier recursive `linalg_util`. `Out` became `IxD` for the entries
+      whose output rank was previously fixed (`solve*`, generalized `eigh`,
+      `det`); the blas column is untouched (its `solve` stays 2-D, out of scope).
 - [ ] **D4. `ord` coverage for norms** — full array-API `ord` table vs. the
       subset rstsr can express; determines R5's scope.
 - [ ] **D5. Where the symmetric/triangular solvers surface** — array-API

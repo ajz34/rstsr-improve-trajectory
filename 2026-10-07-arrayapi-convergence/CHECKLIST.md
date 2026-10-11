@@ -1,5 +1,13 @@
 # Convergence checklist — rstsr_faer.api × array-api-tests (2026-10-07, updated 2026-10-09)
 
+> **Status pointer (2026-10-11).** This file is the frozen read-out of the
+> 2026-10-09 state (below). The live `linalg`/`fft` namespace work moved to
+> `../2026-10-10-arrayapi-linalg/CHECKLIST.md`; its latest measured number is
+> **`1309 / 40 / 33`** (branch `261011/batched-linalg`, off main `39f83d0`),
+> i.e. the whole rust-side `linalg` inventory is now batched (R1) and the
+> remaining 40 failures are 14 out-of-scope `fft` nodes + 26 `linalg`
+> name/signature-and-value nodes for members not yet implemented.
+
 Ordered by ROI and by blocking. Counts are "suite nodes moved" (fails flipped,
 plus currently-skipped tests that get *activated* where noted). Register ids
 (G-nnn) refer to `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
