@@ -638,3 +638,17 @@ single-dtype (the G-009 family), so promotion is done by a pre-cast on the
 Python side. A rust-side promotion on those kernels would make the casts
 unnecessary and remove the entries.
 
+## Entries v19 (faer SVD non-convergence on large-magnitude `f32`, 2026-10-12)
+
+faer's dense SVD — `rstsr-linalg-traits` `faer_impl/svdvals.rs` via
+`faer_ext::IntoFaer::into_faer(..).singular_values()` (and `pinv`'s
+`thin_svd()`) — raises `NoConvergence` for some large-magnitude `f32` inputs.
+`f64` converges on the same matrices, and small-magnitude `f32` is fine. This is
+a **rust-side** limitation (the shim surfaces the faer error verbatim); it is
+*not* a batching defect and *not* shim-fixable. It gates three `linalg` value
+tests, so it is recorded here rather than left as a "flash" failure.
+
+| id | area | category | table row | evidence (suite) | note |
+|---|---|---|---|---|---|
+| G-080 | dense SVD (`svd`, `svdvals`, `pinv`, `matrix_rank`) on large-magnitude `f32` | rust-side (faer) | ? | `test_linalg.py::test_svd`, `::test_pinv`, `::test_matrix_rank`; the first derandomized `test_matrix_rank` draw is a rank-1 `f32` 3x5 matrix of `5.83e18` | `singular_values()` returns `NoConvergence`; `svdvals` fails identically on that exact input and `f64` converges (`matrix_rank` -> 1). `matrix_rank` inherits it through `svdvals`. Reproduce: `svdvals(asarray(np.full((3,5), 5.83e18, np.float32)))`. A rust-side faer-usage matter (input scaling / a different faer routine); not acted on agent-side. |
+

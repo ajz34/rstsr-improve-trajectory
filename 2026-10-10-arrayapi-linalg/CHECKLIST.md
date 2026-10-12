@@ -9,27 +9,99 @@ and the other (now-drained) buckets live in
 `../2026-10-07-arrayapi-convergence/`; register ids (G-nnn) refer to
 `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-**Current: norms (R5) on branch `261011/worktree` (PR RESTGroup/rstsr#142) —
-`1318 / 31 / 33`** (suite `array-api-tests@6c0b59f`, API `2025.12`, module
-`rstsr_faer.api`):
+**Current: `matrix_rank` (R4) on branch `261012/matrix-rank` — `1327 / 22 / 33`**
+(suite `array-api-tests@6c0b59f`, API `2025.12`, module `rstsr_faer.api`):
 
-- Main (`bbc6a19`, post-`#141` matrix_power): **`1312 / 37 / 33`** of 1382
-  (recorded by the matrix_power wave; inherited here, hypothesis ±2 wobble).
-- `261011/worktree` (R5), off main `bbc6a19`: **`1318 / 31 / 33`** of 1382 — **+6
-  passed / −6 failed, 0 regressions** (flipped: `test_has_names[linalg-{matrix,vector}_norm]`,
-  `test_extension_func_signature[linalg.{matrix,vector}_norm]`,
-  `test_linalg.py::test_{matrix,vector}_norm`).
+- Main (`06aa7e5`, post-`#143` `cross`): **`1321 / 28 / 33`** of 1382.
+- `261011/shim-trace-solve` (`#144`, trace shim + solve promotion):
+  **`1325 / 24 / 33`** of 1382 — **+4 passed / −4 failed, 0 regressions**
+  (flipped: `test_has_names[linalg-trace]`, `test_extension_func_signature[linalg.trace]`,
+  `test_linalg.py::test_{trace,solve}`).
+- `261012/matrix-rank` (R4, this wave): **`1327 / 22 / 33`** of 1382 — **+2
+  passed / −2 failed, 0 regressions** (flipped:
+  `test_has_names[linalg-matrix_rank]`, `test_extension_func_signature[linalg.matrix_rank]`;
+  `test_matrix_rank` stays red, now blocked by the shared faer SVD `NoConvergence`
+  instead of by absence — see §0).
 
-The `linalg` extension is now down to **17 graded failures** on top of the 14
-out-of-scope `fft` name nodes (§0 lists every remaining node): the four members
-still absent from the surface (`cross, matrix_rank, qr, trace` — 4
-`test_has_names` + 4 `test_extension_func_signature`) and 9 value tests
-(`cross, eig, eigvals, matrix_rank, pinv, qr, solve, svd, trace`). The 33 skips
-are 28 `fft` + the 5 backend-independent `test_remainder`. Merged chain (all on
-main): shim init `#133` → `1287 / 62 / 33`; R3 `tensordot` `#135` →
-`1294 / 55 / 33`; R2 mixed-dtype `#137` → `1300 / 49 / 33`; R4 `outer` `#138` →
-`1303 / 46 / 33`; R1 batched `#140` → `1309 / 40 / 33`; `matrix_power` `#141` →
-`1312 / 37 / 33`; R5 norms `#142` → `1318 / 31 / 33`.
+The `linalg` extension is now down to **8 graded failures** on top of the 14
+out-of-scope `fft` name nodes (§0 lists every remaining node): the one member
+still absent from the surface (`qr` — 1 `test_has_names` + 1
+`test_extension_func_signature`) and 6 value tests
+(`eig, eigvals, matrix_rank, pinv, qr, svd`). The 33 skips are 28 `fft` + the 5
+backend-independent `test_remainder`. Merged chain (all on main): shim init
+`#133` → `1287 / 62 / 33`; R3 `tensordot` `#135` → `1294 / 55 / 33`; R2
+mixed-dtype `#137` → `1300 / 49 / 33`; R4 `outer` `#138` → `1303 / 46 / 33`; R1
+batched `#140` → `1309 / 40 / 33`; `matrix_power` `#141` → `1312 / 37 / 33`; R5
+norms `#142` → `1318 / 31 / 33`; R4 `cross` `#143` → `1321 / 28 / 33`; trace shim
++ solve `#144` → `1325 / 24 / 33`; R4 `matrix_rank` → `1327 / 22 / 33`.
+
+## Progress (2026-10-12): `matrix_rank` — R4, third member
+
+Branch `261012/matrix-rank` (off main `06aa7e5`, i.e. post-`#143` `cross`).
+
+- New trait `MatrixRankAPI` in `rstsr-linalg-traits/src/traits_def.rs` (added to
+  the three `duplicate_item` tables + `prelude.rs`), kernel in the new
+  `faer_impl/matrix_rank.rs`. `Out = Tensor<usize, DeviceFaer, IxD>` (the rstsr
+  index dtype), batch-shaped `shape(x)[:-2]`.
+- **`MatrixRankRtol<TR, B> { None, Float(TR), Array(Tensor<TR, B, IxD>) }`** is
+  the entry's argument type (no wrapper struct — one field would add nothing).
+  The enum exists because a **scalar has no device but an array does**: `Array`
+  carries its device and the kernel `same_device`-checks it against the input
+  before ranking, while `Float` needs no check. Overloads are `From` impls —
+  `Tensor` → `Array`; concrete `f32`/`f64` → `Float`; `()` and `Option<()>` →
+  `None`. The scalar impl is **per real type, not a generic `From<TR>`**: a
+  generic one overlaps `From<()>` / `From<Option<()>>` at `TR = ()` (E0119 —
+  the same coherence wall the `SortArgs`/`SearchSortedArgs` concrete impls
+  dodge). The `(Tr, A)` impl takes `A: TryInto<MatrixRankRtol<TR, DeviceFaer>>`.
+- Algorithm: `s = svdvals(x)`; `smax = max(s, k_ax, keepdims)`; `tol = smax *
+  rtol` (`smax * max(M,N)*eps` when `None`); `rank = sum(s > tol)` over the
+  singular-value axis, composed from core reductions (`greater_f`, the bool-sum
+  `TensorSumBoolAPI`). **No Hermitian fast path** (NumPy has one; the array-API
+  has no `hermitian` argument). Empty matrix axes / batches short-circuit to
+  zero rank, mirroring NumPy.
+- Shim: `rstsr-faer-py` binds `linalg.matrix_rank(x, /, *, rtol=None)` —
+  `src/linalg.rs` (`linalg_matrix_rank`, rtol taken as `Option<&Bound<PyAny>>`:
+  a Python float → `Float` in `x`'s real dtype, a `NativeArray` → `Array` via
+  `T::Real`'s tensor ref + clone) + `python/rstsr_faer/api.py` (only an array is
+  cast to `x`'s real dtype; a scalar stays a Python float — binding marshalling,
+  *not* a promotion pre-cast, so not a `DTYPE-CASTS.md` entry). The rank is
+  lifted to int64 by the shared `idx_lift`.
+- New tests: `rstsr-linalg-traits/tests/test_faer_func/func_f64.rs`
+  (`test_matrix_rank{,_numpy,_empty,_nd,_colmajor,_tolerance,_rtol_device_mismatch}`),
+  the NumPy cases from `numpy/linalg/tests/test_linalg.py::TestMatrixRank` /
+  `test_empty_matrix_rank` translated (1-D/scalar/Hermitian inputs are out of the
+  array-API contract and skipped). The mismatch test pins the device check: a
+  `ColMajor` rtol tensor against a `RowMajor` input errors.
+- Conformance: **`1325 / 24 / 33` → `1327 / 22 / 33`** (+2 passed / −2 failed, 0
+  regressions; flipped `test_has_names[linalg-matrix_rank]`,
+  `test_extension_func_signature[linalg.matrix_rank]`).
+- Review round (post-commit `b065a49`, on-screen code review, 6 of 7 findings
+  applied): `rtol` is now **validated up front** — the device `same_device` and
+  the batch `broadcast_shapes_f` run *before* the empty-input short-circuit and
+  the SVD, so an invalid tolerance errors on an empty input instead of being
+  silently ignored (matches the `vector_norm` precedent); a new
+  `test_matrix_rank_empty_validates_rtol` pins it. The `Array` order behaviour
+  is now **documented** rather than fixed (`traits_def.rs` + the kernel module
+  doc): the matrix axes are the **leading** logical axes under a row-major device
+  and the **trailing** axes under a column-major one, and the tolerance
+  broadcast follows that same device order — so row-major matches NumPy's
+  trailing alignment while column-major mirrors it. Shim docstring corrected
+  (the kernel broadcasts; the Python layer only casts the dtype); the Python
+  wrapper raises `TypeError` for a non-broadcast dtype (array `rtol`) instead of
+  `KeyError`, and rejects a non-real-numeric `rtol` (str/complex) instead of
+  coercing via `float()`. The `Default` impl is kept (hand-written:
+  `#[derive(Default)]` would add spurious `TR: Default, B: Default` bounds), now
+  exercised by a test. **Declined (intentional):** no
+  `From<f64> for MatrixRankRtol<f32, B>` — a scalar must be the input's own real
+  type, so an `f32` caller writes `1e-8_f32` (documented).
+  Re-verified: conformance **`1327 / 22 / 33`**, non-passed node set
+  byte-identical, linalg faer tests **59/59**, clippy/fmt/doc clean.
+- **`test_matrix_rank` stays red**, but for a new reason: the first drawn
+  example is a rank-1 `f32` 3×5 matrix of large equal values
+  (`5.83e18`), and faer's SVD raises `NoConvergence` on it — the same gap that
+  already blocks `test_svd` / `test_pinv` (`svdvals` fails identically; `f64`
+  converges). Not a `matrix_rank` defect and not shim-fixable: a rust-side faer
+  SVD issue (large-magnitude `f32`). It now gates three value tests.
 
 ## Progress (2026-10-11): norms (`matrix_norm`, `vector_norm`) — R5
 
@@ -387,37 +459,38 @@ derivable op.
 
 ## 0. The red map this checklist must clear
 
-**Current failures (31) = `fft` 14 + `linalg` 17** — every remaining node, from
-the R5 run (§5). The `fft` 14 are declared **out of scope** for this version;
-the `linalg` 17 are this checklist's remaining work.
+**Current failures (22) = `fft` 14 + `linalg` 8** — every remaining node, from
+the matrix_rank run (see **Progress (2026-10-12): `matrix_rank`**). The `fft` 14
+are declared **out of scope** for this version; the `linalg` 8 are this
+checklist's remaining work.
 
 `fft` 14 (out of scope) — `test_has_names[fft-*]`:
 `fft, fftfreq, fftn, fftshift, hfft, ifft, ifftn, ifftshift, ihfft, irfft,
 irfftn, rfft, rfftfreq, rfftn`.
 
-`linalg` 17:
+`linalg` 8:
 
 | group | nodes | what it checks |
 |---|---|---|
-| `test_has_names[linalg-*]` | 4 | the members still absent from `xp.linalg`: `cross, matrix_rank, qr, trace` |
-| `test_signatures.py::test_extension_func_signature[linalg.*]` | 4 | the same four members |
-| `test_linalg.py` (value tests) | 9 | `test_{cross, eig, eigvals, matrix_rank, pinv, qr, solve, svd, trace}` |
+| `test_has_names[linalg-*]` | 1 | the member still absent from `xp.linalg`: `qr` |
+| `test_signatures.py::test_extension_func_signature[linalg.*]` | 1 | the same member |
+| `test_linalg.py` (value tests) | 6 | `test_{eig, eigvals, matrix_rank, pinv, qr, svd}` |
 
 Every remaining `linalg` node, with its blocker:
 
 | node | status | blocker |
 |---|---|---|
-| `test_has_names[linalg-cross]` + `..._signature[linalg.cross]` + `test_cross` | absent | `cross` not implemented (R4 leftover) |
-| `test_has_names[linalg-matrix_rank]` + `..._signature[linalg.matrix_rank]` + `test_matrix_rank` | absent | `matrix_rank` not implemented (R4 leftover; = count of `svdvals > tol`) |
 | `test_has_names[linalg-qr]` + `..._signature[linalg.qr]` + `test_qr` | absent | `qr` not implemented (R6, **G-004**) |
-| `test_has_names[linalg-trace]` + `..._signature[linalg.trace]` + `test_trace` | absent (**shim only**) | `rt::trace` landed rust-side (R4); the shim binding is not done |
 | `test_eig`, `test_eigvals` | absent | general (non-symmetric) eigenproblem (R8; not in the 2025.12 `__all__`, but tested at our pin) |
-| `test_pinv`, `test_svd` | exposed, batched | faer SVD `NoConvergence` (hits 2-D too — **not** a batching defect) |
-| `test_solve` | exposed, batched | **G-009** (mixed dtype on the solve path), not batching |
+| `test_matrix_rank`, `test_pinv`, `test_svd` | exposed, batched | faer SVD `NoConvergence` on large-magnitude `f32` (hits 2-D too — **not** a batching defect; `matrix_rank` inherits it via `svdvals`) |
 
-So the four absent **members** are `cross, matrix_rank, qr, trace`; of those,
-`trace` needs shim work only. The residual `solve` / `pinv` / `svd` value
-failures are the two correctness gaps, not missing surface.
+So the one absent **member** is `qr`. The residual `matrix_rank` / `pinv` / `svd`
+value failures are all the one faer SVD `NoConvergence` gap, not missing surface.
+
+> **Resolved since this table was written**: `cross` (`#143`), the `trace` shim
+> hookup and `solve` promotion (`#144`), and `matrix_rank` (this wave). `solve`
+> closed with **G-009**; `matrix_rank`'s `has_names` + signature nodes closed,
+> but its value test is now gated by the shared SVD gap above.
 
 **Skips (33)** — 28 `fft` (out of scope) + 5 `test_remainder` (upstream
 `@pytest.mark.skip("flaky")`). No `linalg` skips remain.
@@ -439,7 +512,7 @@ failures are the two correctness gaps, not missing surface.
 
 At init, the 10 absent members were `cross, matrix_norm, matrix_power,
 matrix_rank, outer, qr, slogdet, tensordot, trace, vector_norm`; all but
-`cross, matrix_rank, qr, trace` have since landed.
+`qr` have since landed.
 
 ## 1. Rust-side inventory — what exists today
 
@@ -468,10 +541,10 @@ Rust linalg lives in **`rstsr-linalg-traits`** (`LinalgAPI` family, one
 | `svdvals` | `SVDvalsAPI` (faer) | ✓ n-dim (R1) | ✓ |
 | `tensordot` | `rt::tensordot` (tensor tier), `rt::ext_tensordot` (promotion) | ✓ same-dtype (R3); ✓ promote (R2) | ✓ |
 | `outer` | `rt::outer` (tensor tier), `rt::ext_outer` (promotion) | ✓ same-dtype (R4, all devices); ✓ promote (R4, cpu_serial + faer) | ✓ |
-| `cross` | — (3-vector cross) | ✗ new | ✗ |
-| `trace` | `rt::trace` (+ `trace_with_dtype`) — `diagonal` + `sum_axes` | ✓ core (R4); no shim yet | ✗ |
+| `cross` | `rt::cross` / `rt::ext_cross` | ✓ core (R4, `#143`) | ✓ |
+| `trace` | `rt::trace` (+ `trace_with_dtype`) — `diagonal` + `sum_axes` | ✓ core (R4) + shim (`#144`) | ✓ |
 | `matrix_power` | `MatrixPowerAPI` (faer) | ✓ faer (R4, `#141`) | ✓ |
-| `matrix_rank` | — (via `svdvals`) | ✗ new | ✗ |
+| `matrix_rank` | `MatrixRankAPI` (faer) — count of `svdvals > rtol * s_max` | ✓ faer (R4, this wave) | ✓ (gated by the faer SVD gap) |
 | `vector_norm` | `VectorNormAPI` (faer) | ✓ faer (R5) | ✓ |
 | `matrix_norm` | `MatrixNormAPI` (faer) | ✓ faer (R5) | ✓ |
 | `qr` | — | ✗ **G-004** | ✗ |
@@ -515,15 +588,16 @@ the residual `solve` / `pinv` / `svd` value tests.
       exposes it top-level and on `_LinalgNamespace`. Its 4 `has_names` +
       signature nodes pass; the 2 `test_linalg` value nodes now fail only on
       R2/G-009.
-- [~] **R4. small derivable ops** — `outer` **landed** (#138), `trace`
-      **landed rust-side** (shim binding still pending), `matrix_power`
-      **landed** (#141, see the note below). The plan's shortcut (`outer` =
-      broadcast mul + reshape) was **not** taken: the owner chose a real
-      device-op family (`DeviceOuterAPI` / `DeviceExtOuterAPI` + kernels),
-      matching `matmul`/`vecdot`; `trace` landed as planned (`diagonal` + sum).
-      **`cross` and `matrix_rank` remain** (`matrix_rank` = count of
-      `svdvals > tol`), plus the `trace` shim hookup. Low risk; each is a
-      `test_linalg` + a `has_names` node.
+- [x] **R4. small derivable ops** — **complete**: `outer` (#138), `trace`
+      (rust-side, R4; shim hookup `#144`), `matrix_power` (#141), `cross`
+      (#143), `matrix_rank` (this wave) all landed. The plan's shortcut
+      (`outer` = broadcast mul + reshape) was **not** taken: the owner chose a
+      real device-op family (`DeviceOuterAPI` / `DeviceExtOuterAPI` + kernels),
+      matching `matmul`/`vecdot`; `trace` landed as planned (`diagonal` + sum);
+      `matrix_rank` = count of `svdvals > rtol * s_max` (see **Progress
+      (2026-10-12)**). All four `has_names` + signature nodes closed; `test_cross`
+      / `test_trace` / `test_solve` closed, `test_matrix_rank` gated by the faer
+      SVD gap.
 - [x] **`matrix_power`** — **landed as `#141`** (branch `261011/matrix-power`,
       off `2e93deb`). As the earlier deferral note predicted, it belongs on the
       **`rstsr-linalg-traits`** side, not in rstsr-core: array-API draws `n`
@@ -649,8 +723,22 @@ FRESH=1 NO_EXPLAIN=1 CHUNKED=1 MODULE=rstsr_faer.api \
   signature nodes and `test_matrix_norm` / `test_vector_norm`. Gates: faer tests
   50/50; fmt/clippy clean. Re-run after the `/code-review high` fixes: unchanged.
   The residual `linalg` failures are exactly the 17 in §0.
-
-## 6. Decisions
+- **Recorded (cross / R4, `#143`):** `1318 / 31 / 33` → **`1321 / 28 / 33`**, 0
+  regressions. Flipped: `test_has_names[linalg-cross]`,
+  `test_extension_func_signature[linalg.cross]`, `test_cross`.
+- **Recorded (trace shim + solve promotion, `#144`):** `1321 / 28 / 33` →
+  **`1325 / 24 / 33`**, 0 regressions. Flipped:
+  `test_has_names[linalg-trace]`, `test_extension_func_signature[linalg.trace]`,
+  `test_trace`, and `test_solve` (mixed-dtype promotion in the shim closes
+  G-009's value node).
+- **Recorded (matrix_rank / R4, this wave):** `1325 / 24 / 33` →
+  **`1327 / 22 / 33`**, 0 regressions, on `261012/matrix-rank` (off main
+  `06aa7e5`). Flipped: `test_has_names[linalg-matrix_rank]`,
+  `test_extension_func_signature[linalg.matrix_rank]`. `test_matrix_rank` stays
+  red on the faer SVD `NoConvergence` gap (see the Progress note). The residual
+  `linalg` failures are exactly the 8 in §0. Re-run after the `MatrixRankRtol`
+  enum refactor: **`1327 / 22 / 33` again, the non-passed node set byte-identical**
+  (linalg-traits faer tests 58/58).
 
 - [x] **D1. Implement vs. scope-out** — resolved: implement. The shim-side
       init is on the branch; the remaining `linalg` work is rust-side.
