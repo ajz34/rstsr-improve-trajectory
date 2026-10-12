@@ -9,7 +9,7 @@ and the other (now-drained) buckets live in
 `../2026-10-07-arrayapi-convergence/`; register ids (G-nnn) refer to
 `../2026-10-04-rstsr-faer-py/GAP-REGISTER.md`.
 
-**Current: `matrix_rank` (R4) on branch `261012/matrix-rank` — `1327 / 22 / 33`**
+**Current: `qr` (R6) + `eig`/`eigvals` (R8) — the last members — `1332 / 17 / 33`**
 (suite `array-api-tests@6c0b59f`, API `2025.12`, module `rstsr_faer.api`):
 
 - Main (`06aa7e5`, post-`#143` `cross`): **`1321 / 28 / 33`** of 1382.
@@ -17,23 +17,65 @@ and the other (now-drained) buckets live in
   **`1325 / 24 / 33`** of 1382 — **+4 passed / −4 failed, 0 regressions**
   (flipped: `test_has_names[linalg-trace]`, `test_extension_func_signature[linalg.trace]`,
   `test_linalg.py::test_{trace,solve}`).
-- `261012/matrix-rank` (R4, this wave): **`1327 / 22 / 33`** of 1382 — **+2
-  passed / −2 failed, 0 regressions** (flipped:
+- `261012/matrix-rank` (R4): **`1327 / 22 / 33`** of 1382 — **+2 passed / −2
+  failed, 0 regressions** (flipped:
   `test_has_names[linalg-matrix_rank]`, `test_extension_func_signature[linalg.matrix_rank]`;
-  `test_matrix_rank` stays red, now blocked by the shared faer SVD `NoConvergence`
-  instead of by absence — see §0).
+  `test_matrix_rank` stays red, blocked by the shared faer SVD `NoConvergence`).
+- `eig`/`eigvals` (`#146`), then `qr` (`#147`): **`1327 / 22 / 33` → `1332 / 17 /
+  33`** — **+5 passed / −5 failed, 0 regressions** (flipped: `test_eig`,
+  `test_eigvals`, `test_qr`, `test_has_names[linalg-qr]`,
+  `test_extension_func_signature[linalg.qr]`).
 
-The `linalg` extension is now down to **8 graded failures** on top of the 14
-out-of-scope `fft` name nodes (§0 lists every remaining node): the one member
-still absent from the surface (`qr` — 1 `test_has_names` + 1
-`test_extension_func_signature`) and 6 value tests
-(`eig, eigvals, matrix_rank, pinv, qr, svd`). The 33 skips are 28 `fft` + the 5
+The `linalg` extension is now down to **3 graded failures** on top of the 14
+out-of-scope `fft` name nodes (§0): the value tests `matrix_rank`, `pinv`,
+`svd`, all gated by the one faer SVD `NoConvergence` gap — **no `linalg` member
+is absent** from the surface. The 33 skips are 28 `fft` + the 5
 backend-independent `test_remainder`. Merged chain (all on main): shim init
 `#133` → `1287 / 62 / 33`; R3 `tensordot` `#135` → `1294 / 55 / 33`; R2
 mixed-dtype `#137` → `1300 / 49 / 33`; R4 `outer` `#138` → `1303 / 46 / 33`; R1
 batched `#140` → `1309 / 40 / 33`; `matrix_power` `#141` → `1312 / 37 / 33`; R5
 norms `#142` → `1318 / 31 / 33`; R4 `cross` `#143` → `1321 / 28 / 33`; trace shim
-+ solve `#144` → `1325 / 24 / 33`; R4 `matrix_rank` → `1327 / 22 / 33`.
++ solve `#144` → `1325 / 24 / 33`; R4 `matrix_rank` → `1327 / 22 / 33`;
+`eig`/`eigvals` `#146` → `1329 / 20 / 33`; R6 `qr` `#147` → `1332 / 17 / 33`.
+
+## Progress (2026-10-12): `qr` (R6) + `eig`/`eigvals` (R8) — the last members
+
+`eig`/`eigvals` merged as `#146`; `qr` on branch `261012/qr` (off main `6786abe`,
+i.e. post-`#146`; PR RESTGroup/rstsr#147). All three are **faer device only**
+(like the rest of the extension), with shim bindings.
+
+- `qr`: new trait `QrAPI` in `rstsr-linalg-traits/traits_def.rs` (three
+  `duplicate_item` tables + `prelude.rs`), kernel in the new `faer_impl/qr.rs`.
+  The `mode` argument is a **`QrMode` enum** (`#[non_exhaustive]`,
+  `#[default] Reduced`) with `TryFrom<&str>`/`FromStr` — the array-API `mode`
+  string (`'reduced'`/`'complete'`) is parsed at the boundary; `QrAPI` is
+  implemented for the bare tensor (= reduced), `(tensor, QrMode)`, and
+  `(tensor, &str)`. `QrResult<Q, R>` converts to/from `(Q, R)`. faer's
+  `MatRef::qr()` is infallible: reduced = `compute_thin_Q()` + `R()`, complete =
+  `compute_Q()` + the thin `R` zero-padded to `(M, N)`; batched via
+  `map_stack_slices2`; a zero-size axis short-circuits (complete-mode
+  empty-column `Q` is the identity completion, matching NumPy).
+- `eig`/`eigvals`: `EigAPI`/`EigvalsAPI` + `faer_impl/{eig,eigvals}.rs`; general
+  (non-Hermitian) eigendecomposition, **complex** output for every input, via
+  faer's `eigen()`/`eigenvalues()`. `eig`'s eigenvector columns are rescaled to
+  unit 2-norm (faer leaves them unnormalized).
+- Shim: `linalg.qr(x, /, *, mode='reduced')` → `(Q, R)` namedtuple; `linalg.eig`
+  → `(eigenvalues, eigenvectors)`; `linalg.eigvals` → the spectrum. The "qr is
+  absent" prose in `linalg.rs`/`api.py` was dropped — **no `linalg` member is
+  absent now**.
+- Fingerprint tests (`test_faer_func/func_{f64,c64}.rs`): `test_qr` sign/phase-
+  canonicalizes (`abs(Q)` over the first `K` columns — complete-mode extras are
+  an arbitrary orthonormal completion — plus `R` with a real-positive diagonal),
+  and adds `test_qr_empty`; `test_eig`/`test_eigvals` sort the unordered spectrum.
+- Conformance: **`1327 / 22 / 33` → `1332 / 17 / 33`** (+5 / −5, 0 regressions).
+  Faer fingerprint suite 64 → 68.
+- Review round on `qr` (`/code-review high`, applied): the zero-size guard gave
+  complete-mode `Q` as **zeros** where NumPy expects the identity completion —
+  array-API `test_qr` never checks `Q`'s orthonormality, so conformance had
+  missed it; fixed by writing `eye` per batch slice. Also dropped the dead
+  `From<()>`/`From<Option<()>> for QrMode` and added `test_qr_empty` + a
+  wide+complete case. Re-verified: conformance unchanged **`1332 / 17 / 33`**,
+  faer tests 68/68, fmt/clippy clean.
 
 ## Progress (2026-10-12): `matrix_rank` — R4, third member
 
@@ -459,38 +501,30 @@ derivable op.
 
 ## 0. The red map this checklist must clear
 
-**Current failures (22) = `fft` 14 + `linalg` 8** — every remaining node, from
-the matrix_rank run (see **Progress (2026-10-12): `matrix_rank`**). The `fft` 14
-are declared **out of scope** for this version; the `linalg` 8 are this
-checklist's remaining work.
+**Current failures (17) = `fft` 14 + `linalg` 3** — every remaining node, from
+the `qr` run (see **Progress (2026-10-12): `qr` + `eig`/`eigvals`**). The `fft`
+14 are declared **out of scope** for this version; the `linalg` 3 are all value
+tests gated by one shared faer SVD gap.
 
 `fft` 14 (out of scope) — `test_has_names[fft-*]`:
 `fft, fftfreq, fftn, fftshift, hfft, ifft, ifftn, ifftshift, ihfft, irfft,
 irfftn, rfft, rfftfreq, rfftn`.
 
-`linalg` 8:
-
-| group | nodes | what it checks |
-|---|---|---|
-| `test_has_names[linalg-*]` | 1 | the member still absent from `xp.linalg`: `qr` |
-| `test_signatures.py::test_extension_func_signature[linalg.*]` | 1 | the same member |
-| `test_linalg.py` (value tests) | 6 | `test_{eig, eigvals, matrix_rank, pinv, qr, svd}` |
-
-Every remaining `linalg` node, with its blocker:
+`linalg` 3 — every remaining `linalg` node, with its blocker:
 
 | node | status | blocker |
 |---|---|---|
-| `test_has_names[linalg-qr]` + `..._signature[linalg.qr]` + `test_qr` | absent | `qr` not implemented (R6, **G-004**) |
-| `test_eig`, `test_eigvals` | absent | general (non-symmetric) eigenproblem (R8; not in the 2025.12 `__all__`, but tested at our pin) |
-| `test_matrix_rank`, `test_pinv`, `test_svd` | exposed, batched | faer SVD `NoConvergence` on large-magnitude `f32` (hits 2-D too — **not** a batching defect; `matrix_rank` inherits it via `svdvals`) |
+| `test_matrix_rank`, `test_pinv`, `test_svd` | exposed | faer SVD `NoConvergence` on large-magnitude `f32` (hits 2-D too — **not** a batching defect; `matrix_rank` inherits it via `svdvals`, `pinv` via `svd`) |
 
-So the one absent **member** is `qr`. The residual `matrix_rank` / `pinv` / `svd`
-value failures are all the one faer SVD `NoConvergence` gap, not missing surface.
+**No `linalg` member is absent** from `xp.linalg` — `qr` (the last one) landed
+in R6. The residual `matrix_rank` / `pinv` / `svd` failures are all the one faer
+SVD `NoConvergence` gap, not missing surface.
 
 > **Resolved since this table was written**: `cross` (`#143`), the `trace` shim
-> hookup and `solve` promotion (`#144`), and `matrix_rank` (this wave). `solve`
-> closed with **G-009**; `matrix_rank`'s `has_names` + signature nodes closed,
-> but its value test is now gated by the shared SVD gap above.
+> hookup and `solve` promotion (`#144`), `matrix_rank` (R4), `eig`/`eigvals`
+> (`#146`), and `qr` (`#147`). `solve` closed with **G-009**; `matrix_rank`'s
+> `has_names` + signature nodes closed, but its value test is gated by the
+> shared SVD gap above.
 
 **Skips (33)** — 28 `fft` (out of scope) + 5 `test_remainder` (upstream
 `@pytest.mark.skip("flaky")`). No `linalg` skips remain.
@@ -511,8 +545,8 @@ value failures are all the one faer SVD `NoConvergence` gap, not missing surface
 | `test_linalg.py` (exposed, value-failing) | 13 | `test_{cholesky,det,eigh,eigvalsh,inv,linalg_matmul,linalg_vecdot,matmul,pinv,solve,svd,svdvals,vecdot}` |
 
 At init, the 10 absent members were `cross, matrix_norm, matrix_power,
-matrix_rank, outer, qr, slogdet, tensordot, trace, vector_norm`; all but
-`qr` have since landed.
+matrix_rank, outer, qr, slogdet, tensordot, trace, vector_norm`; all ten have
+since landed.
 
 ## 1. Rust-side inventory — what exists today
 
@@ -547,21 +581,20 @@ Rust linalg lives in **`rstsr-linalg-traits`** (`LinalgAPI` family, one
 | `matrix_rank` | `MatrixRankAPI` (faer) — count of `svdvals > rtol * s_max` | ✓ faer (R4, this wave) | ✓ (gated by the faer SVD gap) |
 | `vector_norm` | `VectorNormAPI` (faer) | ✓ faer (R5) | ✓ |
 | `matrix_norm` | `MatrixNormAPI` (faer) | ✓ faer (R5) | ✓ |
-| `qr` | — | ✗ **G-004** | ✗ |
+| `qr` | `QrAPI` (faer) | ✓ faer (R6, `#147`) | ✓ |
 | `slogdet` | `SLogDetAPI` (faer + blas) | ✓ faer landed in #133 | ✓ |
-| `eig` | — (general, non-symmetric) | ✗ new (tested; not in 2025.12 `__all__`) | ✗ |
-| `eigvals` | — (general, non-symmetric) | ✗ new (ibid.) | ✗ |
+| `eig` | `EigAPI` (faer) | ✓ faer (R8, `#146`) | ✓ |
+| `eigvals` | `EigvalsAPI` (faer) | ✓ faer (R8, `#146`) | ✓ |
 
 Also relevant: `solve_symmetric` exists on blas but not on faer (**G-005**) —
 array-API `solve` maps to `solve_general`, so this is tangential.
 
 ## 2. Rust-side work (register + request; never fix agent-side)
 
-Ordered by failures-per-item. **R1 (the dominant lever) has landed**, along with
-R2, R3, R4 (`outer`, `trace`, `matrix_power`) and **R5 (norms)** — see
-**Progress**. What remains is R4's `cross`/`matrix_rank` (plus the `trace` shim
-hookup), R6 (`qr`), R8 (`eig`/`eigvals`), and the two correctness gaps that gate
-the residual `solve` / `pinv` / `svd` value tests.
+Ordered by failures-per-item. **Every rust-side work item (R1–R8) has landed** —
+`cross`/`trace`/`matrix_rank` (R4), `qr` (R6), `eig`/`eigvals` (R8) included; see
+**Progress**. The only residual `linalg` failures are the three value tests gated
+by the shared faer SVD `NoConvergence` gap (`svd`/`pinv`/`matrix_rank`).
 
 - [x] **R1. Batched (stacked) linalg** — **landed** (branch
       `261011/batched-linalg`, off main `39f83d0`). Every faer linalg entry now
@@ -611,9 +644,10 @@ the residual `solve` / `pinv` / `svd` value tests.
       RESTGroup/rstsr#142): `MatrixNormAPI` / `VectorNormAPI` on faer, sharing
       one `NormOrd` (`None`/`fro`/`nuc`/`inf`/`-inf`/numeric), composing the
       core reductions + the batched `svdvals` — see **Progress**.
-- [ ] **R6. `qr`** (**G-004**): neither `faer_impl` nor `blas_impl` has a QR
-      trait. Needs a `QRAPI` + both device columns (`geqrf`/`orgqr`; faer
-      `qr::no_pivoting`). `test_qr` grades mode (`reduced`/`complete`/`r`).
+- [x] **R6. `qr`** (**G-004**) — **landed** (`#147`): `QrAPI` + `faer_impl/qr.rs`
+      (faer device only, via `MatRef::qr()`), a `QrMode` enum for the `mode`
+      string, and the shim `linalg.qr`. The array-API grades only
+      `reduced`/`complete` (no `'r'`/`'raw'`) — see **Progress**.
 - [x] **R7. `slogdet` on faer** (**G-005**) — **done in #133** (`d7056ba`,
       "array-API linalg extension for rstsr_faer.api with n-dimensional
       slogdet"), already on `main` and so on this branch.
@@ -625,10 +659,11 @@ the residual `solve` / `pinv` / `svd` value tests.
       resolved**; the other half (`solve_symmetric` on blas but not faer)
       still stands — `faer_impl/` has no `solve_symmetric.rs` — but array-API
       `solve` maps to `solve_general`, so it stays tangential.
-- [ ] **R8. `eig` / `eigvals`**: general (non-symmetric) eigenproblem, complex
-      output. Not in the 2025.12 `linalg.__all__`, but `test_linalg.py` carries
-      `test_eig`/`test_eigvals` gated on `min_version("2025.12")` = our pin, so
-      they run and fail. Lowest priority (names not required for the surface).
+- [x] **R8. `eig` / `eigvals`** — **landed** (`#146`): `EigAPI`/`EigvalsAPI` +
+      `faer_impl/{eig,eigvals}.rs` (faer device only), **complex** output for
+      every input. Not in the 2025.12 `linalg.__all__`, but `test_linalg.py`'s
+      `test_eig`/`test_eigvals` (gated on `min_version("2025.12")` = our pin) now
+      pass — see **Progress**.
 
 ## 3. Shim-side work (`crates-interop/rstsr-faer-py`) — done on the branch
 
@@ -648,7 +683,7 @@ Wrapper-only. S1–S4 landed on `261010/faer-py-linalg-init`, merged as `#133`
 - [x] **S5. dtype/stack semantics** — **done**: promotion is wired
       (`matmul`/`vecdot`/`tensordot` route through the `ext_` entries — R2), so
       mixed dtypes work; batching landed rust-side (R1, no shim change).
-      `eig`/`eigvals` complex promotion is moot until R8.
+      `eig`/`eigvals` complex output landed with R8 (`#146`).
 
 ## 4. Ordering
 
@@ -658,12 +693,10 @@ happened. Going forward:
 1. ~~**R1 (batched linalg) first**~~ — **done** (2026-10-11, branch
    `261011/batched-linalg`; +6 nodes, no shim code). The remaining exposed
    value failures are the two genuine gaps, not the stack handling.
-2. Then the remaining members as they land — R4's `cross` / `matrix_rank` (and
-   the `trace` shim hookup), R6 (`qr`), R8 (`eig` / `eigvals`); each is a shim
-   one-liner plus a `_LinalgNamespace` entry (add the name only when its rust
-   entry is real, so a new gap never becomes a fresh failure). R2
-   (mixed-dtype), R3 (`tensordot`), R4 (`outer` / `trace` / `matrix_power`) and
-   R5 (norms) are already done.
+2. ~~Then the remaining members as they land~~ — **done**: R4's `cross` /
+   `matrix_rank` (and the `trace` shim hookup), R6 (`qr`), R8 (`eig` /
+   `eigvals`) have all landed. **Every `linalg` member is now present**; the only
+   residual `linalg` failures are the three SVD-gated value tests.
 3. Re-run per §5 after each landed item.
 
 If instead the namespace should be **held** until the surface is more complete
@@ -739,6 +772,13 @@ FRESH=1 NO_EXPLAIN=1 CHUNKED=1 MODULE=rstsr_faer.api \
   `linalg` failures are exactly the 8 in §0. Re-run after the `MatrixRankRtol`
   enum refactor: **`1327 / 22 / 33` again, the non-passed node set byte-identical**
   (linalg-traits faer tests 58/58).
+- **Recorded (`eig`/`eigvals` `#146`, `qr` `#147`):** `1327 / 22 / 33` →
+  **`1332 / 17 / 33`**, 0 regressions. Flipped: `test_eig`, `test_eigvals`,
+  `test_qr`, `test_has_names[linalg-qr]`,
+  `test_extension_func_signature[linalg.qr]`. The residual `linalg` failures are
+  exactly the 3 in §0 (all faer SVD `NoConvergence`); `linalg`-traits faer tests
+  68/68; fmt/clippy clean. Re-run after the `qr` review fix: unchanged
+  **`1332 / 17 / 33`**.
 
 - [x] **D1. Implement vs. scope-out** — resolved: implement. The shim-side
       init is on the branch; the remaining `linalg` work is rust-side.

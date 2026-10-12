@@ -1,4 +1,5 @@
 # Memory Index
+- [linalg qr + eig/eigvals (R6/R8)](rstsr-linalg-qr-eig-r6r8.md) — the last array-API linalg members; `QrMode` non_exhaustive enum for the `mode` string, faer `MatRef::qr()` + complete-mode identity empty-Q fix; conformance 1327/22/33 → 1332/17/33, faer 68/68.
 - [LAPACKE layer grill closed](rstsr-lapacke-layer-grill.md) — 14 decisions 2026-10-11; execution awaits go; parked: MT-transpose policy, _adv_ trait refactor
 - [Dtype scalar bound](rstsr-dtype-scalar-bound.md) - num::Num is a dispatch discriminator; DTypeScalarAPI marker on rt-where e960119; rollout verdicts per family; ExtReal-bool gap.
 

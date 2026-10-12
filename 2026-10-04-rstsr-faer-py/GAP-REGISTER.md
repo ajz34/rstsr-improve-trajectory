@@ -28,7 +28,7 @@ outcome, issue (filled at review points, opened only on user go).
 | G-001 | sort / argsort | rust-side | D | pending run | known faer-impl gap |
 | G-002 | roll | rust-side | D | pending run | known gap |
 | G-003 | repeat / tile | rust-side | D | pending run | known gap |
-| G-004 | QR (linalg) | rust-side | D | pending run | faer impl lacks QR trait |
+| G-004 | QR (linalg) | rust-side — **FIXED** | D | `#147` | `QrAPI` + `faer_impl/qr.rs` (faer device); shim `linalg.qr` |
 | G-005 | slogdet, solve_symmetric | rust-side | D | pending run | faer impl lacks; BLAS impls have |
 | G-006 | `__pos__` / `__ifloordiv__` / `__ipow__` | rust-side | D | pending run | fulfillment-table D |
 | G-007 | astype / tensor-level dtype cast | rust-side | ? | pending run | no astype/into_dtype API in rstsr 0.9.0; shim casts element-wise via DTypeCastAPI in Rust (lossy semantics ungraded) |
