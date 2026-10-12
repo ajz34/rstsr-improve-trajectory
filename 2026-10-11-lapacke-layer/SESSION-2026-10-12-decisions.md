@@ -95,3 +95,61 @@ verified against code before acting).
   avoid indexer stop-clamping (the F4 failure mode).
 - Part-2 scope unchanged (solve family ipiv + error mapping, syev*,
   getrf/getri/potrf; blas3 untouched; `map_lapack_info` rollout = F7).
+
+## Addendum 2026-10-12 (later) — ADR scope split + revision
+
+Acting on the user's scope review of ADR-0009.
+
+### Scope split
+
+- **ADR-0009 narrowed** to the **LAPACKE translation layer**
+  (`driver_impl/lapack/**` + `lapacke/**`): two-tier file shape, layout
+  branch, translation conventions (`duplicate_item`, `T::Real` signature
+  sharing), the `lapack/`≡`lapacke/` equivalence invariant, workspace
+  protocol + hardening, error-channel sentinels. All input/output/order
+  policy moved out.
+- **New ADR-0010 — BLAS/LAPACK interface layer** (`src/lapack_*/` builders):
+  call-order-from-input, input taxonomy (f-prefer zero-copy / clone /
+  clone-or-consume), output layout (call-order fresh outputs; scipy
+  `overwrite_*`-style reuse), zero-size synthesis, `map_lapack_info` decode,
+  2-D-only.
+- Both rewritten to the charter's Context / Decision / Considered /
+  Consequences; defensive inline prose dropped.
+
+### Negative-`info` numbering → Fortran (reference-LAPACK)
+
+- **Finding**: LAPACKE's `_work` remaps `info<0 → info−1` in *both* branches
+  (its `matrix_layout` is arg 1). Our ColMajor arm passed Fortran info raw
+  while the copied RowMajor ld checks were LAPACKE-numbered (+1) → the two
+  arms disagreed, and `lapack/` diverged from `lapacke/`.
+- **Ruling**: report Fortran indices, so the index is checkable against the
+  Fortran source. Code fix — gesdd RowMajor −6/−9/−11 → −5/−8/−10; gesvd
+  −7/−10/−12 → −6/−9/−11 (4 sites, verified against `SRC/dgesdd.f` /
+  `SRC/dgesvd.f`, whose own branches read `INFO = -5/-8/-10`). Documented as
+  a divergence from `lapacke/` (ADR-0009 §7).
+
+### Bridge threading → undecided
+
+- The drivers call the serial `orderchange_out_*_ix2_cpu_serial` (faithful to
+  LAPACKE's serial `LAPACKE_dge_trans`). Moving to per-device/ambient
+  threading is deferred. Recorded as undecided in ADR-0009; reverses
+  DECISIONS #4's "replace `_cpu_serial`".
+
+### Skill (`lapacke-translation`)
+
+- Sections tagged with their owning ADR; bridge bullet rewritten to
+  "undecided"; §3b reworded to Fortran numbering; thunk skeleton `work`/
+  `rwork` types corrected to `*mut T` / `*mut T::Real`; dangling "Part-2
+  items in ADR-0009" reference removed.
+
+### Side finding — fmt drift
+
+- `cargo +nightly fmt` reflowed two *pre-existing* committed lines (gesdd
+  `lrwork` binding; svd_layout strided chain) in all five vendor copies:
+  HEAD is **not** `cargo fmt --check`-clean under rustfmt 2026-10-06, and CI
+  runs fmt on unpinned nightly. Reflows kept.
+
+### Verification
+
+- fmt `--all -- --check` clean; `clippy -p rstsr-openblas --all-targets
+  -D warnings` clean; 22/22 `tests_driver_impl` pass.
