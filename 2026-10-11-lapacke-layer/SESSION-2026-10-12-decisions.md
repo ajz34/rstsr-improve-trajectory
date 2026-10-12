@@ -149,6 +149,23 @@ Acting on the user's scope review of ADR-0009.
   HEAD is **not** `cargo fmt --check`-clean under rustfmt 2026-10-06, and CI
   runs fmt on unpinned nightly. Reflows kept.
 
+### Order derivation unified on `get_output_order`
+
+- User: the LAPACK interface layer should reuse `util_layout::get_output_order`
+  (the blas3 mechanism) instead of hand-rolled `match (c_prefer, f_prefer)`
+  blocks; the general priority rule = explicit output first-class, then input
+  votes, then device default.
+- Applied to gesvd/gesdd builders:
+  `get_output_order(&[], &[(a.c_prefer(), a.f_prefer())], device.default_order())`.
+- **Tie-break fixed in the helper** (user: ambiguous should prefer
+  `default_order`): the voted slots now count only exactly-one-prefer
+  inputs — both-prefer (size-0, single-row/column) and neither-prefer are
+  neutral and fall to the device default. Previously any c_prefer vote won
+  outright, so a lone `(true, true)` input resolved RowMajor. All three
+  blas3 callers pass `by_all = &[]`, so they are unaffected.
+- blas3 is explicitly out of ADR-0010's scope (its `out=`/trans-flag interface
+  is a different mechanism, though now sharing the same helper).
+
 ### Verification
 
 - fmt `--all -- --check` clean; `clippy -p rstsr-openblas --all-targets
