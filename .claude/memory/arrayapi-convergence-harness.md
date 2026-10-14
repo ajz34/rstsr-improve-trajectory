@@ -22,8 +22,9 @@ canonical whole-suite run:
     cd <scratch> && SUITE_DIR=… TEST_PY=… MODULE=rstsr_faer.api CHUNKED=1 \
       FRESH=1 NO_EXPLAIN=1 bash .claude/skills/rstsr-faer-py-tests/scripts/run.sh
 
-Wheel rebuild is ~2m20s at `CARGO_PROFILE_RELEASE_OPT_LEVEL=0` (dev iterations;
-`CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_BUILD_JOBS=2` for memory). Set
+Wheel rebuild is ~1m at `CARGO_PROFILE_RELEASE_OPT_LEVEL=0` (dev iterations;
+`CARGO_PROFILE_RELEASE_DEBUG=0`; no `CARGO_BUILD_JOBS` cap needed since the shim
+was split into per-domain crates — the largest `rustc` is ~4 GB). Set
 `TMPDIR=$HOME/.cache/tmp-cargo` for all heavy builds. Keep per-wave reports under
 `~/.cache/rstsr-conf-*` for the node-for-node diff: extract each failing test's
 `nodeid` from the chunk JSONs (`tests[].outcome in {failed,error}`) and set-diff
