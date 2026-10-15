@@ -64,9 +64,10 @@ Verification (all on branch `261015/owned-iter`, rstsr @ `e765416`):
 | workspace check + default features | clean |
 
 The UAF pattern stays rejected at compile time, now by borrow checking —
-guarded by a NEW compile_fail doctest on `Tensor::iter`
-(`rt::arange(...).iter()` on a temporary). The view forms keep their
-inner-lifetime semantics (`a.t().iter()` one-liners unchanged).
+same rule as the anchor's compile_fail doctest on `TensorView::iter`
+(`rt::arange(...).view().iter()` on a temporary; the direct form obeys the
+identical borrowck rule). The view forms keep their inner-lifetime
+semantics (`a.t().iter()` one-liners unchanged).
 
 ## Bonus finding: pre-existing UB in the ManuallyDrop path, fixed
 
