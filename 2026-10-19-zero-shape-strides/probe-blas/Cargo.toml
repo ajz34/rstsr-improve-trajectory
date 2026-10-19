@@ -1,0 +1,10 @@
+[package]
+name = "probe-blas"
+version = "0.0.0"
+edition = "2021"
+
+# rstsr checkout is a sibling of rstsr-improve-trajectory in the standard pack layout
+[dependencies]
+rstsr = { path = "../../../rstsr/rstsr", default-features = false, features = ["std", "backtrace", "col_major", "openblas", "linalg", "dynamic_loading"] }
+
+[workspace]

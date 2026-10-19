@@ -1,0 +1,26 @@
+=== case 1 ===
+[issue: static [0,18].f() reversed] shape=[18, 0] stride=[1, 1] ld_col=Some(1) ld_row=Some(1)
+[issue: static [0,18].f() reversed] returned
+ ** On entry to DTRSM  parameter number 11 had an illegal value
+=== case 2 ===
+[static [18,0].f() direct] shape=[18, 0] stride=[1, 18] ld_col=Some(18) ld_row=Some(1)
+[static [18,0].f() direct] returned
+=== case 3 ===
+[dynamic [18,0] RowMajor] shape=[18, 0] stride=[0, 1] ld_col=Some(1) ld_row=Some(0)
+[dynamic [18,0] RowMajor] returned
+ ** On entry to DTRSM  parameter number 11 had an illegal value
+=== case 4 ===
+[f-order [5,18] rows 0..0, transposed] shape=[18, 0] stride=[5, 1] ld_col=Some(1) ld_row=Some(5)
+[f-order [5,18] rows 0..0, transposed] returned
+=== case 5 ===
+[row-major [18,5] cols 0..0] shape=[18, 0] stride=[5, 1] ld_col=Some(1) ld_row=Some(5)
+[row-major [18,5] cols 0..0] returned
+=== case 6 ===
+[owned copy of case 4] shape=[18, 0] stride=[1, 18] ld_col=Some(18) ld_row=Some(1)
+[owned copy of case 4] returned
+=== case 7 ===
+[owned copy of case 5] shape=[18, 0] stride=[1, 18] ld_col=Some(18) ld_row=Some(1)
+[owned copy of case 5] returned
+=== case 8 ===
+solve_general err: Error { inner: InvalidValue("/home/a/rstsr_pack/rstsr/rstsr-blas-traits/src/util/util_error.rs:23: Error::InvalidValue : Lapack Lapack GESV: illegal argument in argument 7 (internal bug, please report)"), backtrace: Some(RSTSRBacktrace(<disabled>)) }
+ ** On entry to  DGESV parameter number  7 had an illegal value

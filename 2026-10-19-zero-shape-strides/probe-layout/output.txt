@@ -1,0 +1,20 @@
+static [0,18].f()       stride [1, 1]
+static [18,0].f()       stride [1, 18]
+static [0,18].c()       stride [18, 1]
+static [18,0].c()       stride [1, 1]
+dynamic vec![0,18].f()  stride [1, 0]
+dynamic vec![18,0].f()  stride [1, 18]
+dynamic vec![0,18].c()  stride [18, 1]
+dynamic vec![18,0].c()  stride [0, 1]
+empty static f [0,18]: shape=[0, 18] stride=[1, 1] c_prefer=true f_prefer=true c_contig=true f_contig=true
+empty static f [18,0]: shape=[18, 0] stride=[1, 18] c_prefer=true f_prefer=true c_contig=true f_contig=true
+empty dynamic default(C) [0,18]: shape=[0, 18] stride=[18, 1] c_prefer=true f_prefer=true c_contig=true f_contig=true
+empty dynamic default(C) [18,0]: shape=[18, 0] stride=[0, 1] c_prefer=true f_prefer=true c_contig=true f_contig=true
+zeros dynamic default(C) [0,18]: shape=[0, 18] stride=[18, 1] c_prefer=true f_prefer=true c_contig=true f_contig=true
+zeros static f [0,18]: shape=[0, 18] stride=[1, 1] c_prefer=true f_prefer=true c_contig=true f_contig=true
+asarray [0,18].f() reverse: shape=[18, 0] stride=[1, 1] ld_col=Some(1) ld_row=Some(1)
+asarray [18,0].f() direct:  shape=[18, 0] stride=[1, 18] ld_col=Some(18) ld_row=Some(1)
+zeros dyn [0,18] reverse:   shape=[18, 0] stride=[1, 18] ld_col=Some(18) ld_row=Some(1)
+zeros dyn [18,0] direct:    shape=[18, 0] stride=[0, 1] ld_col=Some(1) ld_row=Some(0)
+reverse then to_contig_f(F): shape=[18, 0] stride=[1, 18]
+dyn reverse then to_contig_f(F): shape=[18, 0] stride=[1, 18]

@@ -1,0 +1,34 @@
+numpy 2.5.1
+
+-- freshly allocated zero-size arrays (all strides 0) --
+np.empty((0, 18))                          shape=(0, 18)      strides=(0, 0)       C=True F=True
+np.empty((0, 18), order='F')               shape=(0, 18)      strides=(0, 0)       C=True F=True
+np.empty((18, 0))                          shape=(18, 0)      strides=(0, 0)       C=True F=True
+np.empty((18, 0), order='F')               shape=(18, 0)      strides=(0, 0)       C=True F=True
+np.empty((0, 0))                           shape=(0, 0)       strides=(0, 0)       C=True F=True
+np.empty((0, 0), order='F')                shape=(0, 0)       strides=(0, 0)       C=True F=True
+np.empty((0, 3, 4))                        shape=(0, 3, 4)    strides=(0, 0, 0)    C=True F=True
+np.empty((0, 3, 4), order='F')             shape=(0, 3, 4)    strides=(0, 0, 0)    C=True F=True
+np.empty((3, 0, 4))                        shape=(3, 0, 4)    strides=(0, 0, 0)    C=True F=True
+np.empty((3, 0, 4), order='F')             shape=(3, 0, 4)    strides=(0, 0, 0)    C=True F=True
+np.empty((3, 4, 0))                        shape=(3, 4, 0)    strides=(0, 0, 0)    C=True F=True
+np.empty((3, 4, 0), order='F')             shape=(3, 4, 0)    strides=(0, 0, 0)    C=True F=True
+np.empty((0,))                             shape=(0,)         strides=(0,)         C=True F=True
+np.empty((0,), order='F')                  shape=(0,)         strides=(0,)         C=True F=True
+
+-- views keep / derive strides; flags stay both-contiguous --
+a                                          shape=(0, 3)       strides=(0, 0)       C=True F=True
+a.T                                        shape=(3, 0)       strides=(0, 0)       C=True F=True
+a.reshape(3, 0)                            shape=(3, 0)       strides=(8, 8)       C=True F=True
+a.reshape(-1)                              shape=(0,)         strides=(8,)         C=True F=True
+a.ravel()                                  shape=(0,)         strides=(8,)         C=True F=True
+a.squeeze()                                shape=(0, 3)       strides=(0, 0)       C=True F=True
+np.empty((18,5))[:, 0:0]                   shape=(18, 0)      strides=(40, 8)      C=True F=True
+np.empty((5,18), order='F')[0:0, :].T      shape=(18, 0)      strides=(40, 8)      C=True F=True
+
+-- numpy.linalg on empty operands succeeds (no BLAS error) --
+solve(eye(18), zeros((18,0)))              -> shape=(18, 0)
+solve(eye(18), C-view [:, 0:0])            -> shape=(18, 0)
+inv(zeros((0,0)))                          -> shape=(0, 0)
+det(zeros((0,0)))                          -> shape=()
+matmul(eye(18), zeros((18,0)))             -> shape=(18, 0)
