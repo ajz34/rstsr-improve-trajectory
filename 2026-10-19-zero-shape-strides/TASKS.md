@@ -14,7 +14,8 @@ task stays uncommitted until the reviewer's explicit instruction.
   `stride[1] < max(1, shape[0])` → `None`, else the stride. `ld_row`
   symmetric. `None` now means "no usable leading dimension". **No
   `.unwrap()` at BLAS/LAPACK call sites**: the wrapper converts `None` to an
-  `InvalidLayout` shape error through `require_ld` (revised 2026-10-19).
+  `InvalidLayout` shape error through `TensorBase::testify_ld` (revised
+  2026-10-19; the free `require_ld` helper was dropped in favor of the method).
 - **P3b** every BLAS/LAPACK wrapper early-returns the correct empty result,
   after the existing validation and before conversion/ld computation.
 - **P4** zero-size BLAS tests live in a new OpenBLAS-only directory;
@@ -37,9 +38,10 @@ can yield `ld = None` or zero, which unguarded call sites would trip on).
   `lda = max(1, a.nrow())`, `ldb = 1`, `ldc` from the non-empty C, so BLAS
   performs `C := beta*C`. A/B are not dereferenced.
 - `rstsr-blas-traits/src/blas3/syhemm.rs` — `m == 0 || n == 0` → return C.
-- `rstsr-blas-traits/src/util/util_layout.rs` — add `require_ld`, the
+- `rstsr-core/src/tensor/tensor2_impl.rs` — add `testify_ld`, the
   `Option<usize>` → `InvalidLayout` converter used by every BLAS/LAPACK call
-  site (no `.unwrap()`).
+  site (no `.unwrap()`); it superseded the free `require_ld` in
+  `rstsr-blas-traits/src/util/util_layout.rs`, which is removed.
 - New tests: `crates-device/rstsr-openblas/tests/zero_size/` +
   `tests_zero_size.rs` (OpenBLAS-only; not in the shared
   `blas_tests_impl` symlinks).
