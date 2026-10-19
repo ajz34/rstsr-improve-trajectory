@@ -12,7 +12,9 @@ task stays uncommitted until the reviewer's explicit instruction.
   axis is 0, for both `Ix<N>` and `IxD`.
 - **P3a** `ld_col`: `shape[1] <= 1` → `max(1, shape[0])`; otherwise
   `stride[1] < max(1, shape[0])` → `None`, else the stride. `ld_row`
-  symmetric. `None` now means "no usable leading dimension".
+  symmetric. `None` now means "no usable leading dimension". **No
+  `.unwrap()` at BLAS/LAPACK call sites**: the wrapper converts `None` to an
+  `InvalidLayout` shape error through `require_ld` (revised 2026-10-19).
 - **P3b** every BLAS/LAPACK wrapper early-returns the correct empty result,
   after the existing validation and before conversion/ld computation.
 - **P4** zero-size BLAS tests live in a new OpenBLAS-only directory;
@@ -35,6 +37,9 @@ can yield `ld = None` or zero, which unguarded call sites would trip on).
   `lda = max(1, a.nrow())`, `ldb = 1`, `ldc` from the non-empty C, so BLAS
   performs `C := beta*C`. A/B are not dereferenced.
 - `rstsr-blas-traits/src/blas3/syhemm.rs` — `m == 0 || n == 0` → return C.
+- `rstsr-blas-traits/src/util/util_layout.rs` — add `require_ld`, the
+  `Option<usize>` → `InvalidLayout` converter used by every BLAS/LAPACK call
+  site (no `.unwrap()`).
 - New tests: `crates-device/rstsr-openblas/tests/zero_size/` +
   `tests_zero_size.rs` (OpenBLAS-only; not in the shared
   `blas_tests_impl` symlinks).
@@ -54,8 +59,9 @@ no rstsr commit.
 
 **Scope**
 
-- `lapack_solve/gesv.rs`, `sysv.rs` — `n == 0` returns empty `ipiv`/B;
-  `nrhs == 0` still calls the driver (factors A; singular A still errors).
+- `lapack_solve/gesv.rs`, `sysv.rs` — `n == 0` or `nrhs == 0` returns empty
+  `ipiv` and the converted inputs without calling the driver (revised after
+  CI: an empty B at the driver boundary was the failure).
 - `lapack_solve/getrf.rs` (`m == 0 || n == 0`), `getri.rs` (`n == 0`),
   `potrf.rs` (`n == 0`).
 - `lapack_eigh/{syev,syevd,sygv,sygvd}.rs` — `n == 0` returns empty
@@ -66,7 +72,8 @@ no rstsr commit.
 
 **Tests**
 
-- `gesv`/`sysv`: `n == 0`; `nrhs == 0` with non-singular and singular A.
+- `gesv`/`sysv`: `n == 0`; `nrhs == 0` with non-singular and singular A
+  (both are unchanged-input no-ops).
 - `getrf`/`getri` with a zero axis; `potrf` `0×0`; `syev(d)`/`sygv(d)` `0×0`.
 - SVD empty remains covered by `tests/issues/issue_gesvd_empty.rs`.
 
