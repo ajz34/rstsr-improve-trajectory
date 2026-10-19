@@ -81,6 +81,15 @@ no rstsr commit.
 
 **Exit** — targeted tests green; `map_lapack_info` untouched.
 
+**Cause of the CI failure** — the old tests assumed `nrhs == 0` still factors
+A. That holds for netlib `gesv`/`sysv` and for OpenBLAS >= 0.3.32, but
+OpenBLAS's own optimized `dgesv` (not netlib's) returned before `GETRF` when
+`NRHS == 0` up to 0.3.31 (upstream commit `dc8b16c57`, "Move the early exit
+for NRHS=0 after the GETRF call"). The CI image ships 0.3.26, which is why
+only the two `gesv` tests failed there; `sysv` has no optimized OpenBLAS
+driver, so it passed on every version. The current no-op contract is
+deliberately library-independent.
+
 ## T3 — `ld_row` / `ld_col` contract
 
 **Scope**
