@@ -61,9 +61,9 @@ no rstsr commit.
 
 **Scope**
 
-- `lapack_solve/gesv.rs`, `sysv.rs` — `n == 0` or `nrhs == 0` returns empty
-  `ipiv` and the converted inputs without calling the driver (revised after
-  CI: an empty B at the driver boundary was the failure).
+- `lapack_solve/gesv.rs`, `sysv.rs` — `n == 0` returns empty `ipiv`; with
+  `nrhs == 0` the driver still runs (A is factored), fed a scratch B and the
+  smallest legal `ldb` per order.
 - `lapack_solve/getrf.rs` (`m == 0 || n == 0`), `getri.rs` (`n == 0`),
   `potrf.rs` (`n == 0`).
 - `lapack_eigh/{syev,syevd,sygv,sygvd}.rs` — `n == 0` returns empty
@@ -74,8 +74,9 @@ no rstsr commit.
 
 **Tests**
 
-- `gesv`/`sysv`: `n == 0`; `nrhs == 0` with non-singular and singular A
-  (both are unchanged-input no-ops).
+- `gesv`/`sysv`: `n == 0`; `nrhs == 0` factors A and a singular A errors
+  (the `gesv` tests mute themselves on OpenBLAS < 0.3.32, which does not
+  factor).
 - `getrf`/`getri` with a zero axis; `potrf` `0×0`; `syev(d)`/`sygv(d)` `0×0`.
 - SVD empty remains covered by `tests/issues/issue_gesvd_empty.rs`.
 
@@ -88,8 +89,9 @@ OpenBLAS's own optimized `dgesv` (not netlib's) returned before `GETRF` when
 `dc8b16c57`, "Move the early exit for NRHS=0 after the GETRF call"; fixed in
 0.3.32). The CI image ships 0.3.26, which is why
 only the two `gesv` tests failed there; `sysv` has no optimized OpenBLAS
-driver, so it passed on every version. The current no-op contract is
-deliberately library-independent.
+driver, so it passed on every version. rstsr follows the reference; the
+`gesv` tests are muted on the affected versions rather than changing the
+contract.
 
 ## T3 — `ld_row` / `ld_col` contract
 
