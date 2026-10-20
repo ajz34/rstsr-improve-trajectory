@@ -1,4 +1,5 @@
 # Memory Index
+- [test-infra grill closed](test-infra-grill.md) — 2026-10-20 D1-D10: rules/testing.md router, 4-tier CI matrix, test-* skill renames, glossary→rstsr-agents, B1-B5 batches on 261020/test-infra; execution awaits go
 - [owned-iter review](rstsr-owned-iter-review.md) — 2026-10-15: view-only iteration (PR #103) reviewed; `&Tensor` was never unsound (only the transmute was); direct owned iter added on `261015/owned-iter`; miri caught pre-existing `as_ptr` provenance UB in `asarray(&mut [T])` (fixed by `as_mut_ptr`).
 - [linalg qr + eig/eigvals (R6/R8)](rstsr-linalg-qr-eig-r6r8.md) — the last array-API linalg members; `QrMode` non_exhaustive enum for the `mode` string, faer `MatRef::qr()` + complete-mode identity empty-Q fix; conformance 1327/22/33 → 1332/17/33, faer 68/68.
 - [LAPACKE layer grill closed](rstsr-lapacke-layer-grill.md) — 14 decisions 2026-10-11; execution awaits go; parked: MT-transpose policy, _adv_ trait refactor
