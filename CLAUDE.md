@@ -100,8 +100,9 @@ Agent memory lives **inside this repository**, at `.claude/memory/`:
 - **Mandatory**: follow the `git-commit-coauthor` skill
   (`.claude/skills/git-commit-coauthor/`) for commit trailers. Subject lines
   are free-form; suggested shape `<task-dir>: <summary>`.
-- Commit `Cargo.lock` (benchmark reproducibility); `.gitignore` already
-  handles this.
+- Do **not** commit `Cargo.lock` (it churns after `cargo update`/IDE
+  activity); `.gitignore` ignores it at every depth. Local lockfiles remain
+  in place for benchmark reproducibility.
 - **Large files**: check for large files automatically before committing, and
   handle them without asking — add a directory-local `.gitignore` for bulky
   generated content (e.g. `reports/.gitignore`) instead of committing it.
