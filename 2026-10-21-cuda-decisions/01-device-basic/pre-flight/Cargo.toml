@@ -1,0 +1,13 @@
+[package]
+name = "cuda-preflight"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+cudarc = { version = "0.19", default-features = false, features = [
+    "std",
+    "driver",
+    "cuda-version-from-build-system",
+    "dynamic-loading",
+] }
