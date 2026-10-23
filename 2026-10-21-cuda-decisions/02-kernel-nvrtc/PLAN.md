@@ -112,4 +112,80 @@ follows independently.
 
 ## Status log
 
-(empty — implementation not started)
+### 2026-10-23 — B1–B7 IMPLEMENTED, tests green, perf gate met (uncommitted on `261021/cuda`)
+
+All batches done in one pass on branch `261021/cuda` (working tree only;
+**no commit**, per owner instruction). Tests: `test_device_basic` 11/11 +
+`test_kernels` 9/9 green; clippy clean; rstsr-core untouched (lib tests
+198 pass).
+
+Deviations from plan:
+- **Marshaling architecture changed mid-implementation**: layout
+  shape/stride arrays are uploaded to a per-launch **device scratch**
+  buffer (tiny blocking H2D) and passed as device pointers — the first
+  cut passed packed host bytes as `const usz*` args, which is
+  meaningless to the kernel. Elementwise kernels decompose the linear
+  index by the **output** shape and scale by operand strides (stride 0 =
+  broadcast axis) — the input-shape decomposition collapsed on broadcast
+  operands (found by the `(4,1)+(1,8)` test, 9j-mod-32 signature).
+- **Kernel identity bug class avoided by memoizing keys on a source
+  hash** (make_key): the first memo keyed on the kernel NAME, which is
+  shared across dtype specializations — would have returned the wrong
+  compiled kernel for a second dtype.
+- `full_impl` (AnyAPI) routes through the fill kernel via a TypeId
+  byte-erased dispatch (`fill_bytes_erased`); the geometric-doubling
+  naive path remains for non-CudaDType T.
+- `arange` length = `ceil((end-start)/step)` in f64 (the first cut
+  looped scalar additions: 200k-iter arange cost 82 µs host-side).
+- copy/gather kernels copy in dtype-width words (per-byte loop was 7×
+  on `to_contig`).
+- `same_device` relaxation (D8) landed; stream clause dropped; test
+  updated to assert same-ordinal/different-stream = same-device.
+- `sequence`/`linspace` made `pub` (bench access); formatting gather
+  routes through the batched kernel (`gather_to_host`, one D2H sync).
+- Dead code: `KernelScratch`'s blocking-upload sync removed (async
+  upload, same-stream ordering); debug shims/benches (bench_parts)
+  added then removed; `bench_elementwise` kept as the perf gate.
+
+Bench (RTX 5070 Laptop, 200 iters, 30 warmup; `conda run -n ruaa-dev
+python bench_cupy.py` for the cupy column):
+
+| scenario | rstsr | cupy | ratio |
+|---|---|---|---|
+| fill f64 16 MiB | 0.020 ms | 0.013 ms | 1.5× |
+| add f64 contig 16 MiB | 0.110 ms | 0.118 ms | 0.93× |
+| add f64 strided-B | 0.041 ms | 0.037 ms | 1.1× |
+| sin f64 16 MiB | 0.224 ms | 0.225 ms | 1.00× |
+| to_contig(T) 4 MiB | 0.054 ms | 0.027 ms | 2.0× |
+| arange f64 2e5 | 0.007 ms | 0.005 ms | 1.4× |
+
+All within the 2× gate; math kernels at parity (sin 1.00×, add 0.93×).
+Launch-path costs decomposed (bench_parts, since removed): alloc 0.6 µs,
+key+lookup 0.4 µs, enqueue 3 µs — the gaps were host-side algorithmics
+(arange loop, per-byte copy, per-call key rebuild), now fixed.
+
+### 2026-10-23 — pre-flight P1–P5 PASSED (`pre-flight/`)
+
+- **P1**: NVRTC accepts `--gpu-architecture=compute_120` (first
+  candidate; not even needed to try `sm_120`); `--std=c++17` accepted.
+  Driver 595.91.07, CUDA toolkit 13.2 via cuda-version-from-build-system.
+- **P2 latency**: cold NVRTC compile ≈ 11.5 ms (2-kernel program);
+  module load + fn lookup ≈ 5.4 ms; warm compile+load (same source) ≈
+  5.4 ms. First-use cost per specialization is in the ~17 ms class —
+  fine for lazy per-use compilation; disk cache still worthwhile for
+  process restarts.
+- **P3 marshal**: `&CudaSlice<u8>` + `u64` + `[u8; 4]` through
+  `launch_builder` — no cudarc dtype trait needed (D2 confirmed
+  empirically); fill and f32→f64 cast through byte buffers verified by
+  read-back.
+- **P4 streams**: `result::event::create/record` +
+  `stream::wait_event` (`CU_EVENT_WAIT_DEFAULT`) orders a write on the
+  default stream before a read on a second non-blocking stream — the
+  D8 ordering recipe works.
+- **P5 disk cache**: fnv1a key over (source|arch|options|payload
+  format v1) → `~/.cache/rstsr/cuda/k_<hash>.ptx` round-trips.
+
+Notes for B1: `CudaModule` does not retain PTX text — disk cache must
+store the source we generate (or recompile from source on miss; text
+storage is the cheap correct shape). Event destroy/record/wait are
+`unsafe` fns (wrap in the helper).
