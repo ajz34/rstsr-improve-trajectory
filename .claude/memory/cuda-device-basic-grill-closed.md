@@ -44,4 +44,8 @@ Final design (D1-D8):
 - Deferred with intent: NVRTC round, GEMM/math-mode consumption, transfer
   round (events/pinned/async_h2d), guard sugar, tests, graphs/DLPack/NCCL.
 
-Next grills likely: `02-kernel-nvrtc`, `02-allocator-framework`, tests.
+Follow-ups: `02-kernel-nvrtc` CLOSED 2026-10-23 (see
+[[cuda-kernel-nvrtc-grill]] — it also revised this round's strict
+stream comparison: `same_device` is now ordinal-only). Likely next:
+`02-allocator-framework` (device-basic B6/`CudaAlloc` was actually
+never implemented despite the status log), tests/parity-harness round.

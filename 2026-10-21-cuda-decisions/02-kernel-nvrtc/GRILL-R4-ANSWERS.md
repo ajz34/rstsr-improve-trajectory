@@ -1,0 +1,1 @@
+R4-Q1: I may think that we need both runtime and specialization. We persue efficiency on elementwise kernels, and maybe we can specialize on some common layouts/dimensionalities with efficiency implementation, but leave other cases to also supported.
