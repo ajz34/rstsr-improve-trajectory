@@ -76,6 +76,10 @@ ledger item 6; compile-blocked until then).
 
 ## Naive-path register (replaced by the kernel round — do not fossilize)
 
+Code convention: every registered site carries a `// DEFER:` comment
+(grep-able token) naming its replacement; the interim paths are correct
+but debug-grade (synchronizing), not benchmarkable.
+
 | Path | Interim | Replacement |
 |---|---|---|
 | `full`/`ones`/`from_cpu_vec`/`arange`/`linspace` | host-generate + blocking H2D | device fill/sequence kernels |
@@ -112,3 +116,42 @@ upstream core proposals (`get_index_f`, R3/R5).
   pool/handles (test 1 covers indirectly).
 - `get_index` sync cost on formatting interim (~µs × visible elements) —
   acceptable for printing; measured in B7 tests.
+
+---
+
+## Status log
+
+### 2026-10-22 — B1–B9 implemented, crate-local tests green (11/11)
+
+Committed as `cdadd12` on branch `261021/cuda` (single crate commit; no
+PR yet). `cargo test -p rstsr-cuda --test test_device_basic`: 11 passed.
+Clippy clean (the workspace dependency entry is deferred to the
+facade-wiring follow-up, so no unused-dependency warning). rstsr-core
+untouched and green.
+
+Deviation from plan notes:
+- Branch name `261021/cuda` (owner's instruction) instead of
+  `261022/cuda-device-basic` above.
+- Tests 5/6 use a `host_vec1` helper that gathers by layout
+  (`to_raw_f` → D2H) rather than whole-buffer D2H — the view cases
+  (`i(1)` rows) exposed that a raw dump returns the full storage.
+- Plan test 1's cross-ordinal and test 9's negative-stride cases are not
+  in the suite yet (single-GPU machine / `get_index` on strided views is
+  covered indirectly through `scalar_access`); left for the multi-GPU
+  machine.
+- Formatting interim staged a full-size host vec via `set_len` (UB flag by
+  clippy `uninit_vec`); final shape: fetch only touched elements, seed the
+  full-size vec with one fetched element, print via the original layout
+  through the shared walker (emits `...` itself).
+- Assign cast bound aligned with the CPU device: dropped a locally-invented
+  `IntoCast` (which had extra f16/bf16->f32/f64 pairs the CPU device does
+  not accept) in favor of `DTypeCastAPI<TC>` — CUDA and CPU `OpAssignAPI`
+  now accept exactly the same dtype pairs.
+- All naive-path sites marked `// DEFER:` per owner convention (2026-10-22).
+- Review polish before commit: per-dtype formatting impls use
+  `duplicate_item` instead of `macro_rules`; contiguity checks reuse
+  `Layout::c_contig`/`f_contig` (same-order conjunction in the assign fast
+  path); dropped the redundant `rebuild_layout` (construction validates via
+  `TensorAny::new_f`); unused device parameters removed from transfer
+  helpers; fallible names follow the `_f` suffix; error mapping renamed to
+  `map_driver_result`; decision-ID references removed from code comments.
