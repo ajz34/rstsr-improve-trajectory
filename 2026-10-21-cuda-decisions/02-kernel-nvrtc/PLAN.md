@@ -112,6 +112,43 @@ follows independently.
 
 ## Status log
 
+### 2026-10-23 — DeviceFaer <-> DeviceCuda conversions (faer_as_default interop)
+
+`test_kernels.rs` used `rt::asarray(vec![...])` (landing on the
+`DeviceCpu` alias) + `.to_device(&d)`; with `faer_as_default` unified
+in (workspace default, what rust-analyzer builds), that alias is
+`DeviceFaer` and rstsr-cuda only implemented `DeviceChangeAPI` against
+`DeviceCpuSerial` — E0277. Fix follows the BLAS device crates'
+reference shape:
+
+- rstsr-cuda gains cargo feature `faer = ["rstsr-core/faer"]`
+  (default off; device crates carry no default-on CPU flavor).
+- `conversion.rs::faer_impls` (cfg `faer`): `DeviceFaer ->
+  DeviceCuda` and `DeviceCuda -> DeviceFaer` `DeviceChangeAPI` impls
+  (copy semantics; `into_device` delegates to `change_device`;
+  CPU-side repr is `DataOwned<Vec<T>>`, GPU-side
+  `DataOwned<CudaBuffer<T>>`).
+- **Test-side hardening (second half of the fix)**: under workspace
+  feature unification `rstsr-core/faer_as_default` is always on (the
+  facade's default), but `rstsr-cuda/faer` stays off — so the alias
+  `DeviceCpu` resolves to `DeviceFaer` while the conversion impls are
+  cfg'd out. Test/bench bodies that must compile in both worlds pin
+  the concrete device (`rt::asarray((v, &DeviceCpuSerial::default
+  ()))`); the BLAS device crates survive unification the same way
+  (their bodies never touch the alias).
+- New test `faer_to_cuda_and_back` (cfg `faer`): round-trip + add vs
+  the DeviceFaer reference, plus `into_device`.
+- Warning sweep: removed the dead `max_min_exprs`, `h2d_into`/
+  `h2d_into_uninit`, `KernelScratch.len`, `TensorArg::scratch_bytes`,
+  duplicate import, unused `CudaFunction` import; clippy 0 warnings
+  in both `-F faer` and default configs.
+
+Verified: `cargo test -p rstsr-cuda` (default, DeviceCpuSerial) 11+9
+green; `-F faer -F rstsr-core/faer_as_default` (the failing config)
+11+10 green; `cargo check --workspace --tests` clean (the
+rust-analyzer scenario); clippy clean; rstsr-core lib 198 pass
+untouched.
+
 ### 2026-10-23 — B1–B7 IMPLEMENTED, tests green, perf gate met (uncommitted on `261021/cuda`)
 
 All batches done in one pass on branch `261021/cuda` (working tree only;
