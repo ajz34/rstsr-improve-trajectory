@@ -226,3 +226,33 @@ Notes for B1: `CudaModule` does not retain PTX text — disk cache must
 store the source we generate (or recompile from source on miss; text
 storage is the cheap correct shape). Event destroy/record/wait are
 `unsafe` fns (wrap in the helper).
+
+### 2026-10-23 — review round 2 (`ee70fe4`) + fixes `b44cbef`
+
+`/code-review high` on the branch through `ee70fe4` produced 8 findings;
+all were re-evaluated against the code and the consequential ones
+reproduced on the GPU before acceptance. Result: 4 confirmed bugs, 1
+confirmed race, 1 confirmed perf issue, 1 latent API issue, 2 partial
+(maintainability/perf, left open). The re-evaluation also found a missed
+bug: **equal-size cross-dtype assigns were raw byte copies**
+(`i64→f64` gave denormals), because the memcpy gate checked element size
+instead of dtype identity.
+
+Fixed in `b44cbef` on `261023/cuda-review-fixes` (branched from
+`ee70fe4`): per-side shape/order decomposition in the copy/cast kernels
+(rank/shape-changing assigns, OOB reads); dtype+shape+order gating for
+the linear copy (also fixes the equal-size cast bug); `order_input` +
+new `order_output` for write targets (host reads synchronize only the
+allocation stream) and for `dtod_full`'s source; `T: Copy` POD gating
+across storage/creation/conversion/transfer and `CudaDType: Copy`
+(closes the non-POD `String` UB); `to_device` copies without the extra
+clone and relabels on the same ordinal; `get_index_ptr`'s
+backend-dependent contract documented in `rstsr-core`.
+
+Verification: `test_kernels` 18, `test_device_basic` 13, lib 3, clippy
+clean, `--features faer` clean; five new regressions (reshape of strided
+views row/col-major, equal-size casts, re-tagged-stream in-place).
+
+Full write-up: `REVIEW-ee70fe4.md`. Open: the format-walker mirror (#6)
+and the launch-path key rebuild (#7); the perf gate has **not** been
+re-run on the fixed tree yet.
