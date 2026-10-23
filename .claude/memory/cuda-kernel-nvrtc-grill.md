@@ -72,4 +72,25 @@ Ride-along ledger: dtype-traits `defaults = ["half"]` misspelled key
 (empty real defaults); `src/tmp.rs` untracked cargo-expand artifact
 (owner to remove); half↔float cast PR sequencing.
 
-Implementation awaits owner go (PLAN.md B1–B7, pre-flight P1–P5 first).
+IMPLEMENTED 2026-10-23 (B1–B7, working tree on `261021/cuda`, no commit;
+grill record commit `86d5767`). Tests 11/11 + 9/9; clippy clean; core
+untouched. Bench vs cupy (RTX 5070): fill 1.5×, add 0.93×, strided-add
+1.1×, sin 1.00×, to_contig 2.0×, arange 1.4× — all within the 2× gate.
+
+Impl lessons (durable):
+- T0 kernels decompose the linear index by the OUTPUT shape and scale by
+  operand strides (stride-0 = broadcast). Input-shape decomposition
+  collapses on broadcast operands.
+- Kernel args: layout shape/stride arrays must live in DEVICE scratch
+  (per-launch tiny upload + split pointers); host-packed bytes as
+  `const usz*` are meaningless.
+- Kernel-key memo MUST hash the source, never the kernel name (names are
+  shared across dtype specializations → wrong-kernel hits).
+- Host-side algorithmics dominate single-op latency: arange must compute
+  length as ceil((end-start)/step), not a scalar-add loop (82 µs → 5.7 µs);
+  byte copies must be dtype-width word copies (to_contig 7× → 2×); kernel
+  keys must not rebuild Strings per call.
+- Launch-path costs (measured): alloc 0.6 µs, key+lookup 0.4 µs, enqueue
+  3 µs — anything slower is host algorithmics, not CUDA overhead.
+- FORMAT_VERSION bump invalidates the on-disk PTX cache (needed twice
+  when generator semantics changed; stale entries compile old sources).
