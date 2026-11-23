@@ -41,14 +41,19 @@ repo — rstsr gets code only, no benches); `GEMV_` + `GEMVDriverAPI` +
 `GEMV_` is order-free and normalises the matrix with
 `flip_trans(ColMajor, …, hermi=false)` (no copy for c/f-prefer, conjugate copy
 only for `C` on c-prefer complex); vectors are never flipped, strides are passed;
-the device path keeps its own matrix conversion and **guards** (falls back to the
-old gemm path) when a vector stride is ≤ 0; the `(2,2,2)` size-1 reduction uses
-`Layout::dim_eliminate` (validated, returns `Ix1`); batched gemv shapes always
-go rayon-over-batch with one BLAS thread per task (`n_task == 1` keeps BLAS
-threading) and this lives in the device matmul code, not in `GEMV_`; all five
-device `matmul.rs` copies are patched (drift today = one extra openblas test +
-one comment); `DeviceGEMVAPI` stays dead; two patches (blas-traits API first,
-then the dispatch); no CHANGELOG edit until a version bump.
+the device path keeps its own matrix conversion and **copies** non-unit-stride
+vectors (D21/D28: copy, never guard); the `(2,2,2)` size-1 reduction uses
+`Layout::dim_eliminate` (validated, returns `Ix1`); the gemv wrapper is a local
+`gemv_blas_no_conj_*` in each device `matmul_impl.rs` (five copies, D20 /
+R3-Q1 = a) routed through `B::driver_gemv`, not a shared helper in
+`rstsr-blas-traits` (that was the rejected option c); batch threading keys off
+the inner shape — vector-shaped inner products always iterate in the main
+thread with multi-threaded BLAS (D29, scoped 2026-11-23), real matrix products
+keep `n_task >= 4 * nthreads` rayon-outer with `with_num_threads(1)` — and this
+lives in the device matmul code, not in `GEMV_` (D18); all five device
+`matmul.rs` copies are patched (drift today = one extra openblas test + one
+comment); `DeviceGEMVAPI` stays dead; two patches (blas-traits API first, then
+the dispatch); no CHANGELOG edit until a version bump.
 
 **R4/R5.** Vector policy final: copy any non-contiguous vector, no copy when
 contiguous; `driver_gemv` has no `incx`/`incy` (minimal surface; scipy's
@@ -88,6 +93,12 @@ still loses 1.4–2.4× at 1024²/4096²/65536×64 and 1.69× (11 ms) at
 rewrites); the batched rule-7 GEMM datum is 20.4 ms — D29's universal policy
 must not exceed it. Small cells move ±10–20 % between passes; the anchors moved
 up to 133 % in a pass that overlapped a compile, so P3 needs a quiet machine.
+
+**Record lesson (2026-11-23).** Two decisions were reconstructed wrongly from
+the round files: D9's "one shared implementation" was later narrowed by D20
+(the *driver* is shared, the normalisation is five copies), and D11's
+"rayon-over-batch" wording is superseded by D29 + its 2026-11-23 scope note.
+Read the **later** round and the D-item, not the earliest option list.
 
 **Build gotchas recorded:** the sandbox makes `~/.cargo` read-only, so builds
 need a writable `CARGO_HOME` (this session used

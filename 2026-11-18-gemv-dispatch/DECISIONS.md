@@ -55,6 +55,11 @@ file has been edited yet.
   for a non-unit-stride `y`.
 - **D9 (R1/Q9 = a)** One shared implementation of the layout/ld/vector
   normalisation, not five.
+  *Superseded in part by **D20** (R3/Q1 = a): only `driver_gemv` is shared;
+  the slice-level `ld`/vector normalisation is a per-device
+  `gemv_blas_no_conj_*` in each `matmul_impl.rs`, because it needs the device's
+  own `assign_cpu_rayon` staging and `Layout` → `FlagTrans` decisions. Putting
+  the wrapper in `rstsr-blas-traits` was R3/Q1 option (c), rejected.*
 
 ## Device dispatch (P2)
 
@@ -73,6 +78,11 @@ file has been edited yet.
   `GEMV_`.
 - **D7 (R3/Q4 = a)** Keep the drift; patch all five `matmul.rs` copies.
 - **D12** `DeviceGEMVAPI` stays dead (historical; may be removed later).
+- **Known divergence (file, do not fix in patch-2)** `gemm_blas_no_conj_*` and
+  `syrk_blas_no_conj_*` zero-fill the output at `k == 0`
+  (`matmul_impl.rs:79` / `:332`), ignoring `beta`, while `matmul_from`
+  documents `c = beta*c + alpha*(a@b)`. The gemv wrapper (and `GEMV_`) does
+  `beta*y`; the gemm side is a separate issue with its own test.
 - **D8 (R2/Q8)** No `CHANGELOG.md` edit now — changelog entries happen at
   version bump.
 
@@ -135,6 +145,15 @@ change if a future caller wants zero-copy strided vectors.
   generic batch loop, so batched GEMM shapes are affected too and must be
   re-measured in P3 (a batched rule-7 cell is added to the P0 harness as the
   before/after datum).
+
+  *Scope narrowed by the maintainer 2026-11-23.* Batch threading keys off the
+  **inner** matmul shape. Vector-shaped inner product (`m == 1` or `n == 1`,
+  i.e. it becomes `gemv`): always iterate batches in the main thread with
+  `with_num_threads(nthreads, …)`, for every `n_task` — gemv is memory-bound
+  and rayon-over-batch would fragment the cache. Real matrix product: keep the
+  existing `n_task >= 4 * nthreads` rule (rayon outer,
+  `with_num_threads(1, …)`) unchanged. Batched GEMM therefore keeps its current
+  threading, and the rule-7 20.41 ms datum is no longer a risk for patch-2.
 - **Q3 = okay** → patch-1 implemented on branch `261123/blas2-gemv` (see below).
 
 ## Patch-1 state (2026-11-23, branch `261123/blas2-gemv`, commits `3c3999d`
