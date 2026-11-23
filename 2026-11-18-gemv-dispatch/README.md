@@ -1,4 +1,4 @@
-# 2026-11-18 — BLAS-2 GEMV dispatch for matmul (P0, baseline)
+# 2026-11-18 — BLAS-2 GEMV dispatch for matmul (P0 baseline, P3 after)
 
 Grill: `GRILL-INIT-PROMPT.md`, `GRILL-R1..R5-QUESTIONS.md`; closed decisions in
 [`DECISIONS.md`](DECISIONS.md). Grill facts were gathered at `d5c9b86`
@@ -146,6 +146,72 @@ The BLAS device path needs the BLAS-2 dispatch (P1/P2): measured headroom is
 cell. These numbers are the P2 acceptance target (D7: within ~10 % of the raw
 `cblas_?gemv` on the same cell; no regression elsewhere). Faer's gap is smaller
 and concentrated in the transposed orientation — scope decision in R5.
+
+## P3 — after the dispatch (2026-11-23)
+
+Measured tree: rstsr branch `261123/blas2-gemv` at `6599375` — patch-1
+(`3c3999d`, `718864a`), patch-2 plain dispatch (`c93fdde`), and the follow-up
+commit that makes the mixed-dtype fallback rayon-parallel (`6599375`).
+
+The baseline of record is **not** `run4`: those absolute numbers are no longer
+reproducible on this machine. The batched-gemm cell, re-measured three times at
+`062c970` in this session, gives 24.6–26.2 ms against `run4`'s 20.41 ms, so the
+A/B below uses an adjacent pair of full passes taken minutes apart on a quiet
+machine (`results/bench-run5-old.txt` = `062c970`, `results/bench-run6.txt` =
+`6599375`); a second post-patch pass (`results/bench-run5.txt`) agrees with the
+latter. Full table: `results/tables-p3.md`
+(`python3 results/make_p3_table.py`).
+
+| cell | orientation | before (ms) | before/anchor | after (ms) | after/anchor | speedup |
+|---|---|---|---|---|---|---|
+| 1024² | matvec | 0.0690 | 9.42× | 0.0078 | 1.07× | 8.8× |
+| 1024² | vecmat | 0.1162 | 1.78× | 0.0259 | 0.40× | 4.5× |
+| 4096² | matvec | 1.0902 | 1.50× | 0.7277 | 1.00× | 1.5× |
+| 4096² | vecmat | 1.7993 | 1.81× | 1.0510 | 0.96× | 1.7× |
+| 8192² | matvec | 10.329 | 1.26× | 8.176 | 1.00× | 1.3× |
+| 8192² | vecmat | 12.673 | 1.46× | 8.581 | 1.00× | 1.5× |
+| 65536×64 | matvec | 0.0571 | 1.24× | 0.0463 | 1.01× | 1.2× |
+| 65536×64 | vecmat | 0.8946 | 2.96× | 0.7225 | 1.00× | 1.2× |
+| 256×452676 | matvec | 17.519 | 1.18× | 14.825 | 1.00× | 1.2× |
+| 256×452676 | vecmat | 55.100 | 3.45× | 15.762 | 1.00× | 3.5× |
+| 452676×256 | matvec | 17.880 | 1.04× | 17.124 | 1.00× | 1.0× |
+| 452676×256 | vecmat | 26.765 | 1.22× | 21.486 | 0.92× | 1.2× |
+
+f32 spot (`1024² matvec`): 65.41 µs → 5.07 µs (14.2× → 1.13× of the anchor,
+12.9× faster). All twelve OpenBLAS f64 cells are now at **0.92–1.07×** of the
+raw `cblas_dgemv` anchor, i.e. within the P2 acceptance target (≈10 %).
+
+Extras (same passes):
+
+| extra | before (ms) | after (ms) | speedup |
+|---|---|---|---|
+| `matmul_from` with `beta != 0`, 1024² | 0.068 | 0.007 | 9.50× |
+| batched gemv `(64,1024,1024) @ x` | 11.084 | 8.356 | 1.33× |
+| batched gemm `(64,512,512) @ (64,512,512)` | 22.323 | 22.319 | 1.00× |
+
+Faer is unchanged (0.9–1.1× pass-to-pass, i.e. noise): out of scope, kept as the
+control that the BLAS patch does not perturb the other device.
+
+## Observations (P3)
+
+1. **The 39 ms/call cell is gone**: `256×452676 vecmat` 55.10 → 15.76 ms, at the
+   anchor's 1.00×. `1024² matvec` 8.8× faster, `f32` 12.9×.
+2. **Sub-1.0 ratios are real, not measurement noise.** rstsr normalises the
+   matrix so the BLAS call traverses it contiguously (`c`-prefer becomes a
+   transposed view with the flag flipped), while the anchor keeps the strided
+   orientation of the same buffer; on `vecmat` cells that makes rstsr *faster*
+   than the anchor (0.40× at 1024², 0.92× at 452676×256).
+3. **No regression elsewhere**: batched gemm is bit-identical in time
+   (22.32 vs 22.32 ms), and the batched vector cell gains 1.33× from the
+   main-thread/multi-threaded-BLAS rule. `run4`'s 20.41 ms batched datum is a
+   machine-state artifact, not a code effect (see above).
+
+## P3 conclusion
+
+The dispatch meets its acceptance target on every measured OpenBLAS cell, and
+Faer/other dtypes are untouched. Remaining, recorded in `DECISIONS.md`: the
+gemm/syrk `k == 0` zero-fill divergence from `matmul_from`'s `beta * c`
+contract, and any decision to port the same dispatch to `DeviceFaer`.
 
 ## Reproducing
 

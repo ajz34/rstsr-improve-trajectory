@@ -3,3 +3,11 @@ rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
 cargo: cargo 1.100.0 (3acc79c0c 2026-11-05)
 rstsr: 062c970 (main)
 numpy: 2.5.4
+
+== P3 re-measurement (2026-11-23)
+date: 2026-11-23T15:23:46+08:00
+rstsr before: 062c970 (main, v0.10.4)
+rstsr after: 6599375 (261123/blas2-gemv; 3c3999d + 718864a + c93fdde + 6599375)
+passes: results/bench-run5-old.txt (062c970), results/bench-run4.txt (P0, earlier session), results/bench-run5.txt + results/bench-run6.txt (6599375)
+load at start: 4.29 11.46 10.81 1/1329 5
+note: run4's absolute values drifted (batched-gemm 20.41 ms vs 24.6-26.2 ms at 062c970 today), so the A/B uses the adjacent run5-old / run6 pair.

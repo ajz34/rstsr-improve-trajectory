@@ -1,5 +1,5 @@
 diff --git a/crates-device/rstsr-aocl/src/matmul.rs b/crates-device/rstsr-aocl/src/matmul.rs
-index b77e201..bbbee49 100644
+index b77e201..bf565bb 100644
 --- a/crates-device/rstsr-aocl/src/matmul.rs
 +++ b/crates-device/rstsr-aocl/src/matmul.rs
 @@ -30,6 +30,7 @@ where
@@ -10,7 +10,7 @@ index b77e201..bbbee49 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // check if syrk could be applicable
-@@ -77,6 +78,91 @@ where
+@@ -77,6 +78,93 @@ where
      return gemm_ix2_naive_cpu_rayon(c_slice, lc, a_slice, la, b_slice, lb, alpha, beta, pool);
  }
  
@@ -55,10 +55,12 @@ index b77e201..bbbee49 100644
 +    impl_gemv_dispatch!(Complex<f64>, gemv_blas_no_conj_c64);
 +
 +    // not able to be accelarated by blas_no_conj (mixed dtypes)
-+    // fallback to naive implementation
++    // fallback to rayon naive gemm, with vector operands promoted
++    let lc2 = &lc.dim_insert(1)?;
++    let lb2 = &lb.dim_insert(1)?;
 +    match transa {
-+        FlagTrans::N => gemv_naive_cpu_serial(c, lc, a, la, b, lb, alpha, beta),
-+        FlagTrans::T => gevm_naive_cpu_serial(c, lc, b, lb, a, la, alpha, beta),
++        FlagTrans::N => gemm_ix2_naive_cpu_rayon(c, lc2, a, la, b, lb2, alpha, beta, pool),
++        FlagTrans::T => gemm_ix2_naive_cpu_rayon(c, lc2, a, &la.reverse_axes(), b, lb2, alpha, beta, pool),
 +        _ => rstsr_invalid!(transa),
 +    }
 +}
@@ -102,7 +104,7 @@ index b77e201..bbbee49 100644
  #[allow(clippy::too_many_arguments)]
  pub fn matmul_row_major_blas<TA, TB, TC, DA, DB, DC>(
      c: &mut [TC],
-@@ -97,6 +183,7 @@ where
+@@ -97,6 +185,7 @@ where
      DB: DimAPI,
      DC: DimAPI,
      TA: Mul<TB, Output = TC>,
@@ -110,7 +112,7 @@ index b77e201..bbbee49 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // NOTE: this only works for row-major layout
-@@ -124,13 +211,31 @@ where
+@@ -124,13 +213,31 @@ where
              let c_num = &mut c[lc.offset()];
              return with_num_threads(nthreads, || inner_dot_naive_cpu_rayon(c_num, a, la, b, lb, alpha, beta, pool));
          },
@@ -144,7 +146,7 @@ index b77e201..bbbee49 100644
              });
          },
          _ => (),
-@@ -154,7 +259,11 @@ where
+@@ -154,7 +261,11 @@ where
      let ita_rest = IterLayoutColMajor::new(&la_rest)?;
      let itb_rest = IterLayoutColMajor::new(&lb_rest)?;
      let itc_rest = IterLayoutColMajor::new(&lc_rest)?;
@@ -157,7 +159,7 @@ index b77e201..bbbee49 100644
          // parallel outer, sequential matmul
          let c_ptr = AtomicPtr::new(c.as_mut_ptr());
          let c_len = c.len();
-@@ -177,7 +286,7 @@ where
+@@ -177,7 +288,7 @@ where
                      let alpha = alpha.clone();
                      let beta = beta.clone();
                      with_num_threads(1, || {
@@ -166,7 +168,7 @@ index b77e201..bbbee49 100644
                      })
                  },
              )
-@@ -202,7 +311,7 @@ where
+@@ -202,7 +313,7 @@ where
                  // clone alpha and beta
                  let alpha = alpha.clone();
                  let beta = beta.clone();
@@ -175,7 +177,7 @@ index b77e201..bbbee49 100644
              })
          })
      }
-@@ -233,6 +342,7 @@ where
+@@ -233,6 +344,7 @@ where
      DB: DimAPI,
      DC: DimAPI,
      TA: Mul<TB, Output = TC>,
@@ -183,7 +185,7 @@ index b77e201..bbbee49 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // quick return for empty matrix
-@@ -345,6 +455,7 @@ where
+@@ -345,6 +457,7 @@ where
  #[cfg(test)]
  mod test {
      use super::*;
@@ -191,10 +193,11 @@ index b77e201..bbbee49 100644
  
      #[test]
      fn test_matmul() {
-@@ -469,6 +580,195 @@ mod test {
+@@ -469,6 +582,196 @@ mod test {
          assert!(allclose_f64(&c, &d));
      }
  
++    /// `(2,1,1)`: `a @ x` goes through the BLAS-2 `gemv` arm.
 +    #[test]
 +    fn gemv_rule2a_matrix_vector() {
 +        let device = DeviceBLAS::default();
@@ -533,7 +536,7 @@ index 460335d..ede54fd 100644
  
  #[duplicate_item(
 diff --git a/crates-device/rstsr-blis/src/matmul.rs b/crates-device/rstsr-blis/src/matmul.rs
-index b77e201..bbbee49 100644
+index b77e201..bf565bb 100644
 --- a/crates-device/rstsr-blis/src/matmul.rs
 +++ b/crates-device/rstsr-blis/src/matmul.rs
 @@ -30,6 +30,7 @@ where
@@ -544,7 +547,7 @@ index b77e201..bbbee49 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // check if syrk could be applicable
-@@ -77,6 +78,91 @@ where
+@@ -77,6 +78,93 @@ where
      return gemm_ix2_naive_cpu_rayon(c_slice, lc, a_slice, la, b_slice, lb, alpha, beta, pool);
  }
  
@@ -589,10 +592,12 @@ index b77e201..bbbee49 100644
 +    impl_gemv_dispatch!(Complex<f64>, gemv_blas_no_conj_c64);
 +
 +    // not able to be accelarated by blas_no_conj (mixed dtypes)
-+    // fallback to naive implementation
++    // fallback to rayon naive gemm, with vector operands promoted
++    let lc2 = &lc.dim_insert(1)?;
++    let lb2 = &lb.dim_insert(1)?;
 +    match transa {
-+        FlagTrans::N => gemv_naive_cpu_serial(c, lc, a, la, b, lb, alpha, beta),
-+        FlagTrans::T => gevm_naive_cpu_serial(c, lc, b, lb, a, la, alpha, beta),
++        FlagTrans::N => gemm_ix2_naive_cpu_rayon(c, lc2, a, la, b, lb2, alpha, beta, pool),
++        FlagTrans::T => gemm_ix2_naive_cpu_rayon(c, lc2, a, &la.reverse_axes(), b, lb2, alpha, beta, pool),
 +        _ => rstsr_invalid!(transa),
 +    }
 +}
@@ -636,7 +641,7 @@ index b77e201..bbbee49 100644
  #[allow(clippy::too_many_arguments)]
  pub fn matmul_row_major_blas<TA, TB, TC, DA, DB, DC>(
      c: &mut [TC],
-@@ -97,6 +183,7 @@ where
+@@ -97,6 +185,7 @@ where
      DB: DimAPI,
      DC: DimAPI,
      TA: Mul<TB, Output = TC>,
@@ -644,7 +649,7 @@ index b77e201..bbbee49 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // NOTE: this only works for row-major layout
-@@ -124,13 +211,31 @@ where
+@@ -124,13 +213,31 @@ where
              let c_num = &mut c[lc.offset()];
              return with_num_threads(nthreads, || inner_dot_naive_cpu_rayon(c_num, a, la, b, lb, alpha, beta, pool));
          },
@@ -678,7 +683,7 @@ index b77e201..bbbee49 100644
              });
          },
          _ => (),
-@@ -154,7 +259,11 @@ where
+@@ -154,7 +261,11 @@ where
      let ita_rest = IterLayoutColMajor::new(&la_rest)?;
      let itb_rest = IterLayoutColMajor::new(&lb_rest)?;
      let itc_rest = IterLayoutColMajor::new(&lc_rest)?;
@@ -691,7 +696,7 @@ index b77e201..bbbee49 100644
          // parallel outer, sequential matmul
          let c_ptr = AtomicPtr::new(c.as_mut_ptr());
          let c_len = c.len();
-@@ -177,7 +286,7 @@ where
+@@ -177,7 +288,7 @@ where
                      let alpha = alpha.clone();
                      let beta = beta.clone();
                      with_num_threads(1, || {
@@ -700,7 +705,7 @@ index b77e201..bbbee49 100644
                      })
                  },
              )
-@@ -202,7 +311,7 @@ where
+@@ -202,7 +313,7 @@ where
                  // clone alpha and beta
                  let alpha = alpha.clone();
                  let beta = beta.clone();
@@ -709,7 +714,7 @@ index b77e201..bbbee49 100644
              })
          })
      }
-@@ -233,6 +342,7 @@ where
+@@ -233,6 +344,7 @@ where
      DB: DimAPI,
      DC: DimAPI,
      TA: Mul<TB, Output = TC>,
@@ -717,7 +722,7 @@ index b77e201..bbbee49 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // quick return for empty matrix
-@@ -345,6 +455,7 @@ where
+@@ -345,6 +457,7 @@ where
  #[cfg(test)]
  mod test {
      use super::*;
@@ -725,10 +730,11 @@ index b77e201..bbbee49 100644
  
      #[test]
      fn test_matmul() {
-@@ -469,6 +580,195 @@ mod test {
+@@ -469,6 +582,196 @@ mod test {
          assert!(allclose_f64(&c, &d));
      }
  
++    /// `(2,1,1)`: `a @ x` goes through the BLAS-2 `gemv` arm.
 +    #[test]
 +    fn gemv_rule2a_matrix_vector() {
 +        let device = DeviceBLAS::default();
@@ -1067,7 +1073,7 @@ index 460335d..ede54fd 100644
  
  #[duplicate_item(
 diff --git a/crates-device/rstsr-kml/src/matmul.rs b/crates-device/rstsr-kml/src/matmul.rs
-index b77e201..bbbee49 100644
+index b77e201..bf565bb 100644
 --- a/crates-device/rstsr-kml/src/matmul.rs
 +++ b/crates-device/rstsr-kml/src/matmul.rs
 @@ -30,6 +30,7 @@ where
@@ -1078,7 +1084,7 @@ index b77e201..bbbee49 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // check if syrk could be applicable
-@@ -77,6 +78,91 @@ where
+@@ -77,6 +78,93 @@ where
      return gemm_ix2_naive_cpu_rayon(c_slice, lc, a_slice, la, b_slice, lb, alpha, beta, pool);
  }
  
@@ -1123,10 +1129,12 @@ index b77e201..bbbee49 100644
 +    impl_gemv_dispatch!(Complex<f64>, gemv_blas_no_conj_c64);
 +
 +    // not able to be accelarated by blas_no_conj (mixed dtypes)
-+    // fallback to naive implementation
++    // fallback to rayon naive gemm, with vector operands promoted
++    let lc2 = &lc.dim_insert(1)?;
++    let lb2 = &lb.dim_insert(1)?;
 +    match transa {
-+        FlagTrans::N => gemv_naive_cpu_serial(c, lc, a, la, b, lb, alpha, beta),
-+        FlagTrans::T => gevm_naive_cpu_serial(c, lc, b, lb, a, la, alpha, beta),
++        FlagTrans::N => gemm_ix2_naive_cpu_rayon(c, lc2, a, la, b, lb2, alpha, beta, pool),
++        FlagTrans::T => gemm_ix2_naive_cpu_rayon(c, lc2, a, &la.reverse_axes(), b, lb2, alpha, beta, pool),
 +        _ => rstsr_invalid!(transa),
 +    }
 +}
@@ -1170,7 +1178,7 @@ index b77e201..bbbee49 100644
  #[allow(clippy::too_many_arguments)]
  pub fn matmul_row_major_blas<TA, TB, TC, DA, DB, DC>(
      c: &mut [TC],
-@@ -97,6 +183,7 @@ where
+@@ -97,6 +185,7 @@ where
      DB: DimAPI,
      DC: DimAPI,
      TA: Mul<TB, Output = TC>,
@@ -1178,7 +1186,7 @@ index b77e201..bbbee49 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // NOTE: this only works for row-major layout
-@@ -124,13 +211,31 @@ where
+@@ -124,13 +213,31 @@ where
              let c_num = &mut c[lc.offset()];
              return with_num_threads(nthreads, || inner_dot_naive_cpu_rayon(c_num, a, la, b, lb, alpha, beta, pool));
          },
@@ -1212,7 +1220,7 @@ index b77e201..bbbee49 100644
              });
          },
          _ => (),
-@@ -154,7 +259,11 @@ where
+@@ -154,7 +261,11 @@ where
      let ita_rest = IterLayoutColMajor::new(&la_rest)?;
      let itb_rest = IterLayoutColMajor::new(&lb_rest)?;
      let itc_rest = IterLayoutColMajor::new(&lc_rest)?;
@@ -1225,7 +1233,7 @@ index b77e201..bbbee49 100644
          // parallel outer, sequential matmul
          let c_ptr = AtomicPtr::new(c.as_mut_ptr());
          let c_len = c.len();
-@@ -177,7 +286,7 @@ where
+@@ -177,7 +288,7 @@ where
                      let alpha = alpha.clone();
                      let beta = beta.clone();
                      with_num_threads(1, || {
@@ -1234,7 +1242,7 @@ index b77e201..bbbee49 100644
                      })
                  },
              )
-@@ -202,7 +311,7 @@ where
+@@ -202,7 +313,7 @@ where
                  // clone alpha and beta
                  let alpha = alpha.clone();
                  let beta = beta.clone();
@@ -1243,7 +1251,7 @@ index b77e201..bbbee49 100644
              })
          })
      }
-@@ -233,6 +342,7 @@ where
+@@ -233,6 +344,7 @@ where
      DB: DimAPI,
      DC: DimAPI,
      TA: Mul<TB, Output = TC>,
@@ -1251,7 +1259,7 @@ index b77e201..bbbee49 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // quick return for empty matrix
-@@ -345,6 +455,7 @@ where
+@@ -345,6 +457,7 @@ where
  #[cfg(test)]
  mod test {
      use super::*;
@@ -1259,10 +1267,11 @@ index b77e201..bbbee49 100644
  
      #[test]
      fn test_matmul() {
-@@ -469,6 +580,195 @@ mod test {
+@@ -469,6 +582,196 @@ mod test {
          assert!(allclose_f64(&c, &d));
      }
  
++    /// `(2,1,1)`: `a @ x` goes through the BLAS-2 `gemv` arm.
 +    #[test]
 +    fn gemv_rule2a_matrix_vector() {
 +        let device = DeviceBLAS::default();
@@ -1601,7 +1610,7 @@ index 460335d..ede54fd 100644
  
  #[duplicate_item(
 diff --git a/crates-device/rstsr-mkl/src/matmul.rs b/crates-device/rstsr-mkl/src/matmul.rs
-index b77e201..bbbee49 100644
+index b77e201..bf565bb 100644
 --- a/crates-device/rstsr-mkl/src/matmul.rs
 +++ b/crates-device/rstsr-mkl/src/matmul.rs
 @@ -30,6 +30,7 @@ where
@@ -1612,7 +1621,7 @@ index b77e201..bbbee49 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // check if syrk could be applicable
-@@ -77,6 +78,91 @@ where
+@@ -77,6 +78,93 @@ where
      return gemm_ix2_naive_cpu_rayon(c_slice, lc, a_slice, la, b_slice, lb, alpha, beta, pool);
  }
  
@@ -1657,10 +1666,12 @@ index b77e201..bbbee49 100644
 +    impl_gemv_dispatch!(Complex<f64>, gemv_blas_no_conj_c64);
 +
 +    // not able to be accelarated by blas_no_conj (mixed dtypes)
-+    // fallback to naive implementation
++    // fallback to rayon naive gemm, with vector operands promoted
++    let lc2 = &lc.dim_insert(1)?;
++    let lb2 = &lb.dim_insert(1)?;
 +    match transa {
-+        FlagTrans::N => gemv_naive_cpu_serial(c, lc, a, la, b, lb, alpha, beta),
-+        FlagTrans::T => gevm_naive_cpu_serial(c, lc, b, lb, a, la, alpha, beta),
++        FlagTrans::N => gemm_ix2_naive_cpu_rayon(c, lc2, a, la, b, lb2, alpha, beta, pool),
++        FlagTrans::T => gemm_ix2_naive_cpu_rayon(c, lc2, a, &la.reverse_axes(), b, lb2, alpha, beta, pool),
 +        _ => rstsr_invalid!(transa),
 +    }
 +}
@@ -1704,7 +1715,7 @@ index b77e201..bbbee49 100644
  #[allow(clippy::too_many_arguments)]
  pub fn matmul_row_major_blas<TA, TB, TC, DA, DB, DC>(
      c: &mut [TC],
-@@ -97,6 +183,7 @@ where
+@@ -97,6 +185,7 @@ where
      DB: DimAPI,
      DC: DimAPI,
      TA: Mul<TB, Output = TC>,
@@ -1712,7 +1723,7 @@ index b77e201..bbbee49 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // NOTE: this only works for row-major layout
-@@ -124,13 +211,31 @@ where
+@@ -124,13 +213,31 @@ where
              let c_num = &mut c[lc.offset()];
              return with_num_threads(nthreads, || inner_dot_naive_cpu_rayon(c_num, a, la, b, lb, alpha, beta, pool));
          },
@@ -1746,7 +1757,7 @@ index b77e201..bbbee49 100644
              });
          },
          _ => (),
-@@ -154,7 +259,11 @@ where
+@@ -154,7 +261,11 @@ where
      let ita_rest = IterLayoutColMajor::new(&la_rest)?;
      let itb_rest = IterLayoutColMajor::new(&lb_rest)?;
      let itc_rest = IterLayoutColMajor::new(&lc_rest)?;
@@ -1759,7 +1770,7 @@ index b77e201..bbbee49 100644
          // parallel outer, sequential matmul
          let c_ptr = AtomicPtr::new(c.as_mut_ptr());
          let c_len = c.len();
-@@ -177,7 +286,7 @@ where
+@@ -177,7 +288,7 @@ where
                      let alpha = alpha.clone();
                      let beta = beta.clone();
                      with_num_threads(1, || {
@@ -1768,7 +1779,7 @@ index b77e201..bbbee49 100644
                      })
                  },
              )
-@@ -202,7 +311,7 @@ where
+@@ -202,7 +313,7 @@ where
                  // clone alpha and beta
                  let alpha = alpha.clone();
                  let beta = beta.clone();
@@ -1777,7 +1788,7 @@ index b77e201..bbbee49 100644
              })
          })
      }
-@@ -233,6 +342,7 @@ where
+@@ -233,6 +344,7 @@ where
      DB: DimAPI,
      DC: DimAPI,
      TA: Mul<TB, Output = TC>,
@@ -1785,7 +1796,7 @@ index b77e201..bbbee49 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // quick return for empty matrix
-@@ -345,6 +455,7 @@ where
+@@ -345,6 +457,7 @@ where
  #[cfg(test)]
  mod test {
      use super::*;
@@ -1793,10 +1804,11 @@ index b77e201..bbbee49 100644
  
      #[test]
      fn test_matmul() {
-@@ -469,6 +580,195 @@ mod test {
+@@ -469,6 +582,196 @@ mod test {
          assert!(allclose_f64(&c, &d));
      }
  
++    /// `(2,1,1)`: `a @ x` goes through the BLAS-2 `gemv` arm.
 +    #[test]
 +    fn gemv_rule2a_matrix_vector() {
 +        let device = DeviceBLAS::default();
@@ -2135,7 +2147,7 @@ index 460335d..ede54fd 100644
  
  #[duplicate_item(
 diff --git a/crates-device/rstsr-openblas/src/matmul.rs b/crates-device/rstsr-openblas/src/matmul.rs
-index c906410..fecb230 100644
+index c906410..db2f070 100644
 --- a/crates-device/rstsr-openblas/src/matmul.rs
 +++ b/crates-device/rstsr-openblas/src/matmul.rs
 @@ -30,6 +30,7 @@ where
@@ -2146,7 +2158,7 @@ index c906410..fecb230 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // check if syrk could be applicable
-@@ -77,6 +78,91 @@ where
+@@ -77,6 +78,93 @@ where
      return gemm_ix2_naive_cpu_rayon(c_slice, lc, a_slice, la, b_slice, lb, alpha, beta, pool);
  }
  
@@ -2191,10 +2203,12 @@ index c906410..fecb230 100644
 +    impl_gemv_dispatch!(Complex<f64>, gemv_blas_no_conj_c64);
 +
 +    // not able to be accelarated by blas_no_conj (mixed dtypes)
-+    // fallback to naive implementation
++    // fallback to rayon naive gemm, with vector operands promoted
++    let lc2 = &lc.dim_insert(1)?;
++    let lb2 = &lb.dim_insert(1)?;
 +    match transa {
-+        FlagTrans::N => gemv_naive_cpu_serial(c, lc, a, la, b, lb, alpha, beta),
-+        FlagTrans::T => gevm_naive_cpu_serial(c, lc, b, lb, a, la, alpha, beta),
++        FlagTrans::N => gemm_ix2_naive_cpu_rayon(c, lc2, a, la, b, lb2, alpha, beta, pool),
++        FlagTrans::T => gemm_ix2_naive_cpu_rayon(c, lc2, a, &la.reverse_axes(), b, lb2, alpha, beta, pool),
 +        _ => rstsr_invalid!(transa),
 +    }
 +}
@@ -2238,7 +2252,7 @@ index c906410..fecb230 100644
  #[allow(clippy::too_many_arguments)]
  pub fn matmul_row_major_blas<TA, TB, TC, DA, DB, DC>(
      c: &mut [TC],
-@@ -97,6 +183,7 @@ where
+@@ -97,6 +185,7 @@ where
      DB: DimAPI,
      DC: DimAPI,
      TA: Mul<TB, Output = TC>,
@@ -2246,7 +2260,7 @@ index c906410..fecb230 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // NOTE: this only works for row-major layout
-@@ -124,13 +211,31 @@ where
+@@ -124,13 +213,31 @@ where
              let c_num = &mut c[lc.offset()];
              return with_num_threads(nthreads, || inner_dot_naive_cpu_rayon(c_num, a, la, b, lb, alpha, beta, pool));
          },
@@ -2280,7 +2294,7 @@ index c906410..fecb230 100644
              });
          },
          _ => (),
-@@ -154,7 +259,11 @@ where
+@@ -154,7 +261,11 @@ where
      let ita_rest = IterLayoutColMajor::new(&la_rest)?;
      let itb_rest = IterLayoutColMajor::new(&lb_rest)?;
      let itc_rest = IterLayoutColMajor::new(&lc_rest)?;
@@ -2293,7 +2307,7 @@ index c906410..fecb230 100644
          // parallel outer, sequential matmul
          let c_ptr = AtomicPtr::new(c.as_mut_ptr());
          let c_len = c.len();
-@@ -177,7 +286,7 @@ where
+@@ -177,7 +288,7 @@ where
                      let alpha = alpha.clone();
                      let beta = beta.clone();
                      with_num_threads(1, || {
@@ -2302,7 +2316,7 @@ index c906410..fecb230 100644
                      })
                  },
              )
-@@ -202,7 +311,7 @@ where
+@@ -202,7 +313,7 @@ where
                  // clone alpha and beta
                  let alpha = alpha.clone();
                  let beta = beta.clone();
@@ -2311,7 +2325,7 @@ index c906410..fecb230 100644
              })
          })
      }
-@@ -233,6 +342,7 @@ where
+@@ -233,6 +344,7 @@ where
      DB: DimAPI,
      DC: DimAPI,
      TA: Mul<TB, Output = TC>,
@@ -2319,7 +2333,7 @@ index c906410..fecb230 100644
      TC: Mul<TC, Output = TC> + Add<TC, Output = TC> + Zero + PartialEq,
  {
      // quick return for empty matrix
-@@ -345,6 +455,7 @@ where
+@@ -345,6 +457,7 @@ where
  #[cfg(test)]
  mod test {
      use super::*;
@@ -2327,7 +2341,7 @@ index c906410..fecb230 100644
  
      #[test]
      fn test_matmul() {
-@@ -496,6 +607,196 @@ mod test {
+@@ -496,6 +609,196 @@ mod test {
          assert!(allclose_f64(&c, &c_ref));
      }
  

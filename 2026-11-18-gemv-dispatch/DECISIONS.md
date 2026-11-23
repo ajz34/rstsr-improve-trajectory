@@ -237,5 +237,22 @@ diff in `proposed-patch-2.diff`)
   `--lib` 17 passed, `entry_row_openblas` 501/501, `tests_driver_impl blas2`
   10/10, `cargo check --tests` for the other four devices, five copies still
   two hashes (four identical + OpenBLAS's extra rule-7 test).
-- Not done yet: P3 re-measurement (needs a quiet machine), and the gemm/syrk
-  `k == 0` zero-fill divergence still to be filed.
+- P3 re-measured (2026-11-23) on the branch head `6599375`, which additionally
+  carries the follow-up commit that makes the mixed-dtype fallback
+  rayon-parallel. Baseline re-taken at `062c970` in the same session
+  (`results/bench-run5-old.txt`) because `run4`'s absolute values are no longer
+  reproducible (batched gemm 20.41 ms then, 24.6-26.2 ms at the same commit
+  today); comparison pass `results/bench-run6.txt`, table
+  `results/tables-p3.md`.
+  - All twelve OpenBLAS f64 cells now sit at **0.92-1.07×** of the raw
+    `cblas_dgemv` anchor (before: 1.04-9.42×); `1024² matvec` 8.8× faster,
+    `256×452676 vecmat` 55.10 → 15.76 ms (the 39 ms/call waste is gone), f32
+    spot 14.2× → 1.13× (12.9× faster).
+  - Extras: `matmul_from` with `beta != 0` 9.5×; batched gemv 11.08 → 8.36 ms
+    (1.33×, the narrowed D29 rule); batched gemm 22.32 → 22.32 ms (unchanged).
+  - Faer unchanged (0.9-1.1× pass-to-pass), which is the intended control.
+  - Sub-1.0 ratios are real: rstsr normalises the matrix so the BLAS call
+    traverses it contiguously, while the anchor keeps the strided orientation.
+  - Acceptance target (≈10 % of raw `cblas_?gemv`, no regression elsewhere) met.
+- Still open: the gemm/syrk `k == 0` zero-fill divergence from `matmul_from`'s
+  `beta * c` contract, and any decision to port the dispatch to `DeviceFaer`.

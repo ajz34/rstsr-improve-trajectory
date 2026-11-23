@@ -1,0 +1,407 @@
+warning: rstsr-openblas@0.10.4: RSTSR_DEV set but libopenblas was not found in LD_LIBRARY_PATH/DYLD_LIBRARY_PATH/LIBRARY_PATH/REST_EXT_DIR
+   Compiling gemv-dispatch-p0 v0.1.0 (/home/a/rstsr_pack/rstsr-improve-trajectory/2026-11-18-gemv-dispatch)
+    Finished `bench` profile [optimized] target(s) in 2.07s
+     Running benches/gemv.rs (target/release/build/gemv-dispatch-p0/ee8f76d0f1843848/out/gemv-ee8f76d0f1843848)
+Gnuplot not found, using plotters backend
+blas=OpenBLAS 0.3.32 NO_LAPACKE DYNAMIC_ARCH NO_AFFINITY USE_OPENMP Cooperlake MAX_THREADS=128 | core=Cooperlake
+Benchmarking openblas/f64/1024x1024/matvec/rstsr
+Benchmarking openblas/f64/1024x1024/matvec/rstsr: Warming up for 3.0000 s
+Benchmarking openblas/f64/1024x1024/matvec/rstsr: Collecting 10 samples in estimated 3.0003 s (372k iterations)
+Benchmarking openblas/f64/1024x1024/matvec/rstsr: Analyzing
+openblas/f64/1024x1024/matvec/rstsr
+                        time:   [7.8577 µs 7.8735 µs 7.8912 µs]
+Benchmarking openblas/f64/1024x1024/matvec/gemv-anchor
+Benchmarking openblas/f64/1024x1024/matvec/gemv-anchor: Warming up for 3.0000 s
+Benchmarking openblas/f64/1024x1024/matvec/gemv-anchor: Collecting 10 samples in estimated 3.0003 s (407k iterations)
+Benchmarking openblas/f64/1024x1024/matvec/gemv-anchor: Analyzing
+openblas/f64/1024x1024/matvec/gemv-anchor
+                        time:   [7.2748 µs 7.2907 µs 7.3207 µs]
+Benchmarking openblas/f64/1024x1024/vecmat/rstsr
+Benchmarking openblas/f64/1024x1024/vecmat/rstsr: Warming up for 3.0000 s
+Benchmarking openblas/f64/1024x1024/vecmat/rstsr: Collecting 10 samples in estimated 3.0014 s (92k iterations)
+Benchmarking openblas/f64/1024x1024/vecmat/rstsr: Analyzing
+openblas/f64/1024x1024/vecmat/rstsr
+                        time:   [32.350 µs 32.442 µs 32.523 µs]
+Benchmarking openblas/f64/1024x1024/vecmat/gemv-anchor
+Benchmarking openblas/f64/1024x1024/vecmat/gemv-anchor: Warming up for 3.0000 s
+Benchmarking openblas/f64/1024x1024/vecmat/gemv-anchor: Collecting 10 samples in estimated 3.0027 s (39k iterations)
+Benchmarking openblas/f64/1024x1024/vecmat/gemv-anchor: Analyzing
+openblas/f64/1024x1024/vecmat/gemv-anchor
+                        time:   [76.525 µs 76.741 µs 77.037 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking openblas/f64/4096x4096/matvec/rstsr
+Benchmarking openblas/f64/4096x4096/matvec/rstsr: Warming up for 3.0000 s
+Benchmarking openblas/f64/4096x4096/matvec/rstsr: Collecting 10 samples in estimated 3.0237 s (4125 iterations)
+Benchmarking openblas/f64/4096x4096/matvec/rstsr: Analyzing
+openblas/f64/4096x4096/matvec/rstsr
+                        time:   [733.11 µs 734.37 µs 735.87 µs]
+Benchmarking openblas/f64/4096x4096/matvec/gemv-anchor
+Benchmarking openblas/f64/4096x4096/matvec/gemv-anchor: Warming up for 3.0000 s
+Benchmarking openblas/f64/4096x4096/matvec/gemv-anchor: Collecting 10 samples in estimated 3.0050 s (4070 iterations)
+Benchmarking openblas/f64/4096x4096/matvec/gemv-anchor: Analyzing
+openblas/f64/4096x4096/matvec/gemv-anchor
+                        time:   [734.37 µs 735.70 µs 737.79 µs]
+Benchmarking openblas/f64/4096x4096/vecmat/rstsr
+Benchmarking openblas/f64/4096x4096/vecmat/rstsr: Warming up for 3.0000 s
+Benchmarking openblas/f64/4096x4096/vecmat/rstsr: Collecting 10 samples in estimated 3.0504 s (2860 iterations)
+Benchmarking openblas/f64/4096x4096/vecmat/rstsr: Analyzing
+openblas/f64/4096x4096/vecmat/rstsr
+                        time:   [1.0620 ms 1.0630 ms 1.0644 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+Benchmarking openblas/f64/4096x4096/vecmat/gemv-anchor
+Benchmarking openblas/f64/4096x4096/vecmat/gemv-anchor: Warming up for 3.0000 s
+Benchmarking openblas/f64/4096x4096/vecmat/gemv-anchor: Collecting 10 samples in estimated 3.0160 s (2750 iterations)
+Benchmarking openblas/f64/4096x4096/vecmat/gemv-anchor: Analyzing
+openblas/f64/4096x4096/vecmat/gemv-anchor
+                        time:   [1.0878 ms 1.0890 ms 1.0899 ms]
+Benchmarking openblas/f64/8192x8192/matvec/rstsr
+Benchmarking openblas/f64/8192x8192/matvec/rstsr: Warming up for 3.0000 s
+Benchmarking openblas/f64/8192x8192/matvec/rstsr: Collecting 10 samples in estimated 3.1450 s (385 iterations)
+Benchmarking openblas/f64/8192x8192/matvec/rstsr: Analyzing
+openblas/f64/8192x8192/matvec/rstsr
+                        time:   [8.1468 ms 8.1581 ms 8.1664 ms]
+Benchmarking openblas/f64/8192x8192/matvec/gemv-anchor
+Benchmarking openblas/f64/8192x8192/matvec/gemv-anchor: Warming up for 3.0000 s
+Benchmarking openblas/f64/8192x8192/matvec/gemv-anchor: Collecting 10 samples in estimated 3.1433 s (385 iterations)
+Benchmarking openblas/f64/8192x8192/matvec/gemv-anchor: Analyzing
+openblas/f64/8192x8192/matvec/gemv-anchor
+                        time:   [8.1632 ms 8.1658 ms 8.1695 ms]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+Benchmarking openblas/f64/8192x8192/vecmat/rstsr
+Benchmarking openblas/f64/8192x8192/vecmat/rstsr: Warming up for 3.0000 s
+Benchmarking openblas/f64/8192x8192/vecmat/rstsr: Collecting 10 samples in estimated 3.3177 s (385 iterations)
+Benchmarking openblas/f64/8192x8192/vecmat/rstsr: Analyzing
+openblas/f64/8192x8192/vecmat/rstsr
+                        time:   [8.6010 ms 8.6055 ms 8.6113 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking openblas/f64/8192x8192/vecmat/gemv-anchor
+Benchmarking openblas/f64/8192x8192/vecmat/gemv-anchor: Warming up for 3.0000 s
+Benchmarking openblas/f64/8192x8192/vecmat/gemv-anchor: Collecting 10 samples in estimated 3.3325 s (385 iterations)
+Benchmarking openblas/f64/8192x8192/vecmat/gemv-anchor: Analyzing
+openblas/f64/8192x8192/vecmat/gemv-anchor
+                        time:   [8.6424 ms 8.6458 ms 8.6494 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+Benchmarking openblas/f64/65536x64/matvec/rstsr
+Benchmarking openblas/f64/65536x64/matvec/rstsr: Warming up for 3.0000 s
+Benchmarking openblas/f64/65536x64/matvec/rstsr: Collecting 10 samples in estimated 3.0006 s (64k iterations)
+Benchmarking openblas/f64/65536x64/matvec/rstsr: Analyzing
+openblas/f64/65536x64/matvec/rstsr
+                        time:   [46.447 µs 46.459 µs 46.465 µs]
+Benchmarking openblas/f64/65536x64/matvec/gemv-anchor
+Benchmarking openblas/f64/65536x64/matvec/gemv-anchor: Warming up for 3.0000 s
+Benchmarking openblas/f64/65536x64/matvec/gemv-anchor: Collecting 10 samples in estimated 3.0014 s (66k iterations)
+Benchmarking openblas/f64/65536x64/matvec/gemv-anchor: Analyzing
+openblas/f64/65536x64/matvec/gemv-anchor
+                        time:   [45.616 µs 45.652 µs 45.676 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low severe
+  1 (10.00%) high mild
+Benchmarking openblas/f64/65536x64/vecmat/rstsr
+Benchmarking openblas/f64/65536x64/vecmat/rstsr: Warming up for 3.0000 s
+Benchmarking openblas/f64/65536x64/vecmat/rstsr: Collecting 10 samples in estimated 3.0030 s (9130 iterations)
+Benchmarking openblas/f64/65536x64/vecmat/rstsr: Analyzing
+openblas/f64/65536x64/vecmat/rstsr
+                        time:   [326.34 µs 326.92 µs 327.31 µs]
+Benchmarking openblas/f64/65536x64/vecmat/gemv-anchor
+Benchmarking openblas/f64/65536x64/vecmat/gemv-anchor: Warming up for 3.0000 s
+Benchmarking openblas/f64/65536x64/vecmat/gemv-anchor: Collecting 10 samples in estimated 3.0143 s (9240 iterations)
+Benchmarking openblas/f64/65536x64/vecmat/gemv-anchor: Analyzing
+openblas/f64/65536x64/vecmat/gemv-anchor
+                        time:   [323.34 µs 323.46 µs 323.59 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+Benchmarking openblas/f64/256x452676/matvec/rstsr
+Benchmarking openblas/f64/256x452676/matvec/rstsr: Warming up for 3.0000 s
+Benchmarking openblas/f64/256x452676/matvec/rstsr: Collecting 10 samples in estimated 3.2805 s (220 iterations)
+Benchmarking openblas/f64/256x452676/matvec/rstsr: Analyzing
+openblas/f64/256x452676/matvec/rstsr
+                        time:   [14.808 ms 14.817 ms 14.828 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+Benchmarking openblas/f64/256x452676/matvec/gemv-anchor
+Benchmarking openblas/f64/256x452676/matvec/gemv-anchor: Warming up for 3.0000 s
+Benchmarking openblas/f64/256x452676/matvec/gemv-anchor: Collecting 10 samples in estimated 3.2664 s (220 iterations)
+Benchmarking openblas/f64/256x452676/matvec/gemv-anchor: Analyzing
+openblas/f64/256x452676/matvec/gemv-anchor
+                        time:   [14.803 ms 14.814 ms 14.827 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+Benchmarking openblas/f64/256x452676/vecmat/rstsr
+Benchmarking openblas/f64/256x452676/vecmat/rstsr: Warming up for 3.0000 s
+Benchmarking openblas/f64/256x452676/vecmat/rstsr: Collecting 10 samples in estimated 3.4748 s (220 iterations)
+Benchmarking openblas/f64/256x452676/vecmat/rstsr: Analyzing
+openblas/f64/256x452676/vecmat/rstsr
+                        time:   [15.760 ms 15.766 ms 15.773 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking openblas/f64/256x452676/vecmat/gemv-anchor
+Benchmarking openblas/f64/256x452676/vecmat/gemv-anchor: Warming up for 3.0000 s
+Benchmarking openblas/f64/256x452676/vecmat/gemv-anchor: Collecting 10 samples in estimated 3.4714 s (220 iterations)
+Benchmarking openblas/f64/256x452676/vecmat/gemv-anchor: Analyzing
+openblas/f64/256x452676/vecmat/gemv-anchor
+                        time:   [15.755 ms 15.759 ms 15.763 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+Benchmarking openblas/f64/452676x256/matvec/rstsr
+Benchmarking openblas/f64/452676x256/matvec/rstsr: Warming up for 3.0000 s
+Benchmarking openblas/f64/452676x256/matvec/rstsr: Collecting 10 samples in estimated 3.7856 s (220 iterations)
+Benchmarking openblas/f64/452676x256/matvec/rstsr: Analyzing
+openblas/f64/452676x256/matvec/rstsr
+                        time:   [17.177 ms 17.181 ms 17.189 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking openblas/f64/452676x256/matvec/gemv-anchor
+Benchmarking openblas/f64/452676x256/matvec/gemv-anchor: Warming up for 3.0000 s
+Benchmarking openblas/f64/452676x256/matvec/gemv-anchor: Collecting 10 samples in estimated 3.7780 s (220 iterations)
+Benchmarking openblas/f64/452676x256/matvec/gemv-anchor: Analyzing
+openblas/f64/452676x256/matvec/gemv-anchor
+                        time:   [17.142 ms 17.146 ms 17.150 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking openblas/f64/452676x256/vecmat/rstsr
+Benchmarking openblas/f64/452676x256/vecmat/rstsr: Warming up for 3.0000 s
+Benchmarking openblas/f64/452676x256/vecmat/rstsr: Collecting 10 samples in estimated 3.4826 s (165 iterations)
+Benchmarking openblas/f64/452676x256/vecmat/rstsr: Analyzing
+openblas/f64/452676x256/vecmat/rstsr
+                        time:   [21.096 ms 21.103 ms 21.112 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+Benchmarking openblas/f64/452676x256/vecmat/gemv-anchor
+Benchmarking openblas/f64/452676x256/vecmat/gemv-anchor: Warming up for 3.0000 s
+Benchmarking openblas/f64/452676x256/vecmat/gemv-anchor: Collecting 10 samples in estimated 3.5871 s (165 iterations)
+Benchmarking openblas/f64/452676x256/vecmat/gemv-anchor: Analyzing
+openblas/f64/452676x256/vecmat/gemv-anchor
+                        time:   [21.705 ms 21.712 ms 21.723 ms]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+Benchmarking openblas/f64/extra/matmul_from-beta/1024x1024
+Benchmarking openblas/f64/extra/matmul_from-beta/1024x1024: Warming up for 3.0000 s
+Benchmarking openblas/f64/extra/matmul_from-beta/1024x1024: Collecting 10 samples in estimated 3.0003 s (435k iterations)
+Benchmarking openblas/f64/extra/matmul_from-beta/1024x1024: Analyzing
+openblas/f64/extra/matmul_from-beta/1024x1024
+                        time:   [6.8672 µs 6.8849 µs 6.8970 µs]
+Found 3 outliers among 10 measurements (30.00%)
+  1 (10.00%) low mild
+  2 (20.00%) high severe
+Benchmarking openblas/f64/extra/batched-gemv/64x1024x1024
+Benchmarking openblas/f64/extra/batched-gemv/64x1024x1024: Warming up for 3.0000 s
+Benchmarking openblas/f64/extra/batched-gemv/64x1024x1024: Collecting 10 samples in estimated 3.2902 s (385 iterations)
+Benchmarking openblas/f64/extra/batched-gemv/64x1024x1024: Analyzing
+openblas/f64/extra/batched-gemv/64x1024x1024
+                        time:   [8.5020 ms 8.5190 ms 8.5342 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+Benchmarking openblas/f64/extra/batched-gemm/64x512x512
+Benchmarking openblas/f64/extra/batched-gemm/64x512x512: Warming up for 3.0000 s
+Benchmarking openblas/f64/extra/batched-gemm/64x512x512: Collecting 10 samples in estimated 3.5911 s (165 iterations)
+Benchmarking openblas/f64/extra/batched-gemm/64x512x512: Analyzing
+openblas/f64/extra/batched-gemm/64x512x512
+                        time:   [21.841 ms 22.124 ms 22.364 ms]
+
+Benchmarking faer/f64/1024x1024/matvec/rstsr
+Benchmarking faer/f64/1024x1024/matvec/rstsr: Warming up for 3.0000 s
+Benchmarking faer/f64/1024x1024/matvec/rstsr: Collecting 10 samples in estimated 3.0006 s (182k iterations)
+Benchmarking faer/f64/1024x1024/matvec/rstsr: Analyzing
+faer/f64/1024x1024/matvec/rstsr
+                        time:   [16.337 µs 16.343 µs 16.353 µs]
+Benchmarking faer/f64/1024x1024/matvec/gemv-anchor
+Benchmarking faer/f64/1024x1024/matvec/gemv-anchor: Warming up for 3.0000 s
+Benchmarking faer/f64/1024x1024/matvec/gemv-anchor: Collecting 10 samples in estimated 3.0001 s (462k iterations)
+Benchmarking faer/f64/1024x1024/matvec/gemv-anchor: Analyzing
+faer/f64/1024x1024/matvec/gemv-anchor
+                        time:   [6.4147 µs 6.4327 µs 6.4596 µs]
+Found 3 outliers among 10 measurements (30.00%)
+  2 (20.00%) low severe
+  1 (10.00%) high mild
+Benchmarking faer/f64/1024x1024/vecmat/rstsr
+Benchmarking faer/f64/1024x1024/vecmat/rstsr: Warming up for 3.0000 s
+Benchmarking faer/f64/1024x1024/vecmat/rstsr: Collecting 10 samples in estimated 3.0000 s (97k iterations)
+Benchmarking faer/f64/1024x1024/vecmat/rstsr: Analyzing
+faer/f64/1024x1024/vecmat/rstsr
+                        time:   [30.772 µs 30.997 µs 31.133 µs]
+Benchmarking faer/f64/1024x1024/vecmat/gemv-anchor
+Benchmarking faer/f64/1024x1024/vecmat/gemv-anchor: Warming up for 3.0000 s
+Benchmarking faer/f64/1024x1024/vecmat/gemv-anchor: Collecting 10 samples in estimated 3.0010 s (162k iterations)
+Benchmarking faer/f64/1024x1024/vecmat/gemv-anchor: Analyzing
+faer/f64/1024x1024/vecmat/gemv-anchor
+                        time:   [18.349 µs 18.450 µs 18.510 µs]
+Benchmarking faer/f64/4096x4096/matvec/rstsr
+Benchmarking faer/f64/4096x4096/matvec/rstsr: Warming up for 3.0000 s
+Benchmarking faer/f64/4096x4096/matvec/rstsr: Collecting 10 samples in estimated 3.0190 s (2750 iterations)
+Benchmarking faer/f64/4096x4096/matvec/rstsr: Analyzing
+faer/f64/4096x4096/matvec/rstsr
+                        time:   [1.0211 ms 1.0572 ms 1.1114 ms]
+Benchmarking faer/f64/4096x4096/matvec/gemv-anchor
+Benchmarking faer/f64/4096x4096/matvec/gemv-anchor: Warming up for 3.0000 s
+Benchmarking faer/f64/4096x4096/matvec/gemv-anchor: Collecting 10 samples in estimated 3.0381 s (4180 iterations)
+Benchmarking faer/f64/4096x4096/matvec/gemv-anchor: Analyzing
+faer/f64/4096x4096/matvec/gemv-anchor
+                        time:   [721.26 µs 722.05 µs 724.41 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+Benchmarking faer/f64/4096x4096/vecmat/rstsr
+Benchmarking faer/f64/4096x4096/vecmat/rstsr: Warming up for 3.0000 s
+Benchmarking faer/f64/4096x4096/vecmat/rstsr: Collecting 10 samples in estimated 3.0070 s (3080 iterations)
+Benchmarking faer/f64/4096x4096/vecmat/rstsr: Analyzing
+faer/f64/4096x4096/vecmat/rstsr
+                        time:   [904.15 µs 955.89 µs 987.87 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low mild
+Benchmarking faer/f64/4096x4096/vecmat/gemv-anchor
+Benchmarking faer/f64/4096x4096/vecmat/gemv-anchor: Warming up for 3.0000 s
+Benchmarking faer/f64/4096x4096/vecmat/gemv-anchor: Collecting 10 samples in estimated 3.0144 s (2915 iterations)
+Benchmarking faer/f64/4096x4096/vecmat/gemv-anchor: Analyzing
+faer/f64/4096x4096/vecmat/gemv-anchor
+                        time:   [1.0316 ms 1.0353 ms 1.0423 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking faer/f64/8192x8192/matvec/rstsr
+Benchmarking faer/f64/8192x8192/matvec/rstsr: Warming up for 3.0000 s
+Benchmarking faer/f64/8192x8192/matvec/rstsr: Collecting 10 samples in estimated 3.0900 s (385 iterations)
+Benchmarking faer/f64/8192x8192/matvec/rstsr: Analyzing
+faer/f64/8192x8192/matvec/rstsr
+                        time:   [7.9503 ms 7.9837 ms 8.0255 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+Benchmarking faer/f64/8192x8192/matvec/gemv-anchor
+Benchmarking faer/f64/8192x8192/matvec/gemv-anchor: Warming up for 3.0000 s
+Benchmarking faer/f64/8192x8192/matvec/gemv-anchor: Collecting 10 samples in estimated 3.1425 s (385 iterations)
+Benchmarking faer/f64/8192x8192/matvec/gemv-anchor: Analyzing
+faer/f64/8192x8192/matvec/gemv-anchor
+                        time:   [8.1518 ms 8.1587 ms 8.1674 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+Benchmarking faer/f64/8192x8192/vecmat/rstsr
+Benchmarking faer/f64/8192x8192/vecmat/rstsr: Warming up for 3.0000 s
+Benchmarking faer/f64/8192x8192/vecmat/rstsr: Collecting 10 samples in estimated 3.1575 s (385 iterations)
+Benchmarking faer/f64/8192x8192/vecmat/rstsr: Analyzing
+faer/f64/8192x8192/vecmat/rstsr
+                        time:   [8.1211 ms 8.1804 ms 8.2367 ms]
+Benchmarking faer/f64/8192x8192/vecmat/gemv-anchor
+Benchmarking faer/f64/8192x8192/vecmat/gemv-anchor: Warming up for 3.0000 s
+Benchmarking faer/f64/8192x8192/vecmat/gemv-anchor: Collecting 10 samples in estimated 3.2868 s (385 iterations)
+Benchmarking faer/f64/8192x8192/vecmat/gemv-anchor: Analyzing
+faer/f64/8192x8192/vecmat/gemv-anchor
+                        time:   [8.5268 ms 8.5297 ms 8.5347 ms]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+Benchmarking faer/f64/65536x64/matvec/rstsr
+Benchmarking faer/f64/65536x64/matvec/rstsr: Warming up for 3.0000 s
+Benchmarking faer/f64/65536x64/matvec/rstsr: Collecting 10 samples in estimated 3.0034 s (46k iterations)
+Benchmarking faer/f64/65536x64/matvec/rstsr: Analyzing
+faer/f64/65536x64/matvec/rstsr
+                        time:   [66.810 µs 67.541 µs 68.040 µs]
+Benchmarking faer/f64/65536x64/matvec/gemv-anchor
+Benchmarking faer/f64/65536x64/matvec/gemv-anchor: Warming up for 3.0000 s
+Benchmarking faer/f64/65536x64/matvec/gemv-anchor: Collecting 10 samples in estimated 3.0006 s (68k iterations)
+Benchmarking faer/f64/65536x64/matvec/gemv-anchor: Analyzing
+faer/f64/65536x64/matvec/gemv-anchor
+                        time:   [44.040 µs 44.061 µs 44.078 µs]
+Benchmarking faer/f64/65536x64/vecmat/rstsr
+Benchmarking faer/f64/65536x64/vecmat/rstsr: Warming up for 3.0000 s
+Benchmarking faer/f64/65536x64/vecmat/rstsr: Collecting 10 samples in estimated 3.0008 s (29k iterations)
+Benchmarking faer/f64/65536x64/vecmat/rstsr: Analyzing
+faer/f64/65536x64/vecmat/rstsr
+                        time:   [102.44 µs 104.56 µs 106.08 µs]
+Benchmarking faer/f64/65536x64/vecmat/gemv-anchor
+Benchmarking faer/f64/65536x64/vecmat/gemv-anchor: Warming up for 3.0000 s
+Benchmarking faer/f64/65536x64/vecmat/gemv-anchor: Collecting 10 samples in estimated 3.0237 s (4345 iterations)
+Benchmarking faer/f64/65536x64/vecmat/gemv-anchor: Analyzing
+faer/f64/65536x64/vecmat/gemv-anchor
+                        time:   [696.21 µs 696.57 µs 696.97 µs]
+Benchmarking faer/f64/256x452676/matvec/rstsr
+Benchmarking faer/f64/256x452676/matvec/rstsr: Warming up for 3.0000 s
+Benchmarking faer/f64/256x452676/matvec/rstsr: Collecting 10 samples in estimated 3.2160 s (220 iterations)
+Benchmarking faer/f64/256x452676/matvec/rstsr: Analyzing
+faer/f64/256x452676/matvec/rstsr
+                        time:   [14.607 ms 14.638 ms 14.673 ms]
+Benchmarking faer/f64/256x452676/matvec/gemv-anchor
+Benchmarking faer/f64/256x452676/matvec/gemv-anchor: Warming up for 3.0000 s
+Benchmarking faer/f64/256x452676/matvec/gemv-anchor: Collecting 10 samples in estimated 3.2801 s (220 iterations)
+Benchmarking faer/f64/256x452676/matvec/gemv-anchor: Analyzing
+faer/f64/256x452676/matvec/gemv-anchor
+                        time:   [14.811 ms 14.819 ms 14.831 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking faer/f64/256x452676/vecmat/rstsr
+Benchmarking faer/f64/256x452676/vecmat/rstsr: Warming up for 3.0000 s
+Benchmarking faer/f64/256x452676/vecmat/rstsr: Collecting 10 samples in estimated 3.0504 s (110 iterations)
+Benchmarking faer/f64/256x452676/vecmat/rstsr: Analyzing
+faer/f64/256x452676/vecmat/rstsr
+                        time:   [28.168 ms 28.368 ms 28.475 ms]
+Benchmarking faer/f64/256x452676/vecmat/gemv-anchor
+Benchmarking faer/f64/256x452676/vecmat/gemv-anchor: Warming up for 3.0000 s
+Benchmarking faer/f64/256x452676/vecmat/gemv-anchor: Collecting 10 samples in estimated 3.5092 s (220 iterations)
+Benchmarking faer/f64/256x452676/vecmat/gemv-anchor: Analyzing
+faer/f64/256x452676/vecmat/gemv-anchor
+                        time:   [15.914 ms 15.919 ms 15.926 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking faer/f64/452676x256/matvec/rstsr
+Benchmarking faer/f64/452676x256/matvec/rstsr: Warming up for 3.0000 s
+Benchmarking faer/f64/452676x256/matvec/rstsr: Collecting 10 samples in estimated 3.4339 s (220 iterations)
+Benchmarking faer/f64/452676x256/matvec/rstsr: Analyzing
+faer/f64/452676x256/matvec/rstsr
+                        time:   [15.427 ms 15.475 ms 15.551 ms]
+Benchmarking faer/f64/452676x256/matvec/gemv-anchor
+Benchmarking faer/f64/452676x256/matvec/gemv-anchor: Warming up for 3.0000 s
+Benchmarking faer/f64/452676x256/matvec/gemv-anchor: Collecting 10 samples in estimated 3.7797 s (220 iterations)
+Benchmarking faer/f64/452676x256/matvec/gemv-anchor: Analyzing
+faer/f64/452676x256/matvec/gemv-anchor
+                        time:   [17.236 ms 17.293 ms 17.381 ms]
+Benchmarking faer/f64/452676x256/vecmat/rstsr
+Benchmarking faer/f64/452676x256/vecmat/rstsr: Warming up for 3.0000 s
+Benchmarking faer/f64/452676x256/vecmat/rstsr: Collecting 10 samples in estimated 3.3745 s (220 iterations)
+Benchmarking faer/f64/452676x256/vecmat/rstsr: Analyzing
+faer/f64/452676x256/vecmat/rstsr
+                        time:   [15.261 ms 15.324 ms 15.367 ms]
+Benchmarking faer/f64/452676x256/vecmat/gemv-anchor
+Benchmarking faer/f64/452676x256/vecmat/gemv-anchor: Warming up for 3.0000 s
+Benchmarking faer/f64/452676x256/vecmat/gemv-anchor: Collecting 10 samples in estimated 3.6313 s (165 iterations)
+Benchmarking faer/f64/452676x256/vecmat/gemv-anchor: Analyzing
+faer/f64/452676x256/vecmat/gemv-anchor
+                        time:   [21.991 ms 22.001 ms 22.014 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+Benchmarking faer/f64/extra/matmul_from-beta/1024x1024
+Benchmarking faer/f64/extra/matmul_from-beta/1024x1024: Warming up for 3.0000 s
+Benchmarking faer/f64/extra/matmul_from-beta/1024x1024: Collecting 10 samples in estimated 3.0001 s (182k iterations)
+Benchmarking faer/f64/extra/matmul_from-beta/1024x1024: Analyzing
+faer/f64/extra/matmul_from-beta/1024x1024
+                        time:   [16.388 µs 16.397 µs 16.405 µs]
+Benchmarking faer/f64/extra/batched-gemv/64x1024x1024
+Benchmarking faer/f64/extra/batched-gemv/64x1024x1024: Warming up for 3.0000 s
+Benchmarking faer/f64/extra/batched-gemv/64x1024x1024: Collecting 10 samples in estimated 3.4710 s (385 iterations)
+Benchmarking faer/f64/extra/batched-gemv/64x1024x1024: Analyzing
+faer/f64/extra/batched-gemv/64x1024x1024
+                        time:   [8.8453 ms 8.8538 ms 8.8713 ms]
+Benchmarking faer/f64/extra/batched-gemm/64x512x512
+Benchmarking faer/f64/extra/batched-gemm/64x512x512: Warming up for 3.0000 s
+
+Warning: Unable to complete 10 samples in 3.0s. You may wish to increase target time to 4.9s or enable flat sampling.
+Benchmarking faer/f64/extra/batched-gemm/64x512x512: Collecting 10 samples in estimated 4.9414 s (55 iterations)
+Benchmarking faer/f64/extra/batched-gemm/64x512x512: Analyzing
+faer/f64/extra/batched-gemm/64x512x512
+                        time:   [89.239 ms 89.519 ms 89.834 ms]
+
+Benchmarking openblas/f32/1024x1024/matvec/rstsr-f32
+Benchmarking openblas/f32/1024x1024/matvec/rstsr-f32: Warming up for 3.0000 s
+Benchmarking openblas/f32/1024x1024/matvec/rstsr-f32: Collecting 10 samples in estimated 3.0002 s (595k iterations)
+Benchmarking openblas/f32/1024x1024/matvec/rstsr-f32: Analyzing
+openblas/f32/1024x1024/matvec/rstsr-f32
+                        time:   [5.0392 µs 5.0495 µs 5.0591 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking openblas/f32/1024x1024/matvec/gemv-anchor-f32
+Benchmarking openblas/f32/1024x1024/matvec/gemv-anchor-f32: Warming up for 3.0000 s
+Benchmarking openblas/f32/1024x1024/matvec/gemv-anchor-f32: Collecting 10 samples in estimated 3.0001 s (673k iterations)
+Benchmarking openblas/f32/1024x1024/matvec/gemv-anchor-f32: Analyzing
+openblas/f32/1024x1024/matvec/gemv-anchor-f32
+                        time:   [4.3886 µs 4.4045 µs 4.4236 µs]
+
