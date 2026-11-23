@@ -1,0 +1,37 @@
+[package]
+name = "gemv-dispatch-p0"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+publish = false
+
+# P0 of the GEMV-dispatch campaign (2026-11-18-gemv-dispatch): measure the
+# *current* rstsr matmul path for row/column-vector products on DeviceOpenBLAS
+# and DeviceFaer, with raw cblas gemv anchors. Standalone crate, not a workspace
+# member; no rstsr code is modified. Build with RSTSR_DEV=1 so the
+# rstsr-openblas build script links this machine's libopenblas (+ gomp).
+
+[dependencies]
+rstsr-core = { path = "../../rstsr/rstsr-core", default-features = false, features = [
+    "row_major",
+    "aligned_alloc",
+    "faer",
+    "faer_as_default",
+] }
+rstsr-openblas = { path = "../../rstsr/crates-device/rstsr-openblas", default-features = false, features = [
+    "openmp",
+] }
+rstsr-openblas-ffi = { path = "../../rstsr-ffi/rstsr-openblas-ffi" }
+criterion = { version = "0.5", features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "gemv"
+harness = false
+
+[profile.release]
+# stock cargo release defaults, stated explicitly for the README
+opt-level = 3
+debug = false
+lto = false
+codegen-units = 16
+panic = "unwind"

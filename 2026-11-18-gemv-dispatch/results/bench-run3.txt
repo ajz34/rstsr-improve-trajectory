@@ -1,0 +1,55 @@
+warning: rstsr-openblas@0.10.4: RSTSR_DEV set but libopenblas was not found in LD_LIBRARY_PATH/DYLD_LIBRARY_PATH/LIBRARY_PATH/REST_EXT_DIR
+   Compiling rstsr-blas-traits v0.10.4 (/home/a/rstsr_pack/rstsr/rstsr-blas-traits)
+error[E0277]: the trait bound `B: rstsr_core::prelude_dev::OpAssignArbitaryAPI<T, [usize; 1], [usize; 1]>` is not satisfied
+   --> /home/a/rstsr_pack/rstsr/rstsr-blas-traits/src/blas2/gemv.rs:95:34
+    |
+ 95 |                 let y_buffer = y.to_contig_f(ColMajor)?.into_owned();
+    |                                  ^^^^^^^^^^^ the trait `rstsr_core::prelude_dev::OpAssignArbitaryAPI<T, [usize; 1], [usize; 1]>` is not implemented for `B`
+    |
+note: required by a bound in `to_contig::<impl TensorBase<Storage<R, T, B>, D>>::to_contig_f`
+   --> /home/a/rstsr_pack/rstsr/rstsr-core/src/tensor/manipulation/to_contig.rs:242:12
+    |
+220 | impl<'a, R, T, B, D> TensorAny<R, T, B, D>
+...
+240 |     pub fn to_contig_f(&self, order: FlagOrder) -> Result<TensorCow<'_, T, B, D>>
+241 |     where
+242 |         B: OpAssignArbitaryAPI<T, D, D>,
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `to_contig::<impl TensorBase<Storage<R, T, B>, D>>::to_contig_f`
+help: consider further restricting type parameter `B` with trait `OpAssignArbitaryAPI`
+    |
+ 47 |     B: BlasDriverBaseAPI<T> + GEMVDriverAPI<T> + rstsr_core::prelude_dev::OpAssignArbitaryAPI<T, [usize; 1], [usize; 1]>,
+    |                                                +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0308]: `?` operator has incompatible types
+  --> /home/a/rstsr_pack/rstsr/rstsr-blas-traits/src/blas2/gemv.rs:98:43
+   |
+98 |             None => TensorMutable1::Owned(zeros_f(([ly].f(), a.device()))?),
+   |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TensorBase<Storage<_, _, _>, [usize; 1]>`, found `TensorBase<Storage<_, _, B>, _>`
+   |
+   = note: `?` operator cannot convert from `TensorBase<Storage<DataOwned<_>, _, B>, std::vec::Vec<usize>>` to `TensorBase<Storage<DataOwned<_>, _, _>, [usize; 1]>`
+   = note: expected struct `TensorBase<Storage<DataOwned<_>, _, _>, [usize; 1]>`
+              found struct `TensorBase<Storage<DataOwned<_>, _, B>, std::vec::Vec<usize>>`
+
+error[E0277]: the trait bound `B: rstsr_core::prelude_dev::OpAssignArbitaryAPI<T, [usize; 1], [usize; 1]>` is not satisfied
+   --> /home/a/rstsr_pack/rstsr/rstsr-blas-traits/src/blas2/gemv.rs:137:23
+    |
+137 |             x_cow = x.to_contig_f(ColMajor)?;
+    |                       ^^^^^^^^^^^ the trait `rstsr_core::prelude_dev::OpAssignArbitaryAPI<T, [usize; 1], [usize; 1]>` is not implemented for `B`
+    |
+note: required by a bound in `to_contig::<impl TensorBase<Storage<R, T, B>, D>>::to_contig_f`
+   --> /home/a/rstsr_pack/rstsr/rstsr-core/src/tensor/manipulation/to_contig.rs:242:12
+    |
+220 | impl<'a, R, T, B, D> TensorAny<R, T, B, D>
+...
+240 |     pub fn to_contig_f(&self, order: FlagOrder) -> Result<TensorCow<'_, T, B, D>>
+241 |     where
+242 |         B: OpAssignArbitaryAPI<T, D, D>,
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `to_contig::<impl TensorBase<Storage<R, T, B>, D>>::to_contig_f`
+help: consider further restricting type parameter `B` with trait `OpAssignArbitaryAPI`
+    |
+ 47 |     B: BlasDriverBaseAPI<T> + GEMVDriverAPI<T> + rstsr_core::prelude_dev::OpAssignArbitaryAPI<T, [usize; 1], [usize; 1]>,
+    |                                                +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Some errors have detailed explanations: E0277, E0308.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `rstsr-blas-traits` (lib) due to 3 previous errors

@@ -1,0 +1,5 @@
+cpu: AMD Ryzen 9 9950X3D 16-Core Processor
+rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+cargo: cargo 1.100.0 (3acc79c0c 2026-11-05)
+rstsr: 062c970 (main)
+numpy: 2.5.4

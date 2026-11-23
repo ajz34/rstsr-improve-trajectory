@@ -1,0 +1,641 @@
+diff --git a/crates-device/rstsr-aocl/tests/driver_impl/blas2_gemv.rs b/crates-device/rstsr-aocl/tests/driver_impl/blas2_gemv.rs
+new file mode 120000
+index 0000000..f9afec4
+--- /dev/null
++++ b/crates-device/rstsr-aocl/tests/driver_impl/blas2_gemv.rs
+@@ -0,0 +1 @@
++../../../../rstsr-blas-traits/src/blas_tests_impl/driver_impl/blas2_gemv.rs
+\ No newline at end of file
+diff --git a/crates-device/rstsr-blis/tests/driver_impl/blas2_gemv.rs b/crates-device/rstsr-blis/tests/driver_impl/blas2_gemv.rs
+new file mode 120000
+index 0000000..f9afec4
+--- /dev/null
++++ b/crates-device/rstsr-blis/tests/driver_impl/blas2_gemv.rs
+@@ -0,0 +1 @@
++../../../../rstsr-blas-traits/src/blas_tests_impl/driver_impl/blas2_gemv.rs
+\ No newline at end of file
+diff --git a/crates-device/rstsr-kml/tests/driver_impl/blas2_gemv.rs b/crates-device/rstsr-kml/tests/driver_impl/blas2_gemv.rs
+new file mode 120000
+index 0000000..f9afec4
+--- /dev/null
++++ b/crates-device/rstsr-kml/tests/driver_impl/blas2_gemv.rs
+@@ -0,0 +1 @@
++../../../../rstsr-blas-traits/src/blas_tests_impl/driver_impl/blas2_gemv.rs
+\ No newline at end of file
+diff --git a/crates-device/rstsr-mkl/tests/driver_impl/blas2_gemv.rs b/crates-device/rstsr-mkl/tests/driver_impl/blas2_gemv.rs
+new file mode 120000
+index 0000000..f9afec4
+--- /dev/null
++++ b/crates-device/rstsr-mkl/tests/driver_impl/blas2_gemv.rs
+@@ -0,0 +1 @@
++../../../../rstsr-blas-traits/src/blas_tests_impl/driver_impl/blas2_gemv.rs
+\ No newline at end of file
+diff --git a/crates-device/rstsr-openblas/tests/driver_impl/blas2_gemv.rs b/crates-device/rstsr-openblas/tests/driver_impl/blas2_gemv.rs
+new file mode 120000
+index 0000000..f9afec4
+--- /dev/null
++++ b/crates-device/rstsr-openblas/tests/driver_impl/blas2_gemv.rs
+@@ -0,0 +1 @@
++../../../../rstsr-blas-traits/src/blas_tests_impl/driver_impl/blas2_gemv.rs
+\ No newline at end of file
+diff --git a/rstsr-blas-traits/driver_impl/cblas/blas2/gemv.rs b/rstsr-blas-traits/driver_impl/cblas/blas2/gemv.rs
+new file mode 100644
+index 0000000..883e128
+--- /dev/null
++++ b/rstsr-blas-traits/driver_impl/cblas/blas2/gemv.rs
+@@ -0,0 +1,76 @@
++use crate::lapack_ffi;
++use crate::DeviceBLAS;
++use duplicate::duplicate_item;
++use num::Complex;
++use rstsr_blas_traits::blas2::gemv::*;
++use rstsr_common::prelude::*;
++
++#[duplicate_item(
++    T     cblas_func  ;
++   [f32] [cblas_sgemv];
++   [f64] [cblas_dgemv];
++)]
++impl GEMVDriverAPI<T> for DeviceBLAS {
++    unsafe fn driver_gemv(
++        order: FlagOrder,
++        transa: FlagTrans,
++        m: usize,
++        n: usize,
++        alpha: T,
++        a: *const T,
++        lda: usize,
++        x: *const T,
++        beta: T,
++        y: *mut T,
++    ) {
++        lapack_ffi::cblas::cblas_func(
++            order.into(),
++            transa.into(),
++            m as _,
++            n as _,
++            alpha,
++            a,
++            lda as _,
++            x,
++            1,
++            beta,
++            y,
++            1,
++        );
++    }
++}
++
++#[duplicate_item(
++    T              cblas_func  ;
++   [Complex<f32>] [cblas_cgemv];
++   [Complex<f64>] [cblas_zgemv];
++)]
++impl GEMVDriverAPI<T> for DeviceBLAS {
++    unsafe fn driver_gemv(
++        order: FlagOrder,
++        transa: FlagTrans,
++        m: usize,
++        n: usize,
++        alpha: T,
++        a: *const T,
++        lda: usize,
++        x: *const T,
++        beta: T,
++        y: *mut T,
++    ) {
++        lapack_ffi::cblas::cblas_func(
++            order.into(),
++            transa.into(),
++            m as _,
++            n as _,
++            &alpha as *const _ as *const _,
++            a as *const _,
++            lda as _,
++            x as *const _,
++            1,
++            &beta as *const _ as *const _,
++            y as *mut _,
++            1,
++        );
++    }
++}
+diff --git a/rstsr-blas-traits/driver_impl/cblas/blas2/mod.rs b/rstsr-blas-traits/driver_impl/cblas/blas2/mod.rs
+new file mode 100644
+index 0000000..fc35204
+--- /dev/null
++++ b/rstsr-blas-traits/driver_impl/cblas/blas2/mod.rs
+@@ -0,0 +1 @@
++pub mod gemv;
+diff --git a/rstsr-blas-traits/driver_impl/cblas/mod.rs b/rstsr-blas-traits/driver_impl/cblas/mod.rs
+index a76b422..64f1df2 100644
+--- a/rstsr-blas-traits/driver_impl/cblas/mod.rs
++++ b/rstsr-blas-traits/driver_impl/cblas/mod.rs
+@@ -1 +1,2 @@
++pub mod blas2;
+ pub mod blas3;
+diff --git a/rstsr-blas-traits/src/blas2/gemv.rs b/rstsr-blas-traits/src/blas2/gemv.rs
+new file mode 100644
+index 0000000..c42bd87
+--- /dev/null
++++ b/rstsr-blas-traits/src/blas2/gemv.rs
+@@ -0,0 +1,168 @@
++use crate::prelude_dev::*;
++use rstsr_core::prelude_dev::*;
++
++/// BLAS-2 `gemv` driver: `y := alpha * op(A) x + beta * y`.
++///
++/// # Safety
++///
++/// `a` addresses an `m`-by-`n` column-major matrix with leading dimension
++/// `lda`; `x` and `y` address unit-stride vectors of `len_x` and `len_y`
++/// elements that overlap neither `a` nor each other, with `(len_x, len_y)`
++/// equal to `(n, m)` for [`FlagTrans::N`] and to `(m, n)` otherwise.
++pub trait GEMVDriverAPI<T> {
++    unsafe fn driver_gemv(
++        order: FlagOrder,
++        transa: FlagTrans,
++        m: usize,
++        n: usize,
++        alpha: T,
++        a: *const T,
++        lda: usize,
++        x: *const T,
++        beta: T,
++        y: *mut T,
++    );
++}
++
++#[derive(Builder)]
++#[builder(pattern = "owned", no_std, build_fn(error = "Error"))]
++pub struct GEMV_<'a, 'b, 'c, B, T>
++where
++    T: BlasFloat,
++    B: DeviceAPI<T>,
++{
++    pub a: TensorView<'a, T, B, Ix2>,
++    pub x: TensorView<'b, T, B, Ix1>,
++
++    #[builder(setter(into, strip_option), default = "None")]
++    pub y: Option<TensorViewMut<'c, T, B, Ix1>>,
++    #[builder(setter(into), default = "T::one()")]
++    pub alpha: T,
++    #[builder(setter(into), default = "T::zero()")]
++    pub beta: T,
++    #[builder(setter(into), default = "NoTrans")]
++    pub transa: FlagTrans,
++}
++
++impl<'c, B, T> GEMV_<'_, '_, 'c, B, T>
++where
++    T: BlasFloat,
++    B: BlasDriverBaseAPI<T> + GEMVDriverAPI<T> + OpAssignArbitaryAPI<T, Ix1, Ix1>,
++{
++    /// Run `y := alpha * op(A) x + beta * y`, returning the output vector.
++    ///
++    /// There is no `order` parameter: the result is one-dimensional, and the
++    /// matrix is always normalised to column-major before the driver call.
++    ///
++    /// # Errors
++    ///
++    /// Returns an error for [`FlagTrans::CN`], which has no CBLAS counterpart:
++    /// conjugate the matrix and pass [`FlagTrans::N`] instead (for real scalars
++    /// `C` and `T` coincide).
++    pub fn run(self) -> Result<TensorMutable1<'c, T, B>> {
++        let Self { a, x, y, alpha, beta, transa } = self;
++
++        if transa == FlagTrans::CN {
++            rstsr_invalid!(transa)?;
++        }
++
++        // f-prefer passes through, c-prefer is viewed transposed, and a
++        // neither-prefer layout or a `C` on c-prefer is copied
++        let (transa, a_cow) = flip_trans(ColMajor, transa, a, false)?;
++        let obj = GEMV_ { a: a_cow.view(), x, y, alpha, beta, transa };
++        obj.internal_run()
++    }
++
++    /// Column-major entry; `a` must already be f-prefer when it is read.
++    pub fn internal_run(self) -> Result<TensorMutable1<'c, T, B>> {
++        let Self { a, x, y, alpha, beta, transa } = self;
++
++        let (m, n) = (a.nrow(), a.ncol());
++        let (len_x, len_y) = match transa {
++            FlagTrans::N => (n, m),
++            FlagTrans::T | FlagTrans::C => (m, n),
++            _ => rstsr_invalid!(transa)?,
++        };
++
++        // device and shape checks
++        rstsr_assert!(a.device().same_device(x.device()), DeviceMismatch)?;
++        rstsr_assert_eq!(x.shape()[0], len_x, InvalidLayout)?;
++        if let Some(y) = &y {
++            rstsr_assert!(a.device().same_device(y.device()), DeviceMismatch)?;
++            rstsr_assert_eq!(y.shape()[0], len_y, InvalidLayout)?;
++        }
++
++        // a non-unit-stride `y` is written through a contiguous buffer
++        let mut y = match y {
++            Some(y) if len_y <= 1 || y.stride()[0] == 1 => TensorMutable::Mut(y),
++            Some(y) => {
++                let y_buffer = y.to_contig_f(ColMajor)?.into_owned();
++                TensorMutable::ToBeCloned(y, y_buffer)
++            },
++            None => TensorMutable1::Owned(zeros_f(([len_y].f(), a.device()))?.into_dim()),
++        };
++
++        // empty output: nothing is read or written
++        if len_y == 0 {
++            return Ok(y.clone_to_mut());
++        }
++
++        // `k == 0`: BLAS returns before scaling `y`, so scale it here
++        if len_x == 0 {
++            if beta != T::one() {
++                match &mut y {
++                    // an owned output is allocated zeroed
++                    TensorMutable::Owned(_) => (),
++                    TensorMutable::Mut(view) => unsafe { scale_vector(view.as_mut_ptr(), len_y, beta) },
++                    TensorMutable::ToBeCloned(_, buffer) => unsafe { scale_vector(buffer.as_mut_ptr(), len_y, beta) },
++                }
++            }
++            return Ok(y.clone_to_mut());
++        }
++
++        let lda = a.testify_ld(ColMajor, "A")?;
++
++        // `x` is read-only: a non-unit-stride vector is copied once
++        let x_cow;
++        let x_view = if len_x <= 1 || x.stride()[0] == 1 {
++            x.view()
++        } else {
++            x_cow = x.to_contig_f(ColMajor)?;
++            x_cow.view()
++        };
++
++        let mut y_view = y.view_mut();
++        let ptr_a = a.as_ptr();
++        let ptr_x = x_view.as_ptr();
++        let ptr_y = y_view.as_mut_ptr();
++
++        // SAFETY: dimensions and the leading dimension are checked above; `x`
++        // and `y` address `len_x` and `len_y` live elements of `a`'s device
++        unsafe {
++            B::driver_gemv(ColMajor, transa, m, n, alpha, ptr_a, lda, ptr_x, beta, ptr_y);
++        }
++
++        Ok(y.clone_to_mut())
++    }
++}
++
++/// `ptr[0..len] *= beta` over consecutive elements.
++///
++/// # Safety
++///
++/// `ptr` addresses `len` initialized, writable elements of `T`.
++unsafe fn scale_vector<T>(ptr: *mut T, len: usize, beta: T)
++where
++    T: BlasFloat,
++{
++    for i in 0..len {
++        let p = ptr.add(i);
++        *p = *p * beta;
++    }
++}
++
++pub type GEMV<'a, 'b, 'c, B, T> = GEMV_Builder<'a, 'b, 'c, B, T>;
++pub type SGEMV<'a, 'b, 'c, B> = GEMV<'a, 'b, 'c, B, f32>;
++pub type DGEMV<'a, 'b, 'c, B> = GEMV<'a, 'b, 'c, B, f64>;
++pub type CGEMV<'a, 'b, 'c, B> = GEMV<'a, 'b, 'c, B, Complex<f32>>;
++pub type ZGEMV<'a, 'b, 'c, B> = GEMV<'a, 'b, 'c, B, Complex<f64>>;
+diff --git a/rstsr-blas-traits/src/blas2/mod.rs b/rstsr-blas-traits/src/blas2/mod.rs
+new file mode 100644
+index 0000000..706b2b3
+--- /dev/null
++++ b/rstsr-blas-traits/src/blas2/mod.rs
+@@ -0,0 +1,3 @@
++pub mod gemv;
++
++pub use gemv::*;
+diff --git a/rstsr-blas-traits/src/blas_tests_impl/driver_impl/blas2_gemv.rs b/rstsr-blas-traits/src/blas_tests_impl/driver_impl/blas2_gemv.rs
+new file mode 100644
+index 0000000..3682acb
+--- /dev/null
++++ b/rstsr-blas-traits/src/blas_tests_impl/driver_impl/blas2_gemv.rs
+@@ -0,0 +1,260 @@
++//! BLAS-2 `GEMV` container: layout normalisation, `beta` handling and the
++//! degenerate contraction length.
++//!
++//! References are computed elementwise so the assertions do not depend on the
++//! `matmul` dispatch that will later route through this container.
++
++use crate::DeviceBLAS;
++use num::Complex;
++use rstsr::prelude::*;
++use rstsr_blas_traits::prelude::*;
++
++fn device() -> DeviceBLAS {
++    DeviceBLAS::default()
++}
++
++fn close(got: &[f64], want: &[f64]) -> bool {
++    got.len() == want.len() && got.iter().zip(want).all(|(g, w)| (g - w).abs() < 1e-12)
++}
++
++fn close_c(got: &[Complex<f64>], want: &[Complex<f64>]) -> bool {
++    got.len() == want.len() && got.iter().zip(want).all(|(g, w)| (g - w).norm() < 1e-12)
++}
++
++fn mat_c(v: &[f64], shape: [usize; 2], device: &DeviceBLAS) -> Tensor<f64, DeviceBLAS, Ix2> {
++    rt::asarray((v, shape.c(), device)).into_dim().into_owned()
++}
++
++fn mat_f(v: &[f64], shape: [usize; 2], device: &DeviceBLAS) -> Tensor<f64, DeviceBLAS, Ix2> {
++    rt::asarray((v, shape.f(), device)).into_dim().into_owned()
++}
++
++fn vec1(v: &[f64], device: &DeviceBLAS) -> Tensor<f64, DeviceBLAS, Ix1> {
++    rt::asarray((v, [v.len()].c(), device)).into_dim().into_owned()
++}
++
++/// `y = op(A) x + beta * y0` for a row-major `m`-by-`n` matrix `a`.
++fn gemv_ref(a: &[f64], m: usize, n: usize, x: &[f64], beta: f64, y0: &[f64], trans: bool) -> Vec<f64> {
++    let (len_x, len_y) = if trans { (m, n) } else { (n, m) };
++    assert_eq!(a.len(), m * n);
++    assert_eq!(x.len(), len_x);
++    assert_eq!(y0.len(), len_y);
++    let mut y: Vec<f64> = y0.iter().map(|v| beta * v).collect();
++    for i in 0..m {
++        for j in 0..n {
++            let aij = a[i * n + j];
++            if trans {
++                y[j] += aij * x[i];
++            } else {
++                y[i] += aij * x[j];
++            }
++        }
++    }
++    y
++}
++
++/// Column-major flattening of a row-major `m`-by-`n` matrix.
++fn to_col_major(a: &[f64], m: usize, n: usize) -> Vec<f64> {
++    let mut v = vec![0.0; m * n];
++    for i in 0..m {
++        for j in 0..n {
++            v[i + j * m] = a[i * n + j];
++        }
++    }
++    v
++}
++
++#[test]
++fn gemv_no_trans() {
++    let device = device();
++    let a: Vec<f64> = (0..12).map(|v| v as f64).collect();
++    let x = [1.0, -1.0, 2.0, 0.5];
++    let la = mat_c(&a, [3, 4], &device);
++    let lx = vec1(&x, &device);
++
++    let got = DGEMV::default().a(la.view()).x(lx.view()).build().unwrap().run().unwrap().into_owned();
++    let want = gemv_ref(&a, 3, 4, &x, 0.0, &[0.0, 0.0, 0.0], false);
++    assert!(close(&got.to_vec(), &want), "got {:?} want {:?}", got.to_vec(), want);
++}
++
++#[test]
++fn gemv_trans() {
++    let device = device();
++    let a: Vec<f64> = (0..12).map(|v| v as f64).collect();
++    let x = [2.0, 0.5, -1.0];
++    let la = mat_c(&a, [3, 4], &device);
++    let lx = vec1(&x, &device);
++
++    let got = DGEMV::default().a(la.view()).x(lx.view()).transa(Trans).build().unwrap().run().unwrap().into_owned();
++    let want = gemv_ref(&a, 3, 4, &x, 0.0, &[0.0, 0.0, 0.0, 0.0], true);
++    assert!(close(&got.to_vec(), &want), "got {:?} want {:?}", got.to_vec(), want);
++}
++
++#[test]
++fn gemv_beta_with_caller_output() {
++    let device = device();
++    let a: Vec<f64> = (1..=12).map(|v| v as f64).collect();
++    let x = [1.0, 0.0, -1.0, 2.0];
++    let y0 = [1.0, 2.0, 3.0];
++    let la = mat_c(&a, [3, 4], &device);
++    let lx = vec1(&x, &device);
++    let mut ly = vec1(&y0, &device);
++
++    let got = DGEMV::default()
++        .a(la.view())
++        .x(lx.view())
++        .y(ly.view_mut())
++        .alpha(1.0)
++        .beta(2.0)
++        .build()
++        .unwrap()
++        .run()
++        .unwrap()
++        .into_owned();
++
++    let want = gemv_ref(&a, 3, 4, &x, 2.0, &y0, false);
++    assert!(close(&got.to_vec(), &want), "got {:?} want {:?}", got.to_vec(), want);
++}
++
++#[test]
++fn gemv_strided_y_is_written_through() {
++    let device = device();
++    let a: Vec<f64> = (0..12).map(|v| v as f64).collect();
++    let x = [1.0, 1.0, 1.0, 1.0];
++    let la = mat_c(&a, [3, 4], &device);
++    let lx = vec1(&x, &device);
++    // c-prefer 3x2: column 0 is [1, 3, 5] at stride 2, column 1 is [2, 4, 6]
++    let y0 = [1.0, 3.0, 5.0];
++    let mut base = mat_c(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0], [3, 2], &device);
++    let want = gemv_ref(&a, 3, 4, &x, 2.0, &y0, false);
++    {
++        let mut column = base.i_mut((.., 0));
++        assert_eq!(column.stride()[0], 2);
++
++        let got = DGEMV::default()
++            .a(la.view())
++            .x(lx.view())
++            .y(column.view_mut().into_dim::<Ix1>())
++            .beta(2.0)
++            .build()
++            .unwrap()
++            .run()
++            .unwrap()
++            .into_owned();
++        assert!(close(&got.to_vec(), &want), "got {:?} want {:?}", got.to_vec(), want);
++    }
++
++    assert!(close(&base.i((.., 0)).to_vec(), &want));
++    // the other column must be untouched
++    assert!(close(&base.i((.., 1)).to_vec(), &[2.0, 4.0, 6.0]));
++}
++
++#[test]
++fn gemv_strided_x_is_copied() {
++    let device = device();
++    let a: Vec<f64> = (0..12).map(|v| v as f64).collect();
++    let la = mat_c(&a, [3, 4], &device);
++    let base_x = mat_c(&[1.0, 9.0, 2.0, 9.0, 3.0, 9.0, 4.0, 9.0], [4, 2], &device);
++    let x = base_x.i((.., 0));
++    assert_eq!(x.stride()[0], 2);
++
++    let got = DGEMV::default().a(la.view()).x(x.into_dim::<Ix1>()).build().unwrap().run().unwrap().into_owned();
++    let want = gemv_ref(&a, 3, 4, &[1.0, 2.0, 3.0, 4.0], 0.0, &[0.0, 0.0, 0.0], false);
++    assert!(close(&got.to_vec(), &want), "got {:?} want {:?}", got.to_vec(), want);
++}
++
++#[test]
++fn gemv_column_major_input() {
++    let device = device();
++    let a: Vec<f64> = (0..12).map(|v| v as f64).collect();
++    let x = [1.0, -2.0, 0.5, 3.0];
++    let la = mat_f(&to_col_major(&a, 3, 4), [3, 4], &device);
++    let lx = vec1(&x, &device);
++    assert!(la.f_prefer());
++    assert!(!la.c_prefer());
++
++    let got = DGEMV::default().a(la.view()).x(lx.view()).build().unwrap().run().unwrap().into_owned();
++    let want = gemv_ref(&a, 3, 4, &x, 0.0, &[0.0, 0.0, 0.0], false);
++    assert!(close(&got.to_vec(), &want), "got {:?} want {:?}", got.to_vec(), want);
++}
++
++#[test]
++fn gemv_zero_contraction() {
++    let device = device();
++    let la: Tensor<f64, DeviceBLAS, Ix2> = rt::zeros(([3, 0].c(), &device)).into_dim();
++    let lx: Tensor<f64, DeviceBLAS, Ix1> = rt::zeros(([0].c(), &device)).into_dim();
++
++    // beta scales the incoming y
++    let mut ly = vec1(&[1.0, 2.0, 3.0], &device);
++    let got = DGEMV::default()
++        .a(la.view())
++        .x(lx.view())
++        .y(ly.view_mut())
++        .beta(2.0)
++        .build()
++        .unwrap()
++        .run()
++        .unwrap()
++        .into_owned();
++    assert!(close(&got.to_vec(), &[2.0, 4.0, 6.0]), "got {:?}", got.to_vec());
++
++    // beta == 0 zeroes it
++    let mut ly = vec1(&[1.0, 2.0, 3.0], &device);
++    let got = DGEMV::default()
++        .a(la.view())
++        .x(lx.view())
++        .y(ly.view_mut())
++        .beta(0.0)
++        .build()
++        .unwrap()
++        .run()
++        .unwrap()
++        .into_owned();
++    assert!(close(&got.to_vec(), &[0.0, 0.0, 0.0]), "got {:?}", got.to_vec());
++}
++
++#[test]
++fn gemv_conj_trans_complex() {
++    let device = device();
++    let a: Vec<Complex<f64>> = vec![
++        Complex::new(1.0, 2.0),
++        Complex::new(0.0, -1.0),
++        Complex::new(3.0, 0.0),
++        Complex::new(-2.0, 1.0),
++        Complex::new(0.5, 0.5),
++        Complex::new(4.0, 0.0),
++    ];
++    let x: Vec<Complex<f64>> = vec![Complex::new(1.0, 0.0), Complex::new(0.0, 2.0)];
++    let la: Tensor<Complex<f64>, DeviceBLAS, Ix2> = rt::asarray((&a[..], [2, 3].c(), &device)).into_dim().into_owned();
++    let lx: Tensor<Complex<f64>, DeviceBLAS, Ix1> = rt::asarray((&x[..], [2].c(), &device)).into_dim().into_owned();
++
++    let got = ZGEMV::default().a(la.view()).x(lx.view()).transa(ConjTrans).build().unwrap().run().unwrap().into_owned();
++
++    // y(j) = sum_i conj(a[i, j]) x(i)
++    let want: Vec<Complex<f64>> = (0..3).map(|j| (0..2).map(|i| a[i * 3 + j].conj() * x[i]).sum()).collect();
++    assert!(close_c(&got.to_vec(), &want), "got {:?} want {:?}", got.to_vec(), want);
++}
++
++#[test]
++fn gemv_f32() {
++    let device = device();
++    let a: Vec<f32> = (0..12).map(|v| v as f32).collect();
++    let x = [1.0f32, -1.0, 2.0, 0.5];
++    let la: Tensor<f32, DeviceBLAS, Ix2> = rt::asarray((&a[..], [3, 4].c(), &device)).into_dim().into_owned();
++    let lx: Tensor<f32, DeviceBLAS, Ix1> = rt::asarray((&x[..], [4].c(), &device)).into_dim().into_owned();
++
++    let got = SGEMV::default().a(la.view()).x(lx.view()).build().unwrap().run().unwrap().into_owned();
++    let want: Vec<f32> = (0..3).map(|i| (0..4).map(|j| a[i * 4 + j] * x[j]).sum()).collect();
++    let got = got.to_vec();
++    assert_eq!(got.len(), want.len());
++    assert!(got.iter().zip(&want).all(|(g, w)| (g - w).abs() < 1e-5), "got {:?} want {:?}", got, want);
++}
++
++#[test]
++fn gemv_conj_no_trans_rejected() {
++    let device = device();
++    let la: Tensor<f64, DeviceBLAS, Ix2> = rt::zeros(([2, 3].c(), &device)).into_dim();
++    let lx: Tensor<f64, DeviceBLAS, Ix1> = rt::zeros(([3].c(), &device)).into_dim();
++    let res = DGEMV::default().a(la.view()).x(lx.view()).transa(FlagTrans::CN).build().unwrap().run();
++    assert!(res.is_err(), "CN must be rejected like GEMM's run()");
++}
+diff --git a/rstsr-blas-traits/src/blas_tests_impl/driver_impl/mod.rs b/rstsr-blas-traits/src/blas_tests_impl/driver_impl/mod.rs
+index 85fe237..8bb25af 100644
+--- a/rstsr-blas-traits/src/blas_tests_impl/driver_impl/mod.rs
++++ b/rstsr-blas-traits/src/blas_tests_impl/driver_impl/mod.rs
+@@ -1 +1,2 @@
++mod blas2_gemv;
+ mod f64;
+diff --git a/rstsr-blas-traits/src/lib.rs b/rstsr-blas-traits/src/lib.rs
+index 47e473b..a0f54ea 100644
+--- a/rstsr-blas-traits/src/lib.rs
++++ b/rstsr-blas-traits/src/lib.rs
+@@ -16,6 +16,7 @@ pub mod threading;
+ pub mod trait_def;
+ pub mod util;
+ 
++pub mod blas2;
+ pub mod blas3;
+ 
+ pub mod lapack_eigh;
+diff --git a/rstsr-blas-traits/src/prelude.rs b/rstsr-blas-traits/src/prelude.rs
+index fe227e7..f6282ad 100644
+--- a/rstsr-blas-traits/src/prelude.rs
++++ b/rstsr-blas-traits/src/prelude.rs
+@@ -2,6 +2,7 @@ pub use crate::blas_int;
+ pub use crate::blas_scalar::BlasFloat;
+ pub use crate::threading::*;
+ 
++pub use crate::blas2::*;
+ pub use crate::blas3::*;
+ pub use crate::lapack_eigh::*;
+ pub use crate::lapack_solve::*;
+diff --git a/rstsr-blas-traits/src/trait_def.rs b/rstsr-blas-traits/src/trait_def.rs
+index 7956f5c..59d8c30 100644
+--- a/rstsr-blas-traits/src/trait_def.rs
++++ b/rstsr-blas-traits/src/trait_def.rs
+@@ -1,5 +1,6 @@
+ //! Convenient traits for BLAS operations.
+ 
++use crate::blas2::*;
+ use crate::blas3::*;
+ use crate::lapack_eigh::*;
+ use crate::lapack_solve::*;
+@@ -41,7 +42,12 @@ where
+ }
+ 
+ pub trait BlasDriverAPI<T>:
+-    BlasDriverBaseAPI<T> + GEMMDriverAPI<T> + TRSMDriverAPI<T> + SYHEMMDriverAPI<T, false> + SYHEMMDriverAPI<T, true>
++    BlasDriverBaseAPI<T>
++    + GEMMDriverAPI<T>
++    + TRSMDriverAPI<T>
++    + SYHEMMDriverAPI<T, false>
++    + SYHEMMDriverAPI<T, true>
++    + GEMVDriverAPI<T>
+ where
+     T: BlasFloat,
+ {
