@@ -52,10 +52,11 @@ waits for the kernel. Nothing in a 3-stage pipeline needs a hand-written event.
    value semantics: `Clone` = deep copy, `AsRef<[T]>` / `as_mut_slice`, len.
 2. **Non-syncing transfer entry points.** `h2d_full`, `d2h_full`, `h2d_scalar`,
    `d2h_scalar`, `dtod_full` and `fill_naive` each end with
-   `stream.synchronize()` (`src/transfer.rs`). Note `dtod_full` — the device
-   `Clone` path — syncs too, so a tensor clone inside the compute loop would
-   serialize the whole pipeline. The async forms must only enqueue and hand back
-   something that keeps the host buffer borrowed until a wait.
+   `stream.synchronize()` (`src/transfer.rs`) — these are the *host-boundary*
+   paths. `dtod_full` is the cross-ordinal (multi-GPU) move only; the device
+   `Clone` path does not go through it and is already async (next section). The
+   async forms must only enqueue and hand back something that keeps the host
+   buffer borrowed until a wait.
 3. **Public stream creation.** `CudaStreamObj::new` is `pub(crate)`; the only
    public door is `CudaStreamObj::wrap(ordinal, Arc<CudaStream>)`, which needs a
    `cudarc` stream. A `DeviceCuda::new_stream()` (or a `with_stream` builder)
@@ -101,7 +102,42 @@ dev_d2h   (stream D) : the D2H copies
 - `cuMemAllocAsync` can block on pool exhaustion: preallocate one buffer set per
   in-flight chunk.
 - The 3-stream arrangement is only as good as the ops: a `t.to_device(...)`
-  re-tag inside the loop is free, a `clone()` is not (see `dtod_full`).
+  re-tag inside the loop is free, a `clone()` is not free but is at least
+  non-blocking (see below).
+
+## Does device `clone()` synchronize? No — and it already does not
+
+`CudaBuffer::clone_f` → `self.slice.try_clone()` → cudarc
+`CudaStream::clone_dtod` → `alloc` + `memcpy_dtod_async` **on the buffer's own
+allocation stream** (cudarc 0.19.10 `driver/safe/core.rs:1795`, `:1750-1766`),
+returning with no host barrier. So D1's wording ("deep D2D copy on the owning
+stream") is what the code does. The only syncing D2D path is
+`transfer::dtod_full`, and it is used *only* for cross-ordinal (multi-GPU) moves
+(`src/conversion.rs:228,245`) — not for `clone`.
+
+Why clone must stay sync-free:
+
+- Value semantics only need an independent buffer; a device buffer's contents are
+  observed by device work, which is already stream-ordered.
+- The ordering a sync would buy is provided elsewhere: the same allocation stream
+  (copy before free), `order_input` (consumer waits for the copy), `order_output`
+  (free waits for the consumer).
+- A sync drains the whole stream, making `clone()` the one blocking op in an
+  otherwise fully async op set — fatal inside a pipeline.
+- CuPy and PyTorch both do it this way:
+  `ndarray.copy()` → `astype` → `elementwise_copy` kernel on the current stream
+  (`cupy/_core/core.pyx:863`, `:782`) with no sync; `torch.clone` = `empty_like`
+  + `copy_` (`aten/src/ATen/native/TensorFactories.cpp:2252-2276`) →
+  `copy_device_to_device` → `CUDACachingAllocator::memcpyAsync` on the current
+  stream (`aten/src/ATen/native/cuda/Copy.cu:598,644`), with event barriers only
+  when `src_device != dst_device`.
+
+The one case where a sync looks tempting is the read-lifetime hole recorded in
+[[cuda-write-target-ordering]]: a *foreign-stream* source has no `exec -> alloc`
+event, so a temporary can be freed while still being read. It does not apply to
+`clone` (the copy runs on the source's own allocation stream), and a sync would
+hide the hole rather than fix it — the fix is the missing `exec -> alloc` event
+for read-only foreign-stream inputs.
 
 ## Test shape
 

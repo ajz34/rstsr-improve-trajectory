@@ -37,6 +37,8 @@ Real gaps = host boundary only: (1) pinned host owner type (host tensors are
 `DataOwned<Vec<T>>`; a `Vec` cannot own `cuMemHostAlloc` memory) — cudarc 0.19.10
 has `CudaContext::alloc_pinned::<T>` -> `PinnedHostSlice<T>`, default flag
 `CU_MEMHOSTALLOC_WRITECOMBINED` (good D2H, bad CPU reads); (2) non-syncing
-`h2d`/`d2h` entry points (note `dtod_full` also syncs, so device `clone()` would
-serialize a loop). Recommended shape: 3 streams H/C/D, not per-chunk rotation.
+`h2d`/`d2h` entry points. Device `clone()` is NOT affected - it goes through
+cudarc `try_clone` -> `clone_dtod` -> `memcpy_dtod_async` on the buffer's own
+allocation stream and never syncs; the syncing `dtod_full` is cross-ordinal
+only. Recommended shape: 3 streams H/C/D, not per-chunk rotation.
 Details + hazards in `2026-11-23-streaming-overlap/RSTSR-FEASIBILITY.md`.
