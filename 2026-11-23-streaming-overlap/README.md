@@ -174,7 +174,11 @@ exactly the separated time.
 
 ## Porting notes for `rstsr-cuda`
 
-What a Rust test of the same experiment needs, against `261021/cuda`:
+What a Rust test of the same experiment needs, against `261021/cuda`. The
+streaming/async scheduler half already exists there (per-value streams,
+`order_input`/`order_output` events, stream-ordered allocation, no per-op sync
+in any kernel); the gap is the host boundary — see
+[`RSTSR-FEASIBILITY.md`](RSTSR-FEASIBILITY.md) for the code-level answer.
 
 1. **Pinned host memory — missing today.** Every transfer path takes a plain
    `Vec<T>` (`crates-device/rstsr-cuda/src/transfer.rs`: `d2h_full`, `h2d_full`,
@@ -191,14 +195,15 @@ What a Rust test of the same experiment needs, against `261021/cuda`:
    pinned_dst)` that only enqueue (`cuMemcpyHtoDAsync` / `DtoHAsync`) and leave
    the sync to the caller's stream `synchronize()` after the loop. The
    per-element `d2h_scalar` (one sync per element) is the pathological case.
-3. **More than one stream — a design blocker.** `crate::registry` caches one
-   `CudaStreamObj` per ordinal, and `DeviceCuda::stream()` returns it, so every
-   `DeviceCuda::new(0)` in a process shares one stream. Streams are also part
-   of `same_device` (strict-streams decision), which means the pipeline has to
-   be arranged as *all ops of one chunk on one stream* — exactly the Python
-   pattern — rather than mixing operands across streams. Either expose a
-   user-visible stream handle on `DeviceCuda`, or let a tensor carry its
-   allocation stream (it already records it in `CudaBuffer::alloc_stream()`).
+3. **More than one stream — supported, but not creatable from outside.**
+   `DeviceCuda` carries a per-value stream and `set_stream` switches it;
+   `same_device` deliberately does *not* compare the stream, and cross-stream
+   producer/consumer is handled by `order_input`/`order_output` events
+   (`src/kernel.rs`), so a tensor produced on one stream and consumed on another
+   of the same ordinal is already legal and correct. The only missing piece is a
+   public constructor: `CudaStreamObj::new` is `pub(crate)`, so an external
+   crate can only `CudaStreamObj::wrap(ordinal, Arc<CudaStream>)` with a stream
+   it built through `cudarc`.
 4. **Allocation** is stream-ordered `cuMemAllocAsync` (cudarc `CudaStream::alloc`),
    so interleaving allocations with copies does not sync the host. Still
    preallocate the chunk buffers outside the timed region: a pool miss during
@@ -232,3 +237,4 @@ the 20 s budget.
 | `probe_transfer_concurrency.py` | H2D/D2H duplex probe |
 | `results/bench-streaming.txt` | output of the canonical run quoted above |
 | `results/transfer-concurrency.txt` | output of the duplex probe |
+| `RSTSR-FEASIBILITY.md` | can `rstsr-cuda` do this with a pinned host tensor: what exists, what is missing |

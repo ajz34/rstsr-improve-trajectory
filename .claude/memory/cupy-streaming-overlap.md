@@ -23,11 +23,20 @@ Numbers (RTX 5070 Laptop, PCIe 4.0 x8, CuPy 14.1.1):
   ~2x within seconds -> time all modes in interleaved round-robin rounds and
   report per-probe medians; assert on ratios, never absolute ms.
 
-`rstsr-cuda` porting blockers (at `261021/cuda`, `6d17d04`):
-`src/transfer.rs` has no pinned host path (plain `Vec<T>`) and syncs the stream
-per copy; `crate::registry` caches one `CudaStreamObj` per ordinal, so there is
-no user-visible second stream, and `same_device` is strict-stream (a pipeline
-must therefore be per-chunk, all ops of a chunk on one stream). cudarc 0.19.10
-already provides `CudaContext::alloc_pinned::<T>` -> `PinnedHostSlice<T>`
-(default flag `CU_MEMHOSTALLOC_WRITECOMBINED`: good for D2H, check H2D/CPU reads).
-Allocation is stream-ordered `cuMemAllocAsync`, so it does not stall the host.
+`rstsr-cuda` streaming status (at `261021/cuda`, `6d17d04`) — CORRECTED after
+reading the code; the streaming/async half already exists:
+- async by design (`src/lib.rs:12-13`); 9 `synchronize()` in the crate, 6 of them
+  in `transfer.rs` (h2d/d2h/dtod/fill), **zero in any kernel or operator**;
+- `DeviceCuda` carries a per-value stream + `set_stream`; `same_device` does NOT
+  compare the stream, and `order_input`/`order_output` (`src/kernel.rs`) insert
+  cross-stream events in every kernel — so produce-on-A / consume-on-B is legal
+  today. `CudaStreamObj::new` is `pub(crate)`; only `wrap(ordinal, Arc<CudaStream>)`
+  is public, so an outside crate cannot make a stream without cudarc.
+- allocation is stream-ordered `cuMemAllocAsync` (no host stall).
+Real gaps = host boundary only: (1) pinned host owner type (host tensors are
+`DataOwned<Vec<T>>`; a `Vec` cannot own `cuMemHostAlloc` memory) — cudarc 0.19.10
+has `CudaContext::alloc_pinned::<T>` -> `PinnedHostSlice<T>`, default flag
+`CU_MEMHOSTALLOC_WRITECOMBINED` (good D2H, bad CPU reads); (2) non-syncing
+`h2d`/`d2h` entry points (note `dtod_full` also syncs, so device `clone()` would
+serialize a loop). Recommended shape: 3 streams H/C/D, not per-chunk rotation.
+Details + hazards in `2026-11-23-streaming-overlap/RSTSR-FEASIBILITY.md`.
