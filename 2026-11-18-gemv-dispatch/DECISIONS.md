@@ -204,3 +204,37 @@ Review pass (same day; `3c3999d` = reviewed state, `718864a` = fixes):
   `y` or a neither-prefer matrix (both traced correct by hand; deferred, since
   the user asked not to over-test at this stage).
 
+## Patch-2 state (2026-11-23, branch `261123/blas2-gemv`, commit `c93fdde`)
+
+- Each device `matmul_impl.rs` gained `gemv_blas_no_conj_{f32,f64,c32,c64}`
+  next to the gemm/syrk wrappers (D20), routed through `B::driver_gemv` (no new
+  cblas call site): `lda` from shape/stride, `x`/`y` staged through contiguous
+  buffers (`beta == 0` never reads `y`), c-prefer matrix viewed transposed with
+  the flag flipped, otherwise copied, and `y := beta*y` on an empty contraction.
+- Each device `matmul.rs` gained the `(2,1,1)` and `(1,2,1)` arms and routes the
+  `(2,2,2)` arm through a shape-aware wrapper: a length-1 output axis is
+  eliminated with `Layout::dim_eliminate` (D23) and dispatched to gemv. `k == 1`
+  stays gemm — that product is an outer product, not a matvec.
+- Batch loop: `vec_inner` (length-1 output axis) always iterates in the main
+  thread with `with_num_threads(nthreads, …)`; real matrix batches keep
+  `n_task >= 4 * nthreads` with rayon-outer and `with_num_threads(1, …)`. This
+  is the 2026-11-23 scope narrowing of D29.
+- Mixed dtypes keep the naive `gemv_naive_cpu_serial` / `gevm_naive_cpu_serial`
+  fallback.
+- `TB: Mul<TA, Output = TC>` is now required by the gemv dispatch and
+  propagated to `matmul_row_major_blas` / `matmul_uninit_row_major_blas`
+  (acceptable to the maintainer). The `(1,2,1)` and `m == 1` forms swap matrix
+  and vector roles, so the transposed orientation needs it, and a
+  `gemv`-against-`la.reverse_axes()` fallback does not remove it from the
+  swapped call sites. `DeviceMatMulAPI` already carried the bound, so the trait
+  surface is unchanged.
+- Tests: 10 dispatcher tests per device copy (both arms, the three length-1
+  output collapses, `k == 1` outer product, f-prefer/strided/broadcast
+  operands, `beta` with a strided output, empty contraction, complex, batched
+  shapes including `n_task = 256 > 4 nthreads`).
+- Gates: `fmt --check` on five crates, clippy `--all-targets -D warnings`,
+  `--lib` 17 passed, `entry_row_openblas` 501/501, `tests_driver_impl blas2`
+  10/10, `cargo check --tests` for the other four devices, five copies still
+  two hashes (four identical + OpenBLAS's extra rule-7 test).
+- Not done yet: P3 re-measurement (needs a quiet machine), and the gemm/syrk
+  `k == 0` zero-fill divergence still to be filed.
