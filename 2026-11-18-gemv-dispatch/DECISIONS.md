@@ -204,7 +204,8 @@ Review pass (same day; `3c3999d` = reviewed state, `718864a` = fixes):
   `y` or a neither-prefer matrix (both traced correct by hand; deferred, since
   the user asked not to over-test at this stage).
 
-## Patch-2 state (2026-11-23, branch `261123/blas2-gemv`, commit `c93fdde`)
+## Patch-2 state (2026-11-23, branch `261123/blas2-gemv`, commit `c93fdde`;
+diff in `proposed-patch-2.diff`)
 
 - Each device `matmul_impl.rs` gained `gemv_blas_no_conj_{f32,f64,c32,c64}`
   next to the gemm/syrk wrappers (D20), routed through `B::driver_gemv` (no new
