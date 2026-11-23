@@ -9,5 +9,5 @@ date: 2026-11-23T15:23:46+08:00
 rstsr before: 062c970 (main, v0.10.4)
 rstsr after: 6599375 (261123/blas2-gemv; 3c3999d + 718864a + c93fdde + 6599375)
 passes: results/bench-run5-old.txt (062c970), results/bench-run4.txt (P0, earlier session), results/bench-run5.txt + results/bench-run6.txt (6599375)
-load at start: 4.29 11.46 10.81 1/1329 5
+load (1 min) while the passes ran: 0.00 before run5, 4.29 at 15:23 (after run6); run5 and run6 agree within noise (e.g. 15.76 ms both on 256x452676 vecmat)
 note: run4's absolute values drifted (batched-gemm 20.41 ms vs 24.6-26.2 ms at 062c970 today), so the A/B uses the adjacent run5-old / run6 pair.
