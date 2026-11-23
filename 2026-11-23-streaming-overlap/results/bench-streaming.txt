@@ -1,0 +1,37 @@
+device   : NVIDIA GeForce RTX 5070 Laptop GPU
+config   : 32 chunks x 8 MiB = 256 MiB per direction, 4 streams, 7 timed rounds
+
+phase totals (isolated, interleaved median)
+  h2d         19.18 ms   14.00 GB/s
+  compute     45.61 ms    322.2 GFLOP/s (f64 FMA chain, 219 FMA/elem)
+  d2h         19.33 ms   13.89 GB/s
+
+predicted serial      84.12 ms  (h2d + compute + d2h)
+predicted pipeline    45.61 ms  (max of compute and h2d+d2h)
+                      45.61 ms  (if the two copy directions overlapped fully)
+
+mode                       ms  vs serial_all  vs serial_chunk  pipeline eff
+---------------------------------------------------------------------------
+h2d                     19.18          4.37x            4.32x             -
+compute                 45.61          1.84x            1.82x             -
+d2h                     19.33          4.34x            4.29x             -
+serial_all              83.90          1.00x            0.99x             -
+serial_chunk            82.87          1.01x            1.00x             -
+pipeline                47.92          1.75x            1.73x         95.2%
+pipeline_pageable       86.08          0.97x            0.96x         53.0%
+pipeline_blocking       83.20          1.01x            1.00x         54.8%
+pipeline_1stream        82.95          1.01x            1.00x         55.0%
+
+transfer time hidden by the pipeline:  94.0% of h2d+d2h
+speedup, naive separation -> pipeline: 1.75x
+
+pipeline timeline (one replay, GPU timestamps)
+  0 ms                                                                                      47.6 ms
+  s0 |hcccdhcccccccccccdhcccccccccdhcccccccccdhcccccccccccddhccccccccddhccccccccddhcccccccccdd        |
+  s1 |hhcccccdhhccccccccccdhcccccccccdhcccccccccdhcccccccccccdhhccccccccdhhccccccccdhccccccccccdd     |
+  s2 |hhhcccccccdhccccccccccddhccccccccddhcccccccccdhhccccccccccdhcccccccccdhcccccccccdhccccccccccdd  |
+  s3 |hhhhhccccccccdhccccccccccdhhccccccccdhccccccccccccdhcccccccccdhcccccccccdhcccccccccddhccccccccdd|
+      h = H2D   c = compute   d = D2H   (1 char ~ 0.50 ms)
+
+result match (serial vs pipeline): OK
+wall time: 5.46 s
