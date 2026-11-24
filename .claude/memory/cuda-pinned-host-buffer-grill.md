@@ -34,5 +34,15 @@ Key decisions:
   PyTorch = normal CPU tensor, pinned-ness invisible (pointer query).
 
 Owner naming preference: `DeviceCudaPinned` (pinned first, backend second).
-Next: PLAN.md + implementation on the `261021/cuda` branch, bench in a new
-trajectory dir; execution awaits user go.
+
+**B1-B5 IMPLEMENTED 2026-11-24** on `261021/cuda` (UNCOMMITTED, owner
+instruction): `pinned.rs`, `device_pinned.rs`, `pinned_view.rs`,
+`conversion_pinned.rs`, `event.rs`, `sync.rs`, `tests/test_pinned.rs` (12
+tests); full crate suite green (faer + no-faer), clippy/doc clean. STATUS.md
+records deviations: `PinnedBuffer` owns `malloc_host`+`CudaEvent` directly
+(not `PinnedHostSlice`, whose `as_slice` needs `ValidAsZeroBits` and forms
+refs to uninit memory); `zeros_f` needs `ValidAsZeroBits`; D2H edge uses the
+source tensor's stream. Lesson: a 3-stream pipeline test corrupted data when
+the H2D buffer was dropped before the compute-stream kernel read it (the
+foreign-stream read-lifetime hole, user-side guard = keep buffers alive).
+Next: B6 bench in `2026-11-23-pinned-streaming-bench/` awaits go.
