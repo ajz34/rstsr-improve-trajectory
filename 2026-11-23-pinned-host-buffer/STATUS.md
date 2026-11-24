@@ -135,3 +135,15 @@ transfer; see the bench README.
   read pinned data through `raw().to_vec_f()` or a `host_view()`.
 - Empty pinned buffers use a `T`-aligned dangling pointer (debug builds assert
   a non-null slice base); `Drop` skips `cuMemFreeHost` for them.
+
+## Closing (2026-11-24)
+
+Both pending rstsr changes committed on `261021/cuda`, splitting fix from
+bench as `07e3d2e` (D2H drop-time read event) and `f11eeda`
+(`benches/bench_streaming.rs` + `[[bench]]` entry, port of this task's
+`src/main.rs` with a `bench_elementwise`-style header; `pipeline_pageable`
+documented as informational). Verified in-crate: all assertions green,
+pipeline 46.08 ms vs serial 105.38 ms (2.29x), 91.4% efficiency, 89.5% of
+transfer hidden, controls at the 79.7 ms phase sum, WC == default, bitwise
+equal. Note the bench's overlap assertions depend on the fix commit; the two
+must land together on any clean checkout.
