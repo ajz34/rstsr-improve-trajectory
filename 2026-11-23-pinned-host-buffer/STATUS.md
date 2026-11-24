@@ -113,7 +113,12 @@ fix** in `crates-device/rstsr-cuda/src/pinned/transfer.rs`: the source
 pointer is taken through cudarc `DevicePtr::device_ptr(slice, exec_stream)`
 so a read event is recorded on the copy stream and honored at `CudaSlice::drop`
 (free waits; the stream does not). `test_pinned` (12) green with the fix.
-Port of the bench into `rstsr-cuda/benches/` awaits acceptance.
+Port of the bench into `rstsr-cuda/benches/` awaits acceptance. Cross-check
+against the CuPy prototype (`../2026-11-23-streaming-overlap/`): all CuPy
+probes are covered except `serial_chunk` (== `serial_all` there, omitted) and
+the event-timeline Gantt (not ported); one divergence — rstsr's pageable
+pipeline still overlaps, so CuPy's `pipeline_pageable` control does not
+transfer; see the bench README.
 
 ## Lessons for B6 (bench)
 

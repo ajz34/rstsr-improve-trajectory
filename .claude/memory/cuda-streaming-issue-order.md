@@ -29,6 +29,14 @@ Measured 2026-11-24 in `2026-11-23-pinned-streaming-bench/` (RTX 5070 Laptop).
 4. The copy-engine FIFO theory (a waiting D2H blocking later H2Ds) was WRONG:
    D2H lag 0/1/2/4 made no difference once (2) was fixed.
 
-Numbers: pipeline 47.1 ms vs 106.9 naive (2.27x), 91% of
-`max(compute, h2d+d2h)`, 89% of transfer hidden; controls flat. Write-combined
+Numbers: pipeline ~46 ms vs ~106 naive (2.3x), 91% of
+`max(compute, h2d+d2h)`, ~90% of transfer hidden; controls flat. Write-combined
 pinned pages = default for D2H (link-bound).
+
+**Pageable does NOT collapse in rstsr (unlike CuPy).** rstsr's pageable
+`to_device` syncs the device stream per transfer but the host only waits for
+its own chunk -> the pageable 3-stream flow also overlaps (43.7 ms, within
+noise of pinned). So a pageable negative control cannot validate the pinned
+ingredient in rstsr; use `pipeline_1stream` / `pipeline_blocking`. What pinned
+buys is host observability (stable bytes after one event sync, no staging
+copy), not raw overlap in this synthetic bench.
