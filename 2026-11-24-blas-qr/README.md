@@ -1,7 +1,7 @@
 # QR decomposition on the BLAS devices — outcome (2026-11-24)
 
 Decisions: `DECISIONS.md`. Implementation: rstsr branch `261124/blas-qr`
-(uncommitted working tree, 50 paths), on top of `c9fcc20` (`main`).
+committed as `fb6f921` (56 paths) on top of `c9fcc20` (`main`); no PR opened.
 
 ## What was built
 
@@ -18,6 +18,8 @@ Decisions: `DECISIONS.md`. Implementation: rstsr branch `261124/blas-qr`
   `linalg_func/func_{f64,c64}/qr.rs` (symlinked into the five crates);
   validator scripts extended (`# ### qr` in c64, wide-complete in f64).
 - `QrMode` rustdoc: one sentence on BLAS support.
+- `rstsr-agents` `7373cf9`: `git-commit-coauthor` registers DeepSeek Harness
+  (<service@deepseek.com>).
 
 ## Results
 

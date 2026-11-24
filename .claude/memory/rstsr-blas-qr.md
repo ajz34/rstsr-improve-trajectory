@@ -7,7 +7,7 @@ metadata:
 
 2026-11-24. Grill closed in 2 rounds; decisions and outcome in
 `2026-11-24-blas-qr/{DECISIONS,README}.md`. Code on rstsr branch
-`261124/blas-qr` (off `c9fcc20`), **uncommitted** (50 paths), PR not opened.
+`261124/blas-qr` (off `c9fcc20`), committed as `fb6f921` (56 paths); PR not opened.
 
 - Layers: `rstsr-blas-traits/src/lapack_qr/{geqrf,orgqr}.rs` (builders +
   `GEQRFDriverAPI`/`ORGQRDriverAPI`, in `LapackDriverAPI`), shared thunks
