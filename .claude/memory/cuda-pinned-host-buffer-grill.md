@@ -35,8 +35,8 @@ Key decisions:
 
 Owner naming preference: `DeviceCudaPinned` (pinned first, backend second).
 
-**B1-B5 IMPLEMENTED 2026-11-24** on `261021/cuda` (UNCOMMITTED, owner
-instruction): `pinned.rs`, `device_pinned.rs`, `pinned_view.rs`,
+**B1-B5 IMPLEMENTED + COMMITTED 2026-11-24** on `261021/cuda` (`71d3d89`,
+owner instructed the commit; layout `src/pinned/{buffer,device,view,transfer,conversion}.rs` + `event.rs`, `sync.rs`): `pinned.rs`, `device_pinned.rs`, `pinned_view.rs`,
 `conversion_pinned.rs`, `event.rs`, `sync.rs`, `tests/test_pinned.rs` (12
 tests); full crate suite green (faer + no-faer), clippy/doc clean. STATUS.md
 records deviations: `PinnedBuffer` owns `malloc_host`+`CudaEvent` directly

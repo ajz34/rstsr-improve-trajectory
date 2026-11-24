@@ -1,8 +1,8 @@
 # STATUS — implementation B1–B5 (2026-11-24)
 
 Executed against `PLAN.md` on rstsr branch `261021/cuda` (base `6d17d04`).
-**Nothing is committed in rstsr** (owner instruction); `git status` there
-shows 4 modified + 7 new files, all under `crates-device/rstsr-cuda/`.
+Committed on `261021/cuda` as `71d3d89` (2026-11-24, on the owner's instruction),
+13 files under `crates-device/rstsr-cuda/`, +1413/-1.
 
 ## What landed (layout after the `pinned/` restructure of 2026-11-24)
 
