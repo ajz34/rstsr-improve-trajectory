@@ -1,0 +1,20 @@
+function	trait	faer	blas	faer_files	blas_files	faer_forms	blas_forms
+cholesky	CholeskyAPI	yes	yes	rstsr-linalg-traits/src/faer_impl/cholesky.rs	rstsr-linalg-traits/src/blas_impl/cholesky.rs	(Tr, FlagUpLo); (Tr, Option<FlagUpLo>); Tr	(Tr, Option<FlagUpLo>); ImplStruct; Tr
+det	DetAPI	yes	yes	rstsr-linalg-traits/src/faer_impl/det.rs	rstsr-linalg-traits/src/blas_impl/det.rs	Tr	Tr
+eig	EigAPI	yes	no	rstsr-linalg-traits/src/faer_impl/eig.rs		Tr	
+eigh	EighAPI	yes	yes	rstsr-linalg-traits/src/faer_impl/eigh.rs	rstsr-linalg-traits/src/blas_impl/eigh.rs	(Tr, FlagUpLo); (Tr, Option<FlagUpLo>); (TrA, TrB); (TrA, TrB, FlagUpLo); (TrA, TrB, FlagUpLo, i32); Tr	(Tr, FlagUpLo); (TrA, TrB); (TrA, TrB, FlagUpLo); (TrA, TrB, FlagUpLo, i32); EighArgs<'a, 'b, DeviceBLAS, T>; EighArgs_<'a, 'b, DeviceBLAS, T>; Tr
+eigvals	EigvalsAPI	yes	no	rstsr-linalg-traits/src/faer_impl/eigvals.rs		Tr	
+eigvalsh	EigvalshAPI	yes	yes	rstsr-linalg-traits/src/faer_impl/eigvalsh.rs	rstsr-linalg-traits/src/blas_impl/eigvalsh.rs	(Tr, FlagUpLo); (Tr, Option<FlagUpLo>); Tr	(Tr, FlagUpLo); (TrA, TrB); (TrA, TrB, FlagUpLo); (TrA, TrB, FlagUpLo, i32); EighArgs<'a, 'b, DeviceBLAS, T>; EighArgs_<'a, 'b, DeviceBLAS, T>; Tr
+inv	InvAPI	yes	yes	rstsr-linalg-traits/src/faer_impl/inv.rs	rstsr-linalg-traits/src/blas_impl/inv.rs	Tr	Tr
+matrix_norm	MatrixNormAPI	yes	no	rstsr-linalg-traits/src/faer_impl/norm.rs		(Tr, A); Tr	
+matrix_power	MatrixPowerAPI	yes	no	rstsr-linalg-traits/src/faer_impl/matrix_power.rs		(Tr, isize)	
+matrix_rank	MatrixRankAPI	yes	no	rstsr-linalg-traits/src/faer_impl/matrix_rank.rs		(Tr, A); Tr	
+pinv	PinvAPI	yes	yes	rstsr-linalg-traits/src/faer_impl/pinv.rs	rstsr-linalg-traits/src/blas_impl/pinv.rs	(Tr, A); (Tr, T::Real, T::Real); Tr	&TensorAny<R, T, DeviceBLAS, D>; (&TensorAny<R, T, DeviceBLAS, D>, T::Real, T::Real); (Tr, T::Real, T::Real); Tr
+qr	QrAPI	yes	yes	rstsr-linalg-traits/src/faer_impl/qr.rs	rstsr-linalg-traits/src/blas_impl/qr.rs	(Tr, &str); (Tr, QrMode); Tr	(&TensorAny<R, T, DeviceBLAS, D>, QrMode); (Tr, &str); (Tr, QrMode); Tr
+slogdet	SLogDetAPI	yes	yes	rstsr-linalg-traits/src/faer_impl/slogdet.rs	rstsr-linalg-traits/src/blas_impl/slogdet.rs	Tr	Tr
+solve_general	SolveGeneralAPI	yes	yes	rstsr-linalg-traits/src/faer_impl/solve_general.rs	rstsr-linalg-traits/src/blas_impl/solve_general.rs	(TrA, TrB)	(TrA, TrB)
+solve_symmetric	SolveSymmetricAPI	no	yes		rstsr-linalg-traits/src/blas_impl/solve_symmetric.rs		(TrA, TrB, bool, Option<FlagUpLo>); ImplStruct
+solve_triangular	SolveTriangularAPI	yes	yes	rstsr-linalg-traits/src/faer_impl/solve_triangular.rs	rstsr-linalg-traits/src/blas_impl/solve_triangular.rs	(TrA, TrB, Option<FlagUpLo>); ImplStruct	(TrA, TrB, Option<FlagUpLo>); ImplStruct
+svd	SVDAPI	yes	yes	rstsr-linalg-traits/src/faer_impl/svd.rs	rstsr-linalg-traits/src/blas_impl/svd.rs	(Tr, bool); Tr	(&TensorAny<R, T, DeviceBLAS, D>, bool); (Tr, bool); SVDArgs<'a, DeviceBLAS, T>; SVDArgs_<'a, DeviceBLAS, T>; Tr
+svdvals	SVDvalsAPI	yes	yes	rstsr-linalg-traits/src/faer_impl/svdvals.rs	rstsr-linalg-traits/src/blas_impl/svdvals.rs	Tr	&TensorAny<R, T, DeviceBLAS, D>; SVDArgs<'a, DeviceBLAS, T>; SVDArgs_<'a, DeviceBLAS, T>; Tr
+vector_norm	VectorNormAPI	yes	no	rstsr-linalg-traits/src/faer_impl/norm.rs		(Tr, A); Tr	

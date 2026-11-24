@@ -1,0 +1,33 @@
+name	status	rstsr	note
+LinAlgError	not-applicable	n/a	rstsr uses the `rt::Error` enum; no dedicated exception type
+cholesky	covered	rt::linalg::cholesky	`(&a)` and `(&a, Upper)`; BLAS devices call POTRF
+cond	absent		composable from norms and `inv`, but no entry
+cross	covered	rt::cross	core entry; not under `rt::linalg`
+det	covered	rt::linalg::det	2-D input returns a 0-d tensor
+diagonal	covered	rt::diagonal	core entry; view-returning
+eig	covered	rt::linalg::eig	faer only; complex output for every input
+eigh	covered	rt::linalg::eigh	generalized `(a, b, uplo, type)`; EighArgs on BLAS only
+eigvals	covered	rt::linalg::eigvals	faer only
+eigvalsh	covered	rt::linalg::eigvalsh	faer: standard only; BLAS: also generalized
+inv	covered	rt::linalg::inv	BLAS devices call GETRF + GETRI
+lstsq	absent		no gelsd/gelss/gelsy driver
+matmul	covered	rt::matmul	core entry; BLAS devices dispatch GEMM/GEMV
+matrix_norm	covered	rt::linalg::matrix_norm	faer only
+matrix_power	covered	rt::linalg::matrix_power	faer only; negative exponents supported
+matrix_rank	covered	rt::linalg::matrix_rank	faer only; returns `Tensor<usize, _, IxD>`
+matrix_transpose	covered	rt::matrix_transpose	core entry; view-returning
+multi_dot	absent		
+norm	partial	rt::linalg::matrix_norm / rt::linalg::vector_norm	split into two entries; no single `ord`-dispatching `norm`
+outer	covered	rt::outer	core entry
+pinv	covered	rt::linalg::pinv	returns `PinvResult { pinv, rank }`
+qr	covered	rt::linalg::qr	`reduced`/`complete` only; no pivoting
+slogdet	covered	rt::linalg::slogdet	returns `SLogDetResult { sign, logabsdet }`
+solve	partial	rt::linalg::solve_general	square `A` (same requirement as NumPy); no `assume_a` dispatch
+svd	covered	rt::linalg::svd	`full_matrices` and `driver` (`gesvd`/`gesdd`, BLAS only)
+svdvals	covered	rt::linalg::svdvals	BLAS devices call GESDD with `compute_uv = false`
+tensordot	covered	rt::tensordot	core entry
+tensorinv	absent		
+tensorsolve	absent		
+trace	covered	rt::trace	core entry; optional offset
+vecdot	covered	rt::vecdot	core entry
+vector_norm	covered	rt::linalg::vector_norm	faer only

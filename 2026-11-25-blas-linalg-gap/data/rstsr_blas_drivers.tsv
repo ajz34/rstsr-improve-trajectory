@@ -1,0 +1,5 @@
+driver_entry	file
+driver_gemv	rstsr-blas-traits/src/blas2/gemv.rs
+driver_gemm	rstsr-blas-traits/src/blas3/gemm.rs
+driver_syhemm	rstsr-blas-traits/src/blas3/syhemm.rs
+driver_trsm	rstsr-blas-traits/src/blas3/trsm.rs

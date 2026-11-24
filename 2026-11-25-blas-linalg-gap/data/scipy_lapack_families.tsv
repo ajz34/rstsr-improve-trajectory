@@ -1,0 +1,197 @@
+family	n_wrappers	wrappers
+gbcon	4	cgbcon dgbcon sgbcon zgbcon
+gbsv	4	cgbsv dgbsv sgbsv zgbsv
+gbtrf	4	cgbtrf dgbtrf sgbtrf zgbtrf
+gbtrs	4	cgbtrs dgbtrs sgbtrs zgbtrs
+gebal	4	cgebal dgebal sgebal zgebal
+gecon	4	cgecon dgecon sgecon zgecon
+geequ	4	cgeequ dgeequ sgeequ zgeequ
+geequb	4	cgeequb dgeequb sgeequb zgeequb
+gees	4	cgees dgees sgees zgees
+geev	4	cgeev dgeev sgeev zgeev
+geev*_lwork	4	cgeev_lwork dgeev_lwork sgeev_lwork zgeev_lwork
+gehrd	4	cgehrd dgehrd sgehrd zgehrd
+gehrd*_lwork	4	cgehrd_lwork dgehrd_lwork sgehrd_lwork zgehrd_lwork
+gejsv	2	dgejsv sgejsv
+gels	4	cgels dgels sgels zgels
+gels*_lwork	4	cgels_lwork dgels_lwork sgels_lwork zgels_lwork
+gelsd	4	cgelsd dgelsd sgelsd zgelsd
+gelsd*_lwork	4	cgelsd_lwork dgelsd_lwork sgelsd_lwork zgelsd_lwork
+gelss	4	cgelss dgelss sgelss zgelss
+gelss*_lwork	4	cgelss_lwork dgelss_lwork sgelss_lwork zgelss_lwork
+gelsy	4	cgelsy dgelsy sgelsy zgelsy
+gelsy*_lwork	4	cgelsy_lwork dgelsy_lwork sgelsy_lwork zgelsy_lwork
+gemqrt	4	cgemqrt dgemqrt sgemqrt zgemqrt
+geqp3	4	cgeqp3 dgeqp3 sgeqp3 zgeqp3
+geqrf	4	cgeqrf dgeqrf sgeqrf zgeqrf
+geqrf*_lwork	4	cgeqrf_lwork dgeqrf_lwork sgeqrf_lwork zgeqrf_lwork
+geqrfp	4	cgeqrfp dgeqrfp sgeqrfp zgeqrfp
+geqrfp*_lwork	4	cgeqrfp_lwork dgeqrfp_lwork sgeqrfp_lwork zgeqrfp_lwork
+geqrt	4	cgeqrt dgeqrt sgeqrt zgeqrt
+gerqf	4	cgerqf dgerqf sgerqf zgerqf
+gesc2	4	cgesc2 dgesc2 sgesc2 zgesc2
+gesdd	4	cgesdd dgesdd sgesdd zgesdd
+gesdd*_lwork	4	cgesdd_lwork dgesdd_lwork sgesdd_lwork zgesdd_lwork
+gesv	4	cgesv dgesv sgesv zgesv
+gesvd	4	cgesvd dgesvd sgesvd zgesvd
+gesvd*_lwork	4	cgesvd_lwork dgesvd_lwork sgesvd_lwork zgesvd_lwork
+gesvx	4	cgesvx dgesvx sgesvx zgesvx
+getc2	4	cgetc2 dgetc2 sgetc2 zgetc2
+getrf	4	cgetrf dgetrf sgetrf zgetrf
+getri	4	cgetri dgetri sgetri zgetri
+getri*_lwork	4	cgetri_lwork dgetri_lwork sgetri_lwork zgetri_lwork
+getrs	4	cgetrs dgetrs sgetrs zgetrs
+gges	4	cgges dgges sgges zgges
+ggev	4	cggev dggev sggev zggev
+gglse	4	cgglse dgglse sgglse zgglse
+gglse*_lwork	4	cgglse_lwork dgglse_lwork sgglse_lwork zgglse_lwork
+gtcon	4	cgtcon dgtcon sgtcon zgtcon
+gtsv	4	cgtsv dgtsv sgtsv zgtsv
+gtsvx	4	cgtsvx dgtsvx sgtsvx zgtsvx
+gttrf	4	cgttrf dgttrf sgttrf zgttrf
+gttrs	4	cgttrs dgttrs sgttrs zgttrs
+hbevd	2	chbevd zhbevd
+hbevx	2	chbevx zhbevx
+hecon	2	checon zhecon
+heequb	2	cheequb zheequb
+heev	2	cheev zheev
+heev*_lwork	2	cheev_lwork zheev_lwork
+heevd	2	cheevd zheevd
+heevd*_lwork	2	cheevd_lwork zheevd_lwork
+heevr	2	cheevr zheevr
+heevr*_lwork	2	cheevr_lwork zheevr_lwork
+heevx	2	cheevx zheevx
+heevx*_lwork	2	cheevx_lwork zheevx_lwork
+hegst	2	chegst zhegst
+hegv	2	chegv zhegv
+hegv*_lwork	2	chegv_lwork zhegv_lwork
+hegvd	2	chegvd zhegvd
+hegvx	2	chegvx zhegvx
+hegvx*_lwork	2	chegvx_lwork zhegvx_lwork
+hesv	2	chesv zhesv
+hesv*_lwork	2	chesv_lwork zhesv_lwork
+hesvx	2	chesvx zhesvx
+hesvx*_lwork	2	chesvx_lwork zhesvx_lwork
+hetrd	2	chetrd zhetrd
+hetrd*_lwork	2	chetrd_lwork zhetrd_lwork
+hetrf	2	chetrf zhetrf
+hetrf*_lwork	2	chetrf_lwork zhetrf_lwork
+hetri	2	chetri zhetri
+hetrs	2	chetrs zhetrs
+hfrk	2	chfrk zhfrk
+ilaver	1	ilaver
+lamch	2	dlamch slamch
+langb	4	clangb dlangb slangb zlangb
+lange	4	clange dlange slange zlange
+lantr	4	clantr dlantr slantr zlantr
+larf	4	clarf dlarf slarf zlarf
+larfg	4	clarfg dlarfg slarfg zlarfg
+lartg	4	clartg dlartg slartg zlartg
+lasd4	2	dlasd4 slasd4
+laswp	4	claswp dlaswp slaswp zlaswp
+lauum	4	clauum dlauum slauum zlauum
+orcsd	2	dorcsd sorcsd
+orcsd*_lwork	2	dorcsd_lwork sorcsd_lwork
+orghr	2	dorghr sorghr
+orghr*_lwork	2	dorghr_lwork sorghr_lwork
+orgqr	2	dorgqr sorgqr
+orgrq	2	dorgrq sorgrq
+ormqr	2	dormqr sormqr
+ormrz	2	dormrz sormrz
+ormrz*_lwork	2	dormrz_lwork sormrz_lwork
+pbsv	4	cpbsv dpbsv spbsv zpbsv
+pbtrf	4	cpbtrf dpbtrf spbtrf zpbtrf
+pbtrs	4	cpbtrs dpbtrs spbtrs zpbtrs
+pftrf	4	cpftrf dpftrf spftrf zpftrf
+pftri	4	cpftri dpftri spftri zpftri
+pftrs	4	cpftrs dpftrs spftrs zpftrs
+pocon	4	cpocon dpocon spocon zpocon
+posv	4	cposv dposv sposv zposv
+posvx	4	cposvx dposvx sposvx zposvx
+potrf	4	cpotrf dpotrf spotrf zpotrf
+potri	4	cpotri dpotri spotri zpotri
+potrs	4	cpotrs dpotrs spotrs zpotrs
+ppcon	4	cppcon dppcon sppcon zppcon
+ppsv	4	cppsv dppsv sppsv zppsv
+pptrf	4	cpptrf dpptrf spptrf zpptrf
+pptri	4	cpptri dpptri spptri zpptri
+pptrs	4	cpptrs dpptrs spptrs zpptrs
+pstf2	4	cpstf2 dpstf2 spstf2 zpstf2
+pstrf	4	cpstrf dpstrf spstrf zpstrf
+pteqr	4	cpteqr dpteqr spteqr zpteqr
+ptsv	4	cptsv dptsv sptsv zptsv
+ptsvx	4	cptsvx dptsvx sptsvx zptsvx
+pttrf	4	cpttrf dpttrf spttrf zpttrf
+pttrs	4	cpttrs dpttrs spttrs zpttrs
+rot	2	crot zrot
+sbev	2	dsbev ssbev
+sbevd	2	dsbevd ssbevd
+sbevx	2	dsbevx ssbevx
+sfrk	2	dsfrk ssfrk
+stebz	2	dstebz sstebz
+stein	2	dstein sstein
+stemr	2	dstemr sstemr
+stemr*_lwork	2	dstemr_lwork sstemr_lwork
+sterf	2	dsterf ssterf
+stev	2	dstev sstev
+stevd	2	dstevd sstevd
+sycon	4	csycon dsycon ssycon zsycon
+syconv	4	csyconv dsyconv ssyconv zsyconv
+syequb	4	csyequb dsyequb ssyequb zsyequb
+syev	2	dsyev ssyev
+syev*_lwork	2	dsyev_lwork ssyev_lwork
+syevd	2	dsyevd ssyevd
+syevd*_lwork	2	dsyevd_lwork ssyevd_lwork
+syevr	2	dsyevr ssyevr
+syevr*_lwork	2	dsyevr_lwork ssyevr_lwork
+syevx	2	dsyevx ssyevx
+syevx*_lwork	2	dsyevx_lwork ssyevx_lwork
+sygst	2	dsygst ssygst
+sygv	2	dsygv ssygv
+sygv*_lwork	2	dsygv_lwork ssygv_lwork
+sygvd	2	dsygvd ssygvd
+sygvx	2	dsygvx ssygvx
+sygvx*_lwork	2	dsygvx_lwork ssygvx_lwork
+sysv	4	csysv dsysv ssysv zsysv
+sysv*_lwork	4	csysv_lwork dsysv_lwork ssysv_lwork zsysv_lwork
+sysvx	4	csysvx dsysvx ssysvx zsysvx
+sysvx*_lwork	4	csysvx_lwork dsysvx_lwork ssysvx_lwork zsysvx_lwork
+sytf2	4	csytf2 dsytf2 ssytf2 zsytf2
+sytrd	2	dsytrd ssytrd
+sytrd*_lwork	2	dsytrd_lwork ssytrd_lwork
+sytrf	4	csytrf dsytrf ssytrf zsytrf
+sytrf*_lwork	4	csytrf_lwork dsytrf_lwork ssytrf_lwork zsytrf_lwork
+sytri	4	csytri dsytri ssytri zsytri
+sytrs	4	csytrs dsytrs ssytrs zsytrs
+tbtrs	4	ctbtrs dtbtrs stbtrs ztbtrs
+tfsm	4	ctfsm dtfsm stfsm ztfsm
+tfttp	4	ctfttp dtfttp stfttp ztfttp
+tfttr	4	ctfttr dtfttr stfttr ztfttr
+tgexc	4	ctgexc dtgexc stgexc ztgexc
+tgsen	4	ctgsen dtgsen stgsen ztgsen
+tgsen*_lwork	4	ctgsen_lwork dtgsen_lwork stgsen_lwork ztgsen_lwork
+tgsyl	2	dtgsyl stgsyl
+tpmqrt	4	ctpmqrt dtpmqrt stpmqrt ztpmqrt
+tpqrt	4	ctpqrt dtpqrt stpqrt ztpqrt
+tpttf	4	ctpttf dtpttf stpttf ztpttf
+tpttr	4	ctpttr dtpttr stpttr ztpttr
+trcon	4	ctrcon dtrcon strcon ztrcon
+trexc	4	ctrexc dtrexc strexc ztrexc
+trsen	4	ctrsen dtrsen strsen ztrsen
+trsen*_lwork	4	ctrsen_lwork dtrsen_lwork strsen_lwork ztrsen_lwork
+trsyl	4	ctrsyl dtrsyl strsyl ztrsyl
+trtri	4	ctrtri dtrtri strtri ztrtri
+trtrs	4	ctrtrs dtrtrs strtrs ztrtrs
+trttf	4	ctrttf dtrttf strttf ztrttf
+trttp	4	ctrttp dtrttp strttp ztrttp
+tzrzf	4	ctzrzf dtzrzf stzrzf ztzrzf
+tzrzf*_lwork	4	ctzrzf_lwork dtzrzf_lwork stzrzf_lwork ztzrzf_lwork
+uncsd	2	cuncsd zuncsd
+uncsd*_lwork	2	cuncsd_lwork zuncsd_lwork
+unghr	2	cunghr zunghr
+unghr*_lwork	2	cunghr_lwork zunghr_lwork
+ungqr	2	cungqr zungqr
+ungrq	2	cungrq zungrq
+unmqr	2	cunmqr zunmqr
+unmrz	2	cunmrz zunmrz
+unmrz*_lwork	2	cunmrz_lwork zunmrz_lwork

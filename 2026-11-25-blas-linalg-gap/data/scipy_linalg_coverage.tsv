@@ -1,0 +1,97 @@
+name	status	rstsr	note
+bandwidth	absent		returns the matrix bandwidth
+block_diag	absent		assembly helper
+cdf2rdf	absent		real block-diagonal form of a complex Schur form
+cho_factor	absent		POTRF factor object
+cho_solve	absent		factor-based Cholesky solve
+cho_solve_banded	absent		banded Cholesky solve
+cholesky	covered	rt::linalg::cholesky	lower/upper triangle
+cholesky_banded	absent		banded Cholesky factorization
+circulant	absent		circulant matrix construction
+clarkson_woodruff_transform	absent		sketching transform
+companion	absent		companion matrix construction
+convolution_matrix	absent		convolution matrix construction
+coshm	absent		matrix hyperbolic cosine
+cosm	absent		matrix cosine
+cossin	absent		CS decomposition
+det	covered	rt::linalg::det	0-d tensor for 2-D input
+dft	absent		discrete Fourier transform matrix
+diagsvd	absent		assemble a matrix from singular values
+eig	covered	rt::linalg::eig	faer only; complex output
+eig_banded	absent		banded symmetric/Hermitian eigenproblem
+eigh	covered	rt::linalg::eigh	BLAS: EighArgs (b/uplo/eig_type/driver); faer: tuple forms
+eigh_tridiagonal	absent		tridiagonal symmetric eigenproblem
+eigvals	covered	rt::linalg::eigvals	faer only
+eigvals_banded	absent		banded eigenvalues only
+eigvalsh	covered	rt::linalg::eigvalsh	faer: standard only; BLAS: generalized supported
+eigvalsh_tridiagonal	absent		tridiagonal eigenvalues only
+expm	absent		matrix exponential
+expm_cond	absent		matrix exponential condition number
+expm_frechet	absent		Frechet derivative of the matrix exponential
+fiedler	absent		Fiedler matrix construction
+fiedler_companion	absent		Fiedler companion matrix
+find_best_blas_type	absent		dtype-dispatch helper; Rust uses generics over `BlasFloat`
+fractional_matrix_power	absent		matrix power with non-integer exponent
+funm	absent		matrix function of a general callable
+get_blas_funcs	absent		dtype-dispatch helper; Rust uses the typed BLAS builders
+get_lapack_funcs	absent		dtype-dispatch helper; Rust uses the typed LAPACK builders
+hadamard	absent		Hadamard matrix construction
+hankel	absent		Hankel matrix construction
+helmert	absent		Helmert matrix construction
+hessenberg	absent		Hessenberg decomposition
+hilbert	absent		Hilbert matrix construction
+inv	covered	rt::linalg::inv	GETRF + GETRI on BLAS devices
+invhilbert	absent		inverse Hilbert matrix
+invpascal	absent		inverse Pascal matrix
+ishermitian	absent		Hermitian predicate
+issymmetric	absent		symmetric predicate
+khatri_rao	absent		Khatri-Rao product
+ldl	absent		LDL^T factorization
+leslie	absent		Leslie matrix construction
+logm	absent		matrix logarithm
+lstsq	absent		least-squares solve; no gelsd/gelss/gelsy driver
+lu	absent		LU factorization as P,L,U
+lu_factor	absent		packed LU factor object
+lu_solve	absent		factor-based LU solve
+matmul_toeplitz	absent		Toeplitz matrix-vector product
+matrix_balance	absent		matrix balancing
+norm	partial	rt::linalg::matrix_norm / rt::linalg::vector_norm	split by input kind; no single `ord`-dispatching `norm`
+null_space	absent		null space from the SVD
+ordqz	absent		ordered QZ decomposition
+orth	absent		orthonormal basis from the SVD
+orthogonal_procrustes	absent		orthogonal Procrustes problem
+pascal	absent		Pascal matrix construction
+pinv	covered	rt::linalg::pinv	returns `PinvResult { pinv, rank }`
+pinvh	absent		Hermitian pseudoinverse
+polar	absent		polar decomposition
+qr	covered	rt::linalg::qr	`reduced`/`complete` only; no pivoting, no `r`/`raw` mode
+qr_delete	absent		column deletion from a QR factorization
+qr_insert	absent		column insertion into a QR factorization
+qr_multiply	absent		QR with a matrix multiplication
+qr_update	absent		QR rank-one update
+qz	absent		QZ (generalized Schur) decomposition
+rq	absent		RQ decomposition
+rsf2csf	absent		real to complex Schur form
+schur	absent		Schur decomposition
+signm	absent		matrix sign function
+sinhm	absent		matrix hyperbolic sine
+sinm	absent		matrix sine
+solve	partial	rt::linalg::solve_general	no single `assume_a` (`gen`/`sym`/`her`/`pos`) or `transposed` entry; sym/hem covered by `solve_symmetric`, no positive-definite path
+solve_banded	absent		banded linear solve
+solve_circulant	absent		circulant linear solve
+solve_continuous_are	absent		continuous algebraic Riccati equation
+solve_continuous_lyapunov	absent		continuous Lyapunov equation
+solve_discrete_are	absent		discrete algebraic Riccati equation
+solve_discrete_lyapunov	absent		discrete Lyapunov equation
+solve_lyapunov	absent		Lyapunov equation
+solve_sylvester	absent		Sylvester equation
+solve_toeplitz	absent		Toeplitz linear solve
+solve_triangular	covered	rt::linalg::solve_triangular	uplo overload; no unit-diagonal flag at the linalg entry
+solveh_banded	absent		banded Hermitian positive-definite solve
+sqrtm	absent		matrix square root
+subspace_angles	absent		principal angles between subspaces
+svd	covered	rt::linalg::svd	`full_matrices`; BLAS `driver` takes `gesvd`/`gesdd`
+svdvals	covered	rt::linalg::svdvals	singular values only
+tanhm	absent		matrix hyperbolic tangent
+tanm	absent		matrix tangent
+toeplitz	absent		Toeplitz matrix construction

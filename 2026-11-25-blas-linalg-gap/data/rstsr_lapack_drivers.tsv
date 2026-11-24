@@ -1,0 +1,14 @@
+routine	file
+SYEV	rstsr-blas-traits/src/lapack_eigh/syev.rs
+SYEVD	rstsr-blas-traits/src/lapack_eigh/syevd.rs
+SYGV	rstsr-blas-traits/src/lapack_eigh/sygv.rs
+SYGVD	rstsr-blas-traits/src/lapack_eigh/sygvd.rs
+GEQRF	rstsr-blas-traits/src/lapack_qr/geqrf.rs
+ORGQR	rstsr-blas-traits/src/lapack_qr/orgqr.rs
+GESV	rstsr-blas-traits/src/lapack_solve/gesv.rs
+GETRF	rstsr-blas-traits/src/lapack_solve/getrf.rs
+GETRI	rstsr-blas-traits/src/lapack_solve/getri.rs
+POTRF	rstsr-blas-traits/src/lapack_solve/potrf.rs
+SYSV	rstsr-blas-traits/src/lapack_solve/sysv.rs
+GESDD	rstsr-blas-traits/src/lapack_svd/gesdd.rs
+GESVD	rstsr-blas-traits/src/lapack_svd/gesvd.rs
