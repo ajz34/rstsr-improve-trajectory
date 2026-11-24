@@ -45,4 +45,12 @@ refs to uninit memory); `zeros_f` needs `ValidAsZeroBits`; D2H edge uses the
 source tensor's stream. Lesson: a 3-stream pipeline test corrupted data when
 the H2D buffer was dropped before the compute-stream kernel read it (the
 foreign-stream read-lifetime hole, user-side guard = keep buffers alive).
-Next: B6 bench in `2026-11-23-pinned-streaming-bench/` awaits go.
+**B6 BENCH DONE 2026-11-24** (`2026-11-23-pinned-streaming-bench/`): pipeline
+47.1 ms vs 106.9 naive (2.27x), 91% of bound, controls flat, bitwise equal;
+WC pages = default (link-bound). Two pipeline laws learned: (1) issue per
+chunk, not per phase — an event recorded at enqueue covers everything enqueued
+on its stream so far, so phase-wise issue is fully serial; (2) never make a
+source's allocation stream wait for its D2H (`order_output_raw`) — it stalls
+every later kernel on that stream (62.7 ms); use cudarc `DevicePtr::device_ptr
+(slice, exec)` read-event + drop-time wait instead (UNCOMMITTED fix in
+`pinned/transfer.rs`, awaiting owner). Port to `rstsr-cuda/benches/` awaits go.

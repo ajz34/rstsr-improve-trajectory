@@ -1,0 +1,22 @@
+[package]
+name = "pinned-streaming-bench"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+publish = false
+
+# B6 of the pinned-host-buffer plan (../2026-11-23-pinned-host-buffer/PLAN.md):
+# chunked H2D / compute / D2H streaming with `DeviceCudaPinned` tensors,
+# against the serial pageable flow. Path-depends on the local rstsr checkout
+# (branch 261021/cuda @ 71d3d89). The body is written to be dropped into
+# `rstsr-cuda/benches/bench_streaming.rs` (harness = false) once accepted.
+
+[dependencies]
+rstsr-cuda = { path = "../../rstsr/crates-device/rstsr-cuda" }
+rstsr = { path = "../../rstsr/rstsr", default-features = false }
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = false
+codegen-units = 16

@@ -1,0 +1,24 @@
+chunks 32 x 8 MiB f64 (256 MiB per direction), 7 rounds, cuda:0
+h2d 19.02 ms  d2h 18.63 ms  -> compute links per chunk: 11
+
+phase totals (isolated, interleaved median)
+  h2d           19.02 ms   14.12 GB/s
+  compute       43.12 ms
+  d2h           18.63 ms   14.41 GB/s
+  predicted serial (sum)          80.77 ms
+  predicted pipeline (max term)   43.12 ms
+
+mode                       ms   vs serial_all   pipeline eff
+h2d                       19.02        5.62x          0.0%
+compute                   43.12        2.48x          0.0%
+d2h                       18.63        5.73x          0.0%
+serial_all               106.85        1.00x          0.0%
+pipeline                  47.28        2.26x         91.2%
+pipeline_blocking         84.60        1.26x          0.0%
+pipeline_1stream          80.27        1.33x          0.0%
+d2h_writecombined         18.63        5.74x          0.0%
+
+transfer time hidden by the pipeline: 89.0% of h2d+d2h
+speedup, serial_all (pageable, blocking) -> pipeline: 2.26x
+speedup, pipeline_1stream (pinned, no overlap) -> pipeline: 1.70x
+assertions passed: bitwise equal; pipeline < 0.7 x serial_all and < 0.75 x pipeline_1stream; controls at the phase sum

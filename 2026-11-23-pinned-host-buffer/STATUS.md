@@ -1,4 +1,4 @@
-# STATUS — implementation B1–B5 (2026-11-24)
+# STATUS — implementation B1–B6 (2026-11-24)
 
 Executed against `PLAN.md` on rstsr branch `261021/cuda` (base `6d17d04`).
 Committed on `261021/cuda` as `71d3d89` (2026-11-24, on the owner's instruction),
@@ -98,6 +98,22 @@ Checked against cudarc 0.19.10 `driver/safe/core.rs:1452-1590`:
   helpers) buy private-but-ours internals, non-blocking raw access, and the
   pool hook; `PinnedHostSlice` would have forced a host sync into every
   accessor and a reference-into-uninit into the async paths.
+
+## B6 — bench (2026-11-24)
+
+Prototype + numbers: `../2026-11-23-pinned-streaming-bench/` (README has the
+table and the two issue-order findings). Result: pipeline 47.1 ms vs 106.9 ms
+for the naive flow (**2.27×**), 91 % of the `max(compute, h2d+d2h)` bound,
+89 % of the transfer time hidden; controls at the phase sum; bitwise equal.
+
+It exposed one defect in the committed D2H edge: `order_output_raw(src)`
+made the *source's allocation stream* wait for each copy, serializing every
+later kernel on the compute stream (62.7 ms instead of 47.1). **Uncommitted
+fix** in `crates-device/rstsr-cuda/src/pinned/transfer.rs`: the source
+pointer is taken through cudarc `DevicePtr::device_ptr(slice, exec_stream)`
+so a read event is recorded on the copy stream and honored at `CudaSlice::drop`
+(free waits; the stream does not). `test_pinned` (12) green with the fix.
+Port of the bench into `rstsr-cuda/benches/` awaits acceptance.
 
 ## Lessons for B6 (bench)
 
