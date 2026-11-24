@@ -7,7 +7,7 @@ all: gemm_demo
 gemm_demo: gemm_demo.cu
 	$(NVCC) $(FLAGS) $< -o $@
 
-probes: probes/probe_algocaps probes/probe_emulation2 probes/probe_classic_emul probes/probe_lt64_fixed
+probes: probes/probe_algocaps probes/probe_emulation2 probes/probe_classic_emul probes/probe_lt64_fixed probes/probe_mixed_ab
 
 probes/%: probes/%.cu
 	$(NVCC) $(FLAGS) $< -o $@

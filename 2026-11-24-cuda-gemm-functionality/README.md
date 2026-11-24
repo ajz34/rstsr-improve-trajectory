@@ -190,6 +190,31 @@ The useful combinations are the input/output mixes, not A/B type mixes:
 - `i8 × i8 → i32` — exact.
 - `A` and `B` must share a type: `f16 + bf16` is rejected outright.
 
+### 4.1 Cross-precision A/B — there is no `f32 × f64 → f64`
+
+A and B must have the **same** dtype; only the output and the accumulate type
+may differ. Five cross-precision pairs, all rejected:
+
+| A | B | C / compute | `cublasGemmEx` | cuBLASLt |
+|---|---|---|---|---|
+| f32 | f64 | f64 / 64F | `NOT_SUPPORTED` (15) | `NOT_SUPPORTED` (15) |
+| f64 | f32 | f64 / 64F | `NOT_SUPPORTED` (15) | `INVALID_VALUE` (7) |
+| f16 | f32 | f32 / 32F | `NOT_SUPPORTED` (15) | `INVALID_VALUE` (7) |
+| f32 | f16 | f32 / 32F | `NOT_SUPPORTED` (15) | `INVALID_VALUE` (7) |
+| bf16 | f32 | f32 / 32F | `NOT_SUPPORTED` (15) | `INVALID_VALUE` (7) |
+
+(`results/mixed_ab.txt`, `probes/probe_mixed_ab.cu`.) The fixed-point FP64
+emulation path does not change this: it also requires both operands in f64.
+
+The workaround is *exact*, not approximate: every f32 value is representable
+in f64 (24-bit vs 53-bit significand), so upcasting A to f64 and calling
+`cublasDgemm` computes the same real product with no rounding at all — the
+only cost is a temporary f64 copy of A (2× memory, one extra pass). If that
+temporary matters, a custom kernel that loads f32 A and converts to double in
+registers halves A's traffic, but on this GPU native fp64 throughput (~1/64 of
+fp32 on a GeForce part) dominates either way. The same holds for `f64 × f32`
+and for f32 output (upcast, `Dgemm`, downcast).
+
 ### 5. cuBLAS vs cuBLASLt
 
 Both routes reach the same kernels and accept the same core dtype set; the

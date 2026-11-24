@@ -1,0 +1,10 @@
+GemmEx   A=f32 B=f64 -> f64   -> 15
+GemmEx   A=f64 B=f32 -> f64   -> 15
+GemmEx   A=f16 B=f32 -> f32   -> 15
+GemmEx   A=f32 B=f16 -> f32   -> 15
+GemmEx   A=bf16 B=f32 -> f32  -> 15
+cuBLASLt A=f32 B=f64 -> f64   -> 15
+cuBLASLt A=f64 B=f32 -> f64   -> 7
+cuBLASLt A=f16 B=f32 -> f32   -> 7
+cuBLASLt A=f32 B=f16 -> f32   -> 7
+cuBLASLt A=bf16 B=f32 -> f32  -> 7
