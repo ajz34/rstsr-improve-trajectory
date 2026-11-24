@@ -1,0 +1,16 @@
+f32 compute 32F              algo ids: status=0 count=14
+                             algos advertising FP emulation: 0 / 14
+                             heuristic status=0 n=1, chosen algo emu_cap=0
+
+f32 compute 16BFX9           algo ids: status=0 count=16
+                             algos advertising FP emulation: 2 / 16
+                             heuristic status=0 n=1, chosen algo emu_cap=0
+
+f64 compute 64F              algo ids: status=0 count=12
+                             algos advertising FP emulation: 0 / 12
+                             heuristic status=0 n=1, chosen algo emu_cap=0
+
+f64 compute FIXEDPOINT       algo ids: status=0 count=13
+                             algos advertising FP emulation: 1 / 13
+                             heuristic status=0 n=1, chosen algo emu_cap=0
+

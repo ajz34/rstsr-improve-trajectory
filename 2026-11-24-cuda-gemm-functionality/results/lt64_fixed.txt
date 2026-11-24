@@ -1,0 +1,5 @@
+ct=70 strategy=-1 bits= 0: heuristic=0 n=1 chosen_emu_cap=0 run=0
+ct=79 strategy=2 bits=40: heuristic=0 n=1 chosen_emu_cap=0 run=0
+ct=79 strategy=2 bits=55: heuristic=0 n=1 chosen_emu_cap=0 run=0
+fixed-point 40 bits          identical=262144/262144 rel.diff vs native=0.00e+00
+fixed-point 55 bits          identical=262144/262144 rel.diff vs native=0.00e+00

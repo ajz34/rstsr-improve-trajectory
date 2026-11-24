@@ -1,0 +1,15 @@
+f32 native            status=0
+f32 tf32              status=0
+f32 bf16x9 eager      status=0
+f32 bf16x9 performant status=0
+f32 native vs tf32                     25 / 262144 identical, rel.diff= 2.60e-04
+f32 native vs bf16x9(eager)        262144 / 262144 identical, rel.diff= 0.00e+00
+f32 native vs bf16x9(performant)   262144 / 262144 identical, rel.diff= 0.00e+00
+bf16x9 eager vs performant         262144 / 262144 identical, rel.diff= 0.00e+00
+f64 native            status=0
+f64 fixed eager       status=0 mantissa_bits=0 (-1 = not used)
+f64 fixed performant  status=0 mantissa_bits=0
+f64 native vs fixed(eager)         262144 / 262144 identical, rel.diff= 0.00e+00
+f64 native vs fixed(performant)    262144 / 262144 identical, rel.diff= 0.00e+00
+Sgemm default vs TF32 math             25 / 262144 identical, rel.diff= 2.60e-04
+Sgemm default vs BF16x9 math       262144 / 262144 identical, rel.diff= 0.00e+00

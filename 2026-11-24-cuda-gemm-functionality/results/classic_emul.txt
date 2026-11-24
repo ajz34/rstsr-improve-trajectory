@@ -1,0 +1,7 @@
+f64 default math                               status= 0 rel.err=3.62e-16  bit-identical-to-native=0/262144
+fixed-point math, dynamic, default strategy    status= 0 rel.err=3.62e-16  bit-identical-to-native=262144/262144
+fixed-point math, dynamic, eager               status= 0 rel.err=7.62e-16  bit-identical-to-native=19431/262144
+fixed-point math, fixed 30 bits, eager         status= 0 rel.err=2.28e-09  bit-identical-to-native=0/262144
+fixed-point math, fixed 40 bits, eager         status= 0 rel.err=4.02e-14  bit-identical-to-native=281/262144
+fixed-point math, fixed 55 bits, eager         status= 0 rel.err=7.73e-16  bit-identical-to-native=18507/262144
+Sgemm BF16x9 math, eager: status=0
