@@ -1,50 +1,36 @@
 ---
 name: rstsr-blas-eig
-description: "eig/eigvals (complex) on the BLAS devices (2026-11-24/25 grill, closed; impl awaits go): GEEV/GGEV, EigResult<W, VL, VR> with Option sides, EigSide runtime enum (no per-variant Out), Homogeneous marker, complex-slot driver traits + shared real→complex assembly helper, GGEV renormalization; PLAN in 2026-11-24-blas-eig/"
+description: "eig/eigvals (complex) on the BLAS devices (2026-11-25, implemented): GEEV/GGEV builders, EigResult<W, VL, VR> with Option sides, runtime EigSide, Homogeneous marker, shared n-dim walk ref_impl_eig_nd_f; GGEV beta is COMPLEX for C/ZGGEV (plan was wrong); in-place per input; OpenBLAS/MKL/AOCL green, uncommitted on 261125/blas-eig"
 metadata:
   type: project
 ---
 
-2026-11-24/25. Grill closed in 3 rounds; decisions in
-`2026-11-24-blas-eig/DECISIONS.md` (D1–D23), implementation plan in
-`PLAN.md`. Code not started; branch will be `261125/blas-eig` off `main`
-`b01b6e0` (QR #169 merged). rstsr itself untouched.
+2026-11-25. Grill (D1–D23) in `2026-11-24-blas-eig/DECISIONS.md`, plan B0–B5
+all done, outcome and reviewer notes in `README.md`. Code on rstsr branch
+`261125/blas-eig` (off `b01b6e0`), **uncommitted** (owner rule), PR not opened;
+changelog/version untouched by instruction.
 
-- **Fact check that reshaped the prompt**: the non-symmetric problem has
-  ONE generalized form (`GGEV`, no `itype`); the three `itype` kinds are
-  `eigh`'s (already on BLAS). `eig` has no driver choice (`GEEV` is the
-  only algorithm; `GEEVX`/`GGEVX` are expert drivers, `GGES` the Schur/QZ
-  family). faer has `eigen`, `eigenvalues`, and an unwired QZ-based
-  `generalized_eigen` (U, α, β) — no left vectors.
-- **`Out` cannot depend on an enum variant** — `(Tr, EigSide)` is one
-  argument type (my R2 table was wrong; owner's "uniformly describe three
-  outputs" fixed it). Settled: `EigResult<W, VL, VR> { eigenvalues, left,
-  right }`; every BLAS `eig` form returns `EigResult<W, Option<VL>,
-  Option<VR>>`; conversions: generic `(W, VL, VR)`, `(W, T)` when exactly
-  one side is `Some` (panics otherwise — keeps the old faer `(w, vr)`
-  `.into()`), `(W, T, T)` when both are `Some`. Coexistence of the three
-  impls probed with rustc (the unwrapped ones would need `T = Option<T>` to
-  overlap). Owner allowed the breaking change on faer (output type only).
-- `#[non_exhaustive] enum EigSide { None, Left, #[default] Right, Both }`
-  with `TryFrom<&str>` (`"none"|"left"|"right"|"both"`) and
-  `From<FlagSide>` (`L`→Left, `R`→Right; `Left`/`Right` consts already in
-  `rstsr_structs`). `pub struct Homogeneous;` tuple marker → spectrum
-  `(..., 2, M)` (`β ≡ 1` for the standard problem). Forms (positional
-  `a, b, side, homogeneous`): 16 for `eig`, 4 for `eigvals`. No `EigArgs`.
-- LAPACK facts: real `?GEEV`/`?GGEV` return split `WR`/`WI` (or
-  `ALPHAR`/`ALPHAI`) + **real** `VR` packed by the conjugate-pair rule →
-  assembly needed (SciPy `_linalg_eig.hh::transform_eigvecs`); GEEV
-  vectors are unit-norm (SciPy's "left not normalized" docstring is stale);
-  GGEV vectors (both sides) are renormalized by SciPy; `rwork` = `2N`
-  (zgeev) / `8N` (zggev) allocated **before** the query (LAPACKE);
-  `w = α/β` with inf/nan rules (`_make_eigvals`).
-- Driver tier: ONE trait per routine with complex output slots
-  (`w: *mut Complex<T::Real>`), real-dtype vendor impls assemble through one
-  shared helper (`util/util_eig.rs`) — precedent: GESVD `superb` copy-out in
-  the driver tier. `lapacke-translation` §3a has no `geev`/`ggev` row: gap
-  recorded, skill not edited (owner rule from the QR grill).
-- Test assets: validators already carry `# ### eig`/`eigvals` (sorted
-  spectrum, `abs` of reordered columns); new sections for left/both/
-  generalized/homogeneous. Shim blast radius of the `EigResult` refactor:
-  `crates-interop/rstsr-faer-py/linalg/src/linalg.rs:124` (`.eigenvectors`),
-  faer tests `test_eig`; `eigh` unaffected.
+- Layers: `rstsr-blas-traits/src/lapack_eig/{geev,ggev}.rs` (builders +
+  `GEEVDriverAPI<T>`/`GGEVDriverAPI<T>`), real→complex assembly
+  `util/util_eig.rs`, thunks `driver_impl/{lapack,lapacke}/eig/`;
+  `rstsr-linalg-traits/src/ref_impl_blas.rs` (`ref_impl_eig_nd_f` shared by
+  `eig` and `eigvals`), `blas_impl/{eig,eigvals}.rs` symlinked into the five
+  device crates (16 + 4 overload forms). faer `eig` refactored onto the same
+  `EigResult` (breaking: output type only), `rstsr-faer-py` shim adapted.
+- **GGEV `beta` is complex for C/ZGGEV** (`beta: *mut T` end to end). The plan
+  assumed real β; the first draft allocated `n` reals → heap overflow. The
+  simple impl returns `(α, β)` complex; linalg gives `w = α/β` with SciPy's
+  inf/nan rules (β=0, α≠0 → `inf+0j`; α=β=0 → `nan+0j`, or `nan+nan j` when
+  some α has an imaginary part).
+- In-place rule (sharpened by the nd tests): each input is destroyed
+  independently when its batch equals the output batch; a broadcast input's
+  slices are copied out of a broadcast view. First draft needed both in place.
+- `eig((a, Homogeneous))` keeps the default right side; `EigSide::None` gives
+  `None/None`; homogeneous spectrum `(..., 2, M)` = `(α, β)`, β ≡ 1 for the
+  standard problem; generalized vectors rescaled to unit 2-norm (SciPy).
+- Verified: OpenBLAS driver 80 + linalg 74 (full), conda OpenBLAS `lapacke`
+  eig subset 32, MKL 80 + eig subset 28 (lapacke subset 32), AOCL 80 + 28;
+  faer suite 70, facade cheatsheet 11, clippy clean. BLIS/KML only `cargo
+  check` (no local library). MKL needs `compiler/<ver>/lib` on
+  `LD_LIBRARY_PATH` (libiomp5) for threaded layers.
+- Fingerprint/test lessons moved to `rstsr-eig-fingerprint-robustness.md`.
