@@ -68,6 +68,37 @@ struct Fixture {
     cpu_in: Vec<Tensor<f64, DeviceCpuSerial>>,
 }
 
+/// Pageable-host pipeline (the CuPy `pipeline_pageable` analogue): the same
+/// three streams and the same per-chunk issue order, but the host side is a
+/// plain `Vec` through the pageable `to_device` paths. Those paths end with
+/// `stream.synchronize()` (transfer.rs), which orders the *device* work but
+/// leaves the pageable DMA itself synchronous-with-host only as far as CUDA's
+/// staging goes — measured here: the overlap survives, because the host only
+/// waits for each chunk's own copy, and the wait drains a queue the other
+/// streams kept busy. Unlike CuPy (whose pageable pipeline collapses to the
+/// serial time), rstsr's pageable flow does NOT isolate the pinned
+/// ingredient; `pipeline_1stream` / `pipeline_blocking` are the controls
+/// that do.
+fn pipeline_pageable(
+    fix: &Fixture,
+    dev_h: &DeviceCuda,
+    dev_c: &DeviceCuda,
+    dev_d: &DeviceCuda,
+    iters: usize,
+) -> Duration {
+    let t0 = Instant::now();
+    for t in fix.cpu_in.iter() {
+        let g = t.to_device(dev_h); // pageable H2D (blocking: pageable DMA)
+        let g_c = g.to_device(dev_c);
+        let r = compute(&g_c, iters);
+        let _back = r.to_device(dev_d); // pageable D2H (blocking)
+    }
+    dev_h.synchronize().unwrap();
+    dev_c.synchronize().unwrap();
+    dev_d.synchronize().unwrap();
+    t0.elapsed()
+}
+
 type PinnedChunk = Tensor<f64, DeviceCudaPinned>;
 
 fn phase_h2d(fix: &Fixture, dev: &DeviceCuda) -> Duration {
@@ -261,6 +292,7 @@ fn main() {
     pipeline(&fix, &mut pin_out, &dev_h, &dev_c, &dev_d, iters, false);
     pipeline(&fix, &mut pin_out, &dev_h, &dev_c, &dev_d, iters, true);
     pipeline(&fix, &mut pin_out, &one, &one, &one, iters, false);
+    pipeline_pageable(&fix, &dev_h, &dev_c, &dev_d, iters);
     phase_compute(&fix, &base, iters);
 
     let names = [
@@ -271,6 +303,7 @@ fn main() {
         "pipeline",
         "pipeline_blocking",
         "pipeline_1stream",
+        "pipeline_pageable",
         "d2h_writecombined",
     ];
     let mut acc: Vec<Vec<Duration>> = vec![Vec::new(); names.len()];
@@ -288,7 +321,8 @@ fn main() {
         pipe_out = o;
         acc[5].push(pipeline(&fix, &mut pin_out, &dev_h, &dev_c, &dev_d, iters, true).0);
         acc[6].push(pipeline(&fix, &mut pin_out, &one, &one, &one, iters, false).0);
-        acc[7].push(phase_d2h(&fix, &base, &mut wc_out));
+        acc[7].push(pipeline_pageable(&fix, &dev_h, &dev_c, &dev_d, iters));
+        acc[8].push(phase_d2h(&fix, &base, &mut wc_out));
     }
 
     let med: Vec<Duration> = acc.iter().map(|v| median(&mut v.clone())).collect();
@@ -365,6 +399,8 @@ fn main() {
         ms(med[6]),
         ms(phase_sum)
     );
+    // informational only (see the fn doc): rstsr's pageable path still
+    // overlaps, so this probe cannot serve as the pinned negative control
     // against the naive flow (pageable, blocking transfers): the headline number
     assert!(
         ms(pipe) < 0.7 * ms(serial),

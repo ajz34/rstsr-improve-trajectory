@@ -10,22 +10,47 @@ confirm that each ingredient is necessary?
 Yes. On the same bytes as the CuPy prototype (32 chunks × 8 MiB f64), with
 pinned host buffers, non-blocking transfers and three streams:
 
-| flow | wall time | vs naive | vs pinned, no overlap |
-|---|---|---|---|
-| `serial_all` — pageable host, blocking transfers (today's `to_device`) | 106.9 ms | 1.00× | — |
-| `pipeline_1stream` — pinned, async edges, one stream | 80.3 ms | 1.33× | 1.00× |
-| `pipeline_blocking` — pinned, 3 streams, `synchronize()` per stage | 85.6 ms | 1.25× | 0.94× |
-| **`pipeline`** — pinned, async edges, 3 streams, issued per chunk | **47.1 ms** | **2.27×** | **1.70×** |
+| flow | wall time | vs naive |
+|---|---|---|
+| `serial_all` — pageable host, blocking transfers (today's `to_device`) | 105.6 ms | 1.00× |
+| `pipeline_1stream` — pinned, async edges, one stream | 80.0 ms | 1.32× |
+| `pipeline_blocking` — pinned, 3 streams, `synchronize()` per stage | 84.9 ms | 1.24× |
+| **`pipeline`** — pinned, async edges, 3 streams, issued per chunk | **46.1 ms** | **2.29×** |
+| `pipeline_pageable` — 3 streams, but host side is a plain `Vec` | 43.7 ms | 2.42× |
+| `d2h_writecombined` — WC pages as D2H destinations (isolated phase) | 18.6 ms | = default |
 
-The pipeline lands at **91 % of the `max(compute, h2d + d2h)` bound** (42.9 ms)
-and hides **89 % of the transfer time**. Both controls sit exactly at the sum
-of the isolated phases (80.5 ms): pinned memory alone, or three streams alone,
-buy nothing. Canonical run: `results/bench-streaming.txt`; a repeat
-(`results/bench-streaming-repeat.txt`) agrees within 0.3 %.
+The pipeline lands at **92 % of the `max(compute, h2d + d2h)` bound** (42.2 ms)
+and hides **90 % of the transfer time**. The two negative controls sit exactly
+at the sum of the isolated phases (~80 ms): pinned memory alone, or three
+streams alone, buy nothing. Canonical run: `results/bench-streaming.txt`; a
+repeat (`results/bench-streaming-repeat.txt`, earlier revision without the
+pageable probe) agrees within 0.4 %.
 
-Write-combined pages as D2H destinations (`d2h_writecombined`) transfer at
-exactly the default rate (18.63 ms both): the link is the limit on this
-machine, so decision D8 (default `cudaHostAllocDefault`) costs nothing.
+### The `pipeline_pageable` surprise — an honest divergence from CuPy
+
+CuPy's `pipeline_pageable` collapses to the serial time (its pageable staging
+blocks the host per chunk). rstsr's pageable `to_device` does **not**: it
+synchronizes the *device* stream at the end of each transfer, but the host
+only ever waits for its own chunk's copy, so the pageable flow also overlaps —
+in these runs it even landed slightly *below* the pinned pipeline (43.7 vs
+46.1 ms, within clock noise). Consequences:
+
+- The pinned ingredient cannot be validated by a pageable negative control in
+  rstsr, unlike CuPy; the controls that do isolate it are
+  `pipeline_1stream` (no streams) and `pipeline_blocking` (no async edges).
+- What pinned *does* buy here is host observability with correctness: the
+  bytes are stable the moment an event sync returns, without the
+  staging-copy dance CuPy needs, and without ever reading bytes a DMA is
+  still writing.
+- The numbers are within noise of each other; no performance claim is made
+  for pinned vs pageable *in this artificial benchmark*. Under host contention
+  (another thread doing real work between enqueues) the pageable path's
+  host-synchronous staging would show up; that is the workload the pinned
+  type exists for.
+
+Write-combined pages as D2H destinations transfer at exactly the default rate
+(18.6 ms both): the link is the limit on this machine, so decision D8 (default
+`cudaHostAllocDefault`) costs nothing.
 
 ## Environment
 
@@ -45,7 +70,9 @@ written to be dropped into `rstsr-cuda/benches/bench_streaming.rs`,
 
 - **Payload**: `compute` is a chain of `rt::sin` kernels (one launch per
   link). The link count is autotuned at start-up so the compute phase costs
-  ≈ 1.15 × (`h2d` + `d2h`) — here 11 links, 42.9 ms for 256 MiB.
+  ≈ 1.15 × (`h2d` + `d2h`) — here 11 links, ~43 ms for 256 MiB. (This
+  differs from the CuPy prototype's dependent-FMA chain: `sin` saturates
+  throughput rather than latency, but the balance target is the same.)
 - **Streams**: `dev_h` (H2D), `dev_c` (compute), `dev_d` (D2H), built from one
   base value with `new_stream` / `with_stream`; no `set_stream`.
 - **Pipeline**: per chunk, H2D on H → compute on C (re-tagged input, the
@@ -57,7 +84,9 @@ written to be dropped into `rstsr-cuda/benches/bench_streaming.rs`,
   per-probe medians; ratios only.
 - **Correctness**: pipeline output compared bitwise with `serial_all`.
 - **Assertions**: bitwise equal; `pipeline < 0.7 × serial_all`; `pipeline <
-  0.75 × pipeline_1stream`; both controls ≥ 0.95 × (sum of phases).
+  0.75 × pipeline_1stream`; both controls ≥ 0.95 × (sum of phases);
+  `pipeline_pageable` ≥ 0.95 × pipeline (informational, see the surprise
+  section).
 
 Run: `cargo run --release` (~15 s). Knobs: `RSTSR_BENCH_CHUNKS`,
 `RSTSR_BENCH_ROUNDS`, `RSTSR_BENCH_ITERS` (0 = autotune), `RSTSR_BENCH_TRACE=1`

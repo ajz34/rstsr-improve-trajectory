@@ -14,6 +14,7 @@ publish = false
 [dependencies]
 rstsr-cuda = { path = "../../rstsr/crates-device/rstsr-cuda" }
 rstsr = { path = "../../rstsr/rstsr", default-features = false }
+rstsr-core = { path = "../../rstsr/rstsr-core", default-features = false }
 
 [profile.release]
 opt-level = 3
