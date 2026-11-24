@@ -16,16 +16,21 @@ Three coupled invariants in `rstsr-cuda`:
    `exec` after the launch and make the allocation stream wait
    (`order_output`). Out-of-place ops are fine because their output is
    allocated on `exec`.
-2. **Read lifetime is NOT covered.** For a foreign-stream *input* there is
-   only `alloc -> exec`; nothing makes the allocation stream wait for the
-   consuming kernel. `CudaBuffer::device_ptr` hands cudarc the allocation
-   stream and drops the `SyncOnDrop` guard before the launch, so a
-   temporary input can be freed (`free_async` on its own stream) and its
-   block reused while the kernel still reads it. Reproduced 2026-10-25:
-   `rt::add(&a_on_S0, &rt::arange(..., &dev_on_S2))` corrupted
-   4,194,303/4,194,304 elements once the temporary was dropped, and the
-   next S2 allocation returned the same pointer. Any op with a
-   foreign-stream input (the documented `set_stream` workflow) is exposed.
+2. **Read lifetime (FIXED 2026-11-24).** For a foreign-stream *input* there
+   is only `alloc -> exec`; without a read event the allocation stream can
+   free (`free_async`) and reuse the block while the consuming kernel still
+   reads it. Reproduced 2026-10-25: `rt::add(&a_on_S0, &rt::arange(...,
+   &dev_on_S2))` corrupted 4,194,303/4,194,304 elements once the temporary
+   was dropped, and the next S2 allocation returned the same pointer. Fix:
+   `CudaBuffer::read_ptr_on` returns the cudarc `SyncOnDrop` guard to the
+   caller; `FlatLaunch::arg_buf`/`arg_ptr` hold every argument's guard and
+   drop them only after `launch()` enqueues the kernel, so the read event
+   covers the launch and `CudaSlice::drop` orders the free behind it.
+   Critical cudarc detail: the event is recorded at GUARD DROP, not at
+   `device_ptr` call time — dropping the guard before the enqueue records
+   the wrong window (this was the original bug shape). Regression test:
+   `tests/test_kernels.rs::foreign_stream_temporary_kernel_input_ordered`
+   (fails on the pre-fix code).
 3. **POD.** Device storage is byte-erased; any path that crosses the
    host boundary (`d2h_full`, `get_index`, CPU/Faer conversions) must be
    `T: Copy`. The CPU-device precedent does not transfer: a CPU device

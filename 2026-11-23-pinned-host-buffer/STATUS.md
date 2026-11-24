@@ -147,3 +147,23 @@ pipeline 46.08 ms vs serial 105.38 ms (2.29x), 91.4% efficiency, 89.5% of
 transfer hidden, controls at the 79.7 ms phase sum, WC == default, bitwise
 equal. Note the bench's overlap assertions depend on the fix commit; the two
 must land together on any clean checkout.
+
+## Follow-up: kernel-level foreign-stream read-lifetime fix (2026-11-24)
+
+The "deferred" item turned out half-implemented: `CudaBuffer::device_ptr_on`
+was wired into every launch path, but the cudarc `SyncOnDrop` guard was
+dropped inside the accessor — and cudarc records the read event at guard
+drop, not at call time. So the event covered only work enqueued *before* the
+kernel, and the allocation-stream free could still race the kernel (the
+2026-10-25 repro). Fix: `read_ptr_on`/`read_ptr_raw_on` hand the guard back;
+`FlatLaunch::arg_buf`/`arg_ptr`/`arg_ptr_opt` store guards and drop them
+after `launch()`; the cuBLAS fast path in `gemm` and the D2D `memcpy_fast`
+in `assignment.rs` hold their guards past the enqueue; ~90 `offset_ptr`
+call sites folded into `arg_ptr`. Regression test
+`foreign_stream_temporary_kernel_input_ordered` fails on pre-fix code
+(long S0 sin-chain consuming an S2 temporary + S2 churn), passes with the
+fix; `pipeline_three_streams_bitwise_equals_serial` rewritten to issue per
+chunk and drop every intermediate per iteration (no more `staging` vec).
+Full suite (183 tests, `--features faer`, `--test-threads=1`) green; bench
+re-run: pipeline 44.5 ms, 95.6% efficiency, assertions pass — the drop-time
+waits cost nothing measurable.

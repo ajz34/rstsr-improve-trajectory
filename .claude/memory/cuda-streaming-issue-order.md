@@ -24,8 +24,11 @@ Measured 2026-11-24 in `2026-11-23-pinned-streaming-bench/` (RTX 5070 Laptop).
    the kernel-level foreign-stream read-lifetime hole (`cuda-write-target-
    ordering` item 2) — `order_output` is only needed for *writes* into an
    existing buffer.
-3. Keep every cross-stream device buffer alive until the final sync
-   (user-side guard until the kernel-level fix).
+3. Keeping cross-stream device buffers alive until the final sync is no
+   longer required for correctness (2026-11-24: `FlatLaunch` holds read-event
+   guards until after the launch, ordering the frees behind the consumers);
+   the bench keeps them anyway as a timing-stability guard (mid-loop frees
+   enqueue stream waits into the steady state).
 4. The copy-engine FIFO theory (a waiting D2H blocking later H2Ds) was WRONG:
    D2H lag 0/1/2/4 made no difference once (2) was fixed.
 

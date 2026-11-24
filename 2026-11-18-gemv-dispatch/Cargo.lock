@@ -1158,7 +1158,7 @@ checksum = "d902046e6a28a1e4c3cab97258a0ce11e994903f01c2d97a9447a0b3df85f4f6"
 
 [[package]]
 name = "rstsr-blas-traits"
-version = "0.10.4"
+version = "0.10.3"
 dependencies = [
  "derive_builder",
  "half",
@@ -1179,7 +1179,7 @@ checksum = "0c61e1185f0cbbdcd8ab113632b40766ea243dca276cefd0a53d5f72e720c603"
 
 [[package]]
 name = "rstsr-common"
-version = "0.10.4"
+version = "0.10.3"
 dependencies = [
  "derive_builder",
  "duplicate",
@@ -1192,7 +1192,7 @@ dependencies = [
 
 [[package]]
 name = "rstsr-core"
-version = "0.10.4"
+version = "0.10.3"
 dependencies = [
  "derive_builder",
  "duplicate",
@@ -1209,7 +1209,7 @@ dependencies = [
 
 [[package]]
 name = "rstsr-dtype-traits"
-version = "0.10.4"
+version = "0.10.3"
 dependencies = [
  "derive_builder",
  "duplicate",
@@ -1220,8 +1220,9 @@ dependencies = [
 
 [[package]]
 name = "rstsr-native-impl"
-version = "0.10.4"
+version = "0.10.3"
 dependencies = [
+ "half",
  "num",
  "rayon",
  "rstsr-common",
@@ -1230,7 +1231,7 @@ dependencies = [
 
 [[package]]
 name = "rstsr-openblas"
-version = "0.10.4"
+version = "0.10.3"
 dependencies = [
  "duplicate",
  "num",
