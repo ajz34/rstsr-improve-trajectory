@@ -45,7 +45,8 @@ DECISIONS D1–D16 / PLAN B0–B6 of this directory.
   against the compact column-major reference.
 - Function: `linalg_func/func_f64/lstsq.rs` (4 cases + explicit `rcond` + n-d
   batch consistency and owned-input consumption), `func_c64/lstsq.rs`
-  (3 cases; `c64` is `Complex<f64>` here).
+  (3 cases; `c64` is `Complex<f64>` here); both f64 tests cover the
+  rank-deficient NaN residuals (vector and matrix `b`).
 - OpenBLAS-only zero-size (`tests/zero_size/lapack.rs`): empty rows, empty
   cols (synthesized residuals), `K == 0` (padded to one zero column), empty
   batch.
