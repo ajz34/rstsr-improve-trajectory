@@ -1,3 +1,6 @@
+> Status: implemented on `261125/blas-lstsq` — see `IMPLEMENTATION.md` for the
+> landed code, deviations and verification.
+
 # PLAN — `lstsq` on the BLAS devices
 
 Decisions: `DECISIONS.md` (D1–D16). Branch `261125/blas-lstsq` off `ed1f62d`

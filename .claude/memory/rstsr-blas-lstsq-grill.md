@@ -35,8 +35,8 @@ Option<residual sums>)`) + thunks in the shared `driver_impl/lapack{,e}/lstsq/`;
 `LstsqAPI` impl rows; tests + Python validators; docs notes only (no cheat-sheet
 row: the page's test is faer-backed).
 
-Next: implement on `261125/blas-lstsq` (no auto-commit in rstsr), then the
-README/memory close-out.
+Implemented on `261125/blas-lstsq` (see
+`rstsr-blas-lstsq-implemented.md` and the task's `IMPLEMENTATION.md`).
 
 Related memory: `numpy-scipy-lstsq-semantics.md`,
 `lstsq-driver-efficiency.md`, `rstsr-blas-device-source-symlinks.md`.

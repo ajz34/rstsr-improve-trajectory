@@ -48,3 +48,9 @@ Verified 2026-11-25 against NumPy 2.5.4 (`numpy/linalg/_linalg.py:2418-2563`,
 - FFI: `[sdcz]{gelsd,gelss,gelsy}_` bound in all five device trees and
   MKL; LAPACKE gelsd in openblas+mkl only; `gelst` MKL-only, no LAPACKE, no
   "GELSY2" anywhere.
+
+**M<N write-back (2026-11-25)**: `DGELSD` sets `DLASET('F', N-M, NRHS, 0, 0,
+B(M+1,1), LDB)` and leaves the length-`N` solution in `B(1:N, :)`; a row-major
+bridge must therefore copy `max(M, N)` rows of `b` in and back. SciPy's
+`lstsq` masks residuals to NaN when `rank < min(M, N)` and returns an empty
+`(0,)` residual for `M <= N`; a 1-D `b` yields a scalar (0-d) residual.
