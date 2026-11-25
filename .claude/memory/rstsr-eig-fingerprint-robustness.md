@@ -11,6 +11,11 @@ Learned while validating BLAS eig/eigvals (2026-11-25); all bit a draft.
 - Sorted *complex* spectra are not a robust reference when distinct
   eigenvalues share a real part (roundoff flips the order): fingerprint the
   sorted real and imaginary parts independently.
+- Never compare two spectra by **sorted index**: sort both and zipping pairs
+  the members of a conjugate pair wrongly as soon as a last-bit difference
+  flips the order inside the pair (bit the "homogeneous α/β == eigvals"
+  checks once the library divided exactly). Pair each expected value with its
+  nearest actual value (`assert_same_spectrum_within` in the linalg tests).
 - Eigenvector blocks: fingerprint each column of `|v|`, sort the per-column
   values, fingerprint again (order-invariant). Reordering by a canonical
   spectrum order breaks on the same ties.
