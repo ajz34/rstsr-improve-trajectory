@@ -1,0 +1,34 @@
+[package]
+name = "exp-cuda-forms"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+publish = false
+
+# B0 probe of 2026-11-26-cuda-matmul-forms: inner-dot bandwidth, gemv and syrk anchors against the
+# rstsr-cuda matmul chain, at rstsr `261021/cuda` @ `80e626d`. Standalone crate, never a workspace
+# member; no rstsr file is edited.
+
+[dependencies]
+rstsr = { path = "../../rstsr/rstsr", default-features = false }
+rstsr-cuda = { path = "../../rstsr/crates-device/rstsr-cuda" }
+num = "0.4"
+cudarc = { version = "0.19", default-features = false, features = [
+    "std",
+    "driver",
+    "nvrtc",
+    "cublas",
+    "cublaslt",
+    "cuda-version-from-build-system",
+    "fallback-dynamic-loading",
+] }
+
+[[example]]
+name = "probe_forms"
+path = "src/probe_forms.rs"
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = false
+codegen-units = 16

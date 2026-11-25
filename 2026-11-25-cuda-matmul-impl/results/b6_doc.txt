@@ -1,0 +1,3 @@
+ Documenting rstsr-cuda v0.10.3 (/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.98s
+   Generated /scratch/rstsr_pack/rstsr/target/doc/rstsr_cuda/index.html

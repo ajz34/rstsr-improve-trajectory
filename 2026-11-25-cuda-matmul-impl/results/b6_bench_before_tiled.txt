@@ -1,0 +1,9 @@
+triple,shape,driver,median_ms,tflops
+f32 -> f32,square 2048,tiled,3.3255,5.166
+f64 -> f64,square 2048,tiled,46.0943,0.373
+f32 -> f32,square 512,tiled,0.0636,4.218
+f64 -> f64,square 512,tiled,0.7941,0.338
+f32 -> f32,tall-skinny 65536x64x64,tiled,0.1139,4.714
+f64 -> f64,tall-skinny 65536x64x64,tiled,1.4810,0.363
+f32 -> f32,batch 256 x (256,256,256),tiled,1.7286,4.969
+f64 -> f64,batch 256 x (256,256,256),tiled,22.9472,0.374

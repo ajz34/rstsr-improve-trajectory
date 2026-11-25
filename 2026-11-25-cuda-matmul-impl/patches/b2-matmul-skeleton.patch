@@ -1,0 +1,4289 @@
+diff --git a/crates-device/rstsr-cuda/src/buffer.rs b/crates-device/rstsr-cuda/src/buffer.rs
+index a00fb81..cb8a02d 100644
+--- a/crates-device/rstsr-cuda/src/buffer.rs
++++ b/crates-device/rstsr-cuda/src/buffer.rs
+@@ -4,6 +4,7 @@ use crate::error::{map_driver_error, map_driver_result_alloc};
+ use crate::prelude_dev::*;
+ use core::marker::PhantomData;
+ use cudarc::driver::{CudaSlice, DevicePtr, DevicePtrMut, SyncOnDrop};
++use std::any::TypeId;
+ use std::sync::Arc;
+ 
+ /// Owning device buffer of `len` elements of `T`; `DeviceRawAPI::Raw` for
+@@ -115,6 +116,24 @@ impl<T> CudaBuffer<T> {
+         ptr as *mut T
+     }
+ 
++    /// The same buffer read as `CudaBuffer<U>`: `Some` iff `T` is `U` or `MaybeUninit<U>`.
++    ///
++    /// The fast-path dtype dispatch of the matmul drivers checks the type triple at run time and
++    /// re-types the buffers, instead of widening every bound to the accelerated dtypes.
++    pub(crate) fn view_as<U: 'static>(&self) -> Option<&CudaBuffer<U>>
++    where
++        T: 'static,
++    {
++        let same = TypeId::of::<T>() == TypeId::of::<U>();
++        let uninit = TypeId::of::<T>() == TypeId::of::<MaybeUninit<U>>();
++        if !(same || uninit) {
++            return None;
++        }
++        // SAFETY: the two types differ only in `PhantomData<*const T>`, so their layouts are
++        // identical (see the type documentation).
++        Some(unsafe { &*(self as *const Self as *const CudaBuffer<U>) })
++    }
++
+     /// The stream this buffer was allocated on (owns free/reuse ordering).
+     pub fn alloc_stream(&self) -> Arc<CudaStreamObj> {
+         let stream = self.slice.stream();
+diff --git a/crates-device/rstsr-cuda/src/device.rs b/crates-device/rstsr-cuda/src/device.rs
+index 69437e4..abe88d2 100644
+--- a/crates-device/rstsr-cuda/src/device.rs
++++ b/crates-device/rstsr-cuda/src/device.rs
+@@ -144,6 +144,13 @@ impl DeviceCuda {
+         self.flags = flags;
+     }
+ 
++    /// Immutable twin of [`DeviceCuda::set_flags_override`]: this device value with `flags`
++    /// pinned, otherwise unchanged.
++    pub fn with_flags(mut self, flags: CudaRuntimeFlags) -> Self {
++        self.flags = Some(flags);
++        self
++    }
++
+     /// Shortcut accessor for the common flag.
+     pub fn compute_type_32f(&self) -> ComputeType32F {
+         self.flags().compute_type_32f
+diff --git a/crates-device/rstsr-cuda/src/flags.rs b/crates-device/rstsr-cuda/src/flags.rs
+index 11b8337..a672ffe 100644
+--- a/crates-device/rstsr-cuda/src/flags.rs
++++ b/crates-device/rstsr-cuda/src/flags.rs
+@@ -1,80 +1,57 @@
+ //! Runtime flags for the CUDA device.
+ 
++use crate::matmul::{ComputeType16F, ComputeType64F, MatMulDrivers};
+ use rstsr_core::prelude_dev::*;
+ use std::sync::RwLock;
+ 
+-/// 32-bit-float compute-type family (`cublasComputeType_t` names).
+-///
+-/// The process-global default can be seeded from the environment variable
+-/// `RSTSR_CUDA_COMPUTE_TYPE_32F` = `default` | `pedantic` | `fast16f` |
+-/// `fast16bf` | `fasttf32` (unknown values keep the default).
+-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+-#[non_exhaustive]
+-pub enum ComputeType32F {
+-    /// Default compute: best available performance, internal precision at
+-    /// least the requested one.
+-    #[default]
+-    Default,
+-    /// Exact arithmetic semantics and the specified internal storage format.
+-    Pedantic,
+-    /// Allow down-converting inputs to FP16 for faster tensor-core math.
+-    Fast16F,
+-    /// Allow down-converting inputs to BF16 for faster tensor-core math.
+-    Fast16BF,
+-    /// Allow down-converting inputs to TF32 for faster tensor-core math.
+-    FastTF32,
+-}
++/// Old path of [`ComputeType32F`], which now lives in [`crate::matmul`].
++pub use crate::matmul::ComputeType32F;
+ 
+ /// Runtime flags of a CUDA device (additive; keep small and `Copy`).
+ ///
+ /// Two layers:
+-/// - a process-global default, read by [`default_flags`] and writable via [`set_default_flags`]
+-///   (env-seeded on first use);
+-/// - a per-device `Option<CudaRuntimeFlags>` override: `None` tracks the global, `Some(x)` pins.
++/// - a process-global default, read by [`default_flags`] and writable via [`set_default_flags`];
++/// - a per-device `Option<CudaRuntimeFlags>` override: `None` tracks the global, `Some(x)` pins
++///   ([`DeviceCuda::with_flags`][crate::device::DeviceCuda::with_flags]).
+ ///
+ /// Flags are resolved at launch time by flag-consuming ops, but compared as
+-/// stored (see `DeviceCuda::same_device`).
++/// stored (see `DeviceCuda::same_device`). No flag is seeded from the environment: op behaviour is
++/// set programmatically; only the kernel-build inputs (arch, strict-fp, include paths, cache
++/// location) are environment variables, because they are part of the PTX cache key.
+ #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
++#[non_exhaustive]
+ pub struct CudaRuntimeFlags {
+-    /// Compute type for 32-bit-float GEMMs.
++    /// Compute type for 32-bit-float matmul (read by `f32`-output calls only).
+     pub compute_type_32f: ComputeType32F,
++    /// Compute type for 64-bit-float matmul (read by `f64`-output calls only).
++    pub compute_type_64f: ComputeType64F,
++    /// Compute type for 16-bit-float matmul (read by `f16`/`bf16`-output calls only).
++    pub compute_type_16f: ComputeType16F,
++    /// Mantissa bits of the 64-bit-float fixed-point emulation; `0` keeps the library
++    /// default. Read only when `compute_type_64f` is `EmulatedFixedPoint`.
++    pub fixedpoint_mantissa_bits: u32,
++    /// The matmul drivers a device may use (default: all of them).
++    pub matmul_drivers: MatMulDrivers,
++    /// Print one line per matmul launch: the triple, the shape, the mode and the driver tried.
++    pub trace_matmul: bool,
+ }
+ 
+-impl CudaRuntimeFlags {
+-    /// Seed from process environment (called once at first device creation).
+-    fn from_env() -> Self {
+-        let mut flags = Self::default();
+-        if let Ok(v) = std::env::var("RSTSR_CUDA_COMPUTE_TYPE_32F") {
+-            flags.compute_type_32f = match v.to_ascii_lowercase().as_str() {
+-                "default" => ComputeType32F::Default,
+-                "pedantic" => ComputeType32F::Pedantic,
+-                "fast16f" => ComputeType32F::Fast16F,
+-                "fast16bf" => ComputeType32F::Fast16BF,
+-                "fasttf32" => ComputeType32F::FastTF32,
+-                _ => flags.compute_type_32f, // unknown values keep the default
+-            };
+-        }
+-        flags
+-    }
+-}
+-
+-static CUDA_FLAGS_DEFAULT: RwLock<CudaRuntimeFlags> =
+-    RwLock::new(CudaRuntimeFlags { compute_type_32f: ComputeType32F::Default });
+-
+-static CUDA_FLAGS_SEEDED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
++static CUDA_FLAGS_DEFAULT: RwLock<CudaRuntimeFlags> = RwLock::new(CudaRuntimeFlags {
++    compute_type_32f: ComputeType32F::Default,
++    compute_type_64f: ComputeType64F::Default,
++    compute_type_16f: ComputeType16F::Default,
++    fixedpoint_mantissa_bits: 0,
++    matmul_drivers: MatMulDrivers::all(),
++    trace_matmul: false,
++});
+ 
+-/// Read the process-global default flags (seeds from env on first call).
++/// Read the process-global default flags.
+ pub fn default_flags() -> CudaRuntimeFlags {
+-    CUDA_FLAGS_SEEDED.get_or_init(|| {
+-        let seeded = CudaRuntimeFlags::from_env();
+-        *CUDA_FLAGS_DEFAULT.write().unwrap() = seeded;
+-    });
+     *CUDA_FLAGS_DEFAULT.read().unwrap()
+ }
+ 
+ /// Set the process-global default flags. Affects devices whose flags are
+ /// `None` (resolved at launch time), not devices with pinned overrides.
+ pub fn set_default_flags(flags: CudaRuntimeFlags) {
+-    default_flags(); // ensure env seeding happens before the first override
+     *CUDA_FLAGS_DEFAULT.write().unwrap() = flags;
+ }
+diff --git a/crates-device/rstsr-cuda/src/kernels/gemm.rs b/crates-device/rstsr-cuda/src/kernels/gemm.rs
+deleted file mode 100644
+index ea4f620..0000000
+--- a/crates-device/rstsr-cuda/src/kernels/gemm.rs
++++ /dev/null
+@@ -1,715 +0,0 @@
+-//! Tiled GEMM behind `DeviceMatMulAPI` — the **fallback** path, not the default.
+-//!
+-//! [`super::cublas_gemm`] runs first and handles every layout it can express; this kernel takes what
+-//! is left: a stepped output, a reversed operand, a machine without `libcublas`. It is kept for
+-//! those cases and as the test oracle for the cuBLAS path, not because it competes — on an A100,
+-//! `dgemm` reaches the FP64 tensor-core pipe at 19.5 TFLOPS where a SIMT tile tops out at 9.7.
+-//!
+-//! `RSTSR_CUDA_MATMUL=tiled` forces this path, which is how `tests/test_matmul_tiled.rs` keeps it
+-//! on hardware evidence now that cuBLAS is the default.
+-//!
+-//! What follows describes this kernel.
+-//! # What this kernel is
+-//!
+-//! One block computes a `BM x BN` tile of `C = alpha * A B + beta * C` by streaming the contraction
+-//! axis through shared memory in `BK`-deep slabs. Per block that is `BM*BN*K` fused multiply-adds
+-//! for `(BM+BN)*K` element loads, i.e. `2*64*64 / (128*8) = 8` flop/byte once the tile is resident.
+-//! The untiled form is `2/16 = 0.125`, which is DRAM-bound on every machine — the whole reason this
+-//! file exists.
+-//!
+-//! 8 flop/byte is only just above the A100 fp64 ridge point (`9.7 TFLOPS / 1.55 TB/s` = 6.3), so at
+-//! this tile size the kernel is *marginally* compute-bound and the memory system still costs nearly
+-//! as much as the arithmetic. Doubling the tile to 128x128 gives `2*128*128 / (256*8) = 16` and is
+-//! the first thing to try after measuring this one; `BM`/`BN` are plain constants and every derived
+-//! count (slab depth, thread count, shared sizes) follows from them, so the change is a re-tune
+-//! rather than a rewrite.
+-//!
+-//! # The two things that are actually decisions
+-//!
+-//! **1. The lane map follows a unit-stride axis, not a fixed axis.** A 2-D operand arrives with
+-//! arbitrary strides: `A` may be `[M, K]` with `K` contiguous (`rt::matmul(a, b)`) or with `M`
+-//! contiguous (`rt::matmul(a.T, b)`), and `layout_matmul` admits both because it only checks shapes.
+-//! Instead of transposing an operand — a copy — the block's linear thread id is mapped to the tile
+-//! along whichever axis is unit-stride, chosen at **NVRTC time**. Four variants result (A on `k` or
+-//! `m`, B on `k` or `n`) and each has both global loads coalesced.
+-//!
+-//! **2. Per-thread tiles are interleaved, not blocked.** Thread `(tx, ty)` owns rows `ty + i*TY` and
+-//! columns `tx + j*TX`, so one shared-memory read instruction has its 16 lanes on 16 consecutive
+-//! doubles (and the other row group in the warp reads the same address, which broadcasts). Blocking
+-//! would instead make the `Bs` read stride `TN` doubles per lane — a 4-way bank conflict on every
+-//! one of the `TM*TN*BK` inner reads. Interleaving costs something on the store side, but not
+-//! bandwidth: for a fixed `(i, j)` the 16 lanes span 16 sectors holding 8 useful bytes each, and the
+-//! four values of `j` then fill those same sectors, so all the bytes are consumed — the request
+-//! count is 4x, not the traffic. Staging `C` through shared memory is the fix if that ever measures
+-//! badly.
+-//!
+-//! # Order
+-//!
+-//! `ColMajor` is not special-cased in the kernel. The identity the layout module documents,
+-//! `C[t,m,n] = A[t,m,k] B[t,k,n]` (row-major) `<==>` `C[n,m,t] = B[n,k,t] A[k,m,t]` (col-major),
+-//! says: reverse every layout and swap the operands. Reversing a column-major layout yields a
+-//! row-major one in the reversed shape, so the kernel only ever sees row-major-decomposed blocks
+-//! with leading dimensions.
+-//!
+-//! # What is deliberately absent
+-//!
+-//! No double buffering, no 128-bit vectorised loads, no `C` staging, no split-K, no cuBLAS. Each is
+-//! one measurement away, and the measurement needs this kernel to exist first. Batch axes ride in
+-//! `grid.z` and must be *affine* (see [`linear_step`]); a non-affine batch is refused rather than
+-//! silently mis-indexed.
+-//!
+-//! Complex dtypes are excluded at the `DeviceMatMulAPI` impl rather than here: this source spells
+-//! its zero as `(@T@)0`, and `rstsr_complex` has no single-argument constructor, so a complex
+-//! instantiation would fail inside NVRTC — on a rented GPU — instead of at the call site.
+-
+-
+-use crate::kernel::{FlatLaunch, order_input, order_output};
+-use crate::kernels::cublas_gemm::{self, CublasScalar};
+-use crate::kernels::elementwise::planned_function;
+-use crate::prelude_dev::*;
+-
+-/// Tile of `C` computed by one block.
+-const BM: u32 = 64;
+-const BN: u32 = 64;
+-/// Depth of one shared-memory slab along the contraction.
+-const BK: u32 = 16;
+-/// Outputs per thread, per axis.
+-const TM: u32 = 4;
+-const TN: u32 = 4;
+-const TX: u32 = BN / TN;
+-const TY: u32 = BM / TM;
+-const NTHREADS: u32 = TX * TY;
+-
+-/// Elements per thread when filling one slab: `BM*BK` and `BK*BN` over the block size.
+-const A_SLAB: u32 = BM * BK / NTHREADS;
+-const B_SLAB: u32 = BK * BN / NTHREADS;
+-
+-const _: () = assert!(TX * TY == 256, "the block must be 256 threads");
+-const _: () = assert!(BM * BK % NTHREADS == 0 && BK * BN % NTHREADS == 0);
+-const _: () = assert!(TM * TY == BM && TN * TX == BN);
+-
+-/// Which axis of a 2-D operand the linear thread id enumerates.
+-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+-pub(crate) enum LaneAxis {
+-    /// Contraction axis (`k`).
+-    K,
+-    /// The other one: `m` for the left operand, `n` for the right.
+-    Other,
+-}
+-
+-const GEMM_ENTRY: &str = r#"
+-extern "C" __global__ void rstsr_gemm(
+-    @T@* c,     rstsr_isz scm, rstsr_isz scn, rstsr_isz scb,
+-    const @T@* a, rstsr_isz sam, rstsr_isz sak, rstsr_isz sab,
+-    const @T@* b, rstsr_isz sbk, rstsr_isz sbn, rstsr_isz sbb,
+-    int M, int N, int K,
+-    @T@ alpha, @T@ beta)
+-{
+-    __shared__ @T@ As[@BK@][@BM@ + 1];
+-    __shared__ @T@ Bs[@BK@][@BN@ + 1];
+-
+-    const int m0 = (int)blockIdx.y * @BM@;
+-    const int n0 = (int)blockIdx.x * @BN@;
+-    const int tid = (int)threadIdx.y * @TX@ + (int)threadIdx.x;
+-    const int tx = (int)threadIdx.x;
+-    const int ty = (int)threadIdx.y;
+-
+-    // batch: one grid slice per output matrix, affine in the slice index
+-    const @T@* ap = a + (rstsr_isz)blockIdx.z * sab;
+-    const @T@* bp = b + (rstsr_isz)blockIdx.z * sbb;
+-    @T@*       cp = c + (rstsr_isz)blockIdx.z * scb;
+-
+-    @T@ acc[@TM@][@TN@];
+-    #pragma unroll
+-    for (int i = 0; i < @TM@; ++i)
+-        #pragma unroll
+-        for (int j = 0; j < @TN@; ++j) acc[i][j] = (@T@)0;
+-
+-    for (int k0 = 0; k0 < K; k0 += @BK@) {
+-        // A slab, [BM x BK], stored transposed as As[k][m] so the inner loop reads one shared
+-        // double per (i, k) instead of a strided column.
+-        #pragma unroll
+-        for (int t = 0; t < @A_SLAB@; ++t) {
+-            rstsr_usz lin = (rstsr_usz)(tid + t * @NTHREADS@);
+-            @A_IDX@
+-            const int gm = m0 + (int)mm;
+-            const int gk = k0 + (int)kk;
+-            As[kk][mm] = (gm < M && gk < K)
+-                ? ap[(rstsr_isz)gm * sam + (rstsr_isz)gk * sak]
+-                : (@T@)0;
+-        }
+-        // B slab, [BK x BN], stored as Bs[k][n].
+-        #pragma unroll
+-        for (int t = 0; t < @B_SLAB@; ++t) {
+-            rstsr_usz lin = (rstsr_usz)(tid + t * @NTHREADS@);
+-            @B_IDX@
+-            const int gk = k0 + (int)kk;
+-            const int gn = n0 + (int)nn;
+-            Bs[kk][nn] = (gk < K && gn < N)
+-                ? bp[(rstsr_isz)gk * sbk + (rstsr_isz)gn * sbn]
+-                : (@T@)0;
+-        }
+-        __syncthreads();
+-
+-        #pragma unroll
+-        for (int kk = 0; kk < @BK@; ++kk) {
+-            @T@ av[@TM@], bv[@TN@];
+-            #pragma unroll
+-            for (int i = 0; i < @TM@; ++i) av[i] = As[kk][ty + i * @TY@];
+-            #pragma unroll
+-            for (int j = 0; j < @TN@; ++j) bv[j] = Bs[kk][tx + j * @TX@];
+-            #pragma unroll
+-            for (int i = 0; i < @TM@; ++i)
+-                #pragma unroll
+-                for (int j = 0; j < @TN@; ++j) acc[i][j] += av[i] * bv[j];
+-        }
+-        __syncthreads();
+-    }
+-
+-    // `beta == 0` must not read `c`: that is the contract of `matmul_uninit`, whose buffer is
+-    // `MaybeUninit` and has no meaningful contents.
+-    #pragma unroll
+-    for (int i = 0; i < @TM@; ++i) {
+-        const int gm = m0 + ty + i * @TY@;
+-        if (gm >= M) continue;
+-        #pragma unroll
+-        for (int j = 0; j < @TN@; ++j) {
+-            const int gn = n0 + tx + j * @TX@;
+-            if (gn >= N) continue;
+-            @T@* p = cp + (rstsr_isz)gm * scm + (rstsr_isz)gn * scn;
+-            *p = (beta == (@T@)0) ? (alpha * acc[i][j]) : (alpha * acc[i][j] + beta * (*p));
+-        }
+-    }
+-}
+-"#;
+-
+-fn render(template: &str, subs: &[(&str, &str)]) -> String {
+-    let mut s = template.to_string();
+-    for (name, text) in subs {
+-        s = s.replace(name, text);
+-    }
+-    s
+-}
+-
+-
+-/// Pick the axis the linear thread id enumerates, preferring a unit-stride one.
+-///
+-/// `s_other`/`s_k` are the strides of the non-contracted and contracted axes, `n_other`/`n_k` their
+-/// extents. A degenerate axis (extent 1) is free to take: it contributes no address variation, so
+-/// following the other axis is coalesced whatever its stride happens to be.
+-fn lane_axis(s_other: isize, s_k: isize, n_other: usize, n_k: usize, what: &str) -> Result<LaneAxis> {
+-    if s_k == 1 {
+-        Ok(LaneAxis::K)
+-    } else if s_other == 1 {
+-        Ok(LaneAxis::Other)
+-    } else if n_other == 1 {
+-        Ok(LaneAxis::K)
+-    } else if n_k == 1 {
+-        Ok(LaneAxis::Other)
+-    } else {
+-        rstsr_raise!(
+-            UnImplemented,
+-            "cuda matmul: {what} has no unit-stride axis (strides {s_other} and {s_k}); \
+-             a stepped 2-D block needs a packing pass first"
+-        )?
+-    }
+-}
+-
+-/// Element step of one batch slice, if the batch part is a single affine run.
+-///
+-/// Size-1 axes are dropped first, because they contribute no offset however their stride is
+-/// written: `[4, 1]` with strides `[3, 0]` steps by 3, and `[4, 1]` with `[3, 7]` steps by 3 as
+-/// well. What survives must then be a row-major progression, so `offset = index * step` for every
+-/// index in `0..size`. Broadcast axes (`stride == 0`) are affine with step 0, which covers
+-/// `A[i,j] @ B[p,j,k]` where the batch axis belongs to `B` alone.
+-///
+-/// `None` means a genuinely strided multi-axis batch (`[4, 3]` with strides `[6, 1]`, whose offsets
+-/// are not one step). Those need a real plan walk; the caller refuses them by name.
+-fn linear_step(l: &Layout<IxD>) -> Option<isize> {
+-    let mut shape: Vec<usize> = Vec::with_capacity(l.ndim());
+-    let mut stride: Vec<isize> = Vec::with_capacity(l.ndim());
+-    for k in 0..l.ndim() {
+-        if l.shape()[k] != 1 {
+-            shape.push(l.shape()[k]);
+-            stride.push(l.stride()[k]);
+-        }
+-    }
+-    if shape.is_empty() {
+-        return Some(0);
+-    }
+-    let n = shape.len();
+-    let step = stride[n - 1];
+-    let mut expect = step;
+-    for k in (0..n).rev() {
+-        if stride[k] != expect {
+-            return None;
+-        }
+-        expect *= shape[k] as isize;
+-    }
+-    Some(step)
+-}
+-
+-/// Everything the kernel needs to address the three buffers, resolved from the layouts alone.
+-///
+-/// Separated from the launch because this is the part that can be wrong in a way a GPU run reports as
+-/// "wrong numbers": the col-major reversal, the batch steps, the choice of lane axis. All of it is
+-/// host-side arithmetic on strides, so it is tested here rather than on a rented A100.
+-#[derive(Clone, Debug, PartialEq, Eq)]
+-pub(crate) struct GemmGeom {
+-    pub m: usize,
+-    pub n: usize,
+-    pub k: usize,
+-    pub n_batch: usize,
+-    /// `(element offset, stride of the m axis, stride of the k axis, batch step)` for the left
+-    /// operand of the *row-major* problem, which under `ColMajor` is the caller's `b`.
+-    pub a: (usize, isize, isize, isize),
+-    /// The same for the right operand: `(offset, stride of the k axis, stride of the n axis, batch)`.
+-    pub b: (usize, isize, isize, isize),
+-    /// `(offset, stride of the m axis, stride of the n axis, batch step)` for the output.
+-    pub c: (usize, isize, isize, isize),
+-    pub lane_a: LaneAxis,
+-    pub lane_b: LaneAxis,
+-    /// True when the geometry came from the col-major reversal, i.e. `a` and `b` are the caller's
+-    /// second and first operands respectively.
+-    pub swapped: bool,
+-}
+-
+-/// Resolve the launch geometry. Pure: no device, no allocation, no I/O.
+-pub(crate) fn resolve_geom(
+-    order: FlagOrder,
+-    lc: &Layout<IxD>,
+-    la: &Layout<IxD>,
+-    lb: &Layout<IxD>,
+-) -> Result<GemmGeom> {
+-    // Col-major: reverse every layout **and swap the operands**, so the kernel only sees the
+-    // row-major decomposition. That is the identity `rstsr_common::layout::matmul` documents,
+-    // `C[n,m,t] = B[n,k,t] @ A[k,m,t]`, not a device-specific convention.
+-    //
+-    // The swap has to happen here, when asking for the config: reversing alone would feed the rule
+-    // table `(A_rev, B_rev)`, whose contracted dimensions are `m_a` and `n_b` — a shape mismatch for
+-    // anything rectangular, and a silently transposed answer for anything square.
+-    let swapped = matches!(order, ColMajor);
+-    let (la_c, lb_c, lc_c) = if swapped {
+-        (lb.reverse_axes(), la.reverse_axes(), lc.reverse_axes())
+-    } else {
+-        (la.clone(), lb.clone(), lc.clone())
+-    };
+-
+-    let cfg = layout_matmul_dyn_row_major_with_lc(&la_c, &lb_c, &lc_c)?;
+-
+-    // The inner-dot rule leaves `la_matmul` rank 1. That rule is a reduction, not a GEMM: running it
+-    // here would put one block of 256 threads on a `1 x 1` output, i.e. 256x redundant arithmetic and
+-    // a tile of padding. It belongs on the reduce kernel, which already exists.
+-    if cfg.la_matmul.ndim() != 2 || cfg.lb_matmul.ndim() != 2 {
+-        rstsr_raise!(
+-            UnImplemented,
+-            "cuda matmul: this is a single-axis contraction (inner dot), not a GEMM; it belongs on \
+-             the reduce kernel and is not wired to it yet"
+-        )?
+-    }
+-
+-    let (lay_a, lay_b) = (&cfg.la_matmul, &cfg.lb_matmul);
+-    let (m, k) = (lay_a.shape()[0], lay_a.shape()[1]);
+-    let (k2, n) = (lay_b.shape()[0], lay_b.shape()[1]);
+-    rstsr_assert_eq!(k, k2, InvalidLayout, "the contracted dimensions of a and b should be the same")?;
+-    rstsr_assert_eq!(
+-        cfg.lc_matmul.shape(),
+-        &[m, n][..],
+-        InvalidLayout,
+-        "the matmul output should have shape (a.shape[0], b.shape[1])"
+-    )?;
+-
+-    // Batch: one grid slice per output matrix, so the batch offset must be affine.
+-    let n_batch = cfg.lc_rest.as_ref().map(|l| l.size()).unwrap_or(1);
+-    let mut steps = [0isize; 3];
+-    for (slot, rest, what) in
+-        [(0usize, &cfg.la_rest, "a"), (1, &cfg.lb_rest, "b"), (2, &cfg.lc_rest, "c")]
+-    {
+-        let Some(l) = rest else { continue };
+-        let Some(s) = linear_step(l) else {
+-            rstsr_raise!(
+-                UnImplemented,
+-                "cuda matmul: the batch part of {what} is not one linear run (shape {:?}, strides {:?}); \
+-                 grid.z can only carry an affine batch",
+-                l.shape(),
+-                l.stride()
+-            )?
+-        };
+-        steps[slot] = s;
+-    }
+-
+-    let sa = (lay_a.stride()[0], lay_a.stride()[1]);
+-    let sb = (lay_b.stride()[0], lay_b.stride()[1]);
+-    let sc = (cfg.lc_matmul.stride()[0], cfg.lc_matmul.stride()[1]);
+-
+-    Ok(GemmGeom {
+-        m,
+-        n,
+-        k,
+-        n_batch,
+-        a: (lay_a.offset(), sa.0, sa.1, steps[0]),
+-        b: (lay_b.offset(), sb.0, sb.1, steps[1]),
+-        c: (cfg.lc_matmul.offset(), sc.0, sc.1, steps[2]),
+-        lane_a: lane_axis(sa.0, sa.1, m, k, "the a operand")?,
+-        lane_b: lane_axis(sb.1, sb.0, n, k, "the b operand")?,
+-        swapped,
+-    })
+-}
+-
+-/// `RSTSR_CUDA_MATMUL=tiled` forces the tiled kernel.
+-///
+-/// Two uses: comparing the two paths on one machine, and getting a hardware test of the fallback
+-/// while cuBLAS is the default. Read once, so it cannot flip between launches.
+-fn tiled_forced() -> bool {
+-    static FLAG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+-    *FLAG.get_or_init(|| matches!(std::env::var("RSTSR_CUDA_MATMUL").as_deref(), Ok("tiled")))
+-}
+-
+-/// `RSTSR_CUDA_DEBUG_GEMM=1` prints the resolved geometry and the exact cuBLAS arguments, once.
+-///
+-/// This exists because a wrong answer has two very different causes that look alike from the test
+-/// side — the geometry we derived, or how the call was issued — and the only way to tell them apart
+-/// on a machine we cannot attach a debugger to is to print what was actually decided. Cheap enough
+-/// to leave in: one env lookup, and nothing at all when the variable is absent.
+-fn debug_gemm() -> bool {
+-    static FLAG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+-    *FLAG.get_or_init(|| std::env::var_os("RSTSR_CUDA_DEBUG_GEMM").is_some())
+-}
+-
+-/// Launch `c = alpha * a @ b + beta * c` on the layout the tier already validated.
+-///
+-/// `c` is taken by shared reference on purpose: its element type is either `T` (the `beta` path) or
+-/// `MaybeUninit<T>` (the fresh path) and only its address is used, so no `MaybeUninit` transmute is
+-/// needed — nothing here writes through the Rust type.
+-#[allow(clippy::too_many_arguments)]
+-pub(crate) fn gemm_launch<T, TBuf>(
+-    device: &DeviceCuda,
+-    c: &CudaBuffer<TBuf>,
+-    lc: &Layout<IxD>,
+-    a: &CudaBuffer<T>,
+-    la: &Layout<IxD>,
+-    b: &CudaBuffer<T>,
+-    lb: &Layout<IxD>,
+-    alpha: T,
+-    beta: T,
+-) -> Result<()>
+-where
+-    T: CublasScalar,
+-{
+-    let geom = resolve_geom(device.default_order(), lc, la, lb)?;
+-    let GemmGeom { m, n, k, n_batch, lane_a, lane_b, .. } = geom;
+-
+-    // `geom.a` always belongs to the buffer whose layout was passed first to the rule table.
+-    let (buf_a, buf_b) = if geom.swapped { (b, a) } else { (a, b) };
+-
+-    if m == 0 || n == 0 || n_batch == 0 {
+-        return Ok(());
+-    }
+-    if m > i32::MAX as usize || n > i32::MAX as usize || k > i32::MAX as usize {
+-        rstsr_raise!(UnImplemented, "cuda matmul: a dimension exceeds i32 ({m} x {n} x {k})")?
+-    }
+-
+-    let grid_x = (n as u64).div_ceil(BN as u64);
+-    let grid_y = (m as u64).div_ceil(BM as u64);
+-    if grid_y > u16::MAX as u64 || n_batch as u64 > u16::MAX as u64 {
+-        rstsr_raise!(
+-            UnImplemented,
+-            "cuda matmul: {grid_y} row tiles x {n_batch} batch slices exceeds the 65535 grid limit \
+-             on y and z"
+-        )?
+-    }
+-
+-    let exec = device.stream();
+-    let _ga = order_input(buf_a, exec)?;
+-    let _gb = order_input(buf_b, exec)?;
+-    let _gc = order_output(c, exec)?;
+-
+-    // cuBLAS first: it is the fast path for every layout it can express. A refusal or a non-success
+-    // status falls through to the tiled kernel below, which handles the same shapes correctly and
+-    // more slowly — so this branch can only change the speed, never the answer.
+-    //
+-    // `launch` takes the handle's lock itself, because that handle is shared by every thread using
+-    // this ordinal and `cublasHandle_t` is not thread-safe. That omission is not a theoretical
+-    // concern: it is what made four `matmul` tests fail with answers no wrong `lda` could produce.
+-    if !tiled_forced() {
+-        if let (Some(args), Some(blas)) = (cublas_gemm::args(&geom), exec.cublas()) {
+-            // Read-event guards held until after the cuBLAS enqueue (fn scope:
+-            // a successful return drops them past `launch`; a fallthrough
+-            // keeps them past the tiled kernel, which records its own).
+-            let (pa, _ra) = buf_a.read_ptr_on(exec);
+-            let (pb, _rb) = buf_b.read_ptr_on(exec);
+-            let (pc, _rc) = c.read_ptr_on(exec);
+-            let (pa, pb, pc) = (
+-                (pa as u64).wrapping_add(geom.a.0 as u64 * core::mem::size_of::<T>() as u64),
+-                (pb as u64).wrapping_add(geom.b.0 as u64 * core::mem::size_of::<T>() as u64),
+-                (pc as u64).wrapping_add(geom.c.0 as u64 * core::mem::size_of::<T>() as u64),
+-            );
+-            if debug_gemm() {
+-                static ONCE: std::sync::Once = std::sync::Once::new();
+-                ONCE.call_once(|| {
+-                    eprintln!(
+-                        "[rstsr-cuda gemm] geom: m={m} n={n} k={k} batch={n_batch} \
+-                         order={:?} swapped={} opts={:?} lanes={lane_a:?}/{lane_b:?}",
+-                        device.default_order(),
+-                        geom.swapped,
+-                        T::CNAME
+-                    );
+-                    eprintln!("[rstsr-cuda gemm] geom.a={:?} geom.b={:?} geom.c={:?}", geom.a, geom.b, geom.c);
+-                    eprintln!("[rstsr-cuda gemm] args={args:?}");
+-                    eprintln!(
+-                        "[rstsr-cuda gemm] ptr_a={pa:#x} ptr_b={pb:#x} ptr_c={pc:#x} esz={}",
+-                        core::mem::size_of::<T>()
+-                    );
+-                });
+-            }
+-            // SAFETY: the pointers are the buffers' bases folded with the layouts' own offsets, and
+-            // `args` was derived from the same `geom` those offsets came from.
+-            let status = unsafe {
+-                cublas_gemm::launch(blas, &args, &alpha, &beta, pa, pb, pc)
+-            };
+-            if matches!(status, cudarc::cublas::sys::cublasStatus_t::CUBLAS_STATUS_SUCCESS) {
+-                return Ok(());
+-            }
+-        }
+-    }
+-
+-    // The two fragments differ only in which axis the linear id follows; that is what makes each
+-    // variant coalesced on both operands' loads.
+-    let a_idx = match lane_a {
+-        LaneAxis::K => "rstsr_usz kk = lin % @BK@; rstsr_usz mm = lin / @BK@;",
+-        LaneAxis::Other => "rstsr_usz mm = lin % @BM@; rstsr_usz kk = lin / @BM@;",
+-    };
+-    let b_idx = match lane_b {
+-        LaneAxis::K => "rstsr_usz kk = lin % @BK@; rstsr_usz nn = lin / @BK@;",
+-        LaneAxis::Other => "rstsr_usz nn = lin % @BN@; rstsr_usz kk = lin / @BN@;",
+-    };
+-
+-    // Order matters: the fragments are text that still contains the numeric tokens, so they must be
+-    // expanded *before* the numbers, or an `@BK@` inside a fragment survives into the CUDA source.
+-    let subs: Vec<(&str, String)> = vec![
+-        ("@A_IDX@", a_idx.to_string()),
+-        ("@B_IDX@", b_idx.to_string()),
+-        ("@T@", T::CNAME.to_string()),
+-        ("@BM@", BM.to_string()),
+-        ("@BN@", BN.to_string()),
+-        ("@BK@", BK.to_string()),
+-        ("@TM@", TM.to_string()),
+-        ("@TN@", TN.to_string()),
+-        ("@TX@", TX.to_string()),
+-        ("@TY@", TY.to_string()),
+-        ("@NTHREADS@", NTHREADS.to_string()),
+-        ("@A_SLAB@", A_SLAB.to_string()),
+-        ("@B_SLAB@", B_SLAB.to_string()),
+-    ];
+-    let subs: Vec<(&str, &str)> = subs.iter().map(|(k, v)| (*k, v.as_str())).collect();
+-
+-    // The discriminator must name every substitution the source depends on, or two variants collide
+-    // in the cache and one launches the other's code.
+-    let disc = format!(
+-        "{}|{}|{}|BM{BM}|BN{BN}|BK{BK}|TM{TM}|TN{TN}|N{NTHREADS}",
+-        T::CNAME,
+-        match lane_a {
+-            LaneAxis::K => "ak",
+-            LaneAxis::Other => "am",
+-        },
+-        match lane_b {
+-            LaneAxis::K => "bk",
+-            LaneAxis::Other => "bn",
+-        },
+-    );
+-    let f = planned_function(device, "rstsr_gemm", T::INCLUDES, &disc, || render(GEMM_ENTRY, &subs))?;
+-
+-    let nb = core::mem::size_of::<T>();
+-    let mut abytes = [0u8; 16];
+-    let mut bbytes = [0u8; 16];
+-    debug_assert!(nb <= 16, "alpha/beta wider than 16 bytes is not a scalar");
+-    // SAFETY: `T: CudaDType` is a plain scalar, so its bytes are its on-device representation.
+-    unsafe {
+-        core::ptr::copy_nonoverlapping(core::ptr::addr_of!(alpha) as *const u8, abytes.as_mut_ptr(), nb);
+-        core::ptr::copy_nonoverlapping(core::ptr::addr_of!(beta) as *const u8, bbytes.as_mut_ptr(), nb);
+-    }
+-
+-    FlatLaunch::new(exec, &f, 0)
+-        .explicit_shape((grid_x as u32, grid_y as u32, n_batch as u32), (TX, TY, 1))
+-        .arg_ptr(c, geom.c.0)
+-        .arg_bytes(&geom.c.1.to_ne_bytes())
+-        .arg_bytes(&geom.c.2.to_ne_bytes())
+-        .arg_bytes(&geom.c.3.to_ne_bytes())
+-        .arg_ptr(buf_a, geom.a.0)
+-        .arg_bytes(&geom.a.1.to_ne_bytes())
+-        .arg_bytes(&geom.a.2.to_ne_bytes())
+-        .arg_bytes(&geom.a.3.to_ne_bytes())
+-        .arg_ptr(buf_b, geom.b.0)
+-        .arg_bytes(&geom.b.1.to_ne_bytes())
+-        .arg_bytes(&geom.b.2.to_ne_bytes())
+-        .arg_bytes(&geom.b.3.to_ne_bytes())
+-        .arg_i32(m as i32)
+-        .arg_i32(n as i32)
+-        .arg_i32(k as i32)
+-        .arg_bytes(&abytes[..nb])
+-        .arg_bytes(&bbytes[..nb])
+-        .launch()?;
+-
+-    Ok(())
+-}
+-
+-#[cfg(test)]
+-mod tests {
+-    use super::*;
+-
+-    fn layout(shape: &[usize], stride: &[isize]) -> Layout<IxD> {
+-        Layout::<IxD>::new(shape.to_vec(), stride.to_vec(), 0).unwrap()
+-    }
+-
+-    /// A contiguous batch, a broadcast batch and a rank-1 batch are all affine.
+-    #[test]
+-    fn affine_batches_are_linear() {
+-        assert_eq!(linear_step(&layout(&[4], &[64])), Some(64));
+-        assert_eq!(linear_step(&layout(&[4, 3], &[3, 1])), Some(1), "contiguous = step 1 over the flat index");
+-        assert_eq!(linear_step(&layout(&[4], &[0])), Some(0), "broadcast");
+-        assert_eq!(linear_step(&layout(&[4, 1], &[3, 0])), Some(3), "size-1 axes contribute nothing");
+-        assert_eq!(linear_step(&layout(&[4, 3], &[0, 0])), Some(0), "all-broadcast");
+-        assert_eq!(linear_step(&layout(&[], &[])), Some(0), "no batch at all");
+-    }
+-
+-    /// A batch that walks two axes with a hole between them is not one step, and is refused.
+-    #[test]
+-    fn gapped_batches_are_refused() {
+-        assert_eq!(linear_step(&layout(&[4, 3], &[6, 1])), None);
+-        assert_eq!(linear_step(&layout(&[4, 3], &[9, 1])), None);
+-    }
+-
+-    /// The lane map prefers the unit-stride axis, and falls back to the axis that actually varies
+-    /// when the other is degenerate.
+-    #[test]
+-    fn lane_axis_prefers_the_unit_stride() {
+-        assert!(matches!(lane_axis(64, 1, 64, 64, "a"), Ok(LaneAxis::K)));
+-        assert!(matches!(lane_axis(1, 64, 64, 64, "a"), Ok(LaneAxis::Other)));
+-        // [1, K] with a strided k axis: nothing is unit-stride, but m is degenerate, so following
+-        // k is still the right map.
+-        assert!(matches!(lane_axis(0, 2, 1, 64, "a"), Ok(LaneAxis::K)));
+-        // genuinely stepped on both axes
+-        assert!(lane_axis(2, 64, 64, 64, "a").is_err());
+-    }
+-
+-    /// The offset a layout assigns to one multi-index. This is the tensor layer's own mapping, so
+-    /// comparing the geom against it checks *which layout plays which role*, not the arithmetic of
+-    /// `offset + i*stride` twice over.
+-    fn off(l: &Layout<IxD>, idx: &[usize]) -> isize {
+-        let mut o = l.offset() as isize;
+-        for (k, &i) in idx.iter().enumerate() {
+-            o += i as isize * l.stride()[k];
+-        }
+-        o
+-    }
+-
+-    /// Row-major: `geom.a` walks `a[i, k]`, `geom.b` walks `b[k, j]`, `geom.c` walks `c[i, j]`.
+-    #[test]
+-    fn row_major_geom_matches_the_layouts() {
+-        let (m, k, n) = (2usize, 3usize, 4usize);
+-        let la = layout(&[m, k], &[k as isize, 1]);
+-        let lb = layout(&[k, n], &[n as isize, 1]);
+-        let lc = layout(&[m, n], &[n as isize, 1]);
+-        let g = resolve_geom(RowMajor, &lc, &la, &lb).unwrap();
+-
+-        assert_eq!((g.m, g.n, g.k, g.n_batch), (m, n, k, 1));
+-        assert!(!g.swapped);
+-        assert!(matches!(g.lane_a, LaneAxis::K), "k is unit-stride for a");
+-        assert!(matches!(g.lane_b, LaneAxis::Other), "n is unit-stride for b");
+-
+-        for i in 0..m {
+-            for kk in 0..k {
+-                assert_eq!(g.a.0 as isize + i as isize * g.a.1 + kk as isize * g.a.2, off(&la, &[i, kk]));
+-            }
+-            for j in 0..n {
+-                assert_eq!(g.c.0 as isize + i as isize * g.c.1 + j as isize * g.c.2, off(&lc, &[i, j]));
+-            }
+-        }
+-        for kk in 0..k {
+-            for j in 0..n {
+-                assert_eq!(g.b.0 as isize + kk as isize * g.b.1 + j as isize * g.b.2, off(&lb, &[kk, j]));
+-            }
+-        }
+-    }
+-
+-    /// Column-major: the roles swap and every index is read in the other order. This is the case a
+-    /// GPU run would report only as "wrong numbers", so it is pinned by walking each buffer and
+-    /// comparing against the tensor layout's own offset.
+-    #[test]
+-    fn col_major_geom_swaps_roles_and_index_order() {
+-        let (m, k, n) = (2usize, 3usize, 4usize);
+-        // column-major = first axis contiguous
+-        let la = layout(&[m, k], &[1, m as isize]);
+-        let lb = layout(&[k, n], &[1, k as isize]);
+-        let lc = layout(&[m, n], &[1, m as isize]);
+-        let g = resolve_geom(ColMajor, &lc, &la, &lb).unwrap();
+-
+-        assert!(g.swapped, "col-major must then read the operands the other way round");
+-        assert_eq!((g.m, g.n, g.k), (n, m, k), "the problem is solved transposed");
+-        assert_eq!(g.m * g.n, m * n, "but it is still the same output matrix");
+-
+-        // geom.a is the caller's b, walked as b[k, n]: geom's (i, kk) is b's (kk, i)
+-        for i in 0..g.m {
+-            for kk in 0..g.k {
+-                assert_eq!(g.a.0 as isize + i as isize * g.a.1 + kk as isize * g.a.2, off(&lb, &[kk, i]));
+-            }
+-        }
+-        // geom.b is the caller's a, walked as a[m, k]: geom's (kk, j) is a's (j, kk)
+-        for kk in 0..g.k {
+-            for j in 0..g.n {
+-                assert_eq!(g.b.0 as isize + kk as isize * g.b.1 + j as isize * g.b.2, off(&la, &[j, kk]));
+-            }
+-        }
+-        // geom.c is c[n, m]: geom's (i, j) is c's (j, i)
+-        for i in 0..g.m {
+-            for j in 0..g.n {
+-                assert_eq!(g.c.0 as isize + i as isize * g.c.1 + j as isize * g.c.2, off(&lc, &[j, i]));
+-            }
+-        }
+-    }
+-
+-    /// A batched problem: the batch step must be the stride of one whole batched matrix, and a
+-    /// broadcast operand must have step 0.
+-    #[test]
+-    fn batch_step_is_one_matrix() {
+-        let (p, m, k, n) = (4usize, 5usize, 6usize, 7usize);
+-        let la = layout(&[p, m, k], &[(m * k) as isize, k as isize, 1]);
+-        let lb = layout(&[p, k, n], &[(k * n) as isize, n as isize, 1]);
+-        let lc = layout(&[p, m, n], &[(m * n) as isize, n as isize, 1]);
+-        let g = resolve_geom(RowMajor, &lc, &la, &lb).unwrap();
+-        assert_eq!(g.n_batch, p);
+-        assert_eq!(g.a.3, (m * k) as isize);
+-        assert_eq!(g.b.3, (k * n) as isize);
+-        assert_eq!(g.c.3, (m * n) as isize);
+-
+-        // left operand broadcast over the batch: its batch stride is 0
+-        let la1 = layout(&[m, k], &[k as isize, 1]);
+-        let g1 = resolve_geom(RowMajor, &lc, &la1, &lb).unwrap();
+-        assert_eq!(g1.n_batch, p);
+-        assert_eq!(g1.a.3, 0, "a broadcast batch contributes no offset");
+-        assert_eq!(g1.b.3, (k * n) as isize);
+-    }
+-
+-    /// The inner-dot rule has no 2-D matmul part, and is refused rather than run as a 1x1 tile.
+-    #[test]
+-    fn inner_dot_has_no_geometry() {
+-        let la = layout(&[6], &[1]);
+-        let lc = layout(&[], &[]);
+-        let e = resolve_geom(RowMajor, &lc, &la, &la).unwrap_err();
+-        assert!(format!("{e}").contains("single-axis contraction"), "got: {e}");
+-    }
+-
+-    /// Tile geometry has to stay self-consistent: the kernel derives slab counts from it and the
+-    /// shared arrays from `BM`/`BN`.
+-    #[test]
+-    fn tile_geometry_is_consistent() {
+-        assert_eq!(TX * TY, NTHREADS);
+-        assert_eq!(TM * TY, BM);
+-        assert_eq!(TN * TX, BN);
+-        assert_eq!(BM * BK, A_SLAB * NTHREADS);
+-        assert_eq!(BK * BN, B_SLAB * NTHREADS);
+-        // static shared memory for both slabs must fit the 48 KB static limit
+-        let smem = (BK * (BM + 1) + BK * (BN + 1)) * 8;
+-        assert!(smem <= 48 * 1024, "static shared memory {smem} B is over the 48 KB limit");
+-    }
+-}
+diff --git a/crates-device/rstsr-cuda/src/kernels/mod.rs b/crates-device/rstsr-cuda/src/kernels/mod.rs
+index c411455..949a113 100644
+--- a/crates-device/rstsr-cuda/src/kernels/mod.rs
++++ b/crates-device/rstsr-cuda/src/kernels/mod.rs
+@@ -8,9 +8,7 @@
+ //!   see dtype.rs complex INCLUDES).
+ 
+ pub(crate) mod adv_index;
+-pub(crate) mod cublas_gemm;
+ pub(crate) mod elementwise;
+-pub(crate) mod gemm;
+ pub(crate) mod exprs;
+ pub(crate) mod ops_binary_extra;
+ pub(crate) mod ops_ternary;
+diff --git a/crates-device/rstsr-cuda/src/lib.rs b/crates-device/rstsr-cuda/src/lib.rs
+index 0c40105..b0397ea 100644
+--- a/crates-device/rstsr-cuda/src/lib.rs
++++ b/crates-device/rstsr-cuda/src/lib.rs
+@@ -4,8 +4,9 @@
+ //!   `unique*` truncation, byte-erased device pointer).
+ //! - [`device::DeviceCuda`]: registry-canonical per-ordinal state, an execution-stream selector, a
+ //!   flags override, `default_order`.
+-//! - [`flags`]: `Option<CudaRuntimeFlags>` per device + env-seeded global default; compared as
+-//!   stored by `same_device`.
++//! - [`flags`]: `Option<CudaRuntimeFlags>` per device + a process-global default; compared as
++//!   stored by `same_device`. No flag is read from the environment.
++//! - [`matmul`]: the matmul driver chain, its compute modes and the driver enable set.
+ //! - [`stream::CudaStreamObj`]: user-visible, strictly compared.
+ //! - [`pinned::DeviceCudaPinned`] / [`pinned::PinnedBuffer<T>`]: page-locked *host* tensors
+ //!   (`Raw = PinnedBuffer<T>`), a transfer endpoint for non-blocking H2D/D2H and a zero-copy source
+@@ -31,6 +32,8 @@
+ //!   out-of-range clamping differ); integer-to-float and width changes follow the CPU.
+ //! - Integer division and remainder by zero yield `0` (NumPy); the CPU reference devices panic on
+ //!   Rust's `/` and `%`.
++//! - Integer `matmul` wraps on overflow (C semantics, as NumPy does); the CPU reference devices
++//!   panic in debug builds.
+ //! - `fill`/`ones`/`zeros` take the kernel path for every supported dtype (complex included).
+ //!
+ //! # What is implemented
+@@ -41,7 +44,7 @@
+ //! | pinned host memory | `PinnedBuffer<T>` on `DeviceCudaPinned` (alloc/zeros/full/from_vec), non-blocking `to_device` both ways against `DeviceCuda`, copies against the CPU devices, zero-copy `host_view`/`host_view_mut`, one ordering event per buffer |
+ //! | elementwise | arithmetic, comparison, transcendentals, unary float families, `where`, `clip` (same dtype) |
+ //! | reductions | `sum`/`prod`/`mean`/`l2_norm`/`min`/`max`/`all`/`any`/`count_nonzero` (+ dtype variants), `var`/`std` (+ dtype), `argmin`/`argmax`/`nanarg*` (raveled, all + axes), `cumsum`/`cumprod` (real dtypes) |
+-//! | linalg | `outer`, `cross`, `matmul`/`matmul_uninit` (cuBLAS, tiled kernel as fallback), `tensordot` (view-only tier) |
++//! | linalg | `outer`, `cross`, `matmul`/`matmul_uninit` (driver chain: cuBLAS, tiled kernel, naive kernel), `tensordot` (view-only tier) |
+ //! | indexing | `index_select`, `index_put` |
+ //!
+ //! **Absent, and why** — these are deliberate, not pending:
+@@ -99,6 +102,7 @@
+ //! CUDARC_CUDA_VERSION=12060 cargo test -p rstsr-cuda --lib            # no device needed
+ //! CUDARC_CUDA_VERSION=12060 cargo test -p rstsr-cuda --test test_kernels
+ //! CUDARC_CUDA_VERSION=12060 cargo test -p rstsr-cuda --test test_matmul_tiled
++//! CUDARC_CUDA_VERSION=12060 cargo test -p rstsr-cuda --test test_matmul_naive
+ //! CUDARC_CUDA_VERSION=12060 cargo test -p rstsr-cuda --test test_pinned
+ //! ```
+ //!
+@@ -107,13 +111,9 @@
+ //! runs anywhere: the reduction plan, the kernel-token checks, the cuBLAS argument derivation and
+ //! the addressing rules are all pure functions and are tested there.
+ //!
+-//! Environment knobs, both read once per process:
++//! Environment knobs, all read once per process and all kernel-build inputs (op behaviour,
++//! including which matmul drivers run, is set through [`flags::CudaRuntimeFlags`] instead):
+ //!
+-//! - `RSTSR_CUDA_MATMUL=tiled` forces the tiled GEMM instead of cuBLAS. It exists so the fallback
+-//!   keeps hardware coverage; `tests/test_matmul_tiled.rs` sets it.
+-//! - `RSTSR_CUDA_DEBUG_GEMM=1` prints the resolved geometry, the cuBLAS arguments and the pointer
+-//!   bases once per process. This is the instrument that turned a stride-units bug into a two-minute
+-//!   read after three sessions of inference.
+ //! - `RSTSR_CUDA_STRICT_FP=1` compiles with `--fmad=false`, removing FMA contraction from the
+ //!   kernels that can use it (`l2_norm`, `var`, `vecdot`). See the numerics section above for what
+ //!   this does and does not recover.
+@@ -162,6 +162,7 @@ pub mod kernel;
+ pub mod pinned;
+ pub mod linalg;
+ pub(crate) mod kernels;
++pub mod matmul;
+ 
+ pub(crate) mod kernels_ops;
+ pub mod operators;
+@@ -177,6 +178,7 @@ pub mod prelude_dev {
+     pub use crate::device::DeviceCuda;
+     pub use crate::event::CudaEvent;
+     pub use crate::flags::{default_flags, set_default_flags, ComputeType32F, CudaRuntimeFlags};
++    pub use crate::matmul::{CudaMatMulMode, MatMulDrivers};
+     pub use crate::pinned::{DeviceCudaPinned, PinnedBuffer, TensorPinnedHostViewAPI, TensorPinnedHostViewMutAPI};
+     pub use crate::registry::CudaOrdinalObj;
+     pub use crate::stream::CudaStreamObj;
+diff --git a/crates-device/rstsr-cuda/src/linalg.rs b/crates-device/rstsr-cuda/src/linalg.rs
+index a8f72a5..dff0859 100644
+--- a/crates-device/rstsr-cuda/src/linalg.rs
++++ b/crates-device/rstsr-cuda/src/linalg.rs
+@@ -1,6 +1,7 @@
+-//! `DeviceOuterAPI`, `DeviceCrossAPI`, `DeviceMatMulAPI` and `DeviceTensordotAPI` for `DeviceCuda`.
++//! `DeviceOuterAPI`, `DeviceCrossAPI` and `DeviceTensordotAPI` for `DeviceCuda`;
++//! `DeviceMatMulAPI` lives in [`crate::matmul`].
+ //!
+-//! Four very different amounts of work, and they sit in one file because the split is about *who
++//! Three very different amounts of work, and they sit in one file because the split is about *who
+ //! owns the geometry*, not about the operator:
+ //!
+ //! - `outer` is a planned **binary** launch. The two 1-D operands are widened onto the `(n, m)`
+@@ -9,17 +10,16 @@
+ //! - `cross` reads four elements and writes three per slot (`a` and `b` at the axis offsets +1 and
+ //!   +2), which no one-value-per-operand template can express, so it has its own entry:
+ //!   `elementwise::cross_launch`. The iteration, the three plan variants and the cache are shared.
+-//! - `matmul` is the only operation here whose *thread geometry* is the point: a tiled GEMM in
+-//!   `gemm`, where the block owns a tile of the output and the contraction streams through shared
+-//!   memory. It is also the only one that needs the batch axes, which ride in `grid.z`.
++//! - `matmul` owns no kernel here: it hands the validated layouts to the driver chain in
++//!   [`crate::matmul`], which resolves the geometry once and tries cuBLAS, the tiled kernel and the
++//!   naive kernel in turn.
+ //! - `tensordot` owns no geometry at all: it is a *scheduler* over `matmul`. The axis reorder and the
+ //!   block merges are a pure function of layouts shared with every other backend, so the impl is the
+ //!   planner plus one call — and the interesting part is what it does when the planner declines.
+ 
+ use crate::dtype::{CudaArith, CudaDType};
+ use crate::kernels::elementwise;
+-use crate::kernels::cublas_gemm::CublasScalar;
+-use crate::kernels::gemm;
++use crate::matmul::drivers::cublas::CublasScalar;
+ use crate::prelude_dev::*;
+ 
+ impl<TA, TB, TC> DeviceOuterAPI<TA, TB, TC> for DeviceCuda
+@@ -84,84 +84,12 @@ where
+     }
+ }
+ 
+-impl<T, DA, DB, DC> DeviceMatMulAPI<T, T, T, DA, DB, DC> for DeviceCuda
+-where
+-    DA: DimAPI,
+-    DB: DimAPI,
+-    DC: DimAPI,
+-    Self: DeviceRawAPI<T, Raw = CudaBuffer<T>>
+-        + DeviceRawAPI<MaybeUninit<T>, Raw = CudaBuffer<MaybeUninit<T>>>,
+-    // `num::Zero` is only used for the fresh-output path's `beta`, which both paths then treat as
+-    // "do not read c" (cuBLAS has the same convention). It is not part of the arithmetic.
+-    //
+-    // `CublasScalar` is the bound that matters: it names exactly the two dtypes cuBLAS's typed
+-    // `gemm` covers, so it also excludes complex — and complex stays out on purpose. The tiled
+-    // kernel spells its zero as `(@T@)0`, which `rstsr_complex` has no single-argument constructor
+-    // for, so a complex instantiation would fail inside NVRTC (on a rented GPU) rather than here.
+-    // A complex GEMM needs a zero spelled as a two-argument construction and the mixed-precision
+-    // expression builders — separate work.
+-    //
+-    // Integers are excluded too. They *were* handled by the tiled kernel and are now not handled at
+-    // all; that is a deliberate narrowing, because an integer GEMM path that has never run on
+-    // hardware is worse than a compile error.
+-    T: CublasScalar + num::Zero,
+-{
+-    fn matmul(
+-        &self,
+-        c: &mut CudaBuffer<T>,
+-        lc: &Layout<DC>,
+-        a: &CudaBuffer<T>,
+-        la: &Layout<DA>,
+-        b: &CudaBuffer<T>,
+-        lb: &Layout<DB>,
+-        alpha: T,
+-        beta: T,
+-    ) -> Result<()> {
+-        gemm::gemm_launch(
+-            self,
+-            c,
+-            &lc.to_dim::<IxD>()?,
+-            a,
+-            &la.to_dim::<IxD>()?,
+-            b,
+-            &lb.to_dim::<IxD>()?,
+-            alpha,
+-            beta,
+-        )
+-    }
+-
+-    fn matmul_uninit(
+-        &self,
+-        c: &mut CudaBuffer<MaybeUninit<T>>,
+-        lc: &Layout<DC>,
+-        a: &CudaBuffer<T>,
+-        la: &Layout<DA>,
+-        b: &CudaBuffer<T>,
+-        lb: &Layout<DB>,
+-        alpha: T,
+-    ) -> Result<()> {
+-        // `beta = 0` is the whole of the "never read c" contract: the epilogue is guarded by
+-        // `beta == 0`, so the `MaybeUninit` slots are written and not touched beforehand.
+-        gemm::gemm_launch(
+-            self,
+-            c,
+-            &lc.to_dim::<IxD>()?,
+-            a,
+-            &la.to_dim::<IxD>()?,
+-            b,
+-            &lb.to_dim::<IxD>()?,
+-            alpha,
+-            <T as num::Zero>::zero(),
+-        )
+-    }
+-}
+-
+ /// `tensordot` as a single GEMM — tier 0 only: **views, never a copy.**
+ ///
+ /// # Why this is only a few lines
+ ///
+ /// A contraction is not a BLAS operation. cuBLAS's contract is exactly "one 2-D product, each
+-/// operand addressed by a leading dimension on one axis" (see `kernels::cublas_gemm`), so
++/// operand addressed by a leading dimension on one axis" (see `matmul::cublas_args`), so
+ /// the whole of `tensordot` above that call is *scheduling*: reorder each operand to
+ /// `[free…, ctr…]` / `[ctr…, free…]`, and ask whether each of the three blocks collapses to 2-D
+ /// without materializing data. That decision already exists as
+@@ -203,16 +131,16 @@ where
+ ///
+ /// # One asymmetry with `matmul`, on purpose
+ ///
+-/// `matmul` refuses an inner dot ("single-axis contraction") and points at the reduce kernel,
+-/// because the tiled fallback would put 256 threads on a `1 x 1` output. `tensordot` accepts it: the
++/// `matmul` refuses an inner dot ("single-axis contraction") and points at the reduce kernel;
++/// no matmul driver is the reduce kernel. `tensordot` accepts it: the
+ /// planner yields `m = n = 1`, and cuBLAS runs a `1 x 1 x k` product without wasting anything. Same
+ /// arithmetic, and here the fast path is the one that is already correct.
+ ///
+ /// # What is refused for a different reason
+ ///
+-/// `DeviceExtTensordotAPI` (mixed input dtypes) is not implemented at all: cuBLAS's typed `gemm`
+-/// takes one dtype, and a mixed product needs `cublasGemmEx` with per-operand types. The tiled
+-/// fallback is single-`@T@` too, so there is nothing here to fall back to.
++/// `DeviceExtTensordotAPI` (mixed input dtypes) is not implemented at all: the accelerated matmul
++/// drivers take same-dtype operands, so a mixed contraction would land in the naive kernel, which
++/// is no place for a multi-axis contraction on a GPU.
+ impl<T, DA, DB, DC> DeviceTensordotAPI<T, T, T, DA, DB, DC> for DeviceCuda
+ where
+     DA: DimAPI,
+diff --git a/crates-device/rstsr-cuda/src/kernels/cublas_gemm.rs b/crates-device/rstsr-cuda/src/matmul/cublas_args.rs
+similarity index 51%
+rename from crates-device/rstsr-cuda/src/kernels/cublas_gemm.rs
+rename to crates-device/rstsr-cuda/src/matmul/cublas_args.rs
+index 7604624..1e74b30 100644
+--- a/crates-device/rstsr-cuda/src/kernels/cublas_gemm.rs
++++ b/crates-device/rstsr-cuda/src/matmul/cublas_args.rs
+@@ -1,16 +1,8 @@
+-//! cuBLAS `gemm` — the **primary** GEMM path; [`super::gemm`]'s tiled kernel is the fallback.
++//! cuBLAS `gemm` arguments, derived from the geometry — or `None` when the layout is not
++//! expressible.
+ //!
+-//! # Why this exists at all
+-//!
+-//! Because there is no competition. On an A100, `dgemm` reaches the FP64 tensor-core pipe (19.5
+-//! TFLOPS) where a SIMT tile tops out at 9.7, and on every other shape it is at least as fast for
+-//! a hundredth of the engineering. The tiled kernel in [`super::gemm`] is kept for the cases this
+-//! module cannot express (see below) and as the test oracle — not as a competitor.
+-//!
+-//! # The calling convention, and the one thing that must not be got wrong
+-//!
+-//! cuBLAS is column-major only, and `C` has **no transpose flag** — only `ldc`. So the whole mapping
+-//! rests on the identity `C = A·B  <=>  Cᵀ = Bᵀ·Aᵀ`, which fixes the roles completely:
++//! cuBLAS is column-major only, and `C` has **no transpose flag** — only `ldc`. So the whole
++//! mapping rests on the identity `C = A·B  <=>  Cᵀ = Bᵀ·Aᵀ`, which fixes the roles completely:
+ //!
+ //! | cuBLAS slot | our operand | must present as | how |
+ //! |---|---|---|---|
+@@ -20,173 +12,27 @@
+ //!
+ //! with `m_o = n`, `n_o = m`, `k_o = k`. Note that the **operands are swapped relative to their
+ //! mathematical roles**: `geom.b` goes in cuBLAS's A slot. Getting either the swap or one `OP_*`
+-//! flag wrong produces a plausible transposed answer rather than an error, which is why
+-//! [`args`] is pure and is tested by re-deriving the same products through the declared leading
+-//! dimensions ([`tests::declared_lds_reproduce_the_product`]).
++//! flag wrong produces a plausible transposed answer rather than an error, which is why [`args`]
++//! is pure and is tested by re-deriving the same products through the declared leading dimensions
++//! ([`tests::declared_lds_reproduce_the_product`]).
+ //!
+-//! `geom` is already order-normalised: [`crate::kernels::gemm::resolve_geom`] reverses and swaps for
++//! `geom` is already order-normalised: [`crate::matmul::geom::resolve_geom`] reverses and swaps for
+ //! `ColMajor`, so this module only ever sees a row-major description.
+ //!
+-//! # What is refused (and falls back to the tiled kernel)
++//! # What is not expressible
+ //!
+ //! - `scn != 1`: the output cannot be presented as `n × m` column-major. Fresh outputs never hit
+ //!   this; a stepped or transposed view does.
+ //! - neither stride of an operand is 1: cuBLAS needs one leading dimension, so a stepped 2-D block
+-//!   needs a pack. The tiled kernel takes it directly.
+-//! - a non-float dtype, a dimension over `i32`, or a failed `cublasCreate`/`cublasDgemm`.
++//!   needs a pack.
++//! - a negative stride with extent > 1: no negative leading dimension.
++//! - a batch part that is not one linear run (cuBLAS takes one step per operand), or a dimension
++//!   over `i32`.
+ //!
+-//! Every refusal is silent: the caller runs the tiled kernel and gets the right answer, slower.
+-//!
+-//! # Thread safety
+-//!
+-//! A `cublasHandle_t` is not thread-safe, and this crate shares one per ordinal (see
+-//! [`CudaStreamObj`][crate::stream::CudaStreamObj]). [`launch`] therefore takes the handle's lock
+-//! itself. That is a requirement of cuBLAS, not a precaution: two host threads entering a `gemm` on
+-//! one handle at the same time is undefined.
+-
+-use cudarc::cublas::sys;
++//! Every refusal hands the problem to the next driver.
+ 
+-use crate::dtype::CudaDType;
+-use crate::kernels::gemm::GemmGeom;
++use crate::matmul::geom::GemmGeom;
+ use crate::prelude_dev::*;
+-use crate::stream::CublasHandle;
+-
+-/// The float widths cuBLAS's typed `gemm` covers, which is exactly what `DeviceMatMulAPI` is
+-/// instantiated for on this device.
+-pub trait CublasScalar: CudaDType {
+-    /// # Safety
+-    /// `a`, `b`, `c` must be device pointers of at least the extents implied by
+-    /// `m, n, k, lda, ldb, ldc`, on the stream the handle is bound to.
+-    #[allow(clippy::too_many_arguments)]
+-    unsafe fn gemm(
+-        handle: sys::cublasHandle_t,
+-        transa: sys::cublasOperation_t,
+-        transb: sys::cublasOperation_t,
+-        m: i32,
+-        n: i32,
+-        k: i32,
+-        alpha: &Self,
+-        a: u64,
+-        lda: i32,
+-        b: u64,
+-        ldb: i32,
+-        beta: &Self,
+-        c: u64,
+-        ldc: i32,
+-    ) -> sys::cublasStatus_t;
+-
+-    /// Same contract, plus `batch` matrices spaced `stride_*` elements apart.
+-    #[allow(clippy::too_many_arguments)]
+-    unsafe fn gemm_strided_batched(
+-        handle: sys::cublasHandle_t,
+-        transa: sys::cublasOperation_t,
+-        transb: sys::cublasOperation_t,
+-        m: i32,
+-        n: i32,
+-        k: i32,
+-        alpha: &Self,
+-        a: u64,
+-        lda: i32,
+-        stride_a: i64,
+-        b: u64,
+-        ldb: i32,
+-        stride_b: i64,
+-        beta: &Self,
+-        c: u64,
+-        ldc: i32,
+-        stride_c: i64,
+-        batch: i32,
+-    ) -> sys::cublasStatus_t;
+-}
+-
+-macro_rules! impl_cublas_scalar {
+-    ($t:ty, $gemm:ident, $gemm_sb:ident) => {
+-        impl CublasScalar for $t {
+-            unsafe fn gemm(
+-                handle: sys::cublasHandle_t,
+-                transa: sys::cublasOperation_t,
+-                transb: sys::cublasOperation_t,
+-                m: i32,
+-                n: i32,
+-                k: i32,
+-                alpha: &Self,
+-                a: u64,
+-                lda: i32,
+-                b: u64,
+-                ldb: i32,
+-                beta: &Self,
+-                c: u64,
+-                ldc: i32,
+-            ) -> sys::cublasStatus_t {
+-                unsafe {
+-                    sys::$gemm(
+-                        handle,
+-                        transa,
+-                        transb,
+-                        m,
+-                        n,
+-                        k,
+-                        alpha,
+-                        a as *const $t,
+-                        lda,
+-                        b as *const $t,
+-                        ldb,
+-                        beta,
+-                        c as *mut $t,
+-                        ldc,
+-                    )
+-                }
+-            }
+-
+-            unsafe fn gemm_strided_batched(
+-                handle: sys::cublasHandle_t,
+-                transa: sys::cublasOperation_t,
+-                transb: sys::cublasOperation_t,
+-                m: i32,
+-                n: i32,
+-                k: i32,
+-                alpha: &Self,
+-                a: u64,
+-                lda: i32,
+-                stride_a: i64,
+-                b: u64,
+-                ldb: i32,
+-                stride_b: i64,
+-                beta: &Self,
+-                c: u64,
+-                ldc: i32,
+-                stride_c: i64,
+-                batch: i32,
+-            ) -> sys::cublasStatus_t {
+-                unsafe {
+-                    sys::$gemm_sb(
+-                        handle,
+-                        transa,
+-                        transb,
+-                        m,
+-                        n,
+-                        k,
+-                        alpha,
+-                        a as *const $t,
+-                        lda,
+-                        stride_a,
+-                        b as *const $t,
+-                        ldb,
+-                        stride_b,
+-                        beta,
+-                        c as *mut $t,
+-                        ldc,
+-                        stride_c,
+-                        batch,
+-                    )
+-                }
+-            }
+-        }
+-    };
+-}
+-
+-impl_cublas_scalar!(f32, cublasSgemm_v2, cublasSgemmStridedBatched);
+-impl_cublas_scalar!(f64, cublasDgemm_v2, cublasDgemmStridedBatched);
+ 
+ /// One `gemm` call, in cuBLAS's terms.
+ #[derive(Clone, Debug, PartialEq, Eq)]
+@@ -200,11 +46,12 @@ pub(crate) struct CublasArgs {
+     pub ldb: i32,
+     pub ldc: i32,
+     /// Batch element steps, named after the **geom** operands. `batch_b` belongs to `geom.b`, which
+-    /// [`launch`] places in cuBLAS's A slot — the naming follows the data, not the slot.
++    /// the cuBLAS driver places in cuBLAS's A slot — the naming follows the data, not the slot.
+     ///
+     /// **These are element counts, not bytes.** cuBLAS documents `strideA` as "the offset in number
+     /// of elements between `A[i]` and `A[i+1]`", which is the opposite of what `cublasSetVector`'s
+-    /// `elemSize` does two sections earlier, and getting it wrong is invisible for `batchCount == 1`.
++    /// `elemSize` does two sections earlier, and getting it wrong is invisible for `batchCount ==
++    /// 1`.
+     pub batch_a: isize,
+     pub batch_b: isize,
+     pub batch_c: isize,
+@@ -223,13 +70,13 @@ fn ld(stride: isize, rows: usize) -> i32 {
+ 
+ /// Derive the cuBLAS arguments, or `None` when this layout is not expressible.
+ ///
+-/// Pure on purpose: this is the part where a mistake produces a silently transposed answer, so it is
+-/// tested against the declared leading dimensions rather than only on hardware.
++/// Pure on purpose: this is the part where a mistake produces a silently transposed answer, so it
++/// is tested against the declared leading dimensions rather than only on hardware.
+ pub(crate) fn args(geom: &GemmGeom) -> Option<CublasArgs> {
+     let (m, n, k) = (geom.m, geom.n, geom.k);
+-    let (_, sam, sak, sa_b) = geom.a;
+-    let (_, sbk, sbn, sb_b) = geom.b;
+-    let (_, scm, scn, sc_b) = geom.c;
++    let (_, sam, sak) = geom.a;
++    let (_, sbk, sbn) = geom.b;
++    let (_, scm, scn) = geom.c;
+ 
+     // An extent-1 axis may legitimately carry stride 0; anything else with a non-positive stride
+     // (a reversed view) has no cuBLAS expression at all.
+@@ -245,6 +92,11 @@ pub(crate) fn args(geom: &GemmGeom) -> Option<CublasArgs> {
+     if m > i32::MAX as usize || n > i32::MAX as usize || k > i32::MAX as usize {
+         return None;
+     }
++    if geom.n_batch > i32::MAX as usize {
++        return None;
++    }
++    // one step per operand: a batch that is not one linear run has no expression
++    let [sa_b, sb_b, sc_b] = geom.affine_batch()?;
+ 
+     // Slot A = geom.b, which must appear as n x k.
+     let (transa, lda_raw, rows_a) = if sbn == 1 {
+@@ -269,10 +121,6 @@ pub(crate) fn args(geom: &GemmGeom) -> Option<CublasArgs> {
+         return None;
+     }
+ 
+-    if geom.n_batch > i32::MAX as usize {
+-        return None;
+-    }
+-
+     Some(CublasArgs {
+         mo: n as i32,
+         no: m as i32,
+@@ -289,104 +137,24 @@ pub(crate) fn args(geom: &GemmGeom) -> Option<CublasArgs> {
+     })
+ }
+ 
+-fn op(t: bool) -> sys::cublasOperation_t {
+-    if t {
+-        sys::cublasOperation_t::CUBLAS_OP_T
+-    } else {
+-        sys::cublasOperation_t::CUBLAS_OP_N
+-    }
+-}
+-
+ /// The `strideA`, `strideB`, `strideC` triple cuBLAS receives, in **elements**, ordered by cuBLAS's
+ /// slots rather than by our operand names: `geom.b` sits in slot A, `geom.a` in slot B.
+ ///
+ /// This is a separate function for one reason. cuBLAS's typed strided-batched API takes element
+-/// offsets — "the offset in number of elements between `A[i]` and `A[i+1]`" — while `cublasSetVector`
+-/// two sections earlier in the same manual takes bytes. The conversion therefore must **not** happen
+-/// anywhere, and a `* size_of::<T>()` inserted here is invisible to every `batchCount == 1` test: it
+-/// leaves the first slice exact, loses the rest, and writes the surplus into whatever the allocator
+-/// placed next, which is how it presented on hardware (a batched matmul with correct first `m*n`
+-/// outputs and zeroed later slices, plus unrelated tests failing at random). Naming the triple keeps
+-/// the unit in one place, where [`tests::batch_strides_are_element_counts`] can assert it.
+-fn batch_strides(a: &CublasArgs) -> (i64, i64, i64) {
++/// offsets — "the offset in number of elements between `A[i]` and `A[i+1]`" — while
++/// `cublasSetVector` two sections earlier in the same manual takes bytes. The conversion therefore
++/// must **not** happen anywhere, and a `* size_of::<T>()` inserted here is invisible to every
++/// `batchCount == 1` test: it leaves the first slice exact, loses the rest, and writes the surplus
++/// into whatever the allocator placed next. Naming the triple keeps the unit in one place, where
++/// [`tests::batch_strides_are_element_counts`] can assert it.
++pub(crate) fn batch_strides(a: &CublasArgs) -> (i64, i64, i64) {
+     (a.batch_b as i64, a.batch_a as i64, a.batch_c as i64)
+ }
+ 
+-/// Issue the `gemm`. Returns the cuBLAS status; the caller falls back to the tiled kernel on any
+-/// non-success, because a returned status is a launch-time validation failure and nothing has been
+-/// enqueued.
+-///
+-/// The pointers are named after the **geom** operands; the slot swap happens here, once, and is the
+-/// same swap [`args`] assumes.
+-///
+-/// # The strides are element counts
+-///
+-/// `strideA/B/C` are passed straight through from [`CublasArgs`], which holds them in elements
+-/// because that is what cuBLAS's strided-batched API takes — "the offset in number of elements
+-/// between `A[i]` and `A[i+1]`". Multiplying by `size_of::<T>()` here is the obvious-looking mistake
+-/// and it does not fail loudly: `batchCount == 1` ignores the strides entirely, and for a batch the
+-/// first slice is still correct while every later slice is read and written eight times too far
+-/// along for `f64`. On hardware that showed up as a batched matmul whose first `m*n` outputs were
+-/// exact and whose remaining slices were untouched, plus *other* tests failing at random with values
+-/// larger than the operands could produce — the stray writes landing in whatever the caching
+-/// allocator had placed next.
+-///
+-/// The handle's lock is taken **here** rather than by the caller: a `cublasHandle_t` is not
+-/// thread-safe, and this stream's handle is shared by every thread that uses the ordinal, so this is
+-/// the one call that has to be serialized and the one place a guard cannot be forgotten. See
+-/// [`CublasHandle`].
+-///
+-/// # Safety
+-/// The three pointers must be valid for `geom`'s extents on the handle's stream, including the batch
+-/// range `batchCount * stride` reaches.
+-pub(crate) unsafe fn launch<T: CublasScalar>(
+-    blas: &CublasHandle,
+-    a: &CublasArgs,
+-    alpha: &T,
+-    beta: &T,
+-    ptr_a: u64,
+-    ptr_b: u64,
+-    ptr_c: u64,
+-) -> sys::cublasStatus_t {
+-    let _api = blas.lock();
+-    let handle = *blas.blas().handle();
+-    let (stride_a, stride_b, stride_c) = batch_strides(a);
+-    unsafe {
+-        if a.batch > 1 {
+-            T::gemm_strided_batched(
+-                handle,
+-                op(a.transa),
+-                op(a.transb),
+-                a.mo,
+-                a.no,
+-                a.ko,
+-                alpha,
+-                // slot A holds `geom.b`, slot B holds `geom.a`; the strides follow the buffer.
+-                ptr_b,
+-                a.lda,
+-                stride_a,
+-                ptr_a,
+-                a.ldb,
+-                stride_b,
+-                beta,
+-                ptr_c,
+-                a.ldc,
+-                stride_c,
+-                a.batch,
+-            )
+-        } else {
+-            T::gemm(
+-                handle, op(a.transa), op(a.transb), a.mo, a.no, a.ko, alpha, ptr_b, a.lda, ptr_a, a.ldb, beta, ptr_c,
+-                a.ldc,
+-            )
+-        }
+-    }
+-}
+-
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+-    use crate::kernels::gemm::resolve_geom;
++    use crate::matmul::geom::resolve_geom;
+ 
+     fn layout(shape: &[usize], stride: &[isize], offset: usize) -> Layout<IxD> {
+         Layout::<IxD>::new(shape.to_vec(), stride.to_vec(), offset).unwrap()
+@@ -425,9 +193,9 @@ mod tests {
+     }
+ 
+     /// Every orientation the derivation claims to support, plus a non-zero offset on all three
+-    /// layouts: the `gemm` result re-derived through the *declared* leading dimensions must equal the
+-    /// one computed through `geom`'s own strides. A wrong `OP_*` flag, a wrong `ld`, or a missing
+-    /// operand swap changes the answer here rather than in a rented-GPU session.
++    /// layouts: the `gemm` result re-derived through the *declared* leading dimensions must equal
++    /// the one computed through `geom`'s own strides. A wrong `OP_*` flag, a wrong `ld`, or a
++    /// missing operand swap changes the answer here rather than in a rented-GPU session.
+     #[test]
+     fn declared_lds_reproduce_the_product() {
+         let (m, k, n) = (3usize, 4usize, 5usize);
+@@ -455,9 +223,8 @@ mod tests {
+                         // slot reads: cuBLAS's A slot holds `geom.b` (so `bv`), its B slot holds
+                         // `geom.a` (so `av`). Swapping these is the mistake this test exists to
+                         // catch — and it caught it here first.
+-                        let declared: f64 = (0..k)
+-                            .map(|ki| bv[slot_a(&g, &args, ni, ki)] * av[slot_b(&g, &args, ki, mi)])
+-                            .sum();
++                        let declared: f64 =
++                            (0..k).map(|ki| bv[slot_a(&g, &args, ni, ki)] * av[slot_b(&g, &args, ki, mi)]).sum();
+                         // what the geometry says, straight from each operand's own strides
+                         let reference: f64 = (0..k)
+                             .map(|ki| {
+@@ -479,13 +246,12 @@ mod tests {
+         }
+     }
+ 
+-    /// Refusals, at the stage where each one actually happens.
++    /// Refusals, each at the stage where it happens.
+     ///
+-    /// The two stages are not interchangeable: `resolve_geom` admits a stepped **output** (the tiled
+-    /// kernel addresses `c + m*scm + n*scn`, so it does not care), and it is `args` that has to
+-    /// refuse it, because cuBLAS's output side has only `ldc` and no transpose flag. A stepped
+-    /// **operand** is refused earlier, by the lane-axis choice, since our kernel needs one
+-    /// unit-stride axis to put the lanes on.
++    /// The two are not interchangeable: the geometry admits a stepped **output** (other drivers
++    /// address `c` by two strides, so they do not care), and it is `args` that has to refuse it,
++    /// because cuBLAS's output side has only `ldc` and no transpose flag. A stepped or reversed
++    /// **operand** has no cuBLAS expression either: one leading dimension per operand.
+     #[test]
+     fn refusals_happen_at_the_earliest_stage() {
+         let lb = layout(&[4, 3], &[3, 1], 0);
+@@ -497,19 +263,19 @@ mod tests {
+         assert_eq!((g.c.1, g.c.2), (6, 2), "fixture: the output really is stepped");
+         assert!(args(&g).is_none(), "a stepped output has no column-major expression");
+ 
+-        // stepped operand: refused by the lane-axis choice
++        // stepped operand: no leading dimension to declare
+         let la2 = layout(&[2, 4], &[16, 2], 0);
+         let lc2 = layout(&[2, 3], &[3, 1], 0);
+-        let e = resolve_geom(RowMajor, &lc2, &la2, &lb).unwrap_err();
+-        assert!(format!("{e}").contains("no unit-stride axis"), "got: {e}");
++        let g2 = resolve_geom(RowMajor, &lc2, &la2, &lb).unwrap();
++        assert!(args(&g2).is_none(), "a stepped operand has no cuBLAS expression");
+ 
+         // reversed operand: accepted by the classifier (the kernel walks backwards), so this is the
+         // one refusal `args` owns — cuBLAS has no negative leading dimension.
+         let lc3 = layout(&[3, 3], &[3, 1], 0);
+         let lb3 = layout(&[4, 3], &[3, 1], 0);
+         let la3 = layout(&[3, 4], &[-4, 1], 8);
+-        // If the layout itself is rejected as out of bounds the case is unreachable and the guard in
+-        // `args` is defence in depth rather than a live branch, so only the Ok arm asserts.
++        // If the layout itself is rejected as out of bounds the case is unreachable and the guard
++        // in `args` is defence in depth rather than a live branch, so only the Ok arm asserts.
+         if let Ok(g) = resolve_geom(RowMajor, &lc3, &la3, &lb3) {
+             assert!(args(&g).is_none(), "a reversed operand has no cuBLAS expression");
+         }
+@@ -518,11 +284,11 @@ mod tests {
+     /// The batch strides are **element** counts and exactly one matrix apart.
+     ///
+     /// The convention is cuBLAS's, not ours: the typed strided-batched API documents `strideA` as
+-    /// "the offset in number of elements between `A[i]` and `A[i+1]`", while `cublasSetVector` takes
+-    /// bytes. A `* size_of::<T>()` in [`batch_strides`] — the one place that produces these values —
+-    /// is invisible to every `batchCount == 1` fixture: it leaves the first slice exact, drops the
+-    /// rest, and writes the surplus into whatever the allocator placed next. That is not a
+-    /// hypothetical: it is what the first hardware run of this path did.
++    /// "the offset in number of elements between `A[i]` and `A[i+1]`", while `cublasSetVector`
++    /// takes bytes. A `* size_of::<T>()` in [`batch_strides`] — the one place that produces these
++    /// values — is invisible to every `batchCount == 1` fixture: it leaves the first slice exact,
++    /// drops the rest, and writes the surplus into whatever the allocator placed next. That is not
++    /// a hypothetical: it is what the first hardware run of this path did.
+     #[test]
+     fn batch_strides_are_element_counts() {
+         let (p, m, k, n) = (5usize, 12usize, 16usize, 8usize);
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs b/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs
+new file mode 100644
+index 0000000..cf88552
+--- /dev/null
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs
+@@ -0,0 +1,318 @@
++//! The classic cuBLAS driver: the typed `gemm` / `gemmStridedBatched` entries.
++//!
++//! The fast path for every layout it can express: on an A100 `dgemm` reaches the FP64 tensor-core
++//! pipe (19.5 TFLOPS) where a SIMT tile tops out at 9.7, and on every other shape it is at least
++//! as fast for a hundredth of the engineering. What it cannot express is derived in
++//! [`super::super::cublas_args`] and handed to the next driver.
++//!
++//! The entries cover `f32` and `f64` only; the other accelerated triples come with the
++//! `cublasGemmEx` and cuBLASLt drivers.
++//!
++//! # Thread safety
++//!
++//! A `cublasHandle_t` is not thread-safe, and this crate shares one per ordinal (see
++//! [`CudaStreamObj`][crate::stream::CudaStreamObj]). [`launch`] therefore takes the handle's lock
++//! itself. That is a requirement of cuBLAS, not a precaution: two host threads entering a `gemm` on
++//! one handle at the same time is undefined.
++
++use std::any::TypeId;
++
++use cudarc::cublas::sys;
++
++use super::{Problem, Refusal, Uniform, Verdict};
++use crate::dtype::CudaDType;
++use crate::kernel::{order_input, order_output};
++use crate::matmul::cublas_args;
++use crate::prelude_dev::*;
++use crate::stream::CublasHandle;
++
++/// The float widths cuBLAS's typed `gemm` covers, which is exactly what `DeviceMatMulAPI` is
++/// instantiated for on this device.
++pub(crate) trait CublasScalar: CudaDType {
++    /// # Safety
++    /// `a`, `b`, `c` must be device pointers of at least the extents implied by
++    /// `m, n, k, lda, ldb, ldc`, on the stream the handle is bound to.
++    #[allow(clippy::too_many_arguments)]
++    unsafe fn gemm(
++        handle: sys::cublasHandle_t,
++        transa: sys::cublasOperation_t,
++        transb: sys::cublasOperation_t,
++        m: i32,
++        n: i32,
++        k: i32,
++        alpha: &Self,
++        a: u64,
++        lda: i32,
++        b: u64,
++        ldb: i32,
++        beta: &Self,
++        c: u64,
++        ldc: i32,
++    ) -> sys::cublasStatus_t;
++
++    /// Same contract, plus `batch` matrices spaced `stride_*` elements apart.
++    #[allow(clippy::too_many_arguments)]
++    unsafe fn gemm_strided_batched(
++        handle: sys::cublasHandle_t,
++        transa: sys::cublasOperation_t,
++        transb: sys::cublasOperation_t,
++        m: i32,
++        n: i32,
++        k: i32,
++        alpha: &Self,
++        a: u64,
++        lda: i32,
++        stride_a: i64,
++        b: u64,
++        ldb: i32,
++        stride_b: i64,
++        beta: &Self,
++        c: u64,
++        ldc: i32,
++        stride_c: i64,
++        batch: i32,
++    ) -> sys::cublasStatus_t;
++}
++
++macro_rules! impl_cublas_scalar {
++    ($t:ty, $gemm:ident, $gemm_sb:ident) => {
++        impl CublasScalar for $t {
++            unsafe fn gemm(
++                handle: sys::cublasHandle_t,
++                transa: sys::cublasOperation_t,
++                transb: sys::cublasOperation_t,
++                m: i32,
++                n: i32,
++                k: i32,
++                alpha: &Self,
++                a: u64,
++                lda: i32,
++                b: u64,
++                ldb: i32,
++                beta: &Self,
++                c: u64,
++                ldc: i32,
++            ) -> sys::cublasStatus_t {
++                unsafe {
++                    sys::$gemm(
++                        handle,
++                        transa,
++                        transb,
++                        m,
++                        n,
++                        k,
++                        alpha,
++                        a as *const $t,
++                        lda,
++                        b as *const $t,
++                        ldb,
++                        beta,
++                        c as *mut $t,
++                        ldc,
++                    )
++                }
++            }
++
++            unsafe fn gemm_strided_batched(
++                handle: sys::cublasHandle_t,
++                transa: sys::cublasOperation_t,
++                transb: sys::cublasOperation_t,
++                m: i32,
++                n: i32,
++                k: i32,
++                alpha: &Self,
++                a: u64,
++                lda: i32,
++                stride_a: i64,
++                b: u64,
++                ldb: i32,
++                stride_b: i64,
++                beta: &Self,
++                c: u64,
++                ldc: i32,
++                stride_c: i64,
++                batch: i32,
++            ) -> sys::cublasStatus_t {
++                unsafe {
++                    sys::$gemm_sb(
++                        handle,
++                        transa,
++                        transb,
++                        m,
++                        n,
++                        k,
++                        alpha,
++                        a as *const $t,
++                        lda,
++                        stride_a,
++                        b as *const $t,
++                        ldb,
++                        stride_b,
++                        beta,
++                        c as *mut $t,
++                        ldc,
++                        stride_c,
++                        batch,
++                    )
++                }
++            }
++        }
++    };
++}
++
++impl_cublas_scalar!(f32, cublasSgemm_v2, cublasSgemmStridedBatched);
++impl_cublas_scalar!(f64, cublasDgemm_v2, cublasDgemmStridedBatched);
++
++fn op(t: bool) -> sys::cublasOperation_t {
++    if t {
++        sys::cublasOperation_t::CUBLAS_OP_T
++    } else {
++        sys::cublasOperation_t::CUBLAS_OP_N
++    }
++}
++
++/// Issue the `gemm`. Returns the cuBLAS status; the caller hands the problem to the next driver on
++/// any non-success, because a returned status is a launch-time validation failure and nothing has
++/// been enqueued.
++///
++/// The pointers are named after the **geom** operands; the slot swap happens here, once, and is the
++/// same swap `cublas_args::args` assumes.
++///
++/// # The strides are element counts
++///
++/// `strideA/B/C` are passed straight through from `CublasArgs`, which holds them in elements
++/// because that is what cuBLAS's strided-batched API takes — "the offset in number of elements
++/// between `A[i]` and `A[i+1]`". Multiplying by `size_of::<T>()` here is the obvious-looking
++/// mistake and it does not fail loudly: `batchCount == 1` ignores the strides entirely, and for a
++/// batch the first slice is still correct while every later slice is read and written eight times
++/// too far along for `f64`. On hardware that showed up as a batched matmul whose first `m*n`
++/// outputs were exact and whose remaining slices were untouched, plus *other* tests failing at
++/// random with values larger than the operands could produce — the stray writes landing in whatever
++/// the caching allocator had placed next.
++///
++/// The handle's lock is taken **here** rather than by the caller: a `cublasHandle_t` is not
++/// thread-safe, and this stream's handle is shared by every thread that uses the ordinal, so this
++/// is the one call that has to be serialized and the one place a guard cannot be forgotten. See
++/// [`CublasHandle`].
++///
++/// # Safety
++/// The three pointers must be valid for `geom`'s extents on the handle's stream, including the
++/// batch range `batchCount * stride` reaches.
++pub(crate) unsafe fn launch<T: CublasScalar>(
++    blas: &CublasHandle,
++    a: &cublas_args::CublasArgs,
++    alpha: &T,
++    beta: &T,
++    ptr_a: u64,
++    ptr_b: u64,
++    ptr_c: u64,
++) -> sys::cublasStatus_t {
++    let _api = blas.lock();
++    let handle = *blas.blas().handle();
++    let (stride_a, stride_b, stride_c) = cublas_args::batch_strides(a);
++    unsafe {
++        if a.batch > 1 {
++            T::gemm_strided_batched(
++                handle,
++                op(a.transa),
++                op(a.transb),
++                a.mo,
++                a.no,
++                a.ko,
++                alpha,
++                // slot A holds `geom.b`, slot B holds `geom.a`; the strides follow the buffer.
++                ptr_b,
++                a.lda,
++                stride_a,
++                ptr_a,
++                a.ldb,
++                stride_b,
++                beta,
++                ptr_c,
++                a.ldc,
++                stride_c,
++                a.batch,
++            )
++        } else {
++            T::gemm(
++                handle,
++                op(a.transa),
++                op(a.transb),
++                a.mo,
++                a.no,
++                a.ko,
++                alpha,
++                ptr_b,
++                a.lda,
++                ptr_a,
++                a.ldb,
++                beta,
++                ptr_c,
++                a.ldc,
++            )
++        }
++    }
++}
++
++/// One attempt of the classic driver.
++pub(super) fn run<TA, TB, TC, TBuf>(p: &Problem<'_, TA, TB, TC, TBuf>) -> Result<Verdict>
++where
++    TA: 'static,
++    TB: 'static,
++    TC: Copy + 'static,
++    TBuf: 'static,
++{
++    // the typed entries cover f32 and f64 only
++    if TypeId::of::<TC>() == TypeId::of::<f32>() {
++        return typed(p.uniform::<f32>(), p);
++    }
++    if TypeId::of::<TC>() == TypeId::of::<f64>() {
++        return typed(p.uniform::<f64>(), p);
++    }
++    Ok(Verdict::Declined(Refusal::Cannot("the typed gemm entries cover f32 and f64 only")))
++}
++
++/// Derive the arguments, decline on anything cuBLAS cannot express, launch.
++fn typed<T: CublasScalar, TA, TB, TC, TBuf>(
++    u: Option<Uniform<'_, T>>,
++    p: &Problem<'_, TA, TB, TC, TBuf>,
++) -> Result<Verdict> {
++    let Some(u) = u else {
++        return Ok(Verdict::Declined(Refusal::Cannot("the operands and the output must share one dtype")));
++    };
++    let geom = &p.geom;
++    let Some(args) = cublas_args::args(geom) else {
++        return Ok(Verdict::Declined(Refusal::Cannot(
++            "no column-major expression (stepped or reversed layout, no unit-stride operand axis, \
++             non-affine batch, or a dimension over i32)",
++        )));
++    };
++    let exec = p.device.stream();
++    let Some(blas) = exec.cublas() else {
++        return Ok(Verdict::Declined(Refusal::NoCublas));
++    };
++    // Read-event guards held until after the cuBLAS enqueue (fn scope). `geom.a` is the buffer
++    // whose layout went first to the rule table: the caller's `b` under `ColMajor`.
++    let (buf_a, buf_b) = if geom.swapped { (u.b, u.a) } else { (u.a, u.b) };
++    let _ga = order_input(buf_a, exec)?;
++    let _gb = order_input(buf_b, exec)?;
++    let _gc = order_output(u.c, exec)?;
++    let (pa, _ra) = buf_a.read_ptr_on(exec);
++    let (pb, _rb) = buf_b.read_ptr_on(exec);
++    let (pc, _rc) = u.c.read_ptr_on(exec);
++    let esz = core::mem::size_of::<T>() as u64;
++    let (pa, pb, pc) = (
++        (pa as u64).wrapping_add(geom.a.0 as u64 * esz),
++        (pb as u64).wrapping_add(geom.b.0 as u64 * esz),
++        (pc as u64).wrapping_add(geom.c.0 as u64 * esz),
++    );
++
++    // SAFETY: the pointers are the buffers' bases folded with the layouts' own offsets, and
++    // `args` was derived from the same `geom` those offsets came from.
++    let status = unsafe { launch(blas, &args, &u.alpha, &u.beta, pa, pb, pc) };
++    if matches!(status, sys::cublasStatus_t::CUBLAS_STATUS_SUCCESS) {
++        Ok(Verdict::Ran)
++    } else {
++        Ok(Verdict::Declined(Refusal::CublasStatus(status)))
++    }
++}
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs b/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
+new file mode 100644
+index 0000000..2d78d0f
+--- /dev/null
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
+@@ -0,0 +1,306 @@
++//! The matmul drivers: the candidate table and the ordered dispatch.
++//!
++//! A driver takes a resolved [`Problem`] and answers with a [`Verdict`]: it ran, or it declined
++//! with the reason. Selection is the candidate table of the type triple ([`candidates`]), in the
++//! chain order, filtered by the enabled set ([`MatMulDrivers`]); every driver that can serve the
++//! triple is tried in turn until one runs. An error is returned only when nothing ran.
++//!
++//! A driver that declines never enqueues anything, so fall-through cannot change the answer.
++
++use std::any::TypeId;
++
++use super::flags::MatMulDrivers;
++use super::geom::GemmGeom;
++use super::mode::CudaMatMulMode;
++use crate::dtype::CudaDType;
++use crate::prelude_dev::*;
++pub(crate) use naive::NaiveScalar;
++
++pub(crate) mod cublas;
++pub(crate) mod naive;
++pub(crate) mod tiled;
++
++/// One matmul driver of the chain.
++#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
++#[non_exhaustive]
++pub enum GemmDriver {
++    /// cuBLASLt.
++    CublasLt,
++    /// `cublasGemmEx` / `cublasGemmStridedBatchedEx`.
++    CublasEx,
++    /// The typed classic entries (`cublasSgemm`, `cublasDgemm`, ...).
++    Cublas,
++    /// The tiled SIMT kernel (`drivers/tiled.rs`).
++    Tiled,
++    /// The universal elementwise kernel (`drivers/naive.rs`).
++    Naive,
++}
++
++impl GemmDriver {
++    /// Every driver, in the chain order.
++    pub const ALL: [Self; 5] = [Self::CublasLt, Self::CublasEx, Self::Cublas, Self::Tiled, Self::Naive];
++
++    /// Lower-case name, for messages.
++    pub const fn name(self) -> &'static str {
++        match self {
++            Self::CublasLt => "cublasLt",
++            Self::CublasEx => "cublasEx",
++            Self::Cublas => "cublas",
++            Self::Tiled => "tiled",
++            Self::Naive => "naive",
++        }
++    }
++
++    /// The enable-set bit of this driver.
++    pub const fn flag(self) -> MatMulDrivers {
++        let bit = match self {
++            Self::CublasLt => 0,
++            Self::CublasEx => 1,
++            Self::Cublas => 2,
++            Self::Tiled => 3,
++            Self::Naive => 4,
++        };
++        MatMulDrivers::from_bits(1 << bit)
++    }
++}
++
++/// Why a driver did not take the problem.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub(crate) enum Refusal {
++    /// The layout or the type triple is outside what the driver can express.
++    Cannot(&'static str),
++    /// cuBLAS answered with this status; nothing was enqueued.
++    CublasStatus(cudarc::cublas::sys::cublasStatus_t),
++    /// `libcublas` is not loadable on this machine.
++    NoCublas,
++}
++
++impl core::fmt::Display for Refusal {
++    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
++        match self {
++            Self::Cannot(what) => write!(f, "cannot serve: {what}"),
++            Self::CublasStatus(status) => write!(f, "cuBLAS status {status:?}"),
++            Self::NoCublas => write!(f, "libcublas is not loadable"),
++        }
++    }
++}
++
++/// What a driver did with a problem.
++pub(crate) enum Verdict {
++    /// The product is enqueued.
++    Ran,
++    /// Nothing was enqueued; the next driver is asked.
++    Declined(Refusal),
++}
++
++/// One resolved GEMM problem, ready for a driver.
++pub(crate) struct Problem<'a, TA, TB, TC, TBuf> {
++    pub device: &'a DeviceCuda,
++    pub geom: GemmGeom,
++    /// The output: `TC` or `MaybeUninit<TC>`. Never read when `read_c` is false.
++    pub c: &'a CudaBuffer<TBuf>,
++    pub a: &'a CudaBuffer<TA>,
++    pub b: &'a CudaBuffer<TB>,
++    pub alpha: TC,
++    pub beta: TC,
++    /// Whether the driver must add `beta * c`; false means `c` holds nothing to read.
++    pub read_c: bool,
++}
++
++impl<TA, TB, TC, TBuf> Problem<'_, TA, TB, TC, TBuf> {
++    /// The type names of the triple, for messages.
++    pub fn triple(&self) -> String
++    where
++        TA: CudaDType,
++        TB: CudaDType,
++        TC: CudaDType,
++    {
++        format!("{} x {} -> {}", TA::CNAME, TB::CNAME, TC::CNAME)
++    }
++}
++
++/// The problem with all three buffers read as one type `T`.
++pub(crate) struct Uniform<'a, T> {
++    pub c: &'a CudaBuffer<T>,
++    pub a: &'a CudaBuffer<T>,
++    pub b: &'a CudaBuffer<T>,
++    pub alpha: T,
++    pub beta: T,
++}
++
++/// `Some` iff `TA == TB == TC == T`, with the buffers re-typed accordingly.
++///
++/// The single-type drivers (cuBLAS, tiled) check the triple at run time and re-type the buffers,
++/// instead of widening their bound to every dtype.
++#[allow(clippy::too_many_arguments)]
++pub(crate) fn uniform<'a, T: Copy + 'static, TA: 'static, TB: 'static, TC: 'static, TBuf: 'static>(
++    c: &'a CudaBuffer<TBuf>,
++    a: &'a CudaBuffer<TA>,
++    b: &'a CudaBuffer<TB>,
++    alpha: TC,
++    beta: TC,
++) -> Option<Uniform<'a, T>> {
++    if TypeId::of::<TC>() != TypeId::of::<T>() {
++        return None;
++    }
++    Some(Uniform {
++        c: c.view_as::<T>()?,
++        a: a.view_as::<T>()?,
++        b: b.view_as::<T>()?,
++        // SAFETY: `TC` is `T` (checked above), so this is a plain copy of a `T`.
++        alpha: unsafe { *(&alpha as *const TC as *const T) },
++        beta: unsafe { *(&beta as *const TC as *const T) },
++    })
++}
++
++impl<'a, TA, TB, TC, TBuf> Problem<'a, TA, TB, TC, TBuf> {
++    /// [`uniform`] over this problem.
++    pub fn uniform<T: Copy + 'static>(&self) -> Option<Uniform<'a, T>>
++    where
++        TA: 'static,
++        TB: 'static,
++        TC: Copy + 'static,
++        TBuf: 'static,
++    {
++        uniform(self.c, self.a, self.b, self.alpha, self.beta)
++    }
++}
++
++fn same<T: 'static, U: 'static>() -> bool {
++    TypeId::of::<T>() == TypeId::of::<U>()
++}
++
++/// The drivers that can serve `(TA, TB) -> TC` under `mode`, in the chain order.
++///
++/// Pure: a table lookup on the type triple and the mode, with no layout input. (Layout decides
++/// whether a listed driver *can*; that is the run-time fall-through.) Until the mode-aware drivers
++/// land, only the `Default`-independent part of the table is filled in:
++///
++/// | call | candidates in order |
++/// |---|---|
++/// | `f32 -> f32`, `f64 -> f64` | cuBLAS, tiled, naive |
++/// | anything else | naive |
++pub(crate) fn candidates<TA: 'static, TB: 'static, TC: CudaMatMulMode>(mode: &TC::Mode) -> Vec<GemmDriver> {
++    let _ = mode;
++    let same_type = same::<TA, TC>() && same::<TB, TC>();
++    if same_type && (same::<TC, f32>() || same::<TC, f64>()) {
++        vec![GemmDriver::Cublas, GemmDriver::Tiled, GemmDriver::Naive]
++    } else {
++        vec![GemmDriver::Naive]
++    }
++}
++
++/// Run the problem on the first enabled driver that takes it.
++pub(crate) fn dispatch<TA, TB, TC, TBuf>(
++    p: &Problem<'_, TA, TB, TC, TBuf>,
++    flags: &crate::flags::CudaRuntimeFlags,
++    mode: &TC::Mode,
++) -> Result<()>
++where
++    TA: NaiveScalar,
++    TB: NaiveScalar,
++    TC: NaiveScalar + CudaMatMulMode,
++    TBuf: 'static,
++{
++    let enabled = flags.matmul_drivers;
++    let mut declined: Vec<(&'static str, Refusal)> = Vec::new();
++    for driver in candidates::<TA, TB, TC>(mode) {
++        if !enabled.contains(driver.flag()) {
++            continue;
++        }
++        let verdict = match driver {
++            GemmDriver::Cublas => cublas::run(p)?,
++            GemmDriver::Tiled => tiled::run(p)?,
++            GemmDriver::Naive => naive::run(p)?,
++            GemmDriver::CublasLt | GemmDriver::CublasEx => {
++                rstsr_raise!(UnImplemented, "cuda matmul: the {} driver is not implemented yet", driver.name())?
++            },
++        };
++        if flags.trace_matmul {
++            let g = &p.geom;
++            eprintln!(
++                "[rstsr-cuda matmul] {} {}x{}x{} batch {} mode {:?}: {} -> {}",
++                p.triple(),
++                g.m,
++                g.k,
++                g.n,
++                g.n_batch,
++                mode,
++                driver.name(),
++                match &verdict {
++                    Verdict::Ran => "ran".to_string(),
++                    Verdict::Declined(r) => format!("declined ({r})"),
++                }
++            );
++        }
++        match verdict {
++            Verdict::Ran => return Ok(()),
++            Verdict::Declined(r) => declined.push((driver.name(), r)),
++        }
++    }
++    let g = &p.geom;
++    let why: Vec<String> = declined.iter().map(|(name, r)| format!("{name}: {r}")).collect();
++    rstsr_raise!(
++        UnImplemented,
++        "cuda matmul: no enabled driver can serve {} ({}x{} @ {}x{}, batch {}); enabled {:?}; {}",
++        p.triple(),
++        g.m,
++        g.k,
++        g.k,
++        g.n,
++        g.n_batch,
++        enabled,
++        if why.is_empty() {
++            "no enabled driver is a candidate for this type triple".to_string()
++        } else {
++            format!("declined: {}", why.join("; "))
++        }
++    )
++}
++
++/// The on-device bytes of a scalar argument (at most 16 bytes).
++pub(crate) fn scalar_bytes<T>(x: &T) -> [u8; 16] {
++    let nb = core::mem::size_of::<T>();
++    let mut bytes = [0u8; 16];
++    debug_assert!(nb <= 16, "a scalar argument wider than 16 bytes is not a scalar");
++    // SAFETY: `T: CudaDType` is a plain scalar, so its bytes are its on-device representation.
++    unsafe { core::ptr::copy_nonoverlapping(core::ptr::addr_of!(*x) as *const u8, bytes.as_mut_ptr(), nb) };
++    bytes
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::matmul::mode::{ComputeType16F, ComputeType32F, ComputeType64F};
++
++    fn names(c: &[GemmDriver]) -> Vec<&'static str> {
++        c.iter().map(|d| d.name()).collect()
++    }
++
++    /// The real single-type triples get the accelerated chain; every other triple starts at naive.
++    #[test]
++    fn table_by_type_triple() {
++        let chain = ["cublas", "tiled", "naive"];
++        let naive = ["naive"];
++        assert_eq!(names(&candidates::<f32, f32, f32>(&ComputeType32F::default())), chain);
++        assert_eq!(names(&candidates::<f64, f64, f64>(&ComputeType64F::default())), chain);
++        assert_eq!(names(&candidates::<f64, f64, f64>(&ComputeType64F::Pedantic)), chain);
++        assert_eq!(names(&candidates::<i32, i32, i32>(&())), naive);
++        assert_eq!(names(&candidates::<f32, f64, f64>(&ComputeType64F::default())), naive, "mixed operands");
++        assert_eq!(names(&candidates::<half::f16, half::f16, f32>(&ComputeType32F::default())), naive);
++        assert_eq!(names(&candidates::<half::bf16, half::bf16, half::bf16>(&ComputeType16F::default())), naive);
++        assert_eq!(
++            names(&candidates::<num::Complex<f64>, num::Complex<f64>, num::Complex<f64>>(&ComputeType64F::default())),
++            naive
++        );
++    }
++
++    /// Each driver owns one enable-set bit, and the default set enables all of them.
++    #[test]
++    fn driver_flags() {
++        for d in GemmDriver::ALL {
++            assert!(MatMulDrivers::all().contains(d.flag()), "{}", d.name());
++            assert!(!MatMulDrivers::none().contains(d.flag()));
++        }
++    }
++}
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/naive.rs b/crates-device/rstsr-cuda/src/matmul/drivers/naive.rs
+new file mode 100644
+index 0000000..0174497
+--- /dev/null
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/naive.rs
+@@ -0,0 +1,295 @@
++//! The naive driver: a universal elementwise GEMM kernel.
++//!
++//! One thread per output element, a loop over the contraction, full layout addressing (signed and
++//! zero strides, per-axis batch strides). It serves every type triple of [`NaiveScalar`] and every
++//! layout the rule table admits, and it is the last driver of the chain: whatever the accelerated
++//! drivers decline lands here. It is also the on-device oracle for them.
++//!
++//! The arithmetic is deliberately simple. Each operand is cast to the accumulator type `@TACC@`
++//! (`f32` for a half output, the output type otherwise), the `k` products are added in `@TACC@`,
++//! and the sum is rounded to the output type once. A mixed triple is therefore a "cast each
++//! operand to the output type" promotion, with no materialized copy. The result is exact for
++//! integer triples and within one rounding of the CPU serial kernel for the real ones; it is
++//! DRAM-bound, which is why it runs last.
++//!
++//! Nothing is declined here. An empty output returns before any driver is asked, and the two
++//! shapes that have no GEMM geometry at all (the inner dot; a batch rank over [`RANK_MAX`]) are
++//! refused by name before the chain.
++
++use super::super::geom::CallerGeom;
++use super::{Problem, Verdict};
++use crate::dtype::{is_complex_cname, is_half_cname, CudaDType};
++use crate::kernel::{order_input, order_output, FlatLaunch};
++use crate::kernels::elementwise::planned_function;
++use crate::kernels::exprs::{compute_type, load};
++use crate::prelude_dev::*;
++
++/// Largest batch rank (number of axes in front of the two matrix axes) the kernel is generated
++/// for; the batch shape and stride arrays of all three operands are padded to this rank.
++const RANK_MAX: usize = 16;
++
++/// Types the naive kernel is instantiated for: everything with CUDA C arithmetic and a zero.
++pub(crate) trait NaiveScalar: CudaDType + num::Zero {
++    /// C type the products are accumulated in: `float` for a half output, else the type itself.
++    fn acc() -> &'static str {
++        if is_half_cname(Self::CNAME) {
++            "float"
++        } else {
++            Self::CNAME
++        }
++    }
++}
++
++impl<T: CudaDType + num::Zero> NaiveScalar for T {}
++
++/// C expression of the zero value of C type `t`.
++fn zero_expr(t: &str) -> String {
++    if is_complex_cname(t) {
++        format!("{t}(0.0f, 0.0f)")
++    } else if is_half_cname(t) {
++        // the half conversion helper: `( __half )0` is not a valid half zero
++        crate::kernels::exprs::store(t, "0.0f")
++    } else {
++        format!("({t})0")
++    }
++}
++
++/// C expression of `x` (of C type `from`) cast to C type `to`.
++///
++/// `x` is a real scalar or a value already of type `to`. Real to complex is `to(x, 0)`; the
++/// reverse never occurs (no promotion produces a real output from a complex operand).
++fn cast(from: &str, to: &str, x: &str) -> String {
++    if from == to {
++        return x.to_string();
++    }
++    if is_half_cname(to) {
++        crate::kernels::exprs::store(to, x)
++    } else if is_complex_cname(to) {
++        format!("{to}({x}, 0.0f)")
++    } else {
++        format!("({to})({x})")
++    }
++}
++
++/// The C expression of one product term, in the accumulator type.
++fn term(ta: &str, tb: &str, tacc: &str, a: &str, b: &str) -> String {
++    let (lta, ltb) = (compute_type(ta), compute_type(tb));
++    let av = cast(&lta, tacc, &load(ta, a));
++    let bv = cast(&ltb, tacc, &load(tb, b));
++    format!("{av} * {bv}")
++}
++
++/// The C expression of the scaled sum, and of the epilogue `v + beta * *p`.
++fn epilogue(tc: &str) -> (String, String) {
++    if is_half_cname(tc) {
++        // `alpha` and `beta` are half, `acc` is float: compute the epilogue in float, store once
++        (
++            crate::kernels::exprs::store(tc, "__half2float(alpha) * acc"),
++            "__float2half(__half2float(v) + __half2float(beta) * __half2float(*p))".to_string(),
++        )
++    } else {
++        ("alpha * acc".to_string(), "v + beta * (*p)".to_string())
++    }
++}
++
++const NAIVE_ENTRY: &str = r#"
++typedef struct { int n[@R@]; } rstsr_bsh;
++typedef struct { rstsr_isz s[@R@]; } rstsr_bst;
++
++extern "C" __global__ void rstsr_matmul_naive(
++    @TC@* c, const @TA@* a, const @TB@* b,
++    rstsr_isz scm, rstsr_isz scn, rstsr_isz sam, rstsr_isz sak, rstsr_isz sbk, rstsr_isz sbn,
++    rstsr_usz total, rstsr_isz M, rstsr_isz N, rstsr_isz K,
++    rstsr_bsh bsh_a, rstsr_bst bst_a,
++    rstsr_bsh bsh_b, rstsr_bst bst_b,
++    rstsr_bsh bsh_c, rstsr_bst bst_c,
++    int read_c, @TC@ alpha, @TC@ beta)
++{
++    rstsr_usz t = (rstsr_usz)blockIdx.x * blockDim.x + threadIdx.x;
++    if (t >= total) return;
++    rstsr_usz r = t / (rstsr_usz)N;
++    rstsr_isz j = (rstsr_isz)(t - r * (rstsr_usz)N);
++    rstsr_usz bi = r / (rstsr_usz)M;
++    rstsr_isz i = (rstsr_isz)(r - bi * (rstsr_usz)M);
++
++    // batch offset of this slice, decomposed against each operand's own batch shape
++    rstsr_isz oa = 0, ob = 0, oc = 0;
++    rstsr_usz ia = bi, ib = bi, ic = bi;
++    #pragma unroll
++    for (int d = @R@ - 1; d >= 0; --d) {
++        oc += (rstsr_isz)(ic % (rstsr_usz)bsh_c.n[d]) * bst_c.s[d]; ic /= (rstsr_usz)bsh_c.n[d];
++        oa += (rstsr_isz)(ia % (rstsr_usz)bsh_a.n[d]) * bst_a.s[d]; ia /= (rstsr_usz)bsh_a.n[d];
++        ob += (rstsr_isz)(ib % (rstsr_usz)bsh_b.n[d]) * bst_b.s[d]; ib /= (rstsr_usz)bsh_b.n[d];
++    }
++
++    const @TA@* ap = a + oa;
++    const @TB@* bp = b + ob;
++    @TACC@ acc = @ZERO@;
++    for (rstsr_isz kk = 0; kk < K; ++kk) {
++        acc += @TERM@;
++    }
++    @TC@* p = c + oc + i * scm + j * scn;
++    const @TC@ v = @VALUE@;
++    *p = read_c ? (@ADD_C@) : v;
++}
++"#;
++
++/// Batch shape and stride arrays of one operand, padded with leading unit extents.
++fn batch_arrays(part: &crate::matmul::geom::BatchPart, rank: usize) -> (Vec<i32>, Vec<isize>) {
++    let pad = rank - part.shape.len();
++    let shape = part.shape.iter().map(|&n| n as i32);
++    let stride = part.stride.iter().copied();
++    let ones = std::iter::repeat_n(1i32, pad);
++    let zeros = std::iter::repeat_n(0isize, pad);
++    (ones.chain(shape).collect(), zeros.chain(stride).collect())
++}
++
++fn bytes_i32(v: &[i32]) -> Vec<u8> {
++    v.iter().flat_map(|x| x.to_ne_bytes()).collect()
++}
++
++fn bytes_isize(v: &[isize]) -> Vec<u8> {
++    v.iter().flat_map(|x| x.to_ne_bytes()).collect()
++}
++
++/// Run the problem on the naive kernel. Errors are launch failures.
++pub(super) fn run<TA, TB, TC, TBuf>(p: &Problem<'_, TA, TB, TC, TBuf>) -> Result<Verdict>
++where
++    TA: NaiveScalar,
++    TB: NaiveScalar,
++    TC: NaiveScalar,
++    TBuf: 'static,
++{
++    // The caller's roles, not the row-major ones: the kernel is templated on the caller's types.
++    let CallerGeom { mnk, a, b, c, batch } = p.geom.caller();
++    let (a_off, sam, sak) = a;
++    let (b_off, sbk, sbn) = b;
++    let (c_off, scm, scn) = c;
++    let rank = batch.iter().map(|part| part.shape.len()).max().unwrap_or(0);
++    if rank > RANK_MAX {
++        rstsr_raise!(
++            UnImplemented,
++            "cuda matmul: the batch part has rank {rank}, over the limit of {RANK_MAX} of the naive kernel"
++        )?
++    }
++    let rank = rank.max(1);
++    let (sh_a, st_a) = batch_arrays(batch[0], rank);
++    let (sh_b, st_b) = batch_arrays(batch[1], rank);
++    let (sh_c, st_c) = batch_arrays(batch[2], rank);
++
++    let ta = TA::CNAME;
++    let tb = TB::CNAME;
++    let tc = TC::CNAME;
++    let tacc = TC::acc();
++    let (value, add_c) = epilogue(tc);
++    let subs: Vec<(&str, String)> = vec![
++        ("@TA@", ta.to_string()),
++        ("@TB@", tb.to_string()),
++        ("@TC@", tc.to_string()),
++        ("@TACC@", tacc.to_string()),
++        ("@R@", rank.to_string()),
++        ("@ZERO@", zero_expr(tacc)),
++        ("@TERM@", term(ta, tb, tacc, "ap[i * sam + kk * sak]", "bp[kk * sbk + j * sbn]")),
++        ("@VALUE@", value),
++        ("@ADD_C@", add_c),
++    ];
++    let source = subs.iter().fold(NAIVE_ENTRY.to_string(), |s, (k, v)| s.replace(k, v));
++    let mut includes: Vec<&'static str> = Vec::new();
++    for inc in TA::INCLUDES.iter().chain(TB::INCLUDES).chain(TC::INCLUDES) {
++        includes.push(inc);
++    }
++    let disc = format!("{ta}|{tb}|{tc}|{tacc}|R{rank}");
++    let f = planned_function(p.device, "rstsr_matmul_naive", &includes, &disc, || source)?;
++
++    let exec = p.device.stream();
++    let _ga = order_input(p.a, exec)?;
++    let _gb = order_input(p.b, exec)?;
++    let _gc = order_output(p.c, exec)?;
++    let total = p.geom.n_batch as u64 * p.geom.m as u64 * p.geom.n as u64;
++    let abytes = super::scalar_bytes(&p.alpha);
++    let bbytes = super::scalar_bytes(&p.beta);
++    let nb = core::mem::size_of::<TC>();
++
++    FlatLaunch::new(exec, &f, total as usize)
++        .arg_ptr(p.c, c_off)
++        .arg_ptr(p.a, a_off)
++        .arg_ptr(p.b, b_off)
++        .arg_bytes(&scm.to_ne_bytes())
++        .arg_bytes(&scn.to_ne_bytes())
++        .arg_bytes(&sam.to_ne_bytes())
++        .arg_bytes(&sak.to_ne_bytes())
++        .arg_bytes(&sbk.to_ne_bytes())
++        .arg_bytes(&sbn.to_ne_bytes())
++        .arg_u64(total)
++        .arg_bytes(&(mnk.0 as isize).to_ne_bytes())
++        .arg_bytes(&(mnk.2 as isize).to_ne_bytes())
++        .arg_bytes(&(mnk.1 as isize).to_ne_bytes())
++        .arg_bytes(&bytes_i32(&sh_a))
++        .arg_bytes(&bytes_isize(&st_a))
++        .arg_bytes(&bytes_i32(&sh_b))
++        .arg_bytes(&bytes_isize(&st_b))
++        .arg_bytes(&bytes_i32(&sh_c))
++        .arg_bytes(&bytes_isize(&st_c))
++        .arg_i32(p.read_c as i32)
++        .arg_bytes(&abytes[..nb])
++        .arg_bytes(&bbytes[..nb])
++        .launch()?;
++
++    Ok(Verdict::Ran)
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// The accumulator is the output type, except for half outputs which accumulate in `f32`.
++    #[test]
++    fn accumulator_type() {
++        assert_eq!(f32::acc(), "float");
++        assert_eq!(f64::acc(), "double");
++        assert_eq!(i32::acc(), "int");
++        assert_eq!(num::Complex::<f64>::acc(), "rstsr_c64");
++        assert_eq!(half::f16::acc(), "float");
++        assert_eq!(half::bf16::acc(), "float");
++    }
++
++    /// The cast rule: identity, real to real, real to complex, and the half conversions.
++    #[test]
++    fn casts() {
++        assert_eq!(cast("float", "float", "x"), "x");
++        assert_eq!(cast("float", "double", "x"), "(double)(x)");
++        assert_eq!(cast("double", "rstsr_c64", "x"), "rstsr_c64(x, 0.0f)");
++        // a half operand is loaded as float first, so the cast that follows is the float one
++        assert_eq!(cast(&compute_type("__half"), "double", "__half2float(x)"), "(double)(__half2float(x))");
++        assert_eq!(term("__half", "float", "double", "a0", "b0"), "(double)(__half2float(a0)) * (double)(b0)");
++        assert_eq!(cast("float", "__half", "x"), "__float2half(x)");
++        assert_eq!(zero_expr("int"), "(int)0");
++        assert_eq!(zero_expr("rstsr_c32"), "rstsr_c32(0.0f, 0.0f)");
++        assert_eq!(zero_expr("__nv_bfloat16"), "__float2bfloat16(0.0f)");
++    }
++
++    /// The batch arrays are padded with leading unit extents, so a lower-rank operand decomposes
++    /// its slice index against its own trailing axes.
++    #[test]
++    fn batch_arrays_pad_leading() {
++        let part = crate::matmul::geom::BatchPart { shape: vec![2, 3], stride: vec![30, 10] };
++        assert_eq!(batch_arrays(&part, 2), (vec![2, 3], vec![30, 10]));
++        assert_eq!(batch_arrays(&part, 4), (vec![1, 1, 2, 3], vec![0, 0, 30, 10]));
++        let none = crate::matmul::geom::BatchPart::default();
++        assert_eq!(batch_arrays(&none, 2), (vec![1, 1], vec![0, 0]));
++    }
++
++    /// Every type the driver claims is covered by the trait.
++    #[test]
++    fn naive_scalar_coverage() {
++        fn is_naive<T: NaiveScalar>() {}
++        is_naive::<f32>();
++        is_naive::<f64>();
++        is_naive::<i8>();
++        is_naive::<u64>();
++        is_naive::<num::Complex<f32>>();
++        is_naive::<num::Complex<f64>>();
++        is_naive::<half::f16>();
++        is_naive::<half::bf16>();
++    }
++}
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/tiled.rs b/crates-device/rstsr-cuda/src/matmul/drivers/tiled.rs
+new file mode 100644
+index 0000000..37c8f17
+--- /dev/null
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/tiled.rs
+@@ -0,0 +1,375 @@
++//! The tiled SIMT GEMM driver — the kernel behind `matmul` when cuBLAS declines.
++//!
++//! It takes what the classic cuBLAS entries cannot express (a stepped output, a reversed
++//! operand) and a machine without `libcublas`, and it is the on-device step before the naive
++//! kernel. It is kept for those cases and as a test oracle, not because it competes — on an A100,
++//! `dgemm` reaches the FP64 tensor-core pipe at 19.5 TFLOPS where a SIMT tile tops out at 9.7.
++//!
++//! # What this kernel is
++//!
++//! One block computes a `BM x BN` tile of `C = alpha * A B + beta * C` by streaming the contraction
++//! axis through shared memory in `BK`-deep slabs. Per block that is `BM*BN*K` fused multiply-adds
++//! for `(BM+BN)*K` element loads, i.e. `2*64*64 / (128*8) = 8` flop/byte once the tile is resident.
++//! The untiled form is `2/16 = 0.125`, which is DRAM-bound on every machine — the whole reason this
++//! file exists.
++//!
++//! 8 flop/byte is only just above the A100 fp64 ridge point (`9.7 TFLOPS / 1.55 TB/s` = 6.3), so at
++//! this tile size the kernel is *marginally* compute-bound and the memory system still costs nearly
++//! as much as the arithmetic. Doubling the tile to 128x128 gives `2*128*128 / (256*8) = 16` and is
++//! the first thing to try after measuring this one; `BM`/`BN` are plain constants and every derived
++//! count (slab depth, thread count, shared sizes) follows from them, so the change is a re-tune
++//! rather than a rewrite.
++//!
++//! # The two things that are actually decisions
++//!
++//! **1. The lane map follows a unit-stride axis, not a fixed axis.** A 2-D operand arrives with
++//! arbitrary strides: `A` may be `[M, K]` with `K` contiguous (`rt::matmul(a, b)`) or with `M`
++//! contiguous (`rt::matmul(a.T, b)`), and `layout_matmul` admits both because it only checks
++//! shapes. Instead of transposing an operand — a copy — the block's linear thread id is mapped to
++//! the tile along whichever axis is unit-stride, chosen at **NVRTC time**. Four variants result (A
++//! on `k` or `m`, B on `k` or `n`) and each has both global loads coalesced.
++//!
++//! **2. Per-thread tiles are interleaved, not blocked.** Thread `(tx, ty)` owns rows `ty + i*TY`
++//! and columns `tx + j*TX`, so one shared-memory read instruction has its 16 lanes on 16
++//! consecutive doubles (and the other row group in the warp reads the same address, which
++//! broadcasts). Blocking would instead make the `Bs` read stride `TN` doubles per lane — a 4-way
++//! bank conflict on every one of the `TM*TN*BK` inner reads. Interleaving costs something on the
++//! store side, but not bandwidth: for a fixed `(i, j)` the 16 lanes span 16 sectors holding 8
++//! useful bytes each, and the four values of `j` then fill those same sectors, so all the bytes are
++//! consumed — the request count is 4x, not the traffic. Staging `C` through shared memory is the
++//! fix if that ever measures badly.
++//!
++//! # Order
++//!
++//! `ColMajor` is not special-cased in the kernel. The geometry module reverses every layout and
++//! swaps the operands for that order, so the kernel only ever sees row-major-decomposed blocks with
++//! leading dimensions.
++//!
++//! # What is deliberately absent
++//!
++//! No double buffering, no 128-bit vectorised loads, no `C` staging, no split-K, no cuBLAS. Batch
++//! axes ride in `grid.z` and must be *affine* (one step per operand); a non-affine batch, like an
++//! operand with no unit-stride axis, is declined here and runs on the naive driver.
++//!
++//! The kernel is single-`@T@` (it spells its zero as `(@T@)0`), so it serves `f32` and `f64` only.
++
++use std::any::TypeId;
++
++use super::super::geom::GemmGeom;
++use super::{Problem, Refusal, Uniform, Verdict};
++use crate::dtype::CudaDType;
++use crate::kernel::{order_input, order_output, FlatLaunch};
++use crate::kernels::elementwise::planned_function;
++use crate::prelude_dev::*;
++
++/// Tile of `C` computed by one block.
++const BM: u32 = 64;
++const BN: u32 = 64;
++/// Depth of one shared-memory slab along the contraction.
++const BK: u32 = 16;
++/// Outputs per thread, per axis.
++const TM: u32 = 4;
++const TN: u32 = 4;
++const TX: u32 = BN / TN;
++const TY: u32 = BM / TM;
++const NTHREADS: u32 = TX * TY;
++
++/// Elements per thread when filling one slab: `BM*BK` and `BK*BN` over the block size.
++const A_SLAB: u32 = BM * BK / NTHREADS;
++const B_SLAB: u32 = BK * BN / NTHREADS;
++
++const _: () = assert!(TX * TY == 256, "the block must be 256 threads");
++const _: () = assert!(BM * BK % NTHREADS == 0 && BK * BN % NTHREADS == 0);
++const _: () = assert!(TM * TY == BM && TN * TX == BN);
++
++/// Which axis of a 2-D operand the linear thread id enumerates.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub(crate) enum LaneAxis {
++    /// Contraction axis (`k`).
++    K,
++    /// The other one: `m` for the left operand, `n` for the right.
++    Other,
++}
++
++const GEMM_ENTRY: &str = r#"
++extern "C" __global__ void rstsr_gemm(
++    @T@* c,     rstsr_isz scm, rstsr_isz scn, rstsr_isz scb,
++    const @T@* a, rstsr_isz sam, rstsr_isz sak, rstsr_isz sab,
++    const @T@* b, rstsr_isz sbk, rstsr_isz sbn, rstsr_isz sbb,
++    int M, int N, int K,
++    @T@ alpha, @T@ beta)
++{
++    __shared__ @T@ As[@BK@][@BM@ + 1];
++    __shared__ @T@ Bs[@BK@][@BN@ + 1];
++
++    const int m0 = (int)blockIdx.y * @BM@;
++    const int n0 = (int)blockIdx.x * @BN@;
++    const int tid = (int)threadIdx.y * @TX@ + (int)threadIdx.x;
++    const int tx = (int)threadIdx.x;
++    const int ty = (int)threadIdx.y;
++
++    // batch: one grid slice per output matrix, affine in the slice index
++    const @T@* ap = a + (rstsr_isz)blockIdx.z * sab;
++    const @T@* bp = b + (rstsr_isz)blockIdx.z * sbb;
++    @T@*       cp = c + (rstsr_isz)blockIdx.z * scb;
++
++    @T@ acc[@TM@][@TN@];
++    #pragma unroll
++    for (int i = 0; i < @TM@; ++i)
++        #pragma unroll
++        for (int j = 0; j < @TN@; ++j) acc[i][j] = (@T@)0;
++
++    for (int k0 = 0; k0 < K; k0 += @BK@) {
++        // A slab, [BM x BK], stored transposed as As[k][m] so the inner loop reads one shared
++        // double per (i, k) instead of a strided column.
++        #pragma unroll
++        for (int t = 0; t < @A_SLAB@; ++t) {
++            rstsr_usz lin = (rstsr_usz)(tid + t * @NTHREADS@);
++            @A_IDX@
++            const int gm = m0 + (int)mm;
++            const int gk = k0 + (int)kk;
++            As[kk][mm] = (gm < M && gk < K)
++                ? ap[(rstsr_isz)gm * sam + (rstsr_isz)gk * sak]
++                : (@T@)0;
++        }
++        // B slab, [BK x BN], stored as Bs[k][n].
++        #pragma unroll
++        for (int t = 0; t < @B_SLAB@; ++t) {
++            rstsr_usz lin = (rstsr_usz)(tid + t * @NTHREADS@);
++            @B_IDX@
++            const int gk = k0 + (int)kk;
++            const int gn = n0 + (int)nn;
++            Bs[kk][nn] = (gk < K && gn < N)
++                ? bp[(rstsr_isz)gk * sbk + (rstsr_isz)gn * sbn]
++                : (@T@)0;
++        }
++        __syncthreads();
++
++        #pragma unroll
++        for (int kk = 0; kk < @BK@; ++kk) {
++            @T@ av[@TM@], bv[@TN@];
++            #pragma unroll
++            for (int i = 0; i < @TM@; ++i) av[i] = As[kk][ty + i * @TY@];
++            #pragma unroll
++            for (int j = 0; j < @TN@; ++j) bv[j] = Bs[kk][tx + j * @TX@];
++            #pragma unroll
++            for (int i = 0; i < @TM@; ++i)
++                #pragma unroll
++                for (int j = 0; j < @TN@; ++j) acc[i][j] += av[i] * bv[j];
++        }
++        __syncthreads();
++    }
++
++    // `beta == 0` must not read `c`: that is the contract of `matmul_uninit`, whose buffer is
++    // `MaybeUninit` and has no meaningful contents.
++    #pragma unroll
++    for (int i = 0; i < @TM@; ++i) {
++        const int gm = m0 + ty + i * @TY@;
++        if (gm >= M) continue;
++        #pragma unroll
++        for (int j = 0; j < @TN@; ++j) {
++            const int gn = n0 + tx + j * @TX@;
++            if (gn >= N) continue;
++            @T@* p = cp + (rstsr_isz)gm * scm + (rstsr_isz)gn * scn;
++            *p = (beta == (@T@)0) ? (alpha * acc[i][j]) : (alpha * acc[i][j] + beta * (*p));
++        }
++    }
++}
++"#;
++
++fn render(template: &str, subs: &[(&str, &str)]) -> String {
++    let mut s = template.to_string();
++    for (name, text) in subs {
++        s = s.replace(name, text);
++    }
++    s
++}
++
++/// Pick the axis the linear thread id enumerates, preferring a unit-stride one.
++///
++/// `s_other`/`s_k` are the strides of the non-contracted and contracted axes, `n_other`/`n_k` their
++/// extents. A degenerate axis (extent 1) is free to take: it contributes no address variation, so
++/// following the other axis is coalesced whatever its stride happens to be.
++fn lane_axis(s_other: isize, s_k: isize, n_other: usize, n_k: usize) -> Option<LaneAxis> {
++    if s_k == 1 {
++        Some(LaneAxis::K)
++    } else if s_other == 1 {
++        Some(LaneAxis::Other)
++    } else if n_other == 1 {
++        Some(LaneAxis::K)
++    } else if n_k == 1 {
++        Some(LaneAxis::Other)
++    } else {
++        None
++    }
++}
++
++/// One attempt of the tiled driver.
++pub(super) fn run<TA, TB, TC, TBuf>(p: &Problem<'_, TA, TB, TC, TBuf>) -> Result<Verdict>
++where
++    TA: 'static,
++    TB: 'static,
++    TC: Copy + 'static,
++    TBuf: 'static,
++{
++    // the single-type kernel covers f32 and f64 only
++    if TypeId::of::<TC>() == TypeId::of::<f32>() {
++        return typed(p.uniform::<f32>(), p);
++    }
++    if TypeId::of::<TC>() == TypeId::of::<f64>() {
++        return typed(p.uniform::<f64>(), p);
++    }
++    Ok(Verdict::Declined(Refusal::Cannot("the single-type tiled kernel covers f32 and f64 only")))
++}
++
++/// Launch `c = alpha * a @ b + beta * c`, or decline with the reason. Errors are launch failures.
++///
++/// `c` is read by address only (its element type is `T` or `MaybeUninit<T>`), and it is not read
++/// at all on the device when `beta == 0`: that is the contract of `matmul_uninit`.
++fn typed<T: CudaDType, TA, TB, TC, TBuf>(
++    u: Option<Uniform<'_, T>>,
++    p: &Problem<'_, TA, TB, TC, TBuf>,
++) -> Result<Verdict> {
++    let Some(u) = u else {
++        return Ok(Verdict::Declined(Refusal::Cannot("the operands and the output must share one dtype")));
++    };
++    let geom = &p.geom;
++    let GemmGeom { m, n, k, n_batch, .. } = geom;
++    let (m, n, k, n_batch) = (*m, *n, *k, *n_batch);
++    let decline = |what: &'static str| Ok(Verdict::Declined(Refusal::Cannot(what)));
++
++    if m > i32::MAX as usize || n > i32::MAX as usize || k > i32::MAX as usize {
++        return decline("a dimension exceeds i32");
++    }
++    let grid_x = (n as u64).div_ceil(BN as u64);
++    let grid_y = (m as u64).div_ceil(BM as u64);
++    if grid_y > u16::MAX as u64 || n_batch as u64 > u16::MAX as u64 {
++        return decline("more than 65535 row tiles or batch slices (the grid limit on y and z)");
++    }
++    // Batch: one grid slice per output matrix, so the batch offset must be affine.
++    if geom.affine_batch().is_none() {
++        return decline("the batch part is not one linear run (grid.z carries an affine batch only)");
++    }
++    let [sa_b, sb_b, sc_b] = geom.affine_batch().unwrap_or([0; 3]);
++    let (a_off, sam, sak) = geom.a;
++    let (b_off, sbk, sbn) = geom.b;
++    let (c_off, scm, scn) = geom.c;
++    // An operand with no unit-stride axis: the lanes have nothing to follow.
++    let Some(lane_a) = lane_axis(sam, sak, m, k) else {
++        return decline("an operand has no unit-stride axis (strides of the left operand)");
++    };
++    let Some(lane_b) = lane_axis(sbn, sbk, n, k) else {
++        return decline("the right operand has no unit-stride axis");
++    };
++
++    let exec = p.device.stream();
++    let (buf_a, buf_b) = if geom.swapped { (u.b, u.a) } else { (u.a, u.b) };
++    let _ga = order_input(buf_a, exec)?;
++    let _gb = order_input(buf_b, exec)?;
++    let _gc = order_output(u.c, exec)?;
++
++    // The two fragments differ only in which axis the linear id follows; that is what makes each
++    // variant coalesced on both operands' loads.
++    let a_idx = match lane_a {
++        LaneAxis::K => "rstsr_usz kk = lin % @BK@; rstsr_usz mm = lin / @BK@;",
++        LaneAxis::Other => "rstsr_usz mm = lin % @BM@; rstsr_usz kk = lin / @BM@;",
++    };
++    let b_idx = match lane_b {
++        LaneAxis::K => "rstsr_usz kk = lin % @BK@; rstsr_usz nn = lin / @BK@;",
++        LaneAxis::Other => "rstsr_usz nn = lin % @BN@; rstsr_usz kk = lin / @BN@;",
++    };
++
++    // Order matters: the fragments are text that still contains the numeric tokens, so they must be
++    // expanded *before* the numbers, or an `@BK@` inside a fragment survives into the CUDA source.
++    let subs: Vec<(&str, String)> = vec![
++        ("@A_IDX@", a_idx.to_string()),
++        ("@B_IDX@", b_idx.to_string()),
++        ("@T@", T::CNAME.to_string()),
++        ("@BM@", BM.to_string()),
++        ("@BN@", BN.to_string()),
++        ("@BK@", BK.to_string()),
++        ("@TM@", TM.to_string()),
++        ("@TN@", TN.to_string()),
++        ("@TX@", TX.to_string()),
++        ("@TY@", TY.to_string()),
++        ("@NTHREADS@", NTHREADS.to_string()),
++        ("@A_SLAB@", A_SLAB.to_string()),
++        ("@B_SLAB@", B_SLAB.to_string()),
++    ];
++    let subs: Vec<(&str, &str)> = subs.iter().map(|(k, v)| (*k, v.as_str())).collect();
++
++    // The discriminator must name every substitution the source depends on, or two variants collide
++    // in the cache and one launches the other's code.
++    let disc = format!(
++        "{}|{}|{}|BM{BM}|BN{BN}|BK{BK}|TM{TM}|TN{TN}|N{NTHREADS}",
++        T::CNAME,
++        match lane_a {
++            LaneAxis::K => "ak",
++            LaneAxis::Other => "am",
++        },
++        match lane_b {
++            LaneAxis::K => "bk",
++            LaneAxis::Other => "bn",
++        },
++    );
++    let f = planned_function(p.device, "rstsr_gemm", T::INCLUDES, &disc, || render(GEMM_ENTRY, &subs))?;
++
++    let nb = core::mem::size_of::<T>();
++    let abytes = super::scalar_bytes(&u.alpha);
++    let bbytes = super::scalar_bytes(&u.beta);
++
++    FlatLaunch::new(exec, &f, 0)
++        .explicit_shape((grid_x as u32, grid_y as u32, n_batch as u32), (TX, TY, 1))
++        .arg_ptr(u.c, c_off)
++        .arg_bytes(&scm.to_ne_bytes())
++        .arg_bytes(&scn.to_ne_bytes())
++        .arg_bytes(&sc_b.to_ne_bytes())
++        .arg_ptr(buf_a, a_off)
++        .arg_bytes(&sam.to_ne_bytes())
++        .arg_bytes(&sak.to_ne_bytes())
++        .arg_bytes(&sa_b.to_ne_bytes())
++        .arg_ptr(buf_b, b_off)
++        .arg_bytes(&sbk.to_ne_bytes())
++        .arg_bytes(&sbn.to_ne_bytes())
++        .arg_bytes(&sb_b.to_ne_bytes())
++        .arg_i32(m as i32)
++        .arg_i32(n as i32)
++        .arg_i32(k as i32)
++        .arg_bytes(&abytes[..nb])
++        .arg_bytes(&bbytes[..nb])
++        .launch()?;
++
++    Ok(Verdict::Ran)
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// The lane map prefers the unit-stride axis, and falls back to the axis that actually varies
++    /// when the other is degenerate.
++    #[test]
++    fn lane_axis_prefers_the_unit_stride() {
++        assert!(matches!(lane_axis(64, 1, 64, 64), Some(LaneAxis::K)));
++        assert!(matches!(lane_axis(1, 64, 64, 64), Some(LaneAxis::Other)));
++        // [1, K] with a strided k axis: nothing is unit-stride, but m is degenerate, so following
++        // k is still the right map.
++        assert!(matches!(lane_axis(0, 2, 1, 64), Some(LaneAxis::K)));
++        // genuinely stepped on both axes
++        assert!(lane_axis(2, 64, 64, 64).is_none());
++    }
++
++    /// Tile geometry has to stay self-consistent: the kernel derives slab counts from it and the
++    /// shared arrays from `BM`/`BN`.
++    #[test]
++    fn tile_geometry_is_consistent() {
++        assert_eq!(TX * TY, NTHREADS);
++        assert_eq!(TM * TY, BM);
++        assert_eq!(TN * TX, BN);
++        assert_eq!(BM * BK, A_SLAB * NTHREADS);
++        assert_eq!(BK * BN, B_SLAB * NTHREADS);
++        // static shared memory for both slabs must fit the 48 KB static limit
++        let smem = (BK * (BM + 1) + BK * (BN + 1)) * 8;
++        assert!(smem <= 48 * 1024, "static shared memory {smem} B is over the 48 KB limit");
++    }
++}
+diff --git a/crates-device/rstsr-cuda/src/matmul/flags.rs b/crates-device/rstsr-cuda/src/matmul/flags.rs
+new file mode 100644
+index 0000000..9b7dae6
+--- /dev/null
++++ b/crates-device/rstsr-cuda/src/matmul/flags.rs
+@@ -0,0 +1,145 @@
++//! The driver enable set of the matmul chain.
++
++use core::fmt;
++use std::ops::{BitOr, BitOrAssign, Sub, SubAssign};
++
++use super::drivers::GemmDriver;
++
++/// The matmul drivers a device may use ([`CudaRuntimeFlags::matmul_drivers`]).
++///
++/// [`CudaRuntimeFlags::matmul_drivers`]: crate::flags::CudaRuntimeFlags::matmul_drivers
++///
++/// Selection is the static candidate table of the type triple, filtered by this set. Forcing one
++/// driver is enabling only its bit; an empty set, or a set none of whose members can serve the
++/// triple, is an error naming the drivers and the triple.
++#[derive(Clone, Copy, PartialEq, Eq, Hash)]
++#[non_exhaustive]
++pub struct MatMulDrivers(u8);
++
++impl Default for MatMulDrivers {
++    /// Every driver.
++    fn default() -> Self {
++        Self::all()
++    }
++}
++
++impl MatMulDrivers {
++    pub const CUBLAS_LT: Self = GemmDriver::CublasLt.flag();
++    pub const CUBLAS_EX: Self = GemmDriver::CublasEx.flag();
++    pub const CUBLAS: Self = GemmDriver::Cublas.flag();
++    pub const TILED: Self = GemmDriver::Tiled.flag();
++    pub const NAIVE: Self = GemmDriver::Naive.flag();
++
++    /// The set of one raw bit pattern ([`GemmDriver::flag`] builds the named constants).
++    pub(crate) const fn from_bits(bits: u8) -> Self {
++        Self(bits)
++    }
++
++    /// Every driver.
++    pub const fn all() -> Self {
++        Self(0b11111)
++    }
++
++    /// No driver.
++    pub const fn none() -> Self {
++        Self(0)
++    }
++
++    /// Whether every driver of `other` is enabled here.
++    pub const fn contains(self, other: Self) -> bool {
++        self.0 & other.0 == other.0
++    }
++
++    /// The union of two sets.
++    pub const fn union(self, other: Self) -> Self {
++        Self(self.0 | other.0)
++    }
++
++    /// Every driver of `self` that is not in `other` (`all().minus(X)` disables `X`).
++    pub const fn minus(self, other: Self) -> Self {
++        Self(self.0 & !other.0)
++    }
++
++    /// Whether no driver is enabled.
++    pub const fn is_empty(self) -> bool {
++        self.0 == 0
++    }
++}
++
++impl BitOr for MatMulDrivers {
++    type Output = Self;
++    fn bitor(self, rhs: Self) -> Self {
++        self.union(rhs)
++    }
++}
++
++impl BitOrAssign for MatMulDrivers {
++    fn bitor_assign(&mut self, rhs: Self) {
++        self.0 |= rhs.0;
++    }
++}
++
++impl Sub for MatMulDrivers {
++    type Output = Self;
++    fn sub(self, rhs: Self) -> Self {
++        self.minus(rhs)
++    }
++}
++
++impl SubAssign for MatMulDrivers {
++    fn sub_assign(&mut self, rhs: Self) {
++        self.0 &= !rhs.0;
++    }
++}
++
++impl fmt::Debug for MatMulDrivers {
++    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++        let names: Vec<&str> = GemmDriver::ALL.iter().filter(|d| self.contains(d.flag())).map(|d| d.name()).collect();
++        if names.is_empty() {
++            return write!(f, "MatMulDrivers(none)");
++        }
++        write!(f, "MatMulDrivers({})", names.join("|"))
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// The five drivers own one bit each, and `all` is their union.
++    #[test]
++    fn one_bit_per_driver() {
++        let mut bits = Vec::new();
++        for d in GemmDriver::ALL {
++            assert_eq!(d.flag().0.count_ones(), 1, "{} must own exactly one bit", d.name());
++            assert!(!bits.contains(&d.flag().0), "{} shares a bit", d.name());
++            bits.push(d.flag().0);
++        }
++        let mut union = MatMulDrivers::none();
++        for d in GemmDriver::ALL {
++            union |= d.flag();
++        }
++        assert_eq!(union, MatMulDrivers::all());
++    }
++
++    /// `contains` is a subset test, so a forced driver is contained in its own set only.
++    #[test]
++    fn contains_is_a_subset_test() {
++        let tiled = MatMulDrivers::TILED;
++        assert!(MatMulDrivers::all().contains(tiled));
++        assert!(tiled.contains(tiled));
++        assert!(!tiled.contains(MatMulDrivers::NAIVE));
++        let without = MatMulDrivers::all() - MatMulDrivers::CUBLAS;
++        assert!(!without.contains(MatMulDrivers::CUBLAS));
++        assert!(without.contains(MatMulDrivers::TILED));
++    }
++
++    /// The default enables every driver; a forced set holds one name.
++    #[test]
++    fn default_and_display() {
++        assert_eq!(MatMulDrivers::default(), MatMulDrivers::all());
++        assert_eq!(format!("{:?}", MatMulDrivers::TILED | MatMulDrivers::NAIVE), "MatMulDrivers(tiled|naive)");
++        assert_eq!(format!("{:?}", MatMulDrivers::default()), "MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)");
++        assert_eq!(format!("{:?}", MatMulDrivers::none()), "MatMulDrivers(none)");
++    }
++}
+diff --git a/crates-device/rstsr-cuda/src/matmul/geom.rs b/crates-device/rstsr-cuda/src/matmul/geom.rs
+new file mode 100644
+index 0000000..2de549e
+--- /dev/null
++++ b/crates-device/rstsr-cuda/src/matmul/geom.rs
+@@ -0,0 +1,402 @@
++//! Geometry of one matmul problem, resolved from the layouts alone.
++//!
++//! [`resolve_geom`] is pure (no device, no allocation, no I/O), because this is the part that can
++//! be wrong in a way a GPU run reports only as "wrong numbers": the col-major reversal, the batch
++//! parts, which buffer plays which role. All of it is host-side arithmetic on strides, so it is
++//! tested here rather than on hardware.
++//!
++//! Nothing about a *driver's* restrictions lives here. The geometry describes every layout the
++//! rule table admits; each driver decides what it can express ([`super::drivers`]) and declines.
++
++use crate::prelude_dev::*;
++
++/// The batch part of one operand: per-axis extents and strides, in the row-major order of the
++/// rule table. Empty when the operand has no batch part.
++#[derive(Clone, Debug, Default, PartialEq, Eq)]
++pub(crate) struct BatchPart {
++    pub shape: Vec<usize>,
++    pub stride: Vec<isize>,
++}
++
++impl BatchPart {
++    fn of(l: Option<&Layout<IxD>>) -> Self {
++        let Some(l) = l else { return Self::default() };
++        Self { shape: l.shape().to_vec(), stride: l.stride().to_vec() }
++    }
++
++    /// Number of batch slices (1 when there is no batch part).
++    pub fn size(&self) -> usize {
++        self.shape.iter().product()
++    }
++}
++
++/// Element step of one batch slice, if the batch part is a single affine run.
++///
++/// Size-1 axes are dropped first, because they contribute no offset however their stride is
++/// written: `[4, 1]` with strides `[3, 0]` steps by 3, and `[4, 1]` with `[3, 7]` steps by 3 as
++/// well. What survives must then be a row-major progression, so `offset = index * step` for every
++/// index in `0..size`. Broadcast axes (`stride == 0`) are affine with step 0, which covers
++/// `A[i,j] @ B[p,j,k]` where the batch axis belongs to `B` alone.
++///
++/// `None` means a genuinely strided multi-axis batch (`[4, 3]` with strides `[6, 1]`, whose offsets
++/// are not one step); only a driver that walks the batch axes one by one can take those.
++pub(crate) fn linear_step(part: &BatchPart) -> Option<isize> {
++    let mut shape = Vec::with_capacity(part.shape.len());
++    let mut stride = Vec::with_capacity(part.stride.len());
++    for k in 0..part.shape.len() {
++        if part.shape[k] != 1 {
++            shape.push(part.shape[k]);
++            stride.push(part.stride[k]);
++        }
++    }
++    if shape.is_empty() {
++        return Some(0);
++    }
++    let n = shape.len();
++    let step = stride[n - 1];
++    let mut expect = step;
++    for k in (0..n).rev() {
++        if stride[k] != expect {
++            return None;
++        }
++        expect *= shape[k] as isize;
++    }
++    Some(step)
++}
++
++/// Everything a driver needs to address the three buffers, resolved from the layouts alone.
++#[derive(Clone, Debug, PartialEq, Eq)]
++pub(crate) struct GemmGeom {
++    pub m: usize,
++    pub n: usize,
++    pub k: usize,
++    pub n_batch: usize,
++    /// `(element offset, stride of the m axis, stride of the k axis, batch part)` for the left
++    /// operand of the *row-major* problem, which under `ColMajor` is the caller's `b`.
++    pub a: (usize, isize, isize),
++    /// The same for the right operand: `(offset, stride of the k axis, stride of the n axis)`.
++    pub b: (usize, isize, isize),
++    /// `(offset, stride of the m axis, stride of the n axis)` for the output.
++    pub c: (usize, isize, isize),
++    /// The batch parts of `a`, `b`, `c` in the *geom* roles.
++    pub batch: [BatchPart; 3],
++    /// True when the geometry came from the col-major reversal, i.e. `a` and `b` are the caller's
++    /// second and first operands respectively.
++    pub swapped: bool,
++}
++
++/// The geometry in the caller's roles: `c[i, j] = sum_k a[i, k] * b[k, j]`, whatever the order.
++#[derive(Clone, Copy, Debug)]
++pub(crate) struct CallerGeom<'a> {
++    /// Extents `(m, k, n)` of the caller's problem.
++    pub mnk: (usize, usize, usize),
++    /// `(offset, stride of the m axis, stride of the k axis)` of the caller's `a`.
++    pub a: (usize, isize, isize),
++    /// `(offset, stride of the k axis, stride of the n axis)` of the caller's `b`.
++    pub b: (usize, isize, isize),
++    /// `(offset, stride of the m axis, stride of the n axis)` of the output.
++    pub c: (usize, isize, isize),
++    /// The batch parts of the caller's `a`, `b` and the output.
++    pub batch: [&'a BatchPart; 3],
++}
++
++impl GemmGeom {
++    /// The single element step of each batch part, or `None` if any is not one linear run.
++    pub fn affine_batch(&self) -> Option<[isize; 3]> {
++        Some([linear_step(&self.batch[0])?, linear_step(&self.batch[1])?, linear_step(&self.batch[2])?])
++    }
++
++    /// The same addresses, named by the caller's operands instead of the row-major roles.
++    ///
++    /// The col-major reversal only relabels axes: `geom`'s `(i, kk)` of its `a` is the caller's
++    /// `b[kk, i]`, and so on, so no address changes here, only which stride belongs to which name.
++    pub fn caller(&self) -> CallerGeom<'_> {
++        if self.swapped {
++            CallerGeom {
++                mnk: (self.n, self.k, self.m),
++                a: (self.b.0, self.b.2, self.b.1),
++                b: (self.a.0, self.a.2, self.a.1),
++                c: (self.c.0, self.c.2, self.c.1),
++                batch: [&self.batch[1], &self.batch[0], &self.batch[2]],
++            }
++        } else {
++            CallerGeom {
++                mnk: (self.m, self.k, self.n),
++                a: self.a,
++                b: self.b,
++                c: self.c,
++                batch: [&self.batch[0], &self.batch[1], &self.batch[2]],
++            }
++        }
++    }
++}
++
++/// Resolve the geometry of `c = a @ b` on the layout the tier already validated. Pure.
++pub(crate) fn resolve_geom(order: FlagOrder, lc: &Layout<IxD>, la: &Layout<IxD>, lb: &Layout<IxD>) -> Result<GemmGeom> {
++    // Col-major: reverse every layout **and swap the operands**, so the row-major decomposition of
++    // the problem is the one the rule table knows. That is the identity
++    // `rstsr_common::layout::matmul` documents, `C[n,m,t] = B[n,k,t] @ A[k,m,t]`, not a
++    // device-specific convention.
++    //
++    // The swap has to happen here, when asking for the config: reversing alone would feed the rule
++    // table `(A_rev, B_rev)`, whose contracted dimensions are `m_a` and `n_b` — a shape mismatch
++    // for anything rectangular, and a silently transposed answer for anything square.
++    let swapped = matches!(order, ColMajor);
++    let (la_c, lb_c, lc_c) = if swapped {
++        (lb.reverse_axes(), la.reverse_axes(), lc.reverse_axes())
++    } else {
++        (la.clone(), lb.clone(), lc.clone())
++    };
++
++    let cfg = layout_matmul_dyn_row_major_with_lc(&la_c, &lb_c, &lc_c)?;
++
++    // The inner-dot rule leaves `la_matmul` rank 1. That rule is a reduction, not a GEMM: no
++    // driver here is the reduce kernel, so it is refused by name.
++    if cfg.la_matmul.ndim() != 2 || cfg.lb_matmul.ndim() != 2 {
++        rstsr_raise!(
++            UnImplemented,
++            "cuda matmul: this is a single-axis contraction (inner dot), not a GEMM; it belongs on \
++             the reduce kernel and is not wired to it yet"
++        )?
++    }
++
++    let (lay_a, lay_b) = (&cfg.la_matmul, &cfg.lb_matmul);
++    let (m, k) = (lay_a.shape()[0], lay_a.shape()[1]);
++    let (k2, n) = (lay_b.shape()[0], lay_b.shape()[1]);
++    rstsr_assert_eq!(k, k2, InvalidLayout, "the contracted dimensions of a and b should be the same")?;
++    rstsr_assert_eq!(
++        cfg.lc_matmul.shape(),
++        &[m, n][..],
++        InvalidLayout,
++        "the matmul output should have shape (a.shape[0], b.shape[1])"
++    )?;
++
++    let batch =
++        [BatchPart::of(cfg.la_rest.as_ref()), BatchPart::of(cfg.lb_rest.as_ref()), BatchPart::of(cfg.lc_rest.as_ref())];
++
++    let sa = (lay_a.stride()[0], lay_a.stride()[1]);
++    let sb = (lay_b.stride()[0], lay_b.stride()[1]);
++    let sc = (cfg.lc_matmul.stride()[0], cfg.lc_matmul.stride()[1]);
++
++    Ok(GemmGeom {
++        m,
++        n,
++        k,
++        n_batch: batch[2].size(),
++        a: (lay_a.offset(), sa.0, sa.1),
++        b: (lay_b.offset(), sb.0, sb.1),
++        c: (cfg.lc_matmul.offset(), sc.0, sc.1),
++        batch,
++        swapped,
++    })
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn layout(shape: &[usize], stride: &[isize]) -> Layout<IxD> {
++        Layout::<IxD>::new(shape.to_vec(), stride.to_vec(), 0).unwrap()
++    }
++
++    fn part(shape: &[usize], stride: &[isize]) -> BatchPart {
++        BatchPart { shape: shape.to_vec(), stride: stride.to_vec() }
++    }
++
++    /// A contiguous batch, a broadcast batch and a rank-1 batch are all affine.
++    #[test]
++    fn affine_batches_are_linear() {
++        fn lin(shape: &[usize], stride: &[isize]) -> Option<isize> {
++            linear_step(&part(shape, stride))
++        }
++        assert_eq!(lin(&[4], &[64]), Some(64));
++        assert_eq!(lin(&[4, 3], &[3, 1]), Some(1), "contiguous = step 1 over the flat index");
++        assert_eq!(lin(&[4], &[0]), Some(0), "broadcast");
++        assert_eq!(lin(&[4, 1], &[3, 0]), Some(3), "size-1 axes contribute nothing");
++        assert_eq!(lin(&[4, 3], &[0, 0]), Some(0), "all-broadcast");
++        assert_eq!(lin(&[], &[]), Some(0), "no batch at all");
++    }
++
++    /// A batch that walks two axes with a hole between them is not one step, and is refused.
++    #[test]
++    fn gapped_batches_are_refused() {
++        assert_eq!(linear_step(&part(&[4, 3], &[6, 1])), None);
++        assert_eq!(linear_step(&part(&[4, 3], &[9, 1])), None);
++    }
++
++    /// The offset a layout assigns to one multi-index. This is the tensor layer's own mapping, so
++    /// comparing the geom against it checks *which layout plays which role*, not the arithmetic of
++    /// `offset + i*stride` twice over.
++    fn off(l: &Layout<IxD>, idx: &[usize]) -> isize {
++        let mut o = l.offset() as isize;
++        for (k, &i) in idx.iter().enumerate() {
++            o += i as isize * l.stride()[k];
++        }
++        o
++    }
++
++    /// Row-major: `geom.a` walks `a[i, k]`, `geom.b` walks `b[k, j]`, `geom.c` walks `c[i, j]`.
++    #[test]
++    fn row_major_geom_matches_the_layouts() {
++        let (m, k, n) = (2usize, 3usize, 4usize);
++        let la = layout(&[m, k], &[k as isize, 1]);
++        let lb = layout(&[k, n], &[n as isize, 1]);
++        let lc = layout(&[m, n], &[n as isize, 1]);
++        let g = resolve_geom(RowMajor, &lc, &la, &lb).unwrap();
++
++        assert_eq!((g.m, g.n, g.k, g.n_batch), (m, n, k, 1));
++        assert!(!g.swapped);
++
++        for i in 0..m {
++            for kk in 0..k {
++                assert_eq!(g.a.0 as isize + i as isize * g.a.1 + kk as isize * g.a.2, off(&la, &[i, kk]));
++            }
++            for j in 0..n {
++                assert_eq!(g.c.0 as isize + i as isize * g.c.1 + j as isize * g.c.2, off(&lc, &[i, j]));
++            }
++        }
++        for kk in 0..k {
++            for j in 0..n {
++                assert_eq!(g.b.0 as isize + kk as isize * g.b.1 + j as isize * g.b.2, off(&lb, &[kk, j]));
++            }
++        }
++        // without a batch part every step is 0 and there is one slice
++        assert!(g.batch.iter().all(|p| p.shape.is_empty()));
++        assert_eq!(g.affine_batch(), Some([0, 0, 0]));
++    }
++
++    /// Column-major: the roles swap and every index is read in the other order. This is the case a
++    /// GPU run would report only as "wrong numbers", so it is pinned by walking each buffer and
++    /// comparing against the tensor layout's own offset.
++    #[test]
++    fn col_major_geom_swaps_roles_and_index_order() {
++        let (m, k, n) = (2usize, 3usize, 4usize);
++        // column-major = first axis contiguous
++        let la = layout(&[m, k], &[1, m as isize]);
++        let lb = layout(&[k, n], &[1, k as isize]);
++        let lc = layout(&[m, n], &[1, m as isize]);
++        let g = resolve_geom(ColMajor, &lc, &la, &lb).unwrap();
++
++        assert!(g.swapped, "col-major must then read the operands the other way round");
++        assert_eq!((g.m, g.n, g.k), (n, m, k), "the problem is solved transposed");
++        assert_eq!(g.m * g.n, m * n, "but it is still the same output matrix");
++
++        // geom.a is the caller's b, walked as b[k, n]: geom's (i, kk) is b's (kk, i)
++        for i in 0..g.m {
++            for kk in 0..g.k {
++                assert_eq!(g.a.0 as isize + i as isize * g.a.1 + kk as isize * g.a.2, off(&lb, &[kk, i]));
++            }
++        }
++        // geom.b is the caller's a, walked as a[m, k]: geom's (kk, j) is a's (j, kk)
++        for kk in 0..g.k {
++            for j in 0..g.n {
++                assert_eq!(g.b.0 as isize + kk as isize * g.b.1 + j as isize * g.b.2, off(&la, &[j, kk]));
++            }
++        }
++        // geom.c is c[n, m]: geom's (i, j) is c's (j, i)
++        for i in 0..g.m {
++            for j in 0..g.n {
++                assert_eq!(g.c.0 as isize + i as isize * g.c.1 + j as isize * g.c.2, off(&lc, &[j, i]));
++            }
++        }
++    }
++
++    /// A batched problem: the batch step must be the stride of one whole batched matrix, and a
++    /// broadcast operand must have step 0.
++    #[test]
++    fn batch_step_is_one_matrix() {
++        let (p, m, k, n) = (4usize, 5usize, 6usize, 7usize);
++        let la = layout(&[p, m, k], &[(m * k) as isize, k as isize, 1]);
++        let lb = layout(&[p, k, n], &[(k * n) as isize, n as isize, 1]);
++        let lc = layout(&[p, m, n], &[(m * n) as isize, n as isize, 1]);
++        let g = resolve_geom(RowMajor, &lc, &la, &lb).unwrap();
++        assert_eq!(g.n_batch, p);
++        assert_eq!(g.batch.iter().map(|b| b.shape.clone()).collect::<Vec<_>>(), vec![vec![p]; 3]);
++        assert_eq!(g.affine_batch(), Some([(m * k) as isize, (k * n) as isize, (m * n) as isize]));
++
++        // left operand broadcast over the batch: its batch part is absent, so its step is 0
++        let la1 = layout(&[m, k], &[k as isize, 1]);
++        let g1 = resolve_geom(RowMajor, &lc, &la1, &lb).unwrap();
++        assert_eq!(g1.n_batch, p);
++        assert_eq!(g1.batch[0].shape, vec![p], "a's batch part is broadcast to the output's");
++        assert_eq!(g1.batch[0].stride, vec![0]);
++        assert_eq!(g1.affine_batch(), Some([0, (k * n) as isize, (m * n) as isize]));
++    }
++
++    /// The inner-dot rule has no 2-D matmul part, and is refused rather than run as a 1x1 tile.
++    #[test]
++    fn inner_dot_has_no_geometry() {
++        let la = layout(&[6], &[1]);
++        let lc = layout(&[], &[]);
++        let e = resolve_geom(RowMajor, &lc, &la, &la).unwrap_err();
++        assert!(format!("{e}").contains("single-axis contraction"), "got: {e}");
++    }
++
++    /// The caller view undoes the col-major relabelling: every `(i, k)`, `(k, j)` and `(i, j)` of
++    /// the caller names the same element the caller's own layout does, in both orders.
++    #[test]
++    fn caller_view_addresses_the_callers_elements() {
++        let (p, m, k, n) = (3usize, 5usize, 6usize, 7usize);
++        for order in [RowMajor, ColMajor] {
++            // Contiguous in the order under test, with the batch axis where that order puts it:
++            // trailing under row-major, leading under col-major (the matrix axes are the two the
++            // order names first).
++            // row-major strides: the running product of the extents to the right
++            let contig = |shape: &[usize]| {
++                let mut run: isize = shape.iter().map(|&d| d as isize).product();
++                let stride: Vec<isize> = shape
++                    .iter()
++                    .map(|&d| {
++                        run /= d as isize;
++                        run
++                    })
++                    .collect();
++                layout(shape, &stride)
++            };
++            let f = |d0: usize, d1: usize, d2: usize| layout(&[d0, d1, d2], &[1, d0 as isize, (d0 * d1) as isize]);
++            let (la, lb, lc) = if matches!(order, RowMajor) {
++                (contig(&[p, m, k]), contig(&[p, k, n]), contig(&[p, m, n]))
++            } else {
++                (f(m, k, p), f(k, n, p), f(m, n, p))
++            };
++            let g = resolve_geom(order, &lc, &la, &lb).unwrap();
++            let v = g.caller();
++            assert_eq!(g.swapped, matches!(order, ColMajor));
++            assert_eq!(v.batch[0].shape, vec![p], "the batch parts follow the caller's names");
++            assert_eq!(v.mnk, (m, k, n), "and so do the extents");
++            // the caller's multi-index of `(x, y)` of an operand: batch axis last or first
++            let idx = |x: usize, y: usize| {
++                if matches!(order, RowMajor) {
++                    vec![0, x, y]
++                } else {
++                    vec![x, y, 0]
++                }
++            };
++            for i in 0..m {
++                for kk in 0..k {
++                    assert_eq!(
++                        v.a.0 as isize + i as isize * v.a.1 + kk as isize * v.a.2,
++                        off(&la, &idx(i, kk)),
++                        "{order:?}: a[{i},{kk}]"
++                    );
++                }
++                for j in 0..n {
++                    assert_eq!(
++                        v.c.0 as isize + i as isize * v.c.1 + j as isize * v.c.2,
++                        off(&lc, &idx(i, j)),
++                        "{order:?}: c[{i},{j}]"
++                    );
++                }
++            }
++            for kk in 0..k {
++                for j in 0..n {
++                    assert_eq!(
++                        v.b.0 as isize + kk as isize * v.b.1 + j as isize * v.b.2,
++                        off(&lb, &idx(kk, j)),
++                        "{order:?}: b[{kk},{j}]"
++                    );
++                }
++            }
++        }
++    }
++}
+diff --git a/crates-device/rstsr-cuda/src/matmul/inner.rs b/crates-device/rstsr-cuda/src/matmul/inner.rs
+new file mode 100644
+index 0000000..99c6a21
+--- /dev/null
++++ b/crates-device/rstsr-cuda/src/matmul/inner.rs
+@@ -0,0 +1,99 @@
++//! The device entries: the inner function the drivers are dispatched from, and `DeviceMatMulAPI`.
++
++use crate::matmul::drivers::{self, NaiveScalar, Problem};
++use crate::matmul::geom::resolve_geom;
++use crate::matmul::mode::CudaMatMulMode;
++use crate::prelude_dev::*;
++
++/// `c = alpha * (a @ b) + beta * c`, with the compute `mode` of the output type given by the
++/// caller instead of read from the device flags.
++///
++/// `c` is the output buffer: `TC` for the `beta` path, `MaybeUninit<TC>` for the fresh one. With
++/// `beta == 0` it is never read, which is the whole of the `matmul_uninit` contract.
++///
++/// The drivers are tried in the chain order, filtered by `flags.matmul_drivers`; the first one
++/// that takes the problem runs it, and an error is returned only when none did.
++#[allow(clippy::too_many_arguments)]
++pub(crate) fn matmul_with_mode_inner<TA, TB, TC, DA, DB, DC, TBuf>(
++    device: &DeviceCuda,
++    c: &CudaBuffer<TBuf>,
++    lc: &Layout<DC>,
++    a: &CudaBuffer<TA>,
++    la: &Layout<DA>,
++    b: &CudaBuffer<TB>,
++    lb: &Layout<DB>,
++    alpha: TC,
++    beta: TC,
++    mode: <TC as CudaMatMulMode>::Mode,
++) -> Result<()>
++where
++    DA: DimAPI,
++    DB: DimAPI,
++    DC: DimAPI,
++    TA: NaiveScalar,
++    TB: NaiveScalar,
++    TC: NaiveScalar + CudaMatMulMode,
++    TBuf: 'static,
++{
++    let geom = resolve_geom(device.default_order(), &lc.to_dim::<IxD>()?, &la.to_dim::<IxD>()?, &lb.to_dim::<IxD>()?)?;
++    if geom.m == 0 || geom.n == 0 || geom.n_batch == 0 {
++        return Ok(());
++    }
++    let problem = Problem {
++        device,
++        geom,
++        c,
++        a,
++        b,
++        alpha,
++        beta,
++        // `beta == 0` means "do not read c": the `MaybeUninit` slots are written, never touched.
++        read_c: !beta.is_zero(),
++    };
++    drivers::dispatch(&problem, &device.flags(), &mode)
++}
++
++impl<TA, TB, TC, DA, DB, DC> DeviceMatMulAPI<TA, TB, TC, DA, DB, DC> for DeviceCuda
++where
++    DA: DimAPI,
++    DB: DimAPI,
++    DC: DimAPI,
++    Self: DeviceRawAPI<TA, Raw = CudaBuffer<TA>>
++        + DeviceRawAPI<TB, Raw = CudaBuffer<TB>>
++        + DeviceRawAPI<TC, Raw = CudaBuffer<TC>>
++        + DeviceRawAPI<MaybeUninit<TC>, Raw = CudaBuffer<MaybeUninit<TC>>>,
++    // Every triple is accepted: the accelerated drivers serve the ones they can, the naive driver
++    // takes the rest (integers, complex, half, mixed operands).
++    TA: NaiveScalar,
++    TB: NaiveScalar,
++    TC: NaiveScalar + CudaMatMulMode,
++{
++    fn matmul(
++        &self,
++        c: &mut CudaBuffer<TC>,
++        lc: &Layout<DC>,
++        a: &CudaBuffer<TA>,
++        la: &Layout<DA>,
++        b: &CudaBuffer<TB>,
++        lb: &Layout<DB>,
++        alpha: TC,
++        beta: TC,
++    ) -> Result<()> {
++        let mode = TC::matmul_mode(&self.flags());
++        matmul_with_mode_inner(self, c, lc, a, la, b, lb, alpha, beta, mode)
++    }
++
++    fn matmul_uninit(
++        &self,
++        c: &mut CudaBuffer<MaybeUninit<TC>>,
++        lc: &Layout<DC>,
++        a: &CudaBuffer<TA>,
++        la: &Layout<DA>,
++        b: &CudaBuffer<TB>,
++        lb: &Layout<DB>,
++        alpha: TC,
++    ) -> Result<()> {
++        let mode = TC::matmul_mode(&self.flags());
++        matmul_with_mode_inner(self, c, lc, a, la, b, lb, alpha, <TC as num::Zero>::zero(), mode)
++    }
++}
+diff --git a/crates-device/rstsr-cuda/src/matmul/mod.rs b/crates-device/rstsr-cuda/src/matmul/mod.rs
+new file mode 100644
+index 0000000..5922c05
+--- /dev/null
++++ b/crates-device/rstsr-cuda/src/matmul/mod.rs
+@@ -0,0 +1,41 @@
++//! Matrix multiplication on `DeviceCuda`.
++//!
++//! `c = alpha * (a @ b) + beta * c` is served by a chain of drivers, tried in this order until one
++//! takes the problem: cuBLASLt, `cublasGemmEx`, the classic cuBLAS entries, the tiled SIMT kernel,
++//! and the naive kernel. Which drivers are candidates is a pure table of the type triple and the
++//! compute mode (the candidate table in `drivers`); which of them can *express the layout* is answered at
++//! run time by each driver (a stepped output, a reversed operand, a non-affine batch are handed
++//! on). The naive driver accepts everything, so the chain is total. Drivers enabled for a device:
++//! [`MatMulDrivers`] in [`CudaRuntimeFlags::matmul_drivers`][crate::flags::CudaRuntimeFlags].
++//!
++//! # Compute modes
++//!
++//! The mode is keyed by the **output** type: [`CudaMatMulMode`] names the enum of its family
++//! ([`ComputeType32F`], [`ComputeType64F`], [`ComputeType16F`]), and the flags carry one field per
++//! family. `DeviceMatMulAPI` reads the mode of the output type from the device flags; the
++//! tensor-level `*_mode` entries (passing it per call) are not built yet.
++//!
++//! # Type triples
++//!
++//! | `(a, b) -> c` | accelerated drivers | always |
++//! |---|---|---|
++//! | `f32 -> f32`, `f64 -> f64` | classic cuBLAS, tiled | naive |
++//! | everything else (integers, complex, half, mixed operands) | — (later batches) | naive |
++//!
++//! # Layouts
++//!
++//! Every layout the rule table admits is served: strided, negative and zero strides, broadcast
++//! and non-affine batches, either default order. The inner dot (`[k] @ [k]`) has no GEMM geometry
++//! and is refused by name.
++
++pub(crate) mod cublas_args;
++pub(crate) mod drivers;
++pub(crate) mod geom;
++pub(crate) mod inner;
++pub mod mode;
++
++mod flags;
++
++pub use drivers::GemmDriver;
++pub use flags::MatMulDrivers;
++pub use mode::{ComputeType16F, ComputeType32F, ComputeType64F, CudaMatMulMode};
+diff --git a/crates-device/rstsr-cuda/src/matmul/mode.rs b/crates-device/rstsr-cuda/src/matmul/mode.rs
+new file mode 100644
+index 0000000..c0b9d3a
+--- /dev/null
++++ b/crates-device/rstsr-cuda/src/matmul/mode.rs
+@@ -0,0 +1,121 @@
++//! Compute modes of the matmul drivers, keyed by the **output** type.
++//!
++//! One enum per output family ([`ComputeType32F`], [`ComputeType64F`], [`ComputeType16F`]) and
++//! one flags field per family: an `f64` call never reads the 32F field, so a mode cannot be set
++//! for a family the call does not use. [`CudaMatMulMode`] maps an output type to its family.
++
++use crate::dtype::CudaDType;
++use crate::flags::CudaRuntimeFlags;
++use duplicate::duplicate_item;
++use num::Complex;
++
++/// 32-bit-float compute-type family (`cublasComputeType_t` names).
++///
++/// Read by calls with an `f32` (or `f32`-family) output only. A mode the type triple cannot serve
++/// resolves to [`Self::Default`] silently; [`Self::Pedantic`] is never downgraded and is an error.
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
++#[non_exhaustive]
++pub enum ComputeType32F {
++    /// Default compute: best available performance, internal precision at
++    /// least the requested one.
++    #[default]
++    Default,
++    /// Exact arithmetic semantics and the specified internal storage format.
++    Pedantic,
++    /// Allow down-converting inputs to FP16 for faster tensor-core math.
++    Fast16F,
++    /// Allow down-converting inputs to BF16 for faster tensor-core math.
++    Fast16BF,
++    /// Allow down-converting inputs to TF32 for faster tensor-core math.
++    FastTF32,
++}
++
++/// 64-bit-float compute-type family.
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
++#[non_exhaustive]
++pub enum ComputeType64F {
++    /// Default compute: best available performance.
++    #[default]
++    Default,
++    /// Exact arithmetic semantics and the specified internal storage format.
++    Pedantic,
++    /// Emulate the `f64` product in fixed point; the mantissa width is
++    /// [`CudaRuntimeFlags::fixedpoint_mantissa_bits`].
++    EmulatedFixedPoint,
++}
++
++/// 16-bit-float output family (`f16`/`bf16` outputs).
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
++#[non_exhaustive]
++pub enum ComputeType16F {
++    /// Default compute: accumulate in 32-bit floats.
++    #[default]
++    Default,
++    /// Exact arithmetic semantics and the specified internal storage format.
++    Pedantic,
++    /// Opt-in accumulation in 16 bits (faster, less accurate).
++    Acc16F,
++}
++
++/// An output type with a compute-mode family: [`Self::Mode`] is the enum the flags carry for it.
++///
++/// The integer types have no compute modes (`Mode = ()`): they only run on the naive driver.
++pub trait CudaMatMulMode: CudaDType {
++    /// The compute-mode enum of this output type's family.
++    type Mode: Copy + core::fmt::Debug;
++
++    /// The mode this output type resolves to under `flags`.
++    fn matmul_mode(flags: &CudaRuntimeFlags) -> Self::Mode;
++}
++
++impl CudaMatMulMode for f32 {
++    type Mode = ComputeType32F;
++    fn matmul_mode(flags: &CudaRuntimeFlags) -> Self::Mode {
++        flags.compute_type_32f
++    }
++}
++
++impl CudaMatMulMode for f64 {
++    type Mode = ComputeType64F;
++    fn matmul_mode(flags: &CudaRuntimeFlags) -> Self::Mode {
++        flags.compute_type_64f
++    }
++}
++
++impl CudaMatMulMode for Complex<f32> {
++    type Mode = ComputeType32F;
++    fn matmul_mode(flags: &CudaRuntimeFlags) -> Self::Mode {
++        flags.compute_type_32f
++    }
++}
++
++impl CudaMatMulMode for Complex<f64> {
++    type Mode = ComputeType64F;
++    fn matmul_mode(flags: &CudaRuntimeFlags) -> Self::Mode {
++        flags.compute_type_64f
++    }
++}
++
++impl CudaMatMulMode for half::f16 {
++    type Mode = ComputeType16F;
++    fn matmul_mode(flags: &CudaRuntimeFlags) -> Self::Mode {
++        flags.compute_type_16f
++    }
++}
++
++impl CudaMatMulMode for half::bf16 {
++    type Mode = ComputeType16F;
++    fn matmul_mode(flags: &CudaRuntimeFlags) -> Self::Mode {
++        flags.compute_type_16f
++    }
++}
++
++#[duplicate_item(
++    T;
++    [i8]; [i16]; [i32]; [i64]; [isize];
++    [u8]; [u16]; [u32]; [u64]; [usize];
++)]
++impl CudaMatMulMode for T {
++    type Mode = ();
++    fn matmul_mode(_: &CudaRuntimeFlags) -> Self::Mode {}
++}
+diff --git a/crates-device/rstsr-cuda/src/stream.rs b/crates-device/rstsr-cuda/src/stream.rs
+index 5e70dc6..d7bb181 100644
+--- a/crates-device/rstsr-cuda/src/stream.rs
++++ b/crates-device/rstsr-cuda/src/stream.rs
+@@ -23,7 +23,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
+ /// from several threads order correctly — and it is why the tiled kernel never needed this while the
+ /// cuBLAS path did. The handle therefore needs its own serialization, and it is kept *inside* this
+ /// type so a caller cannot forget it: the guard is taken by
+-/// `cublas_gemm::launch`, the only place that talks to cuBLAS.
++/// `matmul::drivers::cublas::launch`, the only place that talks to cuBLAS.
+ ///
+ /// Serializing the calls costs nothing measurable: `cublas*gemm` returns after enqueueing, and the
+ /// work it enqueued is on one stream, so it was going to be ordered anyway.
+@@ -105,7 +105,7 @@ impl CudaStreamObj {
+     ///
+     /// The returned handle is shared by every thread that uses this stream, and a `cublasHandle_t`
+     /// is not thread-safe — take [`CublasHandle::lock`] before every call, or better, call
+-    /// `cublas_gemm::launch`, which does it for you.
++    /// `matmul::drivers::cublas::launch`, which does it for you.
+     pub(crate) fn cublas(&self) -> Option<&Arc<CublasHandle>> {
+         self.cublas_slot
+             .get_or_init(|| {
+diff --git a/crates-device/rstsr-cuda/tests/test_device_basic.rs b/crates-device/rstsr-cuda/tests/test_device_basic.rs
+index 9344f6b..79565d0 100644
+--- a/crates-device/rstsr-cuda/tests/test_device_basic.rs
++++ b/crates-device/rstsr-cuda/tests/test_device_basic.rs
+@@ -86,13 +86,27 @@ fn flags_resolution() {
+     // None tracks the global
+     let before = funcs::default_flags();
+     let mut d2 = d.clone();
+-    d2.set_flags_override(Some(CudaRuntimeFlags { compute_type_32f: ComputeType32F::FastTF32 }));
++    let mut pinned = CudaRuntimeFlags::default();
++    pinned.compute_type_32f = ComputeType32F::FastTF32;
++    pinned.matmul_drivers = MatMulDrivers::TILED;
++    d2.set_flags_override(Some(pinned));
++    assert_eq!(d2.flags().matmul_drivers, MatMulDrivers::TILED);
+     // pinned value wins over the global
+     assert_eq!(d2.compute_type_32f(), ComputeType32F::FastTF32);
+     assert_eq!(d.compute_type_32f(), before.compute_type_32f);
+     // unpin tracks again
+     d2.set_flags_override(None);
+     assert_eq!(d2.compute_type_32f(), d.compute_type_32f());
++    assert_eq!(d2.flags().matmul_drivers, d.flags().matmul_drivers);
++
++    // `with_flags` is the immutable twin of `set_flags_override`
++    let d3 = d.clone().with_flags(pinned);
++    let mut d4 = d.clone();
++    d4.set_flags_override(Some(pinned));
++    assert!(d3.same_device(&d4));
++    assert!(!d.same_device(&d3), "pinned flags differ from `None`, whatever the global is");
++    assert_eq!(d3.flags().matmul_drivers, MatMulDrivers::TILED);
++    assert_eq!(d.flags(), before, "the original device value is unchanged");
+ }
+ 
+ #[test]
+diff --git a/crates-device/rstsr-cuda/tests/test_matmul_naive.rs b/crates-device/rstsr-cuda/tests/test_matmul_naive.rs
+new file mode 100644
+index 0000000..6445cc4
+--- /dev/null
++++ b/crates-device/rstsr-cuda/tests/test_matmul_naive.rs
+@@ -0,0 +1,374 @@
++//! The naive matmul driver and the driver chain, on hardware.
++//!
++//! `tests/test_kernels.rs` covers the plain shapes through the default chain (cuBLAS first) and
++//! `tests/test_matmul_tiled.rs` the tiled kernel alone. This file covers what is new in the chain:
++//!
++//! - the layouts the accelerated drivers decline (stepped operand, non-affine batch) now give the
++//!   right answer through the default chain, and the same answer with naive forced;
++//! - the type triples that only naive serves: integers, mixed operands, `f16 -> f32`;
++//! - the enable set: a forced driver that cannot serve is an error naming it, never a wrong answer.
++//!
++//! Every operand is integer-valued, so products and sums are exact in every dtype used and the
++//! comparison is `assert_eq!` (half excepted: `f16` storage rounds the inputs, so the `f16 -> f32`
++//! case compares against the CPU product of the *rounded* inputs, still exact).
++
++use half::f16;
++use num::Complex;
++use rstsr::prelude::*;
++use rstsr_cuda::dtype::CudaDType;
++use rstsr_cuda::funcs;
++use rstsr_cuda::prelude_dev::*;
++
++/// Integer-valued data in `[-4, 4]`, exactly representable in every dtype used here.
++fn exact_data(n: usize, seed: u64) -> Vec<f64> {
++    let mut s = seed | 1;
++    (0..n)
++        .map(|_| {
++            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++            ((s >> 33) % 9) as f64 - 4.0
++        })
++        .collect()
++}
++
++fn forced(drivers: MatMulDrivers) -> DeviceCuda {
++    let mut flags = CudaRuntimeFlags::default();
++    flags.matmul_drivers = drivers;
++    DeviceCuda::new(0).with_flags(flags)
++}
++
++macro_rules! require_cuda {
++    () => {
++        if !std::panic::catch_unwind(funcs::is_available).unwrap_or(false) {
++            eprintln!("skipping: no CUDA device visible");
++            return;
++        }
++    };
++}
++
++/// Row-major host values of a tensor of any rank.
++fn host_nd<'a, Tr, T, B, D>(t: &TensorAny<Tr, T, B, D>) -> Vec<T>
++where
++    T: Clone + Send + Sync + 'static,
++    Tr: DataAPI<Data = <B as DeviceRawAPI<T>>::Raw> + DataIntoCowAPI<'a>,
++    D: DimAPI,
++    B: DeviceAPI<T> + DeviceToCpuAPI<T> + DeviceCreationAnyAPI<T> + OpAssignArbitaryAPI<T, D, D>,
++{
++    let contig = t.to_contig(RowMajor);
++    DeviceToCpuAPI::<T>::to_cpu_vec(contig.storage()).rstsr_unwrap()
++}
++
++/// `a @ b` on one CUDA device against the CPU device, exactly.
++fn check<'a, T, Ra, Rb>(
++    d: &DeviceCuda,
++    what: &str,
++    a: &'a TensorAny<Ra, T, DeviceCpuSerial, IxD>,
++    b: &'a TensorAny<Rb, T, DeviceCpuSerial, IxD>,
++) where
++    T: CudaDType
++        + CudaMatMulMode
++        + Copy
++        + Clone
++        + Send
++        + Sync
++        + 'static
++        + PartialEq
++        + core::fmt::Debug
++        + core::ops::Mul<Output = T>
++        + num::Zero
++        + num::One,
++    DeviceCpuSerial: DeviceRawAPI<T, Raw = Vec<T>>,
++    Ra: DataAPI<Data = <DeviceCpuSerial as DeviceRawAPI<T>>::Raw> + DataIntoCowAPI<'a>,
++    Rb: DataAPI<Data = <DeviceCpuSerial as DeviceRawAPI<T>>::Raw> + DataIntoCowAPI<'a>,
++    DeviceCpuSerial: DeviceChangeAPI<'a, DeviceCuda, Ra, T, IxD> + DeviceChangeAPI<'a, DeviceCuda, Rb, T, IxD>,
++{
++    let want = rt::matmul(a, b);
++    let (ag, bg) = (a.to_device(d), b.to_device(d));
++    let got = rt::matmul(&ag, &bg);
++    assert_eq!(host_nd(&got), host_nd(&want), "{what}");
++}
++
++/// The error of `a @ b` (which must fail).
++fn matmul_err<'a, T, Ra, Rb>(a: &TensorAny<Ra, T, DeviceCuda, IxD>, b: &TensorAny<Rb, T, DeviceCuda, IxD>) -> String
++where
++    T: CudaDType
++        + CudaMatMulMode
++        + Copy
++        + Clone
++        + Send
++        + Sync
++        + 'static
++        + PartialEq
++        + core::ops::Mul<Output = T>
++        + num::Zero
++        + num::One,
++    Ra: DataAPI<Data = <DeviceCuda as DeviceRawAPI<T>>::Raw> + DataIntoCowAPI<'a>,
++    Rb: DataAPI<Data = <DeviceCuda as DeviceRawAPI<T>>::Raw> + DataIntoCowAPI<'a>,
++    T: Copy,
++{
++    match rt::matmul_f(a, b) {
++        Ok(_) => panic!("the matmul should have failed"),
++        Err(e) => format!("{e:?}").chars().filter(|&c| c != '\n').collect(),
++    }
++}
++
++/// `[m, k] @ [k, n]`, including shapes that are not multiples of any tile.
++#[test]
++fn naive_gemm22_vs_cpu() {
++    require_cuda!();
++    let d = forced(MatMulDrivers::NAIVE);
++    let dcpu = DeviceCpuSerial::default();
++    for &(m, k, n) in
++        &[(32usize, 32usize, 32usize), (1, 1, 1), (1, 37, 1), (17, 33, 5), (130, 70, 129), (5, 1, 7), (7, 9, 1)]
++    {
++        let a: Tensor<f64, DeviceCpuSerial, _> =
++            rt::asarray((exact_data(m * k, m as u64 + 1), &dcpu)).into_shape([m, k]);
++        let b: Tensor<f64, DeviceCpuSerial, _> =
++            rt::asarray((exact_data(k * n, n as u64 + 2), &dcpu)).into_shape([k, n]);
++        check(&d, &format!("({m} x {k}) @ ({k} x {n})"), &a, &b);
++    }
++}
++
++/// The layouts cuBLAS and the tiled kernel decline: a stepped operand (no unit-stride axis), a
++/// reversed operand into a stepped output, and a non-affine two-axis batch.
++#[test]
++fn declined_layouts_run_on_naive() {
++    require_cuda!();
++    let dcpu = DeviceCpuSerial::default();
++    let (m, k, n) = (20usize, 16usize, 12usize);
++    let mk = |n: usize, seed: u64, shape: &[usize]| -> Tensor<f64, DeviceCpuSerial, IxD> {
++        rt::asarray((exact_data(n, seed), &dcpu)).into_shape(shape.to_vec())
++    };
++    let b = mk(k * n, 2, &[k, n]);
++    let a = mk(m * k, 3, &[m, k]);
++    let stepped0 = mk(4 * m * k, 4, &[2 * m, 2 * k]);
++    let stepped = stepped0.i(s![slice!(None, None, 2), slice!(None, None, 2)]);
++    assert_eq!(stepped.stride(), &[4 * k as isize, 2]);
++    let flipped = a.flip(1);
++    let nonaffine0 = mk(2 * m * 3 * k, 5, &[2, m, 3, k]);
++    let nonaffine = nonaffine0.transpose([2, 0, 1, 3]);
++    assert_eq!(nonaffine.shape(), &[3, 2, m, k]);
++    let b_np = mk(3 * 2 * k * n, 6, &[3, 2, k, n]);
++
++    // through the default chain (cuBLAS and tiled decline, naive runs) ...
++    let d = DeviceCuda::new(0);
++    check(&d, "chain: stepped a", &stepped, &b);
++    check(&d, "chain: a flipped on k", &flipped, &b);
++    check(&d, "chain: non-affine batch", &nonaffine, &b_np);
++    // ... and with naive forced; the answers agree bit for bit.
++    let dn = forced(MatMulDrivers::NAIVE);
++    check(&dn, "naive: stepped a", &stepped, &b);
++    check(&dn, "naive: a flipped on k", &flipped, &b);
++    check(&dn, "naive: non-affine batch", &nonaffine, &b_np);
++}
++
++/// A forced driver that cannot serve the layout is an error naming it, never a wrong answer.
++#[test]
++fn forced_driver_that_cannot_serve_is_an_error() {
++    require_cuda!();
++    let dcpu = DeviceCpuSerial::default();
++    let (m, k, n) = (20usize, 16usize, 12usize);
++    let mk = |n: usize, seed: u64, shape: &[usize]| -> Tensor<f64, DeviceCpuSerial, IxD> {
++        rt::asarray((exact_data(n, seed), &dcpu)).into_shape(shape.to_vec())
++    };
++    let b = mk(k * n, 2, &[k, n]);
++    let stepped0 = mk(4 * m * k, 4, &[2 * m, 2 * k]);
++    let stepped = stepped0.i(s![slice!(None, None, 2), slice!(None, None, 2)]);
++    let dt = forced(MatMulDrivers::TILED);
++    let (a, b) = (stepped.to_device(&dt), b.to_device(&dt));
++    let msg = matmul_err(&a, &b);
++    eprintln!("  [tiled alone, stepped operand] {}", msg.chars().take(400).collect::<String>());
++    assert!(msg.contains("tiled: cannot serve") && msg.contains("no unit-stride axis"), "{msg}");
++    assert!(msg.contains("double x double -> double"), "the error names the type triple: {msg}");
++    assert!(msg.contains("enabled MatMulDrivers(tiled)"), "{msg}");
++
++    // an empty enable set names the set and the triple
++    let de = forced(MatMulDrivers::none());
++    let (a, b) = (stepped.to_device(&de), b.to_device(&de));
++    let msg = matmul_err(&a, &b);
++    assert!(msg.contains("MatMulDrivers(none)") && msg.contains("double x double -> double"), "{msg}");
++}
++
++/// Integer and mixed triples, served by the naive driver only.
++#[test]
++fn integer_and_mixed_triples() {
++    require_cuda!();
++    let d = forced(MatMulDrivers::NAIVE);
++    let dcpu = DeviceCpuSerial::default();
++    let (m, k, n) = (12usize, 16usize, 8usize);
++    let ai: Tensor<i32, DeviceCpuSerial, _> =
++        rt::asarray((exact_data(m * k, 1).iter().map(|&x| x as i32).collect::<Vec<_>>(), &dcpu)).into_shape([m, k]);
++    let bi: Tensor<i32, DeviceCpuSerial, _> =
++        rt::asarray((exact_data(k * n, 2).iter().map(|&x| x as i32).collect::<Vec<_>>(), &dcpu)).into_shape([k, n]);
++    check(&d, "i32 @ i32", &ai, &bi);
++    // `u8` with a contraction short enough that no sum leaves the type: the CPU reference panics
++    // on integer overflow where the device (like C and NumPy) wraps.
++    let (m4, k4, n4) = (12usize, 4usize, 8usize);
++    let bytes =
++        |seed: u64, cnt: usize| -> Vec<u8> { exact_data(cnt, seed).into_iter().map(|x| (x as i8 + 4) as u8).collect() };
++    let au: Tensor<u8, DeviceCpuSerial, _> = rt::asarray((bytes(3, m4 * k4), &dcpu)).into_shape([m4, k4]);
++    let bu: Tensor<u8, DeviceCpuSerial, _> = rt::asarray((bytes(4, k4 * n4), &dcpu)).into_shape([k4, n4]);
++    check(&d, "u8 @ u8", &au, &bu);
++
++    // mixed operands: `f32 x f64 -> f64` through `matmul_from` (no `Mul` bound). The CPU serial
++    // device has no mixed entry, so the reference is the f32 product of the f32 operands.
++    let a32: Tensor<f32, DeviceCpuSerial, _> =
++        rt::asarray((exact_data(m * k, 5).iter().map(|&x| x as f32).collect::<Vec<_>>(), &dcpu)).into_shape([m, k]);
++    let b32: Tensor<f32, DeviceCpuSerial, _> =
++        rt::asarray((exact_data(k * n, 6).iter().map(|&x| x as f32).collect::<Vec<_>>(), &dcpu)).into_shape([k, n]);
++    // the same integer-valued data as f64 (no cast API needed)
++    let b64: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((exact_data(k * n, 6), &dcpu)).into_shape([k, n]);
++    let mut got: Tensor<f64, _, _> = rt::full(([m * n], f64::NAN, &d)).into_shape([m, n]);
++    got.matmul_from(&a32.to_device(&d), &b64.to_device(&d), 1.0, 0.0);
++    let want = rt::matmul(&a32, &b32);
++    let got32: Vec<f32> = host_nd(&got).into_iter().map(|x| x as f32).collect();
++    assert_eq!(got32, host_nd(&want), "f32 @ f64 -> f64");
++    assert!(!host_nd(&got).contains(&f64::NAN));
++}
++
++/// Complex `c32` and `c64`, served by the naive driver only: batched, transposed operand, and a
++/// stepped operand. Integer- or half-integer-valued in exact binary fractions, so exact.
++#[test]
++fn complex_triples() {
++    require_cuda!();
++    let d = forced(MatMulDrivers::NAIVE);
++    let dcpu = DeviceCpuSerial::default();
++    let (p, m, k, n) = (3usize, 12usize, 16usize, 8usize);
++    let data = |seed: usize, cnt: usize| -> Vec<Complex<f64>> {
++        (0..cnt)
++            .map(|i| Complex::new((((i * 7 + seed) % 9) as f64 - 4.0) / 2.0, ((i + seed) % 5) as f64 - 2.0))
++            .collect()
++    };
++    let mk = |seed: usize, shape: &[usize]| -> Tensor<Complex<f64>, DeviceCpuSerial, IxD> {
++        let cnt = shape.iter().product();
++        rt::asarray((data(seed, cnt), &dcpu)).into_shape(shape.to_vec())
++    };
++    let a = mk(1, &[p, m, k]);
++    let b = mk(2, &[p, k, n]);
++    let a2 = mk(1, &[m, k]);
++    let base = mk(5, &[n, k]);
++    let bt = base.t();
++    let stepped0 = mk(6, &[2 * m, 2 * k]);
++    let stepped = stepped0.i(s![slice!(None, None, 2), slice!(None, None, 2)]);
++    check(&d, "c64 batched", &a, &b);
++    check(&d, "c64 @ c64.t()", &a2, &bt);
++    check(&d, "c64 stepped operand", &stepped, &bt);
++
++    let a32: Tensor<Complex<f32>, DeviceCpuSerial, _> =
++        rt::asarray((data(3, m * k).iter().map(|z| Complex::new(z.re as f32, z.im as f32)).collect::<Vec<_>>(), &dcpu))
++            .into_shape([m, k]);
++    let b32: Tensor<Complex<f32>, DeviceCpuSerial, _> =
++        rt::asarray((data(4, k * n).iter().map(|z| Complex::new(z.re as f32, z.im as f32)).collect::<Vec<_>>(), &dcpu))
++            .into_shape([k, n]);
++    check(&d, "c32", &a32, &b32);
++}
++
++/// `f16 x f16 -> f32` through `matmul_from` (no `Mul` bound): the inputs are rounded to `f16`
++/// storage on both devices, so the CPU product of the rounded inputs is the exact expectation.
++#[test]
++fn f16_inputs_into_f32_output() {
++    require_cuda!();
++    let d = forced(MatMulDrivers::NAIVE);
++    let dcpu = DeviceCpuSerial::default();
++    let (m, k, n) = (12usize, 64usize, 8usize);
++    let round = |seed: u64, cnt: usize| -> Vec<f16> { exact_data(cnt, seed).into_iter().map(f16::from_f64).collect() };
++    let a_cpu: Tensor<f16, DeviceCpuSerial, _> = rt::asarray((round(1, m * k), &dcpu)).into_shape([m, k]);
++    let b_cpu: Tensor<f16, DeviceCpuSerial, _> = rt::asarray((round(2, k * n), &dcpu)).into_shape([k, n]);
++    let (a, b) = (a_cpu.to_device(&d), b_cpu.to_device(&d));
++
++    let mut c: Tensor<f32, _, _> = rt::full(([m * n], f32::NAN, &d)).into_shape([m, n]);
++    c.matmul_from(&a, &b, 1.0, 0.0);
++    // the CPU reference multiplies the rounded inputs as f32 (each `f16` is an exact `f32`)
++    let up = |seed: u64, cnt: usize| -> Vec<f32> { round(seed, cnt).into_iter().map(f16::to_f32).collect() };
++    let ar: Tensor<f32, DeviceCpuSerial, _> = rt::asarray((up(1, m * k), &dcpu)).into_shape([m, k]);
++    let br: Tensor<f32, DeviceCpuSerial, _> = rt::asarray((up(2, k * n), &dcpu)).into_shape([k, n]);
++    let want = rt::matmul(&ar, &br);
++    assert_eq!(host_nd(&c), host_nd(&want), "f16 @ f16 -> f32");
++    // NaN survivors would show a slot that was not written
++    assert!(!host_nd(&c).contains(&f32::NAN));
++}
++
++/// `matmul_from` reads `c` when `beta != 0` and never reads it when `beta == 0`: a stepped or
++/// reversed output view on the naive driver.
++///
++/// The CPU device refuses a strided `c`, so the reference is assembled by hand from the CPU
++/// product and the base buffer.
++#[test]
++fn naive_matmul_from_strided_output() {
++    require_cuda!();
++    let d = forced(MatMulDrivers::NAIVE);
++    let dcpu = DeviceCpuSerial::default();
++    let (m, k, n) = (20usize, 16usize, 12usize);
++    let a: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((exact_data(m * k, 7), &dcpu)).into_shape([m, k]);
++    let b: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((exact_data(k * n, 8), &dcpu)).into_shape([k, n]);
++    // The device buffer is the CPU base buffer `c0` (so `beta != 0` has something to read); the
++    // reference is `c0` with `alpha * a @ b + beta * c0` written into the selected slots.
++    let c0: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((exact_data(m * 2 * n, 9), &dcpu)).into_shape([m, 2 * n]);
++    let prod = rt::matmul(&a, &b);
++    let (pv, cv) = (host_nd(&prod), host_nd(&c0));
++    // index of element `i` of an axis of extent `d` sliced by `slice!(None, None, step)`
++    let at = |i: usize, d: usize, step: isize| -> usize {
++        if step > 0 {
++            (step as usize) * i
++        } else {
++            d - 1 - ((step.unsigned_abs()) * i)
++        }
++    };
++    macro_rules! case {
++        ($what:expr, $rstep:expr, $cstep:expr, $alpha:expr, $beta:expr) => {{
++            let mut want = cv.clone();
++            for i in 0..m {
++                for j in 0..n {
++                    let (ri, cj) = (at(i, m, $rstep), at(j, 2 * n, $cstep));
++                    want[ri * 2 * n + cj] = $alpha * pv[i * n + j] + $beta * cv[ri * 2 * n + cj];
++                }
++            }
++            let mut got = c0.to_device(&d);
++            let (ra, rb) = (a.to_device(&d), b.to_device(&d));
++            let mut view = got.slice_mut(s![slice!(None, None, $rstep), slice!(None, None, $cstep)]);
++            assert_eq!(view.shape(), &[m, n].into_iter().collect::<Vec<_>>(), "{}: fixture shape", $what);
++            view.matmul_from(&ra, &rb, $alpha, $beta);
++            let hv = host_nd(&got);
++            // every slot: written ones against the reference, untouched ones against the base
++            assert_eq!(hv.len(), cv.len());
++            for i in 0..m {
++                for j in 0..n {
++                    let (ri, cj) = (at(i, m, $rstep), at(j, 2 * n, $cstep));
++                    assert_eq!(hv[ri * 2 * n + cj], want[ri * 2 * n + cj], "{}: c[{}, {}]", $what, ri, cj);
++                }
++            }
++        }};
++    }
++    case!("stepped c, beta != 0", 1isize, 2isize, 2.0f64, 3.0f64);
++    case!("flipped c, beta != 0", -1isize, 2isize, 1.0f64, -1.5f64);
++    case!("flipped c, beta = 0", -1isize, -2isize, 0.5f64, 0.0f64);
++}
++
++/// Both default orders agree with the CPU device on the same batched problem.
++///
++/// Under col-major the two matrix axes come first, so the batch axis moves to the end of the
++/// shape there; the tensors are the same logical objects and the results are compared in
++/// row-major.
++#[test]
++fn naive_both_orders() {
++    require_cuda!();
++    let dcpu = DeviceCpuSerial::default();
++    let (p, m, k, n) = (3usize, 12usize, 16usize, 8usize);
++    let a: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((exact_data(p * m * k, 10), &dcpu)).into_shape([p, m, k]);
++    let b: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((exact_data(p * k * n, 11), &dcpu)).into_shape([p, k, n]);
++    // reference: row-major everywhere
++    let want = rt::matmul(&a, &b);
++    {
++        let d = forced(MatMulDrivers::NAIVE);
++        let got = rt::matmul(a.to_device(&d), b.to_device(&d));
++        assert_eq!(host_nd(&got), host_nd(&want), "row-major");
++    }
++    let mut d = forced(MatMulDrivers::NAIVE);
++    d.set_default_order(ColMajor);
++    let (at, bt) = (a.transpose([1, 2, 0]), b.transpose([1, 2, 0]));
++    let ac = at.to_contig(ColMajor);
++    let bc = bt.to_contig(ColMajor);
++    assert_eq!(ac.stride(), &[1, m as isize, (m * k) as isize], "fixture: col-major contiguous");
++    let got = rt::matmul(ac.to_device(&d), bc.to_device(&d));
++    assert_eq!(got.shape(), &[m, n, p]);
++    assert_eq!(host_nd(&got), host_nd(&want.transpose([1, 2, 0])), "col-major");
++}
+diff --git a/crates-device/rstsr-cuda/tests/test_matmul_tiled.rs b/crates-device/rstsr-cuda/tests/test_matmul_tiled.rs
+index 84e4de2..efebc3f 100644
+--- a/crates-device/rstsr-cuda/tests/test_matmul_tiled.rs
++++ b/crates-device/rstsr-cuda/tests/test_matmul_tiled.rs
+@@ -1,9 +1,9 @@
+ //! The tiled GEMM kernel, exercised on hardware.
+ //!
+-//! `cupy`-style delegation means cuBLAS is the default path, so the tiled kernel would otherwise
+-//! never run on a GPU again — and it is the path a build without `libcublas` takes. This file forces
+-//! it with `RSTSR_CUDA_MATMUL=tiled`, which is read once per process, and therefore sets the
+-//! variable in every test that runs a matmul.
++//! cuBLAS is the first driver of the matmul chain, so the tiled kernel would otherwise rarely run
++//! on a GPU — and it is the path a build without `libcublas` takes. This file enables only the
++//! tiled driver through the device flags ([`MatMulDrivers::TILED`]), in every test that runs a
++//! matmul.
+ //!
+ //! `tests/test_kernels.rs` covers the same shapes through whatever the default is, so between the
+ //! two files both paths have hardware evidence.
+@@ -12,16 +12,21 @@ use rstsr::prelude::*;
+ use rstsr_cuda::funcs;
+ use rstsr_cuda::prelude_dev::*;
+ 
++/// A device on which the tiled driver is the only enabled matmul driver.
++fn forced(drivers: MatMulDrivers) -> DeviceCuda {
++    let mut flags = CudaRuntimeFlags::default();
++    flags.matmul_drivers = drivers;
++    DeviceCuda::new(0).with_flags(flags)
++}
++
+ macro_rules! tiled_and_cuda {
+-    () => {
+-        // SAFETY: every test in this binary sets the same value before its first matmul, and the
+-        // flag is cached on first read, so there is no ordering under which they disagree.
+-        std::env::set_var("RSTSR_CUDA_MATMUL", "tiled");
++    ($d:ident) => {
+         let available = std::panic::catch_unwind(funcs::is_available).unwrap_or(false);
+         if !available {
+             eprintln!("skipping: no CUDA device visible");
+             return;
+         }
++        let $d = forced(MatMulDrivers::TILED);
+     };
+ }
+ 
+@@ -50,8 +55,7 @@ where
+ /// `[m, k] @ [k, n]`, including shapes that clip every tile edge.
+ #[test]
+ fn tiled_gemm22_vs_cpu() {
+-    tiled_and_cuda!();
+-    let d = DeviceCuda::new(0);
++    tiled_and_cuda!(d);
+     let dcpu = DeviceCpuSerial::default();
+     for &(m, k, n) in &[(32usize, 32usize, 32usize), (17, 33, 5), (130, 70, 129)] {
+         let a_cpu: Tensor<f64, DeviceCpuSerial, _> =
+@@ -71,8 +75,7 @@ fn tiled_gemm22_vs_cpu() {
+ /// Both non-default operand orientations, which select a different thread map each.
+ #[test]
+ fn tiled_transposed_operands() {
+-    tiled_and_cuda!();
+-    let d = DeviceCuda::new(0);
++    tiled_and_cuda!(d);
+     let dcpu = DeviceCpuSerial::default();
+     let (m, k, n) = (40usize, 24usize, 20usize);
+ 
+@@ -98,8 +101,7 @@ fn tiled_transposed_operands() {
+ /// `grid.z` over the batch, plus a broadcast batch.
+ #[test]
+ fn tiled_batched_vs_cpu() {
+-    tiled_and_cuda!();
+-    let d = DeviceCuda::new(0);
++    tiled_and_cuda!(d);
+     let dcpu = DeviceCpuSerial::default();
+     let (p, m, k, n) = (5usize, 12usize, 16usize, 8usize);
+ 
+@@ -124,8 +126,7 @@ fn tiled_batched_vs_cpu() {
+ /// `matmul_from`: the path that reads `c`, and the only one that hands the device a strided output.
+ #[test]
+ fn tiled_matmul_from_vs_cpu() {
+-    tiled_and_cuda!();
+-    let d = DeviceCuda::new(0);
++    tiled_and_cuda!(d);
+     let dcpu = DeviceCpuSerial::default();
+     let (m, k, n) = (20usize, 12usize, 16usize);
+ 
+@@ -154,10 +155,10 @@ fn tiled_matmul_from_vs_cpu() {
+ /// the shared cuBLAS handle was the only explanation left standing.
+ #[test]
+ fn tiled_col_major_and_gemv_gevm() {
+-    tiled_and_cuda!();
++    tiled_and_cuda!(d);
+ 
+     // ColMajor: reverse every layout, swap the operands.
+-    let mut d = DeviceCuda::new(0);
++    let mut d = d;
+     d.set_default_order(ColMajor);
+     let mut dcpu = DeviceCpuSerial::default();
+     dcpu.set_default_order(ColMajor);
+@@ -176,7 +177,6 @@ fn tiled_col_major_and_gemv_gevm() {
+ 
+     // Rules 3 and 4: a length-1 tile axis, which is where the vector's own rank has to be folded
+     // into a 2-D matmul part (`dim_insert`, i.e. a stride-1 axis of extent 1).
+-    let d = DeviceCuda::new(0);
+     let dcpu = DeviceCpuSerial::default();
+     let (m, k, n) = (24usize, 16usize, 18usize);
+     let a_cpu: Tensor<f64, DeviceCpuSerial, _> =

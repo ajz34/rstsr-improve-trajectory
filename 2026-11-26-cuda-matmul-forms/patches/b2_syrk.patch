@@ -1,0 +1,744 @@
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs b/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs
+index 2d27818..9582527 100644
+--- a/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs
+@@ -52,6 +52,25 @@ pub(crate) trait CublasScalar: CudaDType {
+         ldc: i32,
+     ) -> sys::cublasStatus_t;
+ 
++    /// `c = alpha * op(a) op(a)^T + beta * c` over one triangle of the `n x n` output.
++    ///
++    /// # Safety
++    /// `a`, `c` must be device pointers of at least the extents implied by `n, k, lda, ldc`, on
++    /// the stream the handle is bound to.
++    unsafe fn syrk(
++        handle: sys::cublasHandle_t,
++        uplo: sys::cublasFillMode_t,
++        trans: sys::cublasOperation_t,
++        n: i32,
++        k: i32,
++        alpha: &Self,
++        a: u64,
++        lda: i32,
++        beta: &Self,
++        c: u64,
++        ldc: i32,
++    ) -> sys::cublasStatus_t;
++
+     /// Same contract, plus `batch` matrices spaced `stride_*` elements apart.
+     #[allow(clippy::too_many_arguments)]
+     unsafe fn gemm_strided_batched(
+@@ -77,10 +96,10 @@ pub(crate) trait CublasScalar: CudaDType {
+ }
+ 
+ macro_rules! impl_cublas_scalar {
+-    ($t:ty, $gemm:ident, $gemm_sb:ident) => {
+-        impl_cublas_scalar!($t, $gemm, $gemm_sb, $t);
++    ($t:ty, $gemm:ident, $gemm_sb:ident, $syrk:ident) => {
++        impl_cublas_scalar!($t, $gemm, $gemm_sb, $syrk, $t);
+     };
+-    ($t:ty, $gemm:ident, $gemm_sb:ident, $cx:path) => {
++    ($t:ty, $gemm:ident, $gemm_sb:ident, $syrk:ident, $cx:path) => {
+         impl CublasScalar for $t {
+             unsafe fn gemm(
+                 handle: sys::cublasHandle_t,
+@@ -118,6 +137,36 @@ macro_rules! impl_cublas_scalar {
+                 }
+             }
+ 
++            unsafe fn syrk(
++                handle: sys::cublasHandle_t,
++                uplo: sys::cublasFillMode_t,
++                trans: sys::cublasOperation_t,
++                n: i32,
++                k: i32,
++                alpha: &Self,
++                a: u64,
++                lda: i32,
++                beta: &Self,
++                c: u64,
++                ldc: i32,
++            ) -> sys::cublasStatus_t {
++                unsafe {
++                    sys::$syrk(
++                        handle,
++                        uplo,
++                        trans,
++                        n,
++                        k,
++                        alpha as *const $t as *const $cx,
++                        a as *const $t as *const $cx,
++                        lda,
++                        beta as *const $t as *const $cx,
++                        c as *mut $t as *mut $cx,
++                        ldc,
++                    )
++                }
++            }
++
+             unsafe fn gemm_strided_batched(
+                 handle: sys::cublasHandle_t,
+                 transa: sys::cublasOperation_t,
+@@ -165,12 +214,12 @@ macro_rules! impl_cublas_scalar {
+     };
+ }
+ 
+-impl_cublas_scalar!(f32, cublasSgemm_v2, cublasSgemmStridedBatched);
+-impl_cublas_scalar!(f64, cublasDgemm_v2, cublasDgemmStridedBatched);
+-impl_cublas_scalar!(Complex<f32>, cublasCgemm_v2, cublasCgemmStridedBatched, sys::cuFloatComplex);
+-impl_cublas_scalar!(Complex<f64>, cublasZgemm_v2, cublasZgemmStridedBatched, sys::cuDoubleComplex);
++impl_cublas_scalar!(f32, cublasSgemm_v2, cublasSgemmStridedBatched, cublasSsyrk_v2);
++impl_cublas_scalar!(f64, cublasDgemm_v2, cublasDgemmStridedBatched, cublasDsyrk_v2);
++impl_cublas_scalar!(Complex<f32>, cublasCgemm_v2, cublasCgemmStridedBatched, cublasCsyrk_v2, sys::cuFloatComplex);
++impl_cublas_scalar!(Complex<f64>, cublasZgemm_v2, cublasZgemmStridedBatched, cublasZsyrk_v2, sys::cuDoubleComplex);
+ 
+-fn op(t: bool) -> sys::cublasOperation_t {
++pub(super) fn op(t: bool) -> sys::cublasOperation_t {
+     if t { sys::cublasOperation_t::CUBLAS_OP_T } else { sys::cublasOperation_t::CUBLAS_OP_N }
+ }
+ 
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs b/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
+index ffa46a3..e359ee5 100644
+--- a/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
+@@ -24,6 +24,7 @@ pub(crate) mod cublas;
+ pub(crate) mod cublas_ex;
+ pub(crate) mod cublas_lt;
+ pub(crate) mod naive;
++pub(crate) mod syrk;
+ pub(crate) mod tiled;
+ 
+ /// One matmul driver of the chain.
+@@ -414,6 +415,23 @@ pub(crate) fn candidates<TA: 'static, TB: 'static, TC: CudaMatMulMode>(mode: &TC
+     }
+ }
+ 
++/// Whether the symmetric form is tried before the chain: the layout condition of the BLAS devices
++/// ([`CallerGeom::is_syrk`]), the same buffer for both operands, `beta` zero, one type, the size
++/// gate of the output type, and the classic driver enabled (which owns the routine).
++fn syrk_applies<TA: 'static, TB: 'static, TC: 'static, TBuf>(
++    p: &Problem<'_, TA, TB, TC, TBuf>,
++    enabled: MatMulDrivers,
++) -> bool {
++    same::<TA, TB>()
++        && same::<TB, TC>()
++        && !p.read_c
++        && p.geom.n_batch == 1
++        && p.geom.caller().is_syrk()
++        && std::ptr::eq(p.a.device_ptr() as *const u8, p.b.device_ptr() as *const u8)
++        && syrk::gated::<TC>(p.geom.m)
++        && enabled.contains(GemmDriver::Cublas.flag())
++}
++
+ /// Run the problem on the first enabled driver that takes it.
+ pub(crate) fn dispatch<TA, TB, TC, TBuf>(
+     p: &Problem<'_, TA, TB, TC, TBuf>,
+@@ -428,18 +446,7 @@ where
+ {
+     let plan = plan::<TA, TB, TC>(mode);
+     let enabled = flags.matmul_drivers;
+-    let mut declined: Vec<(&'static str, Refusal)> = Vec::new();
+-    for driver in candidates::<TA, TB, TC>(mode).iter() {
+-        if !enabled.contains(driver.flag()) {
+-            continue;
+-        }
+-        let verdict = match driver {
+-            GemmDriver::CublasLt => cublas_lt::run(p, plan)?,
+-            GemmDriver::CublasEx => cublas_ex::run(p, plan)?,
+-            GemmDriver::Cublas => cublas::run(p, plan, flags.fixedpoint_mantissa_bits)?,
+-            GemmDriver::Tiled => tiled::run(p)?,
+-            GemmDriver::Naive => naive::run(p)?,
+-        };
++    let trace = |what: &str, verdict: &Verdict| {
+         if flags.trace_matmul {
+             let g = &p.geom;
+             eprintln!(
+@@ -450,13 +457,35 @@ where
+                 g.n,
+                 g.n_batch,
+                 mode,
+-                driver.name(),
+-                match &verdict {
++                what,
++                match verdict {
+                     Verdict::Ran => "ran".to_string(),
+                     Verdict::Declined(r) => format!("declined ({r})"),
+                 }
+             );
+         }
++    };
++    // the symmetric form first: `a @ a^T` with a fresh output is half the work of the gemm
++    if syrk_applies::<TA, TB, TC, TBuf>(p, enabled) {
++        let verdict = syrk::run(p, plan)?;
++        trace("cublas (syrk)", &verdict);
++        if let Verdict::Ran = verdict {
++            return Ok(());
++        }
++    }
++    let mut declined: Vec<(&'static str, Refusal)> = Vec::new();
++    for driver in candidates::<TA, TB, TC>(mode).iter() {
++        if !enabled.contains(driver.flag()) {
++            continue;
++        }
++        let verdict = match driver {
++            GemmDriver::CublasLt => cublas_lt::run(p, plan)?,
++            GemmDriver::CublasEx => cublas_ex::run(p, plan)?,
++            GemmDriver::Cublas => cublas::run(p, plan, flags.fixedpoint_mantissa_bits)?,
++            GemmDriver::Tiled => tiled::run(p)?,
++            GemmDriver::Naive => naive::run(p)?,
++        };
++        trace(driver.name(), &verdict);
+         match verdict {
+             Verdict::Ran => return Ok(()),
+             Verdict::Declined(r) => declined.push((driver.name(), r)),
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/syrk.rs b/crates-device/rstsr-cuda/src/matmul/drivers/syrk.rs
+new file mode 100644
+index 0000000..1e65c16
+--- /dev/null
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/syrk.rs
+@@ -0,0 +1,238 @@
++//! The symmetric form of a fresh product: `c = alpha * a @ a^T` as one `?syrk_v2` call.
++//!
++//! cuBLAS writes one triangle of the symmetric output. The other is a mirror image of the first,
++//! copied across the diagonal by a small kernel; that copy is what makes the form a win, since a
++//! second `?syrk` call costs as much as the gemm it replaces.
++//!
++//! The condition is the one the BLAS devices apply in their matmul: one type throughout, `beta`
++//! zero, `b` the same buffer as `a` with reversed strides, unbatched ([`CallerGeom::is_syrk`]).
++//! A size gate keeps the cases where cuBLAS's own `?syrk` kernels are slower than its gemm.
++
++use cudarc::cublas::sys;
++
++use super::cublas::{op, CublasScalar};
++use super::{scale, AlignedScale, CublasPlan, Problem, Refusal, Verdict};
++use crate::dtype::CudaDType;
++use crate::kernel::{order_input, order_output, FlatLaunch};
++use crate::kernels::elementwise::planned_function;
++use crate::matmul::geom::CallerGeom;
++use crate::prelude_dev::*;
++
++/// The smallest `f32` output side cuBLAS's `Ssyrk` wins at (measured against its gemm); `f64` and
++/// complex win at every measured size.
++pub(crate) const F32_MIN_N: usize = 2048;
++
++/// Whether the symmetric form pays for an output of side `n` of this type.
++pub(crate) fn gated<T: 'static>(n: usize) -> bool {
++    !same::<T, f32>() || n >= F32_MIN_N
++}
++
++fn same<T: 'static, U: 'static>() -> bool {
++    std::any::TypeId::of::<T>() == std::any::TypeId::of::<U>()
++}
++
++/// One `?syrk_v2` call, in cuBLAS's terms.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub(crate) struct SyrkArgs {
++    /// Whether `a` is stored as `k x n` and transposed on entry.
++    pub trans: bool,
++    pub n: i32,
++    pub k: i32,
++    pub lda: i32,
++    pub ldc: i32,
++    /// The triangle cuBLAS leaves written, in the caller's `(row, column)` indexing of `c`: the
++    /// rows at or below the diagonal when the output is read transposed.
++    pub lower: bool,
++}
++
++/// Derive the call, or `None` when a layout has no column-major expression.
++///
++/// Pure. The output may be presented to cuBLAS transposed (`ldc` = the row stride): the product
++/// is symmetric, so that only swaps which triangle is written, which [`SyrkArgs::lower`] records.
++pub(crate) fn args(v: &CallerGeom<'_>) -> Option<SyrkArgs> {
++    let (n, k) = (v.mnk.0, v.mnk.1);
++    let (_, sam, sak) = v.a;
++    let (_, scm, scn) = v.c;
++    if n > i32::MAX as usize || k > i32::MAX as usize || sam < 0 || sak < 0 || scm < 0 || scn < 0 {
++        return None;
++    }
++    let ld = |stride: isize, rows: usize| (stride.max(0).max(rows as isize)).min(i32::MAX as isize) as i32;
++    let (trans, lda) = if sam == 1 {
++        (false, ld(sak, n))
++    } else if sak == 1 {
++        (true, ld(sam, k))
++    } else {
++        return None;
++    };
++    let (ldc, lower) = if scm == 1 {
++        (ld(scn, n), false)
++    } else if scn == 1 {
++        (ld(scm, n), true)
++    } else {
++        return None;
++    };
++    Some(SyrkArgs { trans, n: n as i32, k: k as i32, lda, ldc, lower })
++}
++
++/// One attempt of the symmetric form, for the four types the typed entry covers.
++pub(super) fn run<TA, TB, TC, TBuf>(p: &Problem<'_, TA, TB, TC, TBuf>, plan: CublasPlan) -> Result<Verdict>
++where
++    TA: 'static,
++    TB: 'static,
++    TC: Copy + 'static,
++    TBuf: 'static,
++{
++    match plan {
++        CublasPlan::F32(_) => typed::<f32, TA, TB, TC, TBuf>(p),
++        CublasPlan::F64(_) => typed::<f64, TA, TB, TC, TBuf>(p),
++        CublasPlan::C32(_) => typed::<num::Complex<f32>, TA, TB, TC, TBuf>(p),
++        CublasPlan::C64(_) => typed::<num::Complex<f64>, TA, TB, TC, TBuf>(p),
++        _ => Ok(Verdict::Declined(Refusal::Cannot("the typed syrk entries cover f32, f64 and complex only"))),
++    }
++}
++
++fn typed<T: CublasScalar, TA, TB, TC, TBuf>(p: &Problem<'_, TA, TB, TC, TBuf>) -> Result<Verdict>
++where
++    TA: 'static,
++    TB: 'static,
++    TC: Copy + 'static,
++    TBuf: 'static,
++{
++    let view = p.geom.caller();
++    let Some(a) = args(&view) else {
++        return Ok(Verdict::Declined(Refusal::Cannot("no column-major expression of the symmetric product")));
++    };
++    let Some(u) = p.uniform::<T>() else {
++        return Ok(Verdict::Declined(Refusal::Cannot("the operands and the output must share one dtype")));
++    };
++    // `beta` is zero here (the form requires it): passed for the signature, never applied.
++    let (Some(alpha), Some(beta)) = (scale::<T, TC>(p.alpha), scale::<T, TC>(p.beta)) else {
++        return Ok(Verdict::Declined(Refusal::Cannot("the output type is not of the plan's family")));
++    };
++    let (alpha, beta) = (AlignedScale(alpha), AlignedScale(beta));
++    let exec = p.device.stream();
++    let Some(blas) = exec.cublas() else {
++        return Ok(Verdict::Declined(Refusal::NoCublas));
++    };
++    // held until the mirror is enqueued too
++    let orders = [order_input(u.a, exec)?, order_output(u.c, exec)?];
++    let (pa, ra) = u.a.read_ptr_on(exec);
++    let (pc, rc) = u.c.read_ptr_on(exec);
++    let esz = core::mem::size_of::<T>();
++    let (ap, cp) = (pa as usize + view.a.0 * esz, pc as usize + view.c.0 * esz);
++    let status = {
++        let _api = blas.lock();
++        // SAFETY: the pointers are the buffers' bases folded with the layouts' own offsets, and
++        // `args` was derived from the same view.
++        unsafe {
++            T::syrk(
++                *blas.blas().handle(),
++                sys::cublasFillMode_t::CUBLAS_FILL_MODE_UPPER,
++                op(a.trans),
++                a.n,
++                a.k,
++                &alpha.0,
++                ap as u64,
++                a.lda,
++                &beta.0,
++                cp as u64,
++                a.ldc,
++            )
++        }
++    };
++    if status != sys::cublasStatus_t::CUBLAS_STATUS_SUCCESS {
++        return Ok(Verdict::Declined(Refusal::CublasStatus(status)));
++    }
++    let mirrored = mirror::<T>(p.device, &u, view, a.lower);
++    drop((orders, ra, rc));
++    mirrored?;
++    Ok(Verdict::Ran)
++}
++
++const MIRROR_ENTRY: &str = r#"
++extern "C" __global__ void rstsr_matmul_mirror(
++    @T@* c, rstsr_isz scm, rstsr_isz scn, rstsr_usz total, rstsr_usz n, int lower)
++{
++    rstsr_usz t = (rstsr_usz)blockIdx.x * blockDim.x + threadIdx.x;
++    if (t >= total) return;
++    rstsr_usz r = t / n;
++    rstsr_usz j = t - r * n;
++    if (lower ? (r < j) : (r > j)) c[r * scm + j * scn] = c[j * scm + r * scn];
++}
++"#;
++
++/// Copy the written triangle of `c` across the diagonal into the other one.
++fn mirror<T: CudaDType>(
++    device: &DeviceCuda,
++    u: &super::Buffers<'_, T, T, T>,
++    view: CallerGeom<'_>,
++    lower: bool,
++) -> Result<()> {
++    let (_, scm, scn) = view.c;
++    let n = view.mnk.0;
++    let total = n * n;
++    if total == 0 {
++        return Ok(());
++    }
++    let f = planned_function(device, "rstsr_matmul_mirror", T::INCLUDES, T::CNAME, || {
++        MIRROR_ENTRY.replace("@T@", T::CNAME)
++    })?;
++    let exec = device.stream();
++    let _gr = order_input(u.c, exec)?;
++    let _gw = order_output(u.c, exec)?;
++    FlatLaunch::new(exec, &f, total)
++        .arg_ptr(u.c, view.c.0)
++        .arg_bytes(&scm.to_ne_bytes())
++        .arg_bytes(&scn.to_ne_bytes())
++        .arg_usize(total)
++        .arg_usize(n)
++        .arg_i32(lower as i32)
++        .launch()
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::matmul::geom::{resolve_geom, GemmGeom};
++
++    fn layout(shape: &[usize], stride: &[isize], offset: usize) -> Layout<IxD> {
++        Layout::<IxD>::new(shape.to_vec(), stride.to_vec(), offset).unwrap()
++    }
++
++    fn geom(order: FlagOrder, sa: (isize, isize), sc: (isize, isize)) -> GemmGeom {
++        let (n, k) = (5usize, 8usize);
++        // an offset that keeps a reversed layout in range as well
++        let la = layout(&[n, k], &[sa.0, sa.1], n * k - 1);
++        let lc = layout(&[n, n], &[sc.0, sc.1], 7);
++        resolve_geom(order, &lc, &la, &la.reverse_axes()).unwrap()
++    }
++
++    /// Row-major `a` is a transposed `k x n` matrix to cuBLAS, with `lda` the row stride; a
++    /// column-major one is the `n x k` matrix itself. A row-major output is presented transposed,
++    /// so cuBLAS's upper triangle is the output's lower one; a column-major output is read as is.
++    #[test]
++    fn args_follow_the_operand_orientations() {
++        let row_major = args(&geom(RowMajor, (8, 1), (5, 1)).caller()).unwrap();
++        assert_eq!(row_major, SyrkArgs { trans: true, n: 5, k: 8, lda: 8, ldc: 5, lower: true });
++        let col_major = args(&geom(ColMajor, (1, 5), (1, 5)).caller()).unwrap();
++        assert_eq!(col_major, SyrkArgs { trans: false, n: 5, k: 8, lda: 5, ldc: 5, lower: false });
++    }
++
++    /// A stepped operand or output has no column-major expression.
++    #[test]
++    fn stepped_layouts_are_refused() {
++        assert!(args(&geom(RowMajor, (16, 2), (5, 1)).caller()).is_none());
++        assert!(args(&geom(RowMajor, (8, 1), (10, 2)).caller()).is_none());
++        assert!(args(&geom(RowMajor, (-1, -5), (5, 1)).caller()).is_none());
++    }
++
++    /// The gate is an `f32` size floor only.
++    #[test]
++    fn gate_is_per_output_type() {
++        assert!(!gated::<f32>(F32_MIN_N - 1));
++        assert!(gated::<f32>(F32_MIN_N));
++        assert!(gated::<f64>(0));
++        assert!(gated::<num::Complex<f32>>(1));
++        assert!(gated::<num::Complex<f64>>(256));
++    }
++}
+diff --git a/crates-device/rstsr-cuda/src/matmul/geom.rs b/crates-device/rstsr-cuda/src/matmul/geom.rs
+index 222f80e..ab6a508 100644
+--- a/crates-device/rstsr-cuda/src/matmul/geom.rs
++++ b/crates-device/rstsr-cuda/src/matmul/geom.rs
+@@ -100,6 +100,19 @@ pub(crate) struct CallerGeom<'a> {
+     pub batch: [&'a BatchPart; 3],
+ }
+ 
++impl CallerGeom<'_> {
++    /// Whether `b` is `a` with its two axes reversed, at the same buffer offset, in an unbatched
++    /// square problem: the shape of `a @ a.t()`. Whether the two are the same buffer is for the
++    /// caller to say; this is a statement about the layouts only.
++    pub fn is_syrk(&self) -> bool {
++        let (m, _, n) = self.mnk;
++        m == n
++            && self.b.0 == self.a.0
++            && (self.b.1, self.b.2) == (self.a.2, self.a.1)
++            && self.batch.iter().all(|part| part.shape.is_empty())
++    }
++}
++
+ impl GemmGeom {
+     /// The single element step of each batch part, or `None` if any is not one linear run.
+     pub fn affine_batch(&self) -> Option<[isize; 3]> {
+@@ -359,6 +372,31 @@ mod tests {
+         }
+     }
+ 
++    /// `a @ a.t()` is recognised from the layouts alone; a contiguous copy of the transpose, a
++    /// rectangular product and a batched one are not.
++    #[test]
++    fn syrk_is_a_transposed_self_product() {
++        let (n, k) = (5usize, 8usize);
++        let la = layout(&[n, k], &[k as isize, 1]);
++        let lc = layout(&[n, n], &[n as isize, 1]);
++        for order in [RowMajor, ColMajor] {
++            assert!(resolve_geom(order, &lc, &la, &la.reverse_axes()).unwrap().caller().is_syrk(), "{order:?}");
++            // a stepped view inside a larger buffer: the offset and the strides are both reversed
++            let view = Layout::<IxD>::new(vec![n, k], vec![2 * k as isize, 2], 3 + 4 * 2 * k).unwrap();
++            assert!(resolve_geom(order, &lc, &view, &view.reverse_axes()).unwrap().caller().is_syrk());
++            // the transpose copied into another, contiguous layout
++            let copy = layout(&[k, n], &[n as isize, 1]);
++            assert!(!resolve_geom(order, &lc, &la, &copy).unwrap().caller().is_syrk());
++            // rectangular
++            let (lm, lb, lcn) = (
++                layout(&[n + 1, k], &[k as isize, 1]),
++                layout(&[k, n], &[1, k as isize]),
++                layout(&[n + 1, n], &[n as isize, 1]),
++            );
++            assert!(!resolve_geom(order, &lcn, &lm, &lb).unwrap().caller().is_syrk());
++        }
++    }
++
+     /// A product that is not an inner dot keeps its layouts: nothing is lifted.
+     #[test]
+     fn other_ranks_are_not_lifted() {
+diff --git a/crates-device/rstsr-cuda/src/matmul/mod.rs b/crates-device/rstsr-cuda/src/matmul/mod.rs
+index d4350a2..c7cc49c 100644
+--- a/crates-device/rstsr-cuda/src/matmul/mod.rs
++++ b/crates-device/rstsr-cuda/src/matmul/mod.rs
+@@ -38,6 +38,16 @@
+ //! Operands of different dtypes need no entry of their own: `matmul_from` / `matmul_with_output`
+ //! carry no `Mul` bound, and the naive kernel casts each operand to the output type.
+ //!
++//! # Symmetric products
++//!
++//! `a @ a.t()` into a fresh output of one type (`f32`, `f64`, `c32`, `c64`) is half the work of the
++//! gemm, and is run as one cuBLAS `?syrk` call before the chain is tried: `b` must be `a` with
++//! reversed strides in the same buffer, `beta` must be zero, and the product unbatched. The other
++//! triangle of the output is mirrored by a small kernel. cuBLAS's `f32` `syrk` kernels only pay
++//! from an output side of 2048 on, so smaller `f32` products stay on the chain; `f64` and the
++//! complex types take the form at every size. A product that looks alike but is not (`beta != 0`,
++//! the conjugate transpose, a copy of the transpose, a batch) runs the chain as before.
++//!
+ //! # Layouts
+ //!
+ //! Every layout the rule table admits is served: strided, negative and zero strides, broadcast
+diff --git a/crates-device/rstsr-cuda/tests/test_matmul_forms.rs b/crates-device/rstsr-cuda/tests/test_matmul_forms.rs
+new file mode 100644
+index 0000000..921b089
+--- /dev/null
++++ b/crates-device/rstsr-cuda/tests/test_matmul_forms.rs
+@@ -0,0 +1,224 @@
++//! The symmetric form of the matmul: `a @ a.t()` with a fresh output runs as one `?syrk` call
++//! whose triangle is mirrored across the diagonal. The cases the form must not take (`beta != 0`,
++//! the conjugate transpose, another buffer, a batch, a stepped operand) run the gemm chain; both
++//! give the full symmetric matrix, so every test compares the whole output against a reference.
++
++use num::Complex;
++use rstsr::prelude::*;
++use rstsr_cuda::dtype::CudaDType;
++use rstsr_cuda::funcs;
++use rstsr_cuda::matmul::{CudaMatMulMode, MatMulDrivers};
++use rstsr_cuda::prelude_dev::*;
++
++/// Uniform data in `[-1, 1]` with an imaginary part in `[0, 1]`.
++fn data(n: usize, seed: u64) -> Vec<f64> {
++    let mut s = seed | 1;
++    (0..n)
++        .map(|_| {
++            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++            ((s >> 11) as f64 / (1u64 << 53) as f64) * 2.0 - 1.0
++        })
++        .collect()
++}
++
++fn data_c(n: usize, seed: u64) -> Vec<Complex<f64>> {
++    let (re, im) = (data(n, seed), data(n, seed ^ 0x9e37_79b9));
++    re.iter().zip(&im).map(|(&x, &y)| Complex::new(x, (y + 1.0) / 2.0)).collect()
++}
++
++macro_rules! require_cuda {
++    () => {
++        if !std::panic::catch_unwind(funcs::is_available).unwrap_or(false) {
++            eprintln!("skipping: no CUDA device visible");
++            return;
++        }
++    };
++}
++
++type Cpu<T> = Tensor<T, DeviceCpuSerial, IxD>;
++
++/// A device tensor back on the host, contiguous.
++fn host<T: CudaDType + Copy>(t: &Tensor<T, DeviceCuda, IxD>) -> Vec<T> {
++    DeviceToCpuAPI::<T>::to_cpu_vec(t.to_contig(RowMajor).storage()).rstsr_unwrap()
++}
++
++/// A CPU tensor as one flat vector.
++fn host_cpu<T: Clone>(t: &Cpu<T>) -> Vec<T> {
++    let n: usize = t.shape().iter().product();
++    t.to_contig(RowMajor).view().into_shape([n]).to_owned().to_vec()
++}
++
++/// `a @ a.t()` on every path: the chain (the form first), the classic driver alone, and the chain
++/// without it; compared with the CPU device, in both orders. `a` is a row-strided view into a
++/// larger buffer (so the offset is not the buffer base).
++fn syrk_views<S: CudaDType + CudaMatMulMode + Copy + Clone + Send + Sync + 'static + num::Zero + num::One>(
++    what: &str,
++    close: fn(S, S) -> bool,
++    mk: fn(Vec<Complex<f64>>) -> Vec<S>,
++) {
++    require_cuda!();
++    let (n, k) = (37usize, 53usize);
++    let v = data_c(4 * n * k, 7);
++    // the reference is row-major on the CPU; the device operand takes the order's own layout
++    let dcpu = DeviceCpuSerial::default();
++    let cpu_big: Cpu<S> = rt::asarray((mk(v.clone()), &dcpu)).into_shape([2 * n, 2 * k]);
++    let cpu_a = cpu_big.i(s![..n, ..k]).to_owned();
++    let want_t = rt::matmul(&cpu_a, cpu_a.t());
++    let (want_shape, want) = (want_t.shape().to_vec(), host_cpu(&want_t));
++    for order in [RowMajor, ColMajor] {
++        for drivers in [MatMulDrivers::all(), MatMulDrivers::CUBLAS, MatMulDrivers::all().minus(MatMulDrivers::CUBLAS)]
++        {
++            let mut flags = CudaRuntimeFlags::default();
++            flags.matmul_drivers = drivers;
++            let mut d = DeviceCuda::new(0).with_flags(flags);
++            let big: Tensor<S, DeviceCuda, IxD> = rt::asarray((mk(v.clone()), &d)).into_shape([2 * n, 2 * k]);
++            // a view inside a larger buffer, so the offset is not the buffer base
++            let a = big.i(s![..n, ..k]).to_contig(order).to_owned();
++            d.set_default_order(order);
++            let got = rt::matmul(&a, a.t());
++            assert_eq!(got.shape(), &want_shape[..], "{what}, {order:?}, {drivers:?}");
++            let got = host(&got);
++            for (x, y) in got.iter().zip(&want) {
++                assert!(close(*x, *y), "{what}, {order:?}, {drivers:?}: {x:?} vs {y:?}");
++            }
++        }
++    }
++}
++
++#[test]
++fn syrk_f64() {
++    syrk_views::<f64>(
++        "f64",
++        |x, y| (x - y).abs() <= 1e-12 * (1.0 + y.abs()),
++        |v| v.into_iter().map(|z| z.re).collect(),
++    );
++}
++
++#[test]
++fn syrk_c32() {
++    syrk_views::<Complex<f32>>(
++        "c32",
++        |x, y| (x - y).norm() <= 1e-5 * (1.0 + y.norm()),
++        |v| v.into_iter().map(|z| Complex::new(z.re as f32, z.im as f32)).collect(),
++    );
++}
++
++#[test]
++fn syrk_c64() {
++    syrk_views::<Complex<f64>>("c64", |x, y| (x - y).norm() <= 1e-12 * (1.0 + y.norm()), |v| v);
++}
++
++/// The cases the form must leave alone give the same symmetric (or not) matrix through the gemm
++/// chain: `beta != 0`, the conjugate transpose, a copy of the transpose, a batch, and a stepped
++/// operand.
++#[test]
++fn syrk_look_alikes_take_the_chain() {
++    require_cuda!();
++    let (n, k, p) = (12usize, 20usize, 3usize);
++    let v = data_c(n * k, 11);
++    // the references are row-major on the CPU; the device operands take the order's own layout
++    let dcpu = DeviceCpuSerial::default();
++    for order in [RowMajor, ColMajor] {
++        let mut d = DeviceCuda::new(0);
++        d.set_default_order(order);
++        // `asarray` lays data out in the device's default order: give it that flattening
++        let flat = |dims: &[usize], x: &[Complex<f64>]| -> Vec<Complex<f64>> {
++            if order == RowMajor {
++                return x.to_vec();
++            }
++            let mut out = vec![Complex::new(0.0, 0.0); x.len()];
++            for (pos, _) in x.iter().enumerate() {
++                let (mut idx, mut rem) = (0, pos);
++                for &dim in dims.iter().rev() {
++                    let (q, r) = (rem / dim, rem % dim);
++                    rem = q;
++                    idx = idx * dim + r;
++                }
++                out[idx] = x[pos];
++            }
++            out
++        };
++        let cpu: Cpu<Complex<f64>> = rt::asarray((v.clone(), &dcpu)).into_shape([n, k]);
++        let vc: Vec<Complex<f64>> = v.iter().map(|z| z.conj()).collect();
++        let cpu_ah: Cpu<Complex<f64>> = rt::asarray((vc.clone(), &dcpu)).into_shape([n, k]);
++        let ah: Tensor<Complex<f64>, DeviceCuda, IxD> = rt::asarray((flat(&[n, k], &vc), &d)).into_shape([n, k]);
++        let a: Tensor<Complex<f64>, DeviceCuda, IxD> = rt::asarray((flat(&[n, k], &v), &d)).into_shape([n, k]);
++        let cp = |t: &Tensor<Complex<f64>, DeviceCuda, IxD>, w: &Cpu<Complex<f64>>, what: &str| {
++            let (got, want) = (host(t), host_cpu(w));
++            for (x, y) in got.iter().zip(&want) {
++                assert!((x - y).norm() <= 1e-12 * (1.0 + y.norm()), "{what}, {order:?}: {x} vs {y}");
++            }
++        };
++
++        // beta != 0: into a caller's (non-symmetric) output
++        let (w, g) = (data_c(n * n, 5), data_c(n * n, 5));
++        let mut w: Cpu<Complex<f64>> = rt::asarray((w, &dcpu)).into_shape([n, n]);
++        let mut g: Tensor<Complex<f64>, DeviceCuda, IxD> = rt::asarray((flat(&[n, n], &g), &d)).into_shape([n, n]);
++        rt::matmul_from(&mut w, &cpu, cpu.t(), Complex::new(2.0, 0.0), Complex::new(3.0, 0.0));
++        rt::matmul_from(&mut g, &a, a.t(), Complex::new(2.0, 0.0), Complex::new(3.0, 0.0));
++        cp(&g, &w, "beta != 0");
++
++        // the conjugate transpose: `conj(a)` stored as its own tensor, then transposed
++        cp(&rt::matmul(&a, ah.t()), &rt::matmul(&cpu, cpu_ah.t()), "a @ a.h()");
++
++        // a copy of the transpose in another buffer
++        let (w, g) = (data_c(n * k, 9), data_c(n * k, 9));
++        let w: Cpu<Complex<f64>> = rt::asarray((w, &dcpu)).into_shape([k, n]);
++        let g: Tensor<Complex<f64>, DeviceCuda, IxD> = rt::asarray((flat(&[k, n], &g), &d)).into_shape([k, n]);
++        cp(&rt::matmul(&a, &g), &rt::matmul(&cpu, &w), "another buffer");
++
++        // a batch of symmetric products; the batch axis leads under row-major and trails under
++        // column-major, as the rule table has it
++        let vb = data_c(p * n * k, 13);
++        let wb: Cpu<Complex<f64>> = rt::asarray((vb.clone(), &dcpu)).into_shape([p, n, k]);
++        let want = rt::matmul(&wb, wb.transpose([0, 2, 1]));
++        let got: Tensor<Complex<f64>, DeviceCuda, IxD> = if order == RowMajor {
++            let a = rt::asarray((vb, &d)).into_shape([p, n, k]);
++            rt::matmul(&a, a.transpose([0, 2, 1]))
++        } else {
++            // logical (q, i, j) is stored at `i + j * n + q * n * k`
++            let mut flat = vec![Complex::new(0.0, 0.0); p * n * k];
++            for i in 0..n {
++                for j in 0..k {
++                    for q in 0..p {
++                        flat[i + j * n + q * n * k] = vb[q * n * k + i * k + j];
++                    }
++                }
++            }
++            let a = rt::asarray((flat, &d)).into_shape([n, k, p]);
++            let b = a.transpose([1, 0, 2]);
++            rt::matmul(&a, &b).transpose([2, 0, 1]).to_owned()
++        };
++        cp(&got, &want, "batched");
++
++        // a stepped operand: no unit stride anywhere, so no cuBLAS expression
++        let vs = data_c(4 * n * k, 17);
++        let ws: Cpu<Complex<f64>> = rt::asarray((vs.clone(), &dcpu)).into_shape([2 * n, 2 * k]);
++        let gs: Tensor<Complex<f64>, DeviceCuda, IxD> =
++            rt::asarray((flat(&[2 * n, 2 * k], &vs), &d)).into_shape([2 * n, 2 * k]);
++        let ws = ws.i(s![slice!(None, None, 2), slice!(None, None, 2)]).to_owned();
++        let gs = gs.i(s![slice!(None, None, 2), slice!(None, None, 2)]);
++        cp(&rt::matmul(&gs, gs.t()), &rt::matmul(&ws, ws.t()), "stepped");
++    }
++}
++
++/// Both sides of the `f32` size gate (`F32_MIN_N = 2048`), against the CPU device.
++#[test]
++fn syrk_f32_around_the_gate() {
++    require_cuda!();
++    let k = 48usize;
++    for n in [2047usize, 2048] {
++        let v = data(n * k, 7);
++        let mut dcpu = DeviceCpuSerial::default();
++        dcpu.set_default_order(RowMajor);
++        let w: Cpu<f32> = rt::asarray((v.iter().map(|&x| x as f32).collect::<Vec<_>>(), &dcpu)).into_shape([n, k]);
++        let want: Vec<f64> = host_cpu(&rt::matmul(&w, w.t())).into_iter().map(f64::from).collect();
++        let d = DeviceCuda::new(0);
++        let a: Tensor<f32, DeviceCuda, IxD> =
++            rt::asarray((v.iter().map(|&x| x as f32).collect::<Vec<_>>(), &d)).into_shape([n, k]);
++        let got = host(&rt::matmul(&a, a.t()));
++        for (x, y) in got.iter().zip(&want) {
++            assert!((f64::from(*x) - y).abs() <= 2e-5 * (1.0 + y.abs()), "f32, n = {n}: {x} vs {y}");
++        }
++    }
++}

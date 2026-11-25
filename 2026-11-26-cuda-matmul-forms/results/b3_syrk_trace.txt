@@ -1,0 +1,65 @@
+float : cublasLt -> ran
+  ^ f32, C, n = 511
+float : cublasLt -> ran
+  ^ f32, C, n = 512
+float : cublas (syrk) -> ran
+  ^ f32, C, n = 2048
+float : cublas (syrk) -> ran
+  ^ f32, C, n = 4096
+float : cublasLt -> ran
+  ^ f32, F, n = 511
+float : cublasLt -> ran
+  ^ f32, F, n = 512
+float : cublas (syrk) -> ran
+  ^ f32, F, n = 2048
+float : cublas (syrk) -> ran
+  ^ f32, F, n = 4096
+double : cublasLt -> ran
+  ^ f64, C, n = 511
+double : cublas (syrk) -> ran
+  ^ f64, C, n = 512
+double : cublas (syrk) -> ran
+  ^ f64, C, n = 2048
+double : cublas (syrk) -> ran
+  ^ f64, C, n = 4096
+double : cublasLt -> ran
+  ^ f64, F, n = 511
+double : cublas (syrk) -> ran
+  ^ f64, F, n = 512
+double : cublas (syrk) -> ran
+  ^ f64, F, n = 2048
+double : cublas (syrk) -> ran
+  ^ f64, F, n = 4096
+rstsr_c32 : cublasLt -> ran
+  ^ c32, C, n = 511
+rstsr_c32 : cublas (syrk) -> ran
+  ^ c32, C, n = 512
+rstsr_c32 : cublas (syrk) -> ran
+  ^ c32, C, n = 2048
+rstsr_c32 : cublas (syrk) -> ran
+  ^ c32, C, n = 4096
+rstsr_c32 : cublasLt -> ran
+  ^ c32, F, n = 511
+rstsr_c32 : cublas (syrk) -> ran
+  ^ c32, F, n = 512
+rstsr_c32 : cublas (syrk) -> ran
+  ^ c32, F, n = 2048
+rstsr_c32 : cublas (syrk) -> ran
+  ^ c32, F, n = 4096
+rstsr_c64 : cublasLt -> ran
+  ^ c64, C, n = 511
+rstsr_c64 : cublas (syrk) -> ran
+  ^ c64, C, n = 512
+rstsr_c64 : cublas (syrk) -> ran
+  ^ c64, C, n = 2048
+rstsr_c64 : cublas (syrk) -> ran
+  ^ c64, C, n = 4096
+rstsr_c64 : cublasLt -> ran
+  ^ c64, F, n = 511
+rstsr_c64 : cublas (syrk) -> ran
+  ^ c64, F, n = 512
+rstsr_c64 : cublas (syrk) -> ran
+  ^ c64, F, n = 2048
+rstsr_c64 : cublas (syrk) -> ran
+  ^ c64, F, n = 4096
+[exit 0]

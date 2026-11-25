@@ -1,0 +1,174 @@
+triple,shape,driver,median_ms,tflops
+f32 -> f32,square 2048,chain,1.2778,13.445
+f32 -> f32,square 2048,cublas_lt,1.3321,12.896
+f32 -> f32,square 2048,cublas_ex,1.3474,12.750
+f32 -> f32,square 2048,cublas,1.3673,12.565
+f32 -> f32,square 2048,tiled,3.3260,5.165
+f32 -> f32,square 512,chain,0.0318,8.429
+f32 -> f32,square 512,cublas_lt,0.0320,8.380
+f32 -> f32,square 512,cublas_ex,0.0320,8.397
+f32 -> f32,square 512,cublas,0.0320,8.383
+f32 -> f32,square 512,tiled,0.0645,4.162
+f32 -> f32,square 512,naive,0.2443,1.099
+f32 -> f32,tall-skinny 65536x64x64,chain,0.0714,7.519
+f32 -> f32,tall-skinny 65536x64x64,cublas_lt,0.0722,7.435
+f32 -> f32,tall-skinny 65536x64x64,cublas_ex,0.0704,7.628
+f32 -> f32,tall-skinny 65536x64x64,cublas,0.0740,7.252
+f32 -> f32,tall-skinny 65536x64x64,tiled,0.1181,4.547
+f32 -> f32,batch 256 x (256,256,256),chain,1.0740,7.998
+f32 -> f32,batch 256 x (256,256,256),cublas_lt,1.0673,8.048
+f32 -> f32,batch 256 x (256,256,256),cublas_ex,1.0735,8.002
+f32 -> f32,batch 256 x (256,256,256),cublas,1.0721,8.012
+f32 -> f32,batch 256 x (256,256,256),tiled,1.7085,5.028
+f64 -> f64,square 2048,chain,53.5825,0.321
+f64 -> f64,square 2048,cublas_lt,53.3580,0.322
+f64 -> f64,square 2048,cublas_ex,53.3609,0.322
+f64 -> f64,square 2048,cublas,53.3687,0.322
+f64 -> f64,square 2048,tiled,45.8342,0.375
+f64 -> f64,square 512,chain,0.8850,0.303
+f64 -> f64,square 512,cublas_lt,0.8852,0.303
+f64 -> f64,square 512,cublas_ex,0.8853,0.303
+f64 -> f64,square 512,cublas,0.8869,0.303
+f64 -> f64,square 512,tiled,0.7866,0.341
+f64 -> f64,square 512,naive,0.7472,0.359
+f64 -> f64,tall-skinny 65536x64x64,chain,1.7020,0.315
+f64 -> f64,tall-skinny 65536x64x64,cublas_lt,1.6963,0.316
+f64 -> f64,tall-skinny 65536x64x64,cublas_ex,1.7025,0.315
+f64 -> f64,tall-skinny 65536x64x64,cublas,1.7027,0.315
+f64 -> f64,tall-skinny 65536x64x64,tiled,1.4580,0.368
+f64 -> f64,batch 256 x (256,256,256),chain,25.5906,0.336
+f64 -> f64,batch 256 x (256,256,256),cublas_lt,25.5961,0.336
+f64 -> f64,batch 256 x (256,256,256),cublas_ex,25.5648,0.336
+f64 -> f64,batch 256 x (256,256,256),cublas,25.5543,0.336
+f64 -> f64,batch 256 x (256,256,256),tiled,22.6765,0.379
+c64 -> c64,square 2048,chain,163.3572,0.421
+c64 -> c64,square 2048,cublas_lt,163.3899,0.421
+c64 -> c64,square 2048,cublas_ex,202.5736,0.339
+c64 -> c64,square 2048,cublas,202.7335,0.339
+c64 -> c64,square 512,chain,2.8651,0.375
+c64 -> c64,square 512,cublas_lt,2.8670,0.375
+c64 -> c64,square 512,cublas_ex,2.9344,0.366
+c64 -> c64,square 512,cublas,2.9332,0.366
+c64 -> c64,square 512,naive,4.8058,0.223
+c64 -> c64,tall-skinny 65536x64x64,chain,5.3979,0.398
+c64 -> c64,tall-skinny 65536x64x64,cublas_lt,5.4017,0.398
+c64 -> c64,tall-skinny 65536x64x64,cublas_ex,6.6107,0.325
+c64 -> c64,tall-skinny 65536x64x64,cublas,6.5872,0.326
+c64 -> c64,batch 256 x (256,256,256),chain,87.0074,0.395
+c64 -> c64,batch 256 x (256,256,256),cublas_lt,86.6779,0.396
+c64 -> c64,batch 256 x (256,256,256),cublas_ex,103.8544,0.331
+c64 -> c64,batch 256 x (256,256,256),cublas,104.2134,0.330
+f16 -> f16,square 2048,chain,0.4053,42.392
+f16 -> f16,square 2048,cublas_lt,0.4017,42.768
+f16 -> f16,square 2048,cublas_ex,0.4117,41.729
+f16 -> f16,square 512,chain,0.0105,25.479
+f16 -> f16,square 512,cublas_lt,0.0106,25.429
+f16 -> f16,square 512,cublas_ex,0.0106,25.404
+f16 -> f16,square 512,naive,0.2195,1.223
+f16 -> f16,tall-skinny 65536x64x64,chain,0.0319,16.845
+f16 -> f16,tall-skinny 65536x64x64,cublas_lt,0.0321,16.734
+f16 -> f16,tall-skinny 65536x64x64,cublas_ex,0.0330,16.272
+f16 -> f16,batch 256 x (256,256,256),chain,0.2980,28.824
+f16 -> f16,batch 256 x (256,256,256),cublas_lt,0.2988,28.751
+f16 -> f16,batch 256 x (256,256,256),cublas_ex,0.3002,28.610
+f16 -> f32,square 2048,chain,0.4109,41.806
+f16 -> f32,square 2048,cublas_lt,0.4308,39.875
+f16 -> f32,square 2048,cublas_ex,0.4338,39.606
+f16 -> f32,square 512,chain,0.0106,25.278
+f16 -> f32,square 512,cublas_lt,0.0106,25.386
+f16 -> f32,square 512,cublas_ex,0.0105,25.460
+f16 -> f32,square 512,naive,0.2221,1.209
+f16 -> f32,tall-skinny 65536x64x64,chain,0.0379,14.158
+f16 -> f32,tall-skinny 65536x64x64,cublas_lt,0.0382,14.039
+f16 -> f32,tall-skinny 65536x64x64,cublas_ex,0.0397,13.512
+f16 -> f32,batch 256 x (256,256,256),chain,0.4161,20.642
+f16 -> f32,batch 256 x (256,256,256),cublas_lt,0.4166,20.618
+f16 -> f32,batch 256 x (256,256,256),cublas_ex,0.4176,20.568
+
+| triple | shape | driver | ms | TFLOP/s |
+|---|---|---|---|---|
+| f32 -> f32 | square 2048 | chain | 1.2778 | 13.45 |
+| f32 -> f32 | square 2048 | cublas_lt | 1.3321 | 12.90 |
+| f32 -> f32 | square 2048 | cublas_ex | 1.3474 | 12.75 |
+| f32 -> f32 | square 2048 | cublas | 1.3673 | 12.56 |
+| f32 -> f32 | square 2048 | tiled | 3.3260 | 5.17 |
+| f32 -> f32 | square 512 | chain | 0.0318 | 8.43 |
+| f32 -> f32 | square 512 | cublas_lt | 0.0320 | 8.38 |
+| f32 -> f32 | square 512 | cublas_ex | 0.0320 | 8.40 |
+| f32 -> f32 | square 512 | cublas | 0.0320 | 8.38 |
+| f32 -> f32 | square 512 | tiled | 0.0645 | 4.16 |
+| f32 -> f32 | square 512 | naive | 0.2443 | 1.10 |
+| f32 -> f32 | tall-skinny 65536x64x64 | chain | 0.0714 | 7.52 |
+| f32 -> f32 | tall-skinny 65536x64x64 | cublas_lt | 0.0722 | 7.44 |
+| f32 -> f32 | tall-skinny 65536x64x64 | cublas_ex | 0.0704 | 7.63 |
+| f32 -> f32 | tall-skinny 65536x64x64 | cublas | 0.0740 | 7.25 |
+| f32 -> f32 | tall-skinny 65536x64x64 | tiled | 0.1181 | 4.55 |
+| f32 -> f32 | batch 256 x (256,256,256) | chain | 1.0740 | 8.00 |
+| f32 -> f32 | batch 256 x (256,256,256) | cublas_lt | 1.0673 | 8.05 |
+| f32 -> f32 | batch 256 x (256,256,256) | cublas_ex | 1.0735 | 8.00 |
+| f32 -> f32 | batch 256 x (256,256,256) | cublas | 1.0721 | 8.01 |
+| f32 -> f32 | batch 256 x (256,256,256) | tiled | 1.7085 | 5.03 |
+| f64 -> f64 | square 2048 | chain | 53.5825 | 0.32 |
+| f64 -> f64 | square 2048 | cublas_lt | 53.3580 | 0.32 |
+| f64 -> f64 | square 2048 | cublas_ex | 53.3609 | 0.32 |
+| f64 -> f64 | square 2048 | cublas | 53.3687 | 0.32 |
+| f64 -> f64 | square 2048 | tiled | 45.8342 | 0.37 |
+| f64 -> f64 | square 512 | chain | 0.8850 | 0.30 |
+| f64 -> f64 | square 512 | cublas_lt | 0.8852 | 0.30 |
+| f64 -> f64 | square 512 | cublas_ex | 0.8853 | 0.30 |
+| f64 -> f64 | square 512 | cublas | 0.8869 | 0.30 |
+| f64 -> f64 | square 512 | tiled | 0.7866 | 0.34 |
+| f64 -> f64 | square 512 | naive | 0.7472 | 0.36 |
+| f64 -> f64 | tall-skinny 65536x64x64 | chain | 1.7020 | 0.32 |
+| f64 -> f64 | tall-skinny 65536x64x64 | cublas_lt | 1.6963 | 0.32 |
+| f64 -> f64 | tall-skinny 65536x64x64 | cublas_ex | 1.7025 | 0.32 |
+| f64 -> f64 | tall-skinny 65536x64x64 | cublas | 1.7027 | 0.32 |
+| f64 -> f64 | tall-skinny 65536x64x64 | tiled | 1.4580 | 0.37 |
+| f64 -> f64 | batch 256 x (256,256,256) | chain | 25.5906 | 0.34 |
+| f64 -> f64 | batch 256 x (256,256,256) | cublas_lt | 25.5961 | 0.34 |
+| f64 -> f64 | batch 256 x (256,256,256) | cublas_ex | 25.5648 | 0.34 |
+| f64 -> f64 | batch 256 x (256,256,256) | cublas | 25.5543 | 0.34 |
+| f64 -> f64 | batch 256 x (256,256,256) | tiled | 22.6765 | 0.38 |
+| c64 -> c64 | square 2048 | chain | 163.3572 | 0.42 |
+| c64 -> c64 | square 2048 | cublas_lt | 163.3899 | 0.42 |
+| c64 -> c64 | square 2048 | cublas_ex | 202.5736 | 0.34 |
+| c64 -> c64 | square 2048 | cublas | 202.7335 | 0.34 |
+| c64 -> c64 | square 512 | chain | 2.8651 | 0.37 |
+| c64 -> c64 | square 512 | cublas_lt | 2.8670 | 0.37 |
+| c64 -> c64 | square 512 | cublas_ex | 2.9344 | 0.37 |
+| c64 -> c64 | square 512 | cublas | 2.9332 | 0.37 |
+| c64 -> c64 | square 512 | naive | 4.8058 | 0.22 |
+| c64 -> c64 | tall-skinny 65536x64x64 | chain | 5.3979 | 0.40 |
+| c64 -> c64 | tall-skinny 65536x64x64 | cublas_lt | 5.4017 | 0.40 |
+| c64 -> c64 | tall-skinny 65536x64x64 | cublas_ex | 6.6107 | 0.32 |
+| c64 -> c64 | tall-skinny 65536x64x64 | cublas | 6.5872 | 0.33 |
+| c64 -> c64 | batch 256 x (256,256,256) | chain | 87.0074 | 0.39 |
+| c64 -> c64 | batch 256 x (256,256,256) | cublas_lt | 86.6779 | 0.40 |
+| c64 -> c64 | batch 256 x (256,256,256) | cublas_ex | 103.8544 | 0.33 |
+| c64 -> c64 | batch 256 x (256,256,256) | cublas | 104.2134 | 0.33 |
+| f16 -> f16 | square 2048 | chain | 0.4053 | 42.39 |
+| f16 -> f16 | square 2048 | cublas_lt | 0.4017 | 42.77 |
+| f16 -> f16 | square 2048 | cublas_ex | 0.4117 | 41.73 |
+| f16 -> f16 | square 512 | chain | 0.0105 | 25.48 |
+| f16 -> f16 | square 512 | cublas_lt | 0.0106 | 25.43 |
+| f16 -> f16 | square 512 | cublas_ex | 0.0106 | 25.40 |
+| f16 -> f16 | square 512 | naive | 0.2195 | 1.22 |
+| f16 -> f16 | tall-skinny 65536x64x64 | chain | 0.0319 | 16.84 |
+| f16 -> f16 | tall-skinny 65536x64x64 | cublas_lt | 0.0321 | 16.73 |
+| f16 -> f16 | tall-skinny 65536x64x64 | cublas_ex | 0.0330 | 16.27 |
+| f16 -> f16 | batch 256 x (256,256,256) | chain | 0.2980 | 28.82 |
+| f16 -> f16 | batch 256 x (256,256,256) | cublas_lt | 0.2988 | 28.75 |
+| f16 -> f16 | batch 256 x (256,256,256) | cublas_ex | 0.3002 | 28.61 |
+| f16 -> f32 | square 2048 | chain | 0.4109 | 41.81 |
+| f16 -> f32 | square 2048 | cublas_lt | 0.4308 | 39.87 |
+| f16 -> f32 | square 2048 | cublas_ex | 0.4338 | 39.61 |
+| f16 -> f32 | square 512 | chain | 0.0106 | 25.28 |
+| f16 -> f32 | square 512 | cublas_lt | 0.0106 | 25.39 |
+| f16 -> f32 | square 512 | cublas_ex | 0.0105 | 25.46 |
+| f16 -> f32 | square 512 | naive | 0.2221 | 1.21 |
+| f16 -> f32 | tall-skinny 65536x64x64 | chain | 0.0379 | 14.16 |
+| f16 -> f32 | tall-skinny 65536x64x64 | cublas_lt | 0.0382 | 14.04 |
+| f16 -> f32 | tall-skinny 65536x64x64 | cublas_ex | 0.0397 | 13.51 |
+| f16 -> f32 | batch 256 x (256,256,256) | chain | 0.4161 | 20.64 |
+| f16 -> f32 | batch 256 x (256,256,256) | cublas_lt | 0.4166 | 20.62 |
+| f16 -> f32 | batch 256 x (256,256,256) | cublas_ex | 0.4176 | 20.57 |

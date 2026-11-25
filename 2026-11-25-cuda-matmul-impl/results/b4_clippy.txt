@@ -1,0 +1,30 @@
+warning: unnecessary closure used to substitute value for `Option::None`
+  --> rstsr-core/src/device_faer/matmul_impl.rs:32:20
+   |
+32 |     let nthreads = pool.map_or_else(|| 1, |pool| pool.current_num_threads());
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://clippy.rust-lang.org/main/index.html#unnecessary_lazy_evaluations
+   = note: `#[warn(clippy::unnecessary_lazy_evaluations)]` on by default
+--
+warning: unnecessary closure used to substitute value for `Option::None`
+   --> rstsr-core/src/device_faer/matmul_impl.rs:129:20
+    |
+129 |     let nthreads = pool.map_or_else(|| 1, |pool| pool.current_num_threads());
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#unnecessary_lazy_evaluations
+help: use `map_or` instead
+--
+warning: unnecessary closure used to substitute value for `Option::None`
+   --> rstsr-core/src/device_faer/matmul_impl.rs:227:20
+    |
+227 |     let nthreads = pool.map_or_else(|| 1, |pool| pool.current_num_threads());
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#unnecessary_lazy_evaluations
+help: use `map_or` instead
+--
+warning: `rstsr-core` (lib) generated 3 warnings (run `cargo clippy --fix --lib -p rstsr-core -- ` to apply 3 suggestions)
+    Checking rstsr-cuda v0.10.3 (/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.05s

@@ -1,0 +1,167 @@
+   Compiling rstsr-cuda v0.10.3 (/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda)
+warning: unused variable: `what`
+   --> crates-device/rstsr-cuda/src/kernels/gemm.rs:200:70
+    |
+200 | fn lane_axis(s_other: isize, s_k: isize, n_other: usize, n_k: usize, what: &str) -> Result<LaneAxis> {
+    |                                                                      ^^^^ help: if this is intentional, prefix it with an underscore: `_what`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `rstsr-cuda` (lib) generated 1 warning (run `cargo fix --lib -p rstsr-cuda` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.73s
+     Running tests/test_matmul_tiled_check.rs (target/debug/build/rstsr-cuda/1cb61979cf5c82fe/out/test_matmul_tiled_check-1cb61979cf5c82fe)
+
+running 18 tests
+test t_f32::batched_and_broadcast_batch ...   ok       batched [p]
+  ok       a unbatched [m,k] @ [p,k,n]
+  ok       b unbatched [p,m,k] @ [k,n]
+  ok       rank-4 batched [p,q]
+  REFUSED  batch broadcast [p,1] vs [1,q]: Error { inner: UnImplemented("crates-device/rstsr-cuda/src/kernels/gemm.rs:316: Error::UnImplemented : cuda matmul: the batch part of a is not one linear run (s
+  ok       explicit [1,m,k] @ [p,k,n]
+  ok       batch block not leading
+  ok       stepped batch
+ok
+test t_f32::col_major ...   (col-major a strides [1, 20, 240])
+  ok       col batched [m,k,p] @ [k,n,p]
+  ok       col a unbatched [m,k] @ [k,n,p]
+  ok       col transposed a: [k,m,p] @ [m,n,p]
+  ok       col transposed b: [m,k,p] @ [k,n,p] from [n,k,p]
+  ok       col b unbatched [m,k,p] @ [k,n]
+  ok       col a unbatched-batch [m,k] @ [k,n,p]
+ok
+test t_f32::contiguous_and_tile_edges ...   ok       contiguous 64x64x64
+  ok       contiguous 65x65x65
+  ok       contiguous 1x1x1
+  ok       contiguous 1x37x1
+  ok       contiguous 17x33x5
+  ok       contiguous 130x70x129
+ok
+test t_f32::negative_strides ...   ok       a flipped on m
+  ok       a flipped on k
+  ok       b flipped on k
+  ok       b flipped on n
+  ok       a.flip(1) @ b.flip(0)
+  ok       a0.transpose(1,0).flip(0) @ b (unit stride -1)
+ok
+test t_f32::refusals_are_errors ... 
+thread 't_f32::refusals_are_errors' (66404) panicked at crates-device/rstsr-cuda/tests/test_matmul_tiled_check.rs:297:1:
+called `Result::unwrap_err()` on an `Ok` value: 
+=== Debug Tensor Print ===
+[[ -15.0 -44.0 35.0 ... -12.0 9.0 -19.0]
+ [ -11.0 -45.0 28.0 ... -15.0 6.0 11.0]
+ [ -3.0 -16.0 13.0 ... 16.0 17.0 -32.0]
+ ...
+ [ -14.0 7.0 42.0 ... 16.0 -10.0 -37.0]
+ [ -19.0 8.0 -14.0 ... -16.0 -24.0 49.0]
+ [ 42.0 -50.0 6.0 ... -44.0 19.0 6.0]]
+DeviceCuda { ordinal: CudaOrdinalObj { ordinal: 0 }, stream: CudaStreamObj { stream: CudaStream { cu_stream: 0xccc596179f0, ctx: CudaContext { cu_device: 0, cu_ctx: 0xccc58021ae0, ordinal: 0, has_async_alloc: true, is_primary: true, num_streams: 1, event_tracking: true, error_state: 0 }, owned: true }, ordinal: 0, cublas_slot: OnceLock(<uninit>) }, flags: None, default_order: C }
+2-Dim (dyn), contiguous: Cc
+shape: [20, 12], stride: [12, 1], offset: 0
+Type: rstsr_core::tensorbase::TensorBase<rstsr_core::storage::device::Storage<rstsr_core::storage::data::DataOwned<rstsr_cuda::buffer::CudaBuffer<f32>>, f32, rstsr_cuda::device::DeviceCuda>, alloc::vec::Vec<usize>>
+==========================
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test t_f32::stepped_operands ...   ok       a stepped on m
+  ok       b stepped on k
+  ok       both stepped on outer axes
+  ok       a stepped on k
+  ok       b stepped on n
+ok
+test t_f32::strided_output_matmul_from ...   ok       c stepped on n, beta != 0
+  ok       c stepped on n, beta = 0
+  ok       c flipped on m, beta != 0
+  ok       c flipped on n, beta != 0
+  ok       c contiguous, beta != 0
+ok
+test t_f32::transposed_operands ...   ok       a transposed
+  ok       b transposed
+  ok       both transposed
+ok
+test t_f32::zero_strides ...   (broadcast a rows strides [0, 1], b cols strides [1, 0])
+  ok       a rows broadcast
+  ok       b cols broadcast
+  ok       both broadcast
+  ok       a scalar broadcast
+ok
+test t_f64::batched_and_broadcast_batch ...   ok       batched [p]
+  ok       a unbatched [m,k] @ [p,k,n]
+  ok       b unbatched [p,m,k] @ [k,n]
+  ok       rank-4 batched [p,q]
+  REFUSED  batch broadcast [p,1] vs [1,q]: Error { inner: UnImplemented("crates-device/rstsr-cuda/src/kernels/gemm.rs:316: Error::UnImplemented : cuda matmul: the batch part of a is not one linear run (s
+  ok       explicit [1,m,k] @ [p,k,n]
+  ok       batch block not leading
+  ok       stepped batch
+ok
+test t_f64::col_major ...   (col-major a strides [1, 20, 240])
+  ok       col batched [m,k,p] @ [k,n,p]
+  ok       col a unbatched [m,k] @ [k,n,p]
+  ok       col transposed a: [k,m,p] @ [m,n,p]
+  ok       col transposed b: [m,k,p] @ [k,n,p] from [n,k,p]
+  ok       col b unbatched [m,k,p] @ [k,n]
+  ok       col a unbatched-batch [m,k] @ [k,n,p]
+ok
+test t_f64::contiguous_and_tile_edges ...   ok       contiguous 64x64x64
+  ok       contiguous 65x65x65
+  ok       contiguous 1x1x1
+  ok       contiguous 1x37x1
+  ok       contiguous 17x33x5
+  ok       contiguous 130x70x129
+ok
+test t_f64::negative_strides ...   ok       a flipped on m
+  ok       a flipped on k
+  ok       b flipped on k
+  ok       b flipped on n
+  ok       a.flip(1) @ b.flip(0)
+  ok       a0.transpose(1,0).flip(0) @ b (unit stride -1)
+ok
+test t_f64::refusals_are_errors ... 
+thread 't_f64::refusals_are_errors' (66534) panicked at crates-device/rstsr-cuda/tests/test_matmul_tiled_check.rs:296:1:
+called `Result::unwrap_err()` on an `Ok` value: 
+=== Debug Tensor Print ===
+[[ -15.0 -44.0 35.0 ... -12.0 9.0 -19.0]
+ [ -11.0 -45.0 28.0 ... -15.0 6.0 11.0]
+ [ -3.0 -16.0 13.0 ... 16.0 17.0 -32.0]
+ ...
+ [ -14.0 7.0 42.0 ... 16.0 -10.0 -37.0]
+ [ -19.0 8.0 -14.0 ... -16.0 -24.0 49.0]
+ [ 42.0 -50.0 6.0 ... -44.0 19.0 6.0]]
+DeviceCuda { ordinal: CudaOrdinalObj { ordinal: 0 }, stream: CudaStreamObj { stream: CudaStream { cu_stream: 0xccc58dfe410, ctx: CudaContext { cu_device: 0, cu_ctx: 0xccc58021ae0, ordinal: 0, has_async_alloc: true, is_primary: true, num_streams: 1, event_tracking: true, error_state: 0 }, owned: true }, ordinal: 0, cublas_slot: OnceLock(<uninit>) }, flags: None, default_order: C }
+2-Dim (dyn), contiguous: Cc
+shape: [20, 12], stride: [12, 1], offset: 0
+Type: rstsr_core::tensorbase::TensorBase<rstsr_core::storage::device::Storage<rstsr_core::storage::data::DataOwned<rstsr_cuda::buffer::CudaBuffer<f64>>, f64, rstsr_cuda::device::DeviceCuda>, alloc::vec::Vec<usize>>
+==========================
+
+FAILED
+test t_f64::stepped_operands ...   ok       a stepped on m
+  ok       b stepped on k
+  ok       both stepped on outer axes
+  ok       a stepped on k
+  ok       b stepped on n
+ok
+test t_f64::strided_output_matmul_from ...   ok       c stepped on n, beta != 0
+  ok       c stepped on n, beta = 0
+  ok       c flipped on m, beta != 0
+  ok       c flipped on n, beta != 0
+  ok       c contiguous, beta != 0
+ok
+test t_f64::transposed_operands ...   ok       a transposed
+  ok       b transposed
+  ok       both transposed
+ok
+test t_f64::zero_strides ...   (broadcast a rows strides [0, 1], b cols strides [1, 0])
+  ok       a rows broadcast
+  ok       b cols broadcast
+  ok       both broadcast
+  ok       a scalar broadcast
+ok
+
+failures:
+
+failures:
+    t_f32::refusals_are_errors
+    t_f64::refusals_are_errors
+
+test result: FAILED. 16 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.52s
+
+error: test failed, to rerun pass `-p rstsr-cuda --test test_matmul_tiled_check`

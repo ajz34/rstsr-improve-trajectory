@@ -1,0 +1,6 @@
+      1 warning: `rstsr-core` (lib) generated 3 warnings (run `cargo clippy --fix --lib -p rstsr-core -- ` to apply 3 suggestions)
+      3 warning: unnecessary closure used to substitute value for `Option::None`
+exit: 0
+      1 warning: `rstsr-core` (lib) generated 3 warnings (run `cargo clippy --fix --lib -p rstsr-core -- ` to apply 3 suggestions)
+      3 warning: unnecessary closure used to substitute value for `Option::None`
+exit 12060: 0

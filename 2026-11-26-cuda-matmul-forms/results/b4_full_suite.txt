@@ -1,0 +1,305 @@
+   Compiling rstsr-cuda v0.10.3 (/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.02s
+     Running unittests src/lib.rs (target/debug/build/rstsr-cuda/48aa54070b2a64bd/out/rstsr_cuda-48aa54070b2a64bd)
+
+running 107 tests
+test adv_index_ops::tests::rest_shapes_must_match_off_the_axis ... ok
+test format::tests::touched_count_matches_walker_truncation ... ok
+test format::tests::touched_covers_offset_and_strides ... ok
+test format::tests::touched_zero_size_is_empty ... ok
+test kernel::tests::arch_numbers_compare_like_capabilities ... ok
+test kernel::tests::arch_override_accepts_only_compute_strings ... ok
+test kernels::adv_index::tests::kernels_render_completely ... ok
+test kernels::adv_index::tests::scatter_casts_through_the_shared_expression ... ok
+test kernels::plan::test::col_major_order_flips_decomposition ... ok
+test kernels::plan::test::contiguous_and_sliced_rows ... ok
+test kernels::plan::test::deep_rank_falls_back ... ok
+test kernels::plan::test::magic_division_matches_hardware ... ok
+test kernels::plan::test::narrow_magic_division_matches_hardware ... ok
+test kernels::plan::test::narrow_pack_bound_checks ... ok
+test kernels::plan::test::negative_stride_stays_parameterized ... ok
+test kernels::plan::test::pow2_uses_shift_sentinel ... ok
+test kernels::plan::test::shape1_axes_drop_to_flat ... ok
+test kernels::plan::test::transposed_and_broadcast ... ok
+test kernels::plan::test::widen_pack_rematches_wide_plan ... ok
+test kernels::reduce::tests::addresses_match_for_the_contiguous_contraction ... ok
+test kernels::reduce::tests::addresses_match_layout_index ... ok
+test kernels::reduce::tests::addresses_match_with_offset ... ok
+test kernels::reduce::tests::every_plan_the_classifier_emits_is_launchable ... ok
+test kernels::reduce::tests::thread_split_matches_block_geometry ... ok
+test kernels::reduce_arg::tests::every_token_is_substituted ... ok
+test kernels::reduce_arg::tests::logical_order_is_the_c_order ... ok
+test kernels::reduce_arg::tests::policies_match_the_cpu ... ok
+test kernels::reduce_arg::tests::rendered_source_is_complete ... ok
+test kernels::reduce_pair::tests::both_slots_use_one_operation ... ok
+test kernels::reduce_pair::tests::every_token_is_substituted ... ok
+test kernels::reduce_pair::tests::post_subtracts_the_squared_mean ... ok
+test kernels::reduce_pair::tests::second_slot_bodies_name_only_the_macro_parameters ... ok
+test kernels::reduce_pair::tests::std_is_the_root_of_var ... ok
+test kernels::reduce_plan::tests::block_run_reports_step_and_order ... ok
+test kernels::reduce_plan::tests::block_step_ignores_axis_order ... ok
+test kernels::reduce_plan::tests::column_major_contraction_is_admitted ... ok
+test kernels::reduce_plan::tests::contracted_run_escalates_lanes_to_fill_the_grid ... ok
+test kernels::reduce_plan::tests::contraction_requires_one_enumeration_order ... ok
+test kernels::reduce_plan::tests::empty_axes_is_a_copy ... ok
+test kernels::reduce_plan::tests::gapped_contraction_is_refused ... ok
+test kernels::reduce_plan::tests::multi_axis_contraction_is_one_run ... ok
+test kernels::reduce_plan::tests::multi_axis_output_is_one_run ... ok
+test kernels::reduce_plan::tests::non_contiguous_output_is_a_layout_error ... ok
+test kernels::reduce_plan::tests::one_gpu_case_per_lane_count ... ok
+test kernels::reduce_plan::tests::output_step_requires_shape_order ... ok
+test kernels::reduce_plan::tests::plan_invariants_hold ... ok
+test kernels::reduce_plan::tests::rank_zero_output_is_one_block ... ok
+test kernels::reduce_plan::tests::short_contraction_shrinks_lanes ... ok
+test kernels::reduce_plan::tests::starved_output_prefers_lanes ... ok
+test kernels::reduce_plan::tests::stepped_on_both_sides_is_refused ... ok
+test kernels::reduce_plan::tests::strided_multi_axis_output_is_planned ... ok
+test kernels::reduce_plan::tests::wide_output_is_thread_per_output ... ok
+test kernels::reduce_unary::tests::every_token_is_substituted_in_the_right_order ... ok
+test kernels::reduce_unary::tests::extremes_start_from_the_infinities ... ok
+test kernels::reduce_unary::tests::full_reduction_is_one_block ... ok
+test kernels::reduce_unary::tests::mean_divides_once_by_the_contraction ... ok
+test kernels::reduce_unary::tests::op_table_is_well_formed ... ok
+test kernels::reduce_unary::tests::unary_plan_ignores_the_second_operand ... ok
+test kernels::scan::tests::identities_are_neutral ... ok
+test kernels::scan::tests::rendered_source_is_complete ... ok
+test matmul::cublas_args::tests::batch_strides_are_element_counts ... ok
+test matmul::cublas_args::tests::declared_lds_reproduce_the_product ... ok
+test matmul::cublas_args::tests::degenerate_axes_are_clamped ... ok
+test matmul::cublas_args::tests::refusals_happen_at_the_earliest_stage ... ok
+test matmul::drivers::cublas::tests::math_modes_of_the_32f_family ... ok
+test matmul::drivers::cublas::tests::math_modes_of_the_64f_family ... ok
+test matmul::drivers::cublas::tests::unbound_math_modes_refuse ... ok
+test matmul::drivers::cublas_lt::tests::fixed_point_emulation_is_left_to_the_classic_driver ... ok
+test matmul::drivers::cublas_lt::tests::key_is_the_whole_problem ... ok
+test matmul::drivers::cublas_lt::tests::key_tells_the_storage_types_apart ... ok
+test matmul::drivers::cublas_lt::tests::pointers_follow_the_slots ... ok
+test matmul::drivers::cublas_lt::tests::retyped_enums_keep_their_values ... ok
+test matmul::drivers::cublas_lt::tests::stored_matrices_follow_the_declared_dimensions ... ok
+test matmul::drivers::naive::tests::accumulator_type ... ok
+test matmul::drivers::naive::tests::batch_arrays_pad_leading ... ok
+test matmul::drivers::naive::tests::casts ... ok
+test matmul::drivers::naive::tests::naive_scalar_coverage ... ok
+test matmul::drivers::syrk::tests::args_follow_the_operand_orientations ... ok
+test matmul::drivers::syrk::tests::stepped_layouts_are_refused ... ok
+test matmul::drivers::tests::chain_bounds ... ok
+test matmul::drivers::tests::driver_flags ... ok
+test matmul::drivers::tests::modes_the_triple_cannot_serve_resolve_to_default ... ok
+test matmul::drivers::tests::plan_by_type_triple ... ok
+test matmul::drivers::tests::plan_gemm_types_and_compute ... ok
+test matmul::drivers::tests::scales_are_aligned_for_cublas ... ok
+test matmul::drivers::tests::scales_of_the_output_type ... ok
+test matmul::drivers::tests::table_32f ... ok
+test matmul::drivers::tests::table_64f ... ok
+test matmul::drivers::tests::table_by_type_triple ... ok
+test matmul::drivers::tiled::tests::lane_axis_prefers_the_unit_stride ... ok
+test matmul::drivers::tiled::tests::tile_geometry_is_consistent ... ok
+test matmul::flags::tests::contains_is_a_subset_test ... ok
+test matmul::flags::tests::default_and_display ... ok
+test matmul::flags::tests::one_bit_per_driver ... ok
+test matmul::flags::tests::syrk_flag_by_output_type ... ok
+test matmul::geom::tests::affine_batches_are_linear ... ok
+test matmul::geom::tests::batch_step_is_one_matrix ... ok
+test matmul::geom::tests::caller_view_addresses_the_callers_elements ... ok
+test matmul::geom::tests::col_major_geom_swaps_roles_and_index_order ... ok
+test matmul::geom::tests::gapped_batches_are_refused ... ok
+test matmul::geom::tests::inner_dot_is_a_one_by_one_gemm ... ok
+test matmul::geom::tests::other_ranks_are_not_lifted ... ok
+test matmul::geom::tests::row_major_geom_matches_the_layouts ... ok
+test matmul::geom::tests::syrk_is_a_transposed_self_product ... ok
+test matmul::mode::tests::every_32f_mode_is_a_gemm_ex_compute_type ... ok
+test matmul::mode::tests::fixed_point_emulation_has_no_gemm_ex_compute_type ... ok
+test matmul::mode::tests::mode_read_from_the_family_field ... ok
+
+test result: ok. 107 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/test_device_basic.rs (target/debug/build/rstsr-cuda/b3f7f09be543627d/out/test_device_basic-b3f7f09be543627d)
+
+running 13 tests
+test allocator_valves ... ok
+test buffer_basics ... ok
+test creation_roundtrips ... ok
+test flags_resolution ... ok
+test format_matches_cpu ... ok
+test format_strided_views_match_cpu ... ok
+test format_truncates_every_axis ... ok
+test oom_is_typed_error ... ok
+test registry_identity ... ok
+test same_device_matrix ... ok
+test scalar_access ... ok
+test slice_and_ops_smoke ... ok
+test transfers_cuda_cpu ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.70s
+
+     Running tests/test_kernels.rs (target/debug/build/rstsr-cuda/ce81306247a8fbf1/out/test_kernels-ce81306247a8fbf1)
+
+running 54 tests
+test arange_linspace_values ... ok
+test arg_reductions_vs_cpu ... ok
+test arg_refuses_a_contraction_not_in_logical_order ... ok
+test assign_cast_pairs ... ok
+test assign_reshape_flatten_of_strided_view ... ok
+test assign_reshape_of_strided_view ... ok
+test assign_same_size_cast_pairs ... ok
+test assign_shape_change_on_col_major_device ... ok
+test assign_strided_view_sources ... ok
+test binary_arith_vs_cpu ... ok
+test compare_ops_vs_cpu ... ok
+test cross_stream_ordering_loop ... ok
+test cross_vs_cpu ... ok
+test cumulative_sum_prod_vs_cpu ... ok
+test elementwise_negative_stride ... ok
+test faer_to_cuda_and_back ... ok
+test fill_strided_and_full ... ok
+test foreign_stream_temporary_kernel_input_ordered ... ok
+test index_select_and_put_vs_cpu ... ok
+test inplace_after_stream_retag ... ok
+test linspace_endpoint_false_and_complex ... ok
+test matmul_batched_vs_cpu ... ok
+test matmul_col_major_vs_cpu ... ok
+test matmul_from_alpha_beta ... ok
+test matmul_from_several_threads_on_one_device ... ok
+test matmul_gemm22_vs_cpu ... ok
+test matmul_gemv_gevm_vs_cpu ... ok
+test matmul_transposed_operands ... ok
+test mixed_stream_assign ... ok
+test outer_vs_cpu ... ok
+test owned_binary_operands_vs_cpu ... ok
+test pow_vs_cpu ... ok
+test reduce_bool_family ... ok
+test reduce_dtype_accumulator ... ok
+test reduce_empty_identities ... ok
+test reduce_families_vs_cpu ... ok
+test reduce_min_max_nan_and_signed_zero ... ok
+test reduce_multi_axis_keepdims_and_whole ... ok
+test reduce_offset_view ... ok
+test reduce_prod_vs_cpu ... ok
+test reduce_sum_over_all_lane_counts ... ok
+test same_device_relaxed_streams ... ok
+test scalar_ops_and_inplace_unary ... ok
+test tensordot_col_major_vs_cpu ... ok
+test tensordot_refuses_a_contraction_that_needs_a_pack ... ok
+test tensordot_views_only_vs_cpu ... ok
+test unary_float_vs_cpu ... ok
+test var_std_vs_cpu ... ok
+test var_std_with_dtype_vs_cpu ... ok
+test vecdot_all_lane_counts_exact ... ok
+test vecdot_all_lane_counts_vs_cpu ... ok
+test vecdot_multi_axis_output_vs_cpu ... ok
+test vecdot_offset_view ... ok
+test vecdot_refuses_unplannable_shapes ... ok
+
+test result: ok. 54 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.40s
+
+     Running tests/test_matmul_forms.rs (target/debug/build/rstsr-cuda/9afe18cdec40d466/out/test_matmul_forms-9afe18cdec40d466)
+
+running 6 tests
+test dot_mixed_large_and_shapes ... ok
+test syrk_c32 ... ok
+test syrk_c64 ... ok
+test syrk_f64 ... ok
+test syrk_follows_the_flag ... ok
+test syrk_look_alikes_take_the_chain ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.18s
+
+     Running tests/test_matmul_modes.rs (target/debug/build/rstsr-cuda/84e0fe5e57374195/out/test_matmul_modes-84e0fe5e57374195)
+
+running 10 tests
+test cublas_batched_and_transposed ... ok
+test cublas_lt_misaligned_views ... ok
+test fixedpoint_mantissa_bits ... ok
+test inner_dot ... ok
+test modes_32f ... ok
+test modes_64f ... ok
+test modes_complex ... ok
+test modes_half ... ok
+test tensor_level_modes ... ok
+test triple_layout_matrix ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.63s
+
+     Running tests/test_matmul_naive.rs (target/debug/build/rstsr-cuda/47252d3b0f69ac88/out/test_matmul_naive-47252d3b0f69ac88)
+
+running 9 tests
+test bf16_triples_on_naive ... ok
+test complex_triples ... ok
+test declined_layouts_run_on_naive ... ok
+test f16_inputs_into_f32_output ... ok
+test forced_driver_that_cannot_serve_is_an_error ... ok
+test integer_and_mixed_triples ... ok
+test naive_both_orders ... ok
+test naive_gemm22_vs_cpu ... ok
+test naive_matmul_from_strided_output ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.28s
+
+     Running tests/test_matmul_tiled.rs (target/debug/build/rstsr-cuda/0fcbaeedc171221d/out/test_matmul_tiled-0fcbaeedc171221d)
+
+running 5 tests
+test tiled_batched_vs_cpu ... ok
+test tiled_col_major_and_gemv_gevm ... ok
+test tiled_gemm22_vs_cpu ... ok
+test tiled_matmul_from_vs_cpu ... ok
+test tiled_transposed_operands ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.70s
+
+     Running tests/test_ops_wave.rs (target/debug/build/rstsr-cuda/8d07667314b2db26/out/test_ops_wave-8d07667314b2db26)
+
+running 26 tests
+test new_ops_complex_transcendentals ... ok
+test new_ops_layout_matrix ... ok
+test new_ops_promoting_binaries ... ok
+test new_ops_rem_bitwise_assign ... ok
+test new_ops_transpose_copy_tiled ... ok
+test new_ops_unary_semantics ... ok
+test regression_arange_parity ... ok
+test regression_bool_bitwise ... ok
+test regression_clip_paths ... ok
+test regression_col_major_transpose ... ok
+test regression_complex_arithmetic_and_edges ... ok
+test regression_complex_bool_cast_and_equality ... ok
+test regression_expm1_log1p_small_args ... ok
+test regression_fill_complex_half_and_half_compare ... ok
+test regression_fill_generic_rank5 ... ok
+test regression_inplace_not ... ok
+test regression_int_div_zero_contract ... ok
+test regression_integer_pow_negative_scalar_exponent ... ok
+test regression_integer_round_signbit ... ok
+test regression_launcher_geometry ... ok
+test regression_linspace_bitwise ... ok
+test regression_mixed_ext_arithmetic ... ok
+test regression_nan_payload_and_zero_ties ... ok
+test regression_query_and_unary_f32 ... ok
+test regression_where_strided_condition ... ok
+test regression_zero_length_host_read ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.39s
+
+     Running tests/test_pinned.rs (target/debug/build/rstsr-cuda/072deb36bf723ea0/out/test_pinned-072deb36bf723ea0)
+
+running 12 tests
+test drop_with_in_flight_d2h_is_safe ... ok
+test empty_pinned_buffer ... ok
+test event_orders_copy_behind_foreign_kernel ... ok
+test foreign_stream_temporary_source_ordered ... ok
+test noncontiguous_pinned_layout_transfers_byte_equal ... ok
+test pinned_buffer_roundtrip ... ok
+test pinned_cuda_roundtrip_default_and_side_stream ... ok
+test pinned_faer_host_view_on ... ok
+test pinned_host_views_read_write_and_cpu_ops ... ok
+test pipeline_three_streams_bitwise_equals_serial ... ok
+test stream_api_without_set_stream ... ok
+test synchronize_readiness ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.47s
+
+   Doc-tests rstsr_cuda
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[exit 0]

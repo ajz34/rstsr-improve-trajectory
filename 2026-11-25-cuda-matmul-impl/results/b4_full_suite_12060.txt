@@ -1,0 +1,17 @@
+     Running unittests src/lib.rs (target/debug/build/rstsr-cuda/48aa54070b2a64bd/out/rstsr_cuda-48aa54070b2a64bd)
+test result: ok. 97 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+     Running tests/test_device_basic.rs (target/debug/build/rstsr-cuda/b3f7f09be543627d/out/test_device_basic-b3f7f09be543627d)
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.69s
+     Running tests/test_kernels.rs (target/debug/build/rstsr-cuda/ce81306247a8fbf1/out/test_kernels-ce81306247a8fbf1)
+test result: ok. 55 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.44s
+     Running tests/test_matmul_modes.rs (target/debug/build/rstsr-cuda/84e0fe5e57374195/out/test_matmul_modes-84e0fe5e57374195)
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.15s
+     Running tests/test_matmul_naive.rs (target/debug/build/rstsr-cuda/47252d3b0f69ac88/out/test_matmul_naive-47252d3b0f69ac88)
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.17s
+     Running tests/test_matmul_tiled.rs (target/debug/build/rstsr-cuda/0fcbaeedc171221d/out/test_matmul_tiled-0fcbaeedc171221d)
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s
+     Running tests/test_ops_wave.rs (target/debug/build/rstsr-cuda/8d07667314b2db26/out/test_ops_wave-8d07667314b2db26)
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.45s
+     Running tests/test_pinned.rs (target/debug/build/rstsr-cuda/072deb36bf723ea0/out/test_pinned-072deb36bf723ea0)
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.37s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

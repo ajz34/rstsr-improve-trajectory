@@ -1,0 +1,9 @@
+
+## Batched gemv, f64 (p = 64, 1024 x 1024 per item)
+
+Correctness gate passed (raw strided-batched gemv vs a host loop, both cases).
+
+| rule | cuBLAS gemvStridedBatched (us) | chain: all | chain: Lt | chain: Ex | chain: cuBLAS | all / gemv |
+|---|---|---|---|---|---|---|
+| [p, m, k] @ [p, k, 1] | 1459.9 | 1455.2 | 1471.7 | 1455.6 | 1455.1 | 1.00 |
+| [p, m, k] @ [k] (broadcast) | 1455.1 | 1455.0 | 1455.0 | 1455.1 | 1455.1 | 1.00 |

@@ -1,0 +1,135 @@
+   Compiling rstsr-cuda v0.10.3 (/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.56s
+     Running tests/test_matmul_modes.rs (/scratch/rstsr_pack/rstsr/target/debug/build/rstsr-cuda/84e0fe5e57374195/out/test_matmul_modes-84e0fe5e57374195)
+
+running 8 tests
+test cublas_batched_and_transposed ... [rstsr-cuda matmul] double x double -> double 32x40x24 batch 4 mode Default: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 4 mode Default: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 4 mode Default: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 4 mode Default: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 4 mode Default: cublasEx -> ran
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 4 mode Default: cublasEx -> ran
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 4 mode Default: cublasEx -> ran
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 4 mode Default: cublasEx -> ran
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 4 mode Default: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 4 mode Default: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 4 mode Default: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 4 mode Default: cublas -> ran
+ok
+test cublas_lt_misaligned_views ... [rstsr-cuda matmul] double x double -> double 32x40x24 batch 1 mode Default: cublasLt -> ran
+  c before matches fixture: 1.962502147977567
+  cpu offset read-back matches: 1.962502147977567
+  cuda plain read-back matches: 0
+  before[0..3] = [-0.49356721041083107, -0.5653420017985866, -0.4982712146036201] v[0..3] = [-0.49356721041083107, -0.5653420017985866, -0.4982712146036201] v[1..4] = [-0.5653420017985866, -0.4982712146036201, -0.7481519882206149]
+  cpu back[0..3] = [-0.49356721041083107, -0.5653420017985866, -0.4982712146036201]
+  rel(before, v[0..]) = 0
+  want[0..3] = [-4.395219706624388, 2.80357270466102, 1.9101390981365134] cv[0..3] = [-0.5653420017985866, -0.4982712146036201, -0.7481519882206149]
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 1 mode Default: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 1 mode Default: cublasEx -> ran
+  c before matches fixture: 1.962502147977567
+  cpu offset read-back matches: 1.962502147977567
+  cuda plain read-back matches: 0
+  before[0..3] = [-0.49356721041083107, -0.5653420017985866, -0.4982712146036201] v[0..3] = [-0.49356721041083107, -0.5653420017985866, -0.4982712146036201] v[1..4] = [-0.5653420017985866, -0.4982712146036201, -0.7481519882206149]
+  cpu back[0..3] = [-0.49356721041083107, -0.5653420017985866, -0.4982712146036201]
+  rel(before, v[0..]) = 0
+  want[0..3] = [-4.395219706624388, 2.80357270466102, 1.9101390981365134] cv[0..3] = [-0.5653420017985866, -0.4982712146036201, -0.7481519882206149]
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 1 mode Default: cublasEx -> ran
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 1 mode Default: cublasLt -> ran
+  c before matches fixture: 1.962502147977567
+  cpu offset read-back matches: 1.962502147977567
+  cuda plain read-back matches: 0
+  before[0..3] = [-0.49356721041083107, -0.5653420017985866, -0.4982712146036201] v[0..3] = [-0.49356721041083107, -0.5653420017985866, -0.4982712146036201] v[1..4] = [-0.5653420017985866, -0.4982712146036201, -0.7481519882206149]
+  cpu back[0..3] = [-0.49356721041083107, -0.5653420017985866, -0.4982712146036201]
+  rel(before, v[0..]) = 0
+  want[0..3] = [-4.395219706624388, 2.80357270466102, 1.9101390981365134] cv[0..3] = [-0.5653420017985866, -0.4982712146036201, -0.7481519882206149]
+[rstsr-cuda matmul] double x double -> double 32x40x24 batch 1 mode Default: cublasLt -> ran
+ok
+test fixedpoint_mantissa_bits ... ok
+test modes_32f ...   [f32 default, cublasLt] max rel err 1.853e-7
+  [f32 default, cublasEx] max rel err 1.853e-7
+  [f32 default, chain] max rel err 1.853e-7
+  [f32 default, cublas] max rel err 1.853e-7
+  [f32 pedantic, cublasLt] max rel err 1.853e-7
+  [f32 pedantic, cublasEx] max rel err 1.853e-7
+  [f32 pedantic, chain] max rel err 1.853e-7
+  [f32 pedantic, cublas] max rel err 1.853e-7
+  [f32 fast tf32, cublasLt] max rel err 2.350e-4
+  [f32 fast tf32, cublasEx] max rel err 2.350e-4
+  [f32 fast tf32, chain] max rel err 2.350e-4
+  [f32 fast tf32, cublas] max rel err 2.350e-4
+  [f32 fast 16f, cublasLt] max rel err 2.350e-4
+  [f32 fast 16f, cublasEx] max rel err 2.350e-4
+  [f32 fast 16f, chain] max rel err 2.350e-4
+  [f32 fast 16f, cublas] max rel err 2.350e-4
+  [f32 fast 16bf, cublasLt] max rel err 2.350e-4
+  [f32 fast 16bf, cublasEx] max rel err 2.350e-4
+  [f32 fast 16bf, chain] max rel err 2.350e-4
+ok
+test modes_64f ...   [f64 default, cublasLt] max rel err 4.342e-16
+  [f64 default, cublasEx] max rel err 4.342e-16
+  [f64 default, chain] max rel err 4.342e-16
+  [f64 default, cublas] max rel err 4.342e-16
+  [f64 pedantic, cublasLt] max rel err 4.342e-16
+  [f64 pedantic, cublasEx] max rel err 4.342e-16
+  [f64 pedantic, chain] max rel err 4.342e-16
+  [f64 pedantic, cublas] max rel err 4.342e-16
+  [f64 fixed point, cublas] max rel err 4.342e-16
+  [f64 fixed point, chain] max rel err 4.342e-16
+ok
+test modes_complex ...   [c32 default, MatMulDrivers(cublasLt)] max rel err 1.978e-7
+  [c32 default, MatMulDrivers(cublasEx)] max rel err 1.978e-7
+  [c32 default, MatMulDrivers(cublas)] max rel err 1.978e-7
+  [c32 default, MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)] max rel err 1.978e-7
+  [c32 pedantic, MatMulDrivers(cublasLt)] max rel err 1.978e-7
+  [c32 pedantic, MatMulDrivers(cublasEx)] max rel err 1.978e-7
+  [c32 pedantic, MatMulDrivers(cublas)] max rel err 1.978e-7
+  [c32 pedantic, MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)] max rel err 1.978e-7
+  [c64 default, MatMulDrivers(cublasLt)] max rel err 3.621e-16
+  [c64 default, MatMulDrivers(cublasEx)] max rel err 3.621e-16
+  [c64 default, MatMulDrivers(cublas)] max rel err 3.621e-16
+  [c64 default, MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)] max rel err 3.621e-16
+  [c64 pedantic, MatMulDrivers(cublasLt)] max rel err 3.621e-16
+  [c64 pedantic, MatMulDrivers(cublasEx)] max rel err 3.621e-16
+  [c64 pedantic, MatMulDrivers(cublas)] max rel err 3.621e-16
+  [c64 pedantic, MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)] max rel err 3.621e-16
+  [c32 fast mode -> default, chain] max rel err 1.978e-7
+  [c32 fast mode -> default, chain] max rel err 1.978e-7
+  [c32 fast mode -> default, chain] max rel err 1.978e-7
+  [c64 fixed point -> default, chain] max rel err 3.621e-16
+ok
+test modes_half ...   [f16 -> f16 default, MatMulDrivers(cublasLt)] max rel err 3.550e-4
+  [f16 -> f16 default, MatMulDrivers(cublasEx)] max rel err 3.550e-4
+  [f16 -> f16 default, MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)] max rel err 3.550e-4
+  [f16 -> f16 pedantic, MatMulDrivers(cublasLt)] max rel err 3.550e-4
+  [f16 -> f16 pedantic, MatMulDrivers(cublasEx)] max rel err 3.550e-4
+  [f16 -> f16 pedantic, MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)] max rel err 3.550e-4
+  [f16 -> f16 acc16f, MatMulDrivers(cublasLt)] max rel err 6.413e-4
+  [f16 -> f16 acc16f, MatMulDrivers(cublasEx)] max rel err 6.413e-4
+  [f16 -> f16 acc16f, MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)] max rel err 6.413e-4
+  [f16 -> f32 default, MatMulDrivers(cublasLt)] max rel err 5.204e-7
+  [bf16 -> f32 default, MatMulDrivers(cublasLt)] max rel err 2.768e-7
+  [f16 -> f32 default, MatMulDrivers(cublasEx)] max rel err 5.204e-7
+  [bf16 -> f32 default, MatMulDrivers(cublasEx)] max rel err 2.768e-7
+  [f16 -> f32 default, MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)] max rel err 5.204e-7
+  [bf16 -> f32 default, MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)] max rel err 2.768e-7
+  [f16 -> f32 pedantic, MatMulDrivers(cublasLt)] max rel err 4.825e-7
+  [bf16 -> f32 pedantic, MatMulDrivers(cublasLt)] max rel err 1.521e-7
+  [f16 -> f32 pedantic, MatMulDrivers(cublasEx)] max rel err 4.825e-7
+  [bf16 -> f32 pedantic, MatMulDrivers(cublasEx)] max rel err 1.521e-7
+  [f16 -> f32 pedantic, MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)] max rel err 4.825e-7
+  [bf16 -> f32 pedantic, MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)] max rel err 1.521e-7
+  [bf16 -> bf16 default, MatMulDrivers(cublasLt)] max rel err 2.997e-3
+  [bf16 -> bf16 default, MatMulDrivers(cublasEx)] max rel err 2.997e-3
+  [bf16 -> bf16 default, MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)] max rel err 2.997e-3
+  [bf16 -> bf16 pedantic, MatMulDrivers(cublasLt)] max rel err 2.997e-3
+  [bf16 -> bf16 pedantic, MatMulDrivers(cublasEx)] max rel err 2.997e-3
+  [bf16 -> bf16 pedantic, MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)] max rel err 2.997e-3
+  [bf16 -> bf16 acc16f, MatMulDrivers(cublasLt)] max rel err 2.997e-3
+  [bf16 -> bf16 acc16f, MatMulDrivers(cublasEx)] max rel err 2.997e-3
+  [bf16 -> bf16 acc16f, MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive)] max rel err 2.997e-3
+  [f16 -> f32 fast tf32 -> default, chain] max rel err 5.204e-7
+ok
+test tensor_level_modes ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.23s
+

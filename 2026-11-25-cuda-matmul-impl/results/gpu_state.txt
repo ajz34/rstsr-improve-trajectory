@@ -1,0 +1,2 @@
+NVIDIA GeForce RTX 5070 Laptop GPU, 442 MHz, 405 MHz, 41, 7.08 W
+48, 46.04 W, 2737 MHz

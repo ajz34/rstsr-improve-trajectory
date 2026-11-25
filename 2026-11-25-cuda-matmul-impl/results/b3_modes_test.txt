@@ -1,0 +1,44 @@
+test cublas_ex_batched_and_transposed ... ok
+test fixedpoint_mantissa_bits ... ok
+test modes_32f ...   [f32 default, cublasEx] max rel err 1.853e-7
+  [f32 default, chain] max rel err 1.853e-7
+  [f32 default, cublas] max rel err 1.853e-7
+  [f32 pedantic, cublasEx] max rel err 1.853e-7
+  [f32 pedantic, chain] max rel err 1.853e-7
+  [f32 pedantic, cublas] max rel err 1.853e-7
+  [f32 fast tf32, cublasEx] max rel err 2.350e-4
+  [f32 fast tf32, chain] max rel err 2.350e-4
+  [f32 fast tf32, cublas] max rel err 2.350e-4
+  [f32 fast 16f, cublasEx] max rel err 2.350e-4
+  [f32 fast 16f, chain] max rel err 2.350e-4
+  [f32 fast 16f, cublas] max rel err 2.350e-4
+  [f32 fast 16bf, cublasEx] max rel err 2.350e-4
+  [f32 fast 16bf, chain] max rel err 2.350e-4
+test modes_64f ...   [f64 default, cublasEx] max rel err 4.342e-16
+  [f64 default, chain] max rel err 4.342e-16
+  [f64 default, cublas] max rel err 4.342e-16
+  [f64 pedantic, cublasEx] max rel err 4.342e-16
+  [f64 pedantic, chain] max rel err 4.342e-16
+  [f64 pedantic, cublas] max rel err 4.342e-16
+  [f64 fixed point, cublas] max rel err 4.342e-16
+  [f64 fixed point, chain] max rel err 4.342e-16
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.27s
+--- CUDARC_CUDA_VERSION=12060
+test cublas_ex_batched_and_transposed ... ok
+test fixedpoint_mantissa_bits ... ok
+test modes_32f ...   [f32 default, cublasEx] max rel err 1.853e-7
+  [f32 default, chain] max rel err 1.853e-7
+  [f32 default, cublas] max rel err 1.853e-7
+  [f32 pedantic, cublasEx] max rel err 1.853e-7
+  [f32 pedantic, chain] max rel err 1.853e-7
+  [f32 fast tf32, cublasEx] max rel err 2.350e-4
+  [f32 fast tf32, chain] max rel err 2.350e-4
+  [f32 fast 16f, cublasEx] max rel err 2.350e-4
+  [f32 fast 16f, chain] max rel err 2.350e-4
+  [f32 fast 16bf, cublasEx] max rel err 2.350e-4
+  [f32 fast 16bf, chain] max rel err 2.350e-4
+test modes_64f ...   [f64 default, cublasEx] max rel err 4.342e-16
+  [f64 default, chain] max rel err 4.342e-16
+  [f64 pedantic, cublasEx] max rel err 4.342e-16
+  [f64 pedantic, chain] max rel err 4.342e-16
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.99s

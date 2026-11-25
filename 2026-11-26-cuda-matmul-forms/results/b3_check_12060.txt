@@ -1,0 +1,4 @@
+   Compiling cudarc v0.19.10
+   Compiling rstsr-cuda v0.10.3 (/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.90s
+[exit 0]

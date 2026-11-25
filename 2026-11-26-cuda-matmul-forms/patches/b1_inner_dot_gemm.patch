@@ -1,0 +1,380 @@
+diff --git a/crates-device/rstsr-cuda/src/linalg.rs b/crates-device/rstsr-cuda/src/linalg.rs
+index dff0859..18aedb5 100644
+--- a/crates-device/rstsr-cuda/src/linalg.rs
++++ b/crates-device/rstsr-cuda/src/linalg.rs
+@@ -129,12 +129,11 @@ where
+ /// before it becomes the default. The refusal prints the three layouts, because "which block failed
+ /// to merge" is otherwise invisible.
+ ///
+-/// # One asymmetry with `matmul`, on purpose
++/// # The inner dot
+ ///
+-/// `matmul` refuses an inner dot ("single-axis contraction") and points at the reduce kernel;
+-/// no matmul driver is the reduce kernel. `tensordot` accepts it: the
+-/// planner yields `m = n = 1`, and cuBLAS runs a `1 x 1 x k` product without wasting anything. Same
+-/// arithmetic, and here the fast path is the one that is already correct.
++/// `tensordot` accepts an inner dot: the planner yields `m = n = 1`, and cuBLAS runs a
++/// `1 x 1 x k` product without wasting anything. `matmul` serves it the same way, by lifting
++/// `[k] @ [k]` to that product in its geometry.
+ ///
+ /// # What is refused for a different reason
+ ///
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs b/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs
+index 52de1fd..2d27818 100644
+--- a/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs
+@@ -19,7 +19,7 @@
+ 
+ use cudarc::cublas::sys;
+ 
+-use super::{scale, Buffers, CublasPlan, Problem, Refusal, Verdict};
++use super::{scale, AlignedScale, Buffers, CublasPlan, Problem, Refusal, Verdict};
+ use crate::dtype::CudaDType;
+ use crate::kernel::{order_input, order_output};
+ use crate::matmul::cublas_args;
+@@ -579,10 +579,11 @@ where
+     let (Some(alpha), Some(beta)) = (scale::<T, TC>(p.alpha), scale::<T, TC>(p.beta)) else {
+         return Ok(Verdict::Declined(Refusal::Cannot("the output type is not of the plan's family")));
+     };
++    let (alpha, beta) = (AlignedScale(alpha), AlignedScale(beta));
+     with_gemm_call(&u, p, |blas, args, ptrs| {
+         // SAFETY: the pointers are the buffers' bases folded with the layouts' own offsets, and
+         // `args` was derived from the same `geom` those offsets came from.
+-        let status = unsafe { launch::<T>(blas, args, math, &alpha, &beta, ptrs)? };
++        let status = unsafe { launch::<T>(blas, args, math, &alpha.0, &beta.0, ptrs)? };
+         Ok(status_verdict(status))
+     })
+ }
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/cublas_ex.rs b/crates-device/rstsr-cuda/src/matmul/drivers/cublas_ex.rs
+index 38f5957..7c21909 100644
+--- a/crates-device/rstsr-cuda/src/matmul/drivers/cublas_ex.rs
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/cublas_ex.rs
+@@ -12,7 +12,7 @@ use crate::dtype::CudaDType;
+ use cudarc::cublas::sys;
+ 
+ use super::cublas::{status_verdict, with_gemm_call};
+-use super::{scale, CublasPlan, Problem, Refusal, CublasGemmTypes, Verdict};
++use super::{scale, AlignedScale, CublasGemmTypes, CublasPlan, Problem, Refusal, Verdict};
+ use crate::matmul::cublas_args::CublasArgs;
+ use crate::matmul::mode::ComputeType16F;
+ use crate::prelude_dev::*;
+@@ -200,7 +200,8 @@ where
+         let _api = blas.lock();
+         // SAFETY: the pointers are the buffers' bases folded with the layouts' own offsets, and
+         // `args` was derived from the same `geom` those offsets came from.
+-        let status = unsafe { S::gemm_ex(*blas.blas().handle(), args, st, compute, &alpha, &beta, ptrs) };
++        let (alpha, beta) = (AlignedScale(alpha), AlignedScale(beta));
++        let status = unsafe { S::gemm_ex(*blas.blas().handle(), args, st, compute, &alpha.0, &beta.0, ptrs) };
+         Ok(status_verdict(status))
+     })
+ }
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/cublas_lt.rs b/crates-device/rstsr-cuda/src/matmul/drivers/cublas_lt.rs
+index 3aaa343..99873be 100644
+--- a/crates-device/rstsr-cuda/src/matmul/drivers/cublas_lt.rs
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/cublas_lt.rs
+@@ -27,7 +27,7 @@ use std::sync::{Arc, Mutex};
+ 
+ use super::cublas::{prepare, GemmCall, Served};
+ use super::cublas_ex::ExScalar;
+-use super::{scale, CublasPlan, Problem, Refusal, CublasGemmTypes, Verdict};
++use super::{scale, AlignedScale, CublasGemmTypes, CublasPlan, Problem, Refusal, Verdict};
+ use crate::matmul::cublas_args::CublasArgs;
+ use crate::matmul::mode::ComputeType16F;
+ use crate::prelude_dev::*;
+@@ -427,6 +427,7 @@ where
+     let (Some(alpha), Some(beta)) = (scale::<S, TC>(p.alpha), scale::<S, TC>(p.beta)) else {
+         return Ok(Verdict::Declined(Refusal::Cannot("the output type is not of the plan's family")));
+     };
++    let (alpha, beta) = (AlignedScale(alpha), AlignedScale(beta));
+     let (Some(st), Some(compute)) = (plan.gemm_types(), plan.compute()) else {
+         return Ok(Verdict::Declined(Refusal::Cannot("no cuBLAS problem for this type triple")));
+     };
+@@ -461,12 +462,12 @@ where
+         lt::cublasLtMatmul(
+             lt_state.handle,
+             e.desc,
+-            &alpha as *const S as *const c_void,
++            &alpha.0 as *const S as *const c_void,
+             ptr(ptr_a) as *const c_void,
+             e.layouts[0],
+             ptr(ptr_b) as *const c_void,
+             e.layouts[1],
+-            &beta as *const S as *const c_void,
++            &beta.0 as *const S as *const c_void,
+             ptr(ptr_c) as *const c_void,
+             e.layouts[2],
+             ptr(ptr_c),
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs b/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
+index c92d28b..ffa46a3 100644
+--- a/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
+@@ -194,6 +194,13 @@ pub(crate) fn scale<S: Copy + 'static, TC: Copy + 'static>(x: TC) -> Option<S> {
+     Some(unsafe { *(&f as *const f32 as *const S) })
+ }
+ 
++/// A scale handed to cuBLAS by pointer, in storage aligned to 16 bytes.
++///
++/// cuBLASLt reads the 16-byte `Complex<f64>` scales with aligned SIMD loads, while the type's own
++/// alignment is 8: a plain local is 16-aligned only by chance (it was not in a debug build).
++#[repr(C, align(16))]
++pub(crate) struct AlignedScale<T>(pub T);
++
+ fn same<T: 'static, U: 'static>() -> bool {
+     TypeId::of::<T>() == TypeId::of::<U>()
+ }
+@@ -701,4 +708,14 @@ mod tests {
+             assert!(!MatMulDrivers::none().contains(d.flag()));
+         }
+     }
++
++    /// The scales handed to cuBLAS sit in 16-byte-aligned storage, whatever their own alignment:
++    /// cuBLASLt loads a `Complex<f64>` scale with an aligned SIMD load.
++    #[test]
++    fn scales_are_aligned_for_cublas() {
++        let a = AlignedScale(num::Complex::new(1.0f64, 0.0));
++        assert_eq!(core::mem::align_of::<num::Complex<f64>>(), 8);
++        assert_eq!(core::mem::align_of_val(&a), 16);
++        assert_eq!(&a.0 as *const _ as usize, &a as *const _ as usize);
++    }
+ }
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/naive.rs b/crates-device/rstsr-cuda/src/matmul/drivers/naive.rs
+index bcb87a8..50e0fe7 100644
+--- a/crates-device/rstsr-cuda/src/matmul/drivers/naive.rs
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/naive.rs
+@@ -13,8 +13,8 @@
+ //! DRAM-bound, which is why it runs last.
+ //!
+ //! Nothing is declined here. An empty output returns before any driver is asked, and the two
+-//! shapes that have no GEMM geometry at all (the inner dot; a batch rank over [`RANK_MAX`]) are
+-//! refused by name before the chain.
++//! shapes that have no GEMM geometry at all (a batch rank over [`RANK_MAX`]) are refused by name
++//! before the chain.
+ 
+ use super::super::geom::CallerGeom;
+ use super::{Problem, Verdict};
+diff --git a/crates-device/rstsr-cuda/src/matmul/geom.rs b/crates-device/rstsr-cuda/src/matmul/geom.rs
+index 2de549e..222f80e 100644
+--- a/crates-device/rstsr-cuda/src/matmul/geom.rs
++++ b/crates-device/rstsr-cuda/src/matmul/geom.rs
+@@ -131,6 +131,27 @@ impl GemmGeom {
+     }
+ }
+ 
++/// The inner dot `[k] @ [k] -> []` as the `1 x k @ k x 1 -> 1 x 1` GEMM it is arithmetically.
++///
++/// cuBLAS runs that product with its own multi-block reduction (measured at the bandwidth
++/// ceiling), so the chain serves the dot with no driver of its own. The inserted axes have extent
++/// 1, so their strides address nothing; they are written as a contiguous `[1, k]` would have them.
++/// Layouts of any other rank are returned unchanged.
++fn lift_inner_dot(la: Layout<IxD>, lb: Layout<IxD>, lc: Layout<IxD>) -> (Layout<IxD>, Layout<IxD>, Layout<IxD>) {
++    if la.ndim() != 1 || lb.ndim() != 1 || lc.ndim() != 0 {
++        return (la, lb, lc);
++    }
++    let (k, sa, sb) = (la.shape()[0], la.stride()[0], lb.stride()[0]);
++    let unit = |l: &Layout<IxD>, shape: Vec<usize>, stride: Vec<isize>| {
++        Layout::<IxD>::new(shape, stride, l.offset()).unwrap_or_else(|_| l.clone())
++    };
++    (
++        unit(&la, vec![1, k], vec![sa.saturating_mul(k as isize), sa]),
++        unit(&lb, vec![k, 1], vec![sb, sb]),
++        unit(&lc, vec![1, 1], vec![1, 1]),
++    )
++}
++
+ /// Resolve the geometry of `c = a @ b` on the layout the tier already validated. Pure.
+ pub(crate) fn resolve_geom(order: FlagOrder, lc: &Layout<IxD>, la: &Layout<IxD>, lb: &Layout<IxD>) -> Result<GemmGeom> {
+     // Col-major: reverse every layout **and swap the operands**, so the row-major decomposition of
+@@ -147,17 +168,12 @@ pub(crate) fn resolve_geom(order: FlagOrder, lc: &Layout<IxD>, la: &Layout<IxD>,
+     } else {
+         (la.clone(), lb.clone(), lc.clone())
+     };
++    let (la_c, lb_c, lc_c) = lift_inner_dot(la_c, lb_c, lc_c);
+ 
+     let cfg = layout_matmul_dyn_row_major_with_lc(&la_c, &lb_c, &lc_c)?;
+ 
+-    // The inner-dot rule leaves `la_matmul` rank 1. That rule is a reduction, not a GEMM: no
+-    // driver here is the reduce kernel, so it is refused by name.
+     if cfg.la_matmul.ndim() != 2 || cfg.lb_matmul.ndim() != 2 {
+-        rstsr_raise!(
+-            UnImplemented,
+-            "cuda matmul: this is a single-axis contraction (inner dot), not a GEMM; it belongs on \
+-             the reduce kernel and is not wired to it yet"
+-        )?
++        rstsr_raise!(UnImplemented, "cuda matmul: the matmul parts of a and b should be matrices")?
+     }
+ 
+     let (lay_a, lay_b) = (&cfg.la_matmul, &cfg.lb_matmul);
+@@ -323,13 +339,34 @@ mod tests {
+         assert_eq!(g1.affine_batch(), Some([0, (k * n) as isize, (m * n) as isize]));
+     }
+ 
+-    /// The inner-dot rule has no 2-D matmul part, and is refused rather than run as a 1x1 tile.
++    /// The inner dot is a `1 x k @ k x 1` GEMM whose three single elements are addressed by the
++    /// operands' own strides, in both orders.
++    #[test]
++    fn inner_dot_is_a_one_by_one_gemm() {
++        for order in [RowMajor, ColMajor] {
++            let (la, lb, lc) = (layout(&[6], &[2]), layout(&[6], &[3]), layout(&[], &[]));
++            let g = resolve_geom(order, &lc, &la, &lb).unwrap();
++            assert_eq!((g.m, g.n, g.k, g.n_batch), (1, 1, 6, 1));
++            assert_eq!(g.swapped, matches!(order, ColMajor));
++            // the lifted `[1, k]` and `[k, 1]` walk the vectors at their own strides
++            let v = g.caller();
++            assert_eq!(v.mnk, (1, 6, 1));
++            for kk in 0..6 {
++                assert_eq!(v.a.0 as isize + v.a.2 * kk as isize, off(&la, &[kk]), "{order:?}: a");
++                assert_eq!(v.b.0 as isize + v.b.1 * kk as isize, off(&lb, &[kk]), "{order:?}: b");
++            }
++            assert_eq!(v.c.0 as isize, lc.offset() as isize);
++        }
++    }
++
++    /// A product that is not an inner dot keeps its layouts: nothing is lifted.
+     #[test]
+-    fn inner_dot_has_no_geometry() {
+-        let la = layout(&[6], &[1]);
+-        let lc = layout(&[], &[]);
+-        let e = resolve_geom(RowMajor, &lc, &la, &la).unwrap_err();
+-        assert!(format!("{e}").contains("single-axis contraction"), "got: {e}");
++    fn other_ranks_are_not_lifted() {
++        let la = layout(&[2, 3], &[3, 1]);
++        let lb = layout(&[3], &[1]);
++        let lc = layout(&[2], &[1]);
++        let (a, b, c) = lift_inner_dot(la.clone(), lb.clone(), lc.clone());
++        assert_eq!((a, b, c), (la, lb, lc));
+     }
+ 
+     /// The caller view undoes the col-major relabelling: every `(i, k)`, `(k, j)` and `(i, j)` of
+diff --git a/crates-device/rstsr-cuda/src/matmul/mod.rs b/crates-device/rstsr-cuda/src/matmul/mod.rs
+index be8ac97..d4350a2 100644
+--- a/crates-device/rstsr-cuda/src/matmul/mod.rs
++++ b/crates-device/rstsr-cuda/src/matmul/mod.rs
+@@ -41,8 +41,8 @@
+ //! # Layouts
+ //!
+ //! Every layout the rule table admits is served: strided, negative and zero strides, broadcast
+-//! and non-affine batches, either default order. The inner dot (`[k] @ [k]`) has no GEMM geometry
+-//! and is refused by name.
++//! and non-affine batches, either default order. The inner dot (`[k] @ [k]`) is served as the
++//! `1 x k @ k x 1` GEMM it is, which cuBLAS runs at memory bandwidth.
+ //!
+ //! # Resources
+ //!
+diff --git a/crates-device/rstsr-cuda/tests/test_kernels.rs b/crates-device/rstsr-cuda/tests/test_kernels.rs
+index 3e6e0fc..d9e50e2 100644
+--- a/crates-device/rstsr-cuda/tests/test_kernels.rs
++++ b/crates-device/rstsr-cuda/tests/test_kernels.rs
+@@ -1369,22 +1369,6 @@ fn matmul_gemv_gevm_vs_cpu() {
+     );
+ }
+ 
+-/// The inner-dot rule is a reduction, not a GEMM, and is refused by name rather than run as a
+-/// `1 x 1` tile of 256 redundant threads.
+-#[test]
+-fn matmul_inner_dot_is_refused_by_name() {
+-    require_cuda!();
+-    let d = DeviceCuda::new(0);
+-    let v: Tensor<f64, _, _> = rt::arange((0., 16., 1., &d));
+-    match rt::matmul_f(&v, &v) {
+-        Ok(_) => panic!("inner dot should be refused, but it computed a result"),
+-        Err(e) => {
+-            let msg = format!("{e}");
+-            assert!(msg.contains("single-axis contraction"), "expected the reduction reason, got: {msg}");
+-        },
+-    }
+-}
+-
+ /// `ColMajor`: the device reverses every layout and swaps the operands, per the identity in
+ /// `rstsr_common::layout::matmul`. If that reversal is wrong the numbers come out transposed, which
+ /// only a rectangular case can show.
+diff --git a/crates-device/rstsr-cuda/tests/test_matmul_modes.rs b/crates-device/rstsr-cuda/tests/test_matmul_modes.rs
+index 8b7470f..73b040b 100644
+--- a/crates-device/rstsr-cuda/tests/test_matmul_modes.rs
++++ b/crates-device/rstsr-cuda/tests/test_matmul_modes.rs
+@@ -729,3 +729,86 @@ fn triple_layout_matrix() {
+     matrix::<bf16, bf16>("bf16 -> bf16", false, bf16::from_f64, f64::from, f64::from, 1e-2);
+     matrix::<bf16, f32>("bf16 -> f32", false, bf16::from_f64, f64::from, f64::from, 1e-5);
+ }
++
++/// The inner dot `[k] @ [k] -> []`: a `1 x k @ k x 1` GEMM on the chain. Every serving driver
++/// alone, the naive kernel and the chain, both orders, contiguous and stepped vectors, a fresh
++/// output and the `alpha`/`beta` path into a caller's rank-0 output.
++#[allow(clippy::too_many_arguments)]
++fn dot_matrix<S>(what: &str, classic: bool, to_s: fn(f64) -> S, close: fn(S, S) -> bool)
++where
++    S: CudaDType + CudaMatMulMode + Copy + Clone + Send + Sync + 'static + num::Zero + num::One,
++{
++    let k = 40usize;
++    let mut drivers = vec![MatMulDrivers::CUBLAS_LT, MatMulDrivers::CUBLAS_EX];
++    if classic {
++        drivers.push(MatMulDrivers::CUBLAS);
++    }
++    drivers.extend([MatMulDrivers::NAIVE, MatMulDrivers::all()]);
++    for order in [RowMajor, ColMajor] {
++        let mut dcpu = DeviceCpuSerial::default();
++        dcpu.set_default_order(order);
++        for forced in &drivers {
++            let mut flags = CudaRuntimeFlags::default();
++            flags.matmul_drivers = *forced;
++            let mut d = DeviceCuda::new(0).with_flags(flags);
++            d.set_default_order(order);
++            for stepped in [false, true] {
++                // the stepped pair reads every 2nd of `wa` against every 3rd of `wb`
++                let (na, nb) = if stepped { (2 * k, 3 * k) } else { (k, k) };
++                let (va, vb) = (data(na, 7), data(nb, 8));
++                let cpu = |v: Vec<f64>| -> Cpu<f64> {
++                    let n = v.len();
++                    rt::asarray((v, &dcpu)).into_shape([n])
++                };
++                let dev = |v: Vec<f64>| -> Tensor<S, DeviceCuda, IxD> {
++                    let n = v.len();
++                    rt::asarray((v.into_iter().map(to_s).collect::<Vec<S>>(), &d)).into_shape([n])
++                };
++                let (a_cpu, b_cpu) = if stepped {
++                    (
++                        cpu(va.clone()).i(s![slice!(None, None, 2)]).to_owned(),
++                        cpu(vb.clone()).i(s![slice!(None, None, 3)]).to_owned(),
++                    )
++                } else {
++                    (cpu(va.clone()), cpu(vb.clone()))
++                };
++                let (a, b) = if stepped {
++                    (
++                        dev(va.clone()).i(s![slice!(None, None, 2)]).to_owned(),
++                        dev(vb.clone()).i(s![slice!(None, None, 3)]).to_owned(),
++                    )
++                } else {
++                    (dev(va.clone()), dev(vb.clone()))
++                };
++                let ctx = format!("{what}, {order:?}, {forced:?}, stepped = {stepped}");
++                let host = |t: &Tensor<S, DeviceCuda, IxD>| -> S { t.to_scalar() };
++                let host64 = |t: &Cpu<f64>| -> f64 { t.to_scalar() };
++
++                let got = rt::matmul(&a, &b);
++                assert_eq!(got.shape(), &[][..], "a rank-0 output: {ctx}");
++                let want = host64(&rt::matmul(&a_cpu, &b_cpu));
++                assert!(close(host(&got), to_s(want)), "{ctx}: fresh dot vs {want}");
++
++                let fill = to_s(0.5);
++                let mut c = rt::full(([], fill, &d));
++                let mut c_cpu = rt::full(([], 0.5f64, &dcpu));
++                rt::matmul_from(&mut c, &a, &b, to_s(2.0), to_s(3.0));
++                rt::matmul_from(&mut c_cpu, &a_cpu, &b_cpu, 2.0f64, 3.0f64);
++                let want = host64(&c_cpu);
++                assert!(close(host(&c), to_s(want)), "{ctx}: 2 * dot + 3 * c vs {want}");
++            }
++        }
++    }
++}
++
++/// The inner dot for the four types the cuBLAS drivers serve.
++#[test]
++fn inner_dot() {
++    require_cuda!();
++    dot_matrix::<f32>("f32", true, |x| x as f32, |a, b| (a - b).abs() <= 1e-5 * (1.0 + b.abs()));
++    dot_matrix::<f64>("f64", true, |x| x, |a, b| (a - b).abs() <= 1e-13 * (1.0 + b.abs()));
++    let re32 = |x: f64| Complex::new(x as f32, 0.0);
++    let re64 = |x: f64| Complex::new(x, 0.0);
++    dot_matrix::<Complex<f32>>("c32", true, re32, |a, b| (a - b).norm() <= 1e-5 * (1.0 + b.norm()));
++    dot_matrix::<Complex<f64>>("c64", true, re64, |a, b| (a - b).norm() <= 1e-13 * (1.0 + b.norm()));
++}

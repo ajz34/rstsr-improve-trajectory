@@ -1,0 +1,38 @@
+driver = cublasex (MatMulDrivers(cublasEx)); math-mode bindings: true, fixed-point bindings: true
+
+## f32 2048^3 (reference: Default on the same driver)
+
+| mode | ms | TFLOP/s | max rel err vs default | same bits |
+|---|---|---|---|---|
+| Default | 1.230 | 13.96 | 0.000e0 | true |
+| Pedantic | 1.236 | 13.90 | 0.000e0 | true |
+| FastTF32 | 0.860 | 19.97 | 2.753e-4 | false |
+| Fast16F | 0.795 | 21.60 | 2.753e-4 | false |
+| Fast16BF | 0.844 | 20.36 | 2.753e-4 | false |
+
+## f64 2048^3 (reference: Default on the same driver)
+
+| mode | ms | TFLOP/s | max rel err vs default | same bits |
+|---|---|---|---|---|
+| Default | 53.216 | 0.32 | 0.000e0 | true |
+| Pedantic | 53.362 | 0.32 | 0.000e0 | true |
+| EmulatedFixedPoint | - | - | not served (classic handle only) | - |
+driver = cublas (MatMulDrivers(cublas)); math-mode bindings: true, fixed-point bindings: true
+
+## f32 2048^3 (reference: Default on the same driver)
+
+| mode | ms | TFLOP/s | max rel err vs default | same bits |
+|---|---|---|---|---|
+| Default | 1.273 | 13.50 | 0.000e0 | true |
+| Pedantic | 1.240 | 13.85 | 0.000e0 | true |
+| FastTF32 | 0.891 | 19.29 | 2.753e-4 | false |
+| Fast16F | 0.838 | 20.49 | 2.753e-4 | false |
+| Fast16BF | - | - | not served (no classic math mode) | - |
+
+## f64 2048^3 (reference: Default on the same driver)
+
+| mode | ms | TFLOP/s | max rel err vs default | same bits |
+|---|---|---|---|---|
+| Default | 53.582 | 0.32 | 0.000e0 | true |
+| Pedantic | 52.733 | 0.33 | 0.000e0 | true |
+| EmulatedFixedPoint | 6.747 | 2.55 | 3.806e-15 | false |

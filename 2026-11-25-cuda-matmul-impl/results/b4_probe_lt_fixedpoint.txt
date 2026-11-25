@@ -1,0 +1,11 @@
+n = 2048; error = max |D - a b| (slot A holds b, slot B holds a)
+| case | max abs err | TFLOP/s |
+|---|---|---|
+| plain COMPUTE_64F (reference speed) | 0.000e0 | 0.33 |
+| no emulation descriptor | 0.000e0 | 0.34 |
+| dynamic control, max bits 0 (library default) | 0.000e0 | 0.34 |
+| dynamic control, max bits 24 | 0.000e0 | 0.34 |
+| fixed control (1), max bits 16 | 0.000e0 | 0.34 |
+| fixed control (1), max bits 24 | 0.000e0 | 0.34 |
+| strategy PERFORMANT (1), default bits | 0.000e0 | 0.34 |
+| strategy EAGER (2), default bits | 0.000e0 | 0.34 |

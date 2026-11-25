@@ -1,0 +1,526 @@
+diff --git a/crates-device/rstsr-cuda/benches/bench_matmul.rs b/crates-device/rstsr-cuda/benches/bench_matmul.rs
+index b54b096..f954272 100644
+--- a/crates-device/rstsr-cuda/benches/bench_matmul.rs
++++ b/crates-device/rstsr-cuda/benches/bench_matmul.rs
+@@ -13,13 +13,21 @@
+ //! Drivers: the default chain, then every driver that serves the triple alone; the naive kernel
+ //! on square 512 only (it is minutes on the larger shapes). A complex product counts as four
+ //! real ones.
++//!
++//! The two special forms follow (`syrk` = `a @ a.t()` for square `[n, n]` and for `[4096, 64]`
++//! and `[4096, 1024]` operands,
++//! `dot k` = the inner dot of two `[k]` vectors), on the chain under the default
++//! `MatMulUseSyrk` (for `f32` also under `Allow`), and on the gemm alone (the classic driver off
++//! switches the symmetric form off). A `syrk` row counts the flops of the full
++//! gemm it replaces, so its TFLOP/s compares with the gemm rows. `GB/s` is the memory traffic of
++//! the operands and the output read or written once, a ceiling-bound measure for the dot.
+ 
+ use std::time::Instant;
+ 
+ use num::Complex;
+ use rstsr::prelude::*;
+ use rstsr_cuda::funcs;
+-use rstsr_cuda::matmul::{ComputeType32F, MatMulDrivers, TensorCudaMatMulAPI};
++use rstsr_cuda::matmul::{ComputeType32F, MatMulDrivers, MatMulUseSyrk, TensorCudaMatMulAPI};
+ use rstsr_cuda::prelude_dev::*;
+ 
+ fn data(n: usize, seed: u64) -> Vec<f64> {
+@@ -38,6 +46,14 @@ fn device(drivers: MatMulDrivers) -> DeviceCuda {
+     DeviceCuda::new(0).with_flags(flags)
+ }
+ 
++/// The symmetric-form shapes: `(label, n, k)` of the `[n, k]` operand.
++fn syrk_shapes() -> Vec<(&'static str, usize, usize)> {
++    vec![("syrk 2048", 2048, 2048), ("syrk 512", 512, 512), ("syrk 4096x64", 4096, 64), ("syrk 4096x1024", 4096, 1024)]
++}
++
++/// The inner-dot lengths.
++const DOT_LENS: [usize; 2] = [1 << 22, 1 << 24];
++
+ /// The shapes: `(label, m, k, n, batch)`.
+ fn shapes() -> Vec<(&'static str, usize, usize, usize, usize)> {
+     vec![
+@@ -76,13 +92,13 @@ fn bench_cell<T>(d: &DeviceCuda, f: impl Fn() -> T) -> f64 {
+     samples[samples.len() / 2]
+ }
+ 
+-
+ struct Row {
+     triple: &'static str,
+     shape: &'static str,
+     driver: String,
+     ms: f64,
+     tflops: f64,
++    gbps: f64,
+ }
+ 
+ fn main() {
+@@ -94,7 +110,7 @@ fn main() {
+     // per triple: (name, real products per call, the serving drivers, the cell builder); the
+     // naive kernel is timed on square 512 for every triple
+     macro_rules! cells {
+-        ($triple:literal, $products:expr, [$($driver:ident),*], $mk:expr) => {{
++        ($triple:literal, $products:expr, $bytes:expr, [$($driver:ident),*], $mk:expr) => {{
+             let drivers: Vec<(&'static str, MatMulDrivers)> = vec![$((stringify!($driver), MatMulDrivers::$driver)),*];
+             for (label, m, k, n, p) in shapes() {
+                 let flops = 2.0 * $products * m as f64 * k as f64 * n as f64 * p as f64;
+@@ -109,7 +125,14 @@ fn main() {
+                     let d = device(flags);
+                     let f = mk(&d, m, k, n, p);
+                     let s = bench_cell(&d, || f());
+-                    rows.push(Row { triple: $triple, shape: label, driver: driver.to_lowercase(), ms: s * 1e3, tflops: flops / s / 1e12 });
++                    rows.push(Row {
++                        triple: $triple,
++                        shape: label,
++                        driver: driver.to_lowercase(),
++                        ms: s * 1e3,
++                        tflops: flops / s / 1e12,
++                        gbps: ($bytes)(m, k, n, p) as f64 / s / 1e9,
++                    });
+                 }
+             }
+         }};
+@@ -125,38 +148,101 @@ fn main() {
+         }};
+     }
+ 
+-    cells!("f32 -> f32", 1.0, [CUBLAS_LT, CUBLAS_EX, CUBLAS, TILED], |d: &DeviceCuda, m, k, n, p| {
++    macro_rules! bytes {
++        ($ab:expr, $c:expr) => {
++            |m: usize, k: usize, n: usize, p: usize| (m * k + k * n) * p * $ab + m * n * p * $c
++        };
++    }
++
++    cells!("f32 -> f32", 1.0, bytes!(4, 4), [CUBLAS_LT, CUBLAS_EX, CUBLAS, TILED], |d: &DeviceCuda, m, k, n, p| {
+         let a = operand!(f32, d, 1, m, k, p, |x| x as f32);
+         let b = operand!(f32, d, 2, k, n, p, |x| x as f32);
+         move || rt::matmul(&a, &b)
+     });
+-    cells!("f64 -> f64", 1.0, [CUBLAS_LT, CUBLAS_EX, CUBLAS, TILED], |d: &DeviceCuda, m, k, n, p| {
++    cells!("f64 -> f64", 1.0, bytes!(8, 8), [CUBLAS_LT, CUBLAS_EX, CUBLAS, TILED], |d: &DeviceCuda, m, k, n, p| {
+         let a = operand!(f64, d, 1, m, k, p, |x| x);
+         let b = operand!(f64, d, 2, k, n, p, |x| x);
+         move || rt::matmul(&a, &b)
+     });
+-    cells!("c64 -> c64", 4.0, [CUBLAS_LT, CUBLAS_EX, CUBLAS], |d: &DeviceCuda, m, k, n, p| {
++    cells!("c64 -> c64", 4.0, bytes!(16, 16), [CUBLAS_LT, CUBLAS_EX, CUBLAS], |d: &DeviceCuda, m, k, n, p| {
+         let a = operand!(Complex<f64>, d, 1, m, k, p, |x| Complex::new(x, 0.5 * x));
+         let b = operand!(Complex<f64>, d, 2, k, n, p, |x| Complex::new(x, -0.5 * x));
+         move || rt::matmul(&a, &b)
+     });
+-    cells!("f16 -> f16", 1.0, [CUBLAS_LT, CUBLAS_EX], |d: &DeviceCuda, m, k, n, p| {
++    cells!("f16 -> f16", 1.0, bytes!(2, 2), [CUBLAS_LT, CUBLAS_EX], |d: &DeviceCuda, m, k, n, p| {
+         let a = operand!(half::f16, d, 1, m, k, p, half::f16::from_f64);
+         let b = operand!(half::f16, d, 2, k, n, p, half::f16::from_f64);
+         move || rt::matmul(&a, &b)
+     });
+-    cells!("f16 -> f32", 1.0, [CUBLAS_LT, CUBLAS_EX], |d: &DeviceCuda, m, k, n, p| {
++    cells!("f16 -> f32", 1.0, bytes!(2, 4), [CUBLAS_LT, CUBLAS_EX], |d: &DeviceCuda, m, k, n, p| {
+         let a = operand!(half::f16, d, 1, m, k, p, half::f16::from_f64);
+         let b = operand!(half::f16, d, 2, k, n, p, half::f16::from_f64);
+         move || a.matmul_with_mode(&b, ComputeType32F::Default).out::<f32>()
+     });
+ 
+-    println!("triple,shape,driver,median_ms,tflops");
++    // the symmetric form: `a @ a.t()`, the chain (which takes the form where it pays) against
++    // the gemm alone; the flops are those of the full gemm it replaces
++    macro_rules! syrk_cells {
++        ($triple:literal, $products:expr, $t:ty, $conv:expr, $esz:expr) => {
++            for (label, n, k) in syrk_shapes() {
++                // the chain under the default flag, the chain under `Allow` (which adds `f32`),
++                // and the gemm
++                let mut settings = vec![
++                    ("chain", MatMulDrivers::all(), MatMulUseSyrk::default()),
++                    ("gemm", MatMulDrivers::all().minus(MatMulDrivers::CUBLAS), MatMulUseSyrk::default()),
++                ];
++                if stringify!($t) == "f32" {
++                    settings.push(("chain, Allow", MatMulDrivers::all(), MatMulUseSyrk::Allow));
++                }
++                for (driver, flags, use_syrk) in settings {
++                    let mut runtime = CudaRuntimeFlags::default();
++                    runtime.matmul_drivers = flags;
++                    runtime.matmul_use_syrk = use_syrk;
++                    let d = DeviceCuda::new(0).with_flags(runtime);
++                    let v: Vec<$t> = data(n * k, 1).into_iter().map($conv).collect();
++                    let a: Tensor<$t, DeviceCuda, IxD> = rt::asarray((v, &d)).into_shape([n, k]);
++                    let s = bench_cell(&d, || rt::matmul(&a, a.t()));
++                    rows.push(Row {
++                        triple: $triple,
++                        shape: label,
++                        driver: driver.to_string(),
++                        ms: s * 1e3,
++                        tflops: 2.0 * $products * n as f64 * n as f64 * k as f64 / s / 1e12,
++                        gbps: (2 * n * k + n * n) as f64 * $esz as f64 / s / 1e9,
++                    });
++                }
++            }
++        };
++    }
++    syrk_cells!("f32 -> f32", 1.0, f32, |x| x as f32, 4);
++    syrk_cells!("f64 -> f64", 1.0, f64, |x| x, 8);
++    syrk_cells!("c64 -> c64", 4.0, Complex<f64>, |x| Complex::new(x, 0.5 * x), 16);
++
++    // the inner dot of two vectors: memory-bound, so `GB/s` is the figure to read
++    for k in DOT_LENS {
++        for (driver, flags) in [("chain", MatMulDrivers::all()), ("cublasLt", MatMulDrivers::CUBLAS_LT)] {
++            let d = device(flags);
++            let v: Vec<f64> = data(k, 3);
++            let x: Tensor<f64, DeviceCuda, IxD> = rt::asarray((v, &d)).into_shape(vec![k]);
++            let s = bench_cell(&d, || rt::matmul(&x, x.t()));
++            let label = if k == DOT_LENS[0] { "dot 2^22" } else { "dot 2^24" };
++            rows.push(Row {
++                triple: "f64 -> f64",
++                shape: label,
++                driver: driver.to_string(),
++                ms: s * 1e3,
++                tflops: 0.0,
++                gbps: 2.0 * k as f64 * 8.0 / s / 1e9,
++            });
++        }
++    }
++
++    println!("triple,shape,driver,median_ms,tflops,gbs");
+     for r in &rows {
+-        println!("{},{},{},{:.4},{:.3}", r.triple, r.shape, r.driver, r.ms, r.tflops);
++        println!("{},{},{},{:.4},{:.3},{:.1}", r.triple, r.shape, r.driver, r.ms, r.tflops, r.gbps);
+     }
+-    println!("\n| triple | shape | driver | ms | TFLOP/s |\n|---|---|---|---|---|");
++    println!("\n| triple | shape | driver | ms | TFLOP/s | GB/s |\n|---|---|---|---|---|---|");
+     for r in &rows {
+-        println!("| {} | {} | {} | {:.4} | {:.2} |", r.triple, r.shape, r.driver, r.ms, r.tflops);
++        println!("| {} | {} | {} | {:.4} | {:.2} | {:.1} |", r.triple, r.shape, r.driver, r.ms, r.tflops, r.gbps);
+     }
+ }
+diff --git a/crates-device/rstsr-cuda/src/flags.rs b/crates-device/rstsr-cuda/src/flags.rs
+index 382bf28..fc2f422 100644
+--- a/crates-device/rstsr-cuda/src/flags.rs
++++ b/crates-device/rstsr-cuda/src/flags.rs
+@@ -1,6 +1,6 @@
+ //! Runtime flags for the CUDA device.
+ 
+-use crate::matmul::{ComputeType16F, ComputeType64F, MatMulDrivers};
++use crate::matmul::{ComputeType16F, ComputeType64F, MatMulDrivers, MatMulUseSyrk};
+ use rstsr_core::prelude_dev::*;
+ use std::sync::RwLock;
+ 
+@@ -33,6 +33,8 @@ pub struct CudaRuntimeFlags {
+     pub fixedpoint_mantissa_bits: u32,
+     /// The matmul drivers a device may use (default: all of them).
+     pub matmul_drivers: MatMulDrivers,
++    /// When `a @ a.t()` runs as a symmetric rank-k update (default: [`MatMulUseSyrk::Scientific`]).
++    pub matmul_use_syrk: MatMulUseSyrk,
+     /// Print one line per matmul launch: the triple, the shape, the mode and the driver tried.
+     pub trace_matmul: bool,
+ }
+@@ -43,6 +45,7 @@ static CUDA_FLAGS_DEFAULT: RwLock<CudaRuntimeFlags> = RwLock::new(CudaRuntimeFla
+     compute_type_16f: ComputeType16F::Default,
+     fixedpoint_mantissa_bits: 0,
+     matmul_drivers: MatMulDrivers::all(),
++    matmul_use_syrk: MatMulUseSyrk::Scientific,
+     trace_matmul: false,
+ });
+ 
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs b/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
+index e359ee5..8decf82 100644
+--- a/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
+@@ -12,7 +12,7 @@
+ 
+ use std::any::TypeId;
+ 
+-use super::flags::MatMulDrivers;
++use super::flags::{MatMulDrivers, MatMulUseSyrk};
+ use super::geom::GemmGeom;
+ use super::mode::{ComputeType16F, ComputeType32F, ComputeType64F, CudaMatMulMode};
+ use crate::dtype::CudaDType;
+@@ -416,11 +416,12 @@ pub(crate) fn candidates<TA: 'static, TB: 'static, TC: CudaMatMulMode>(mode: &TC
+ }
+ 
+ /// Whether the symmetric form is tried before the chain: the layout condition of the BLAS devices
+-/// ([`CallerGeom::is_syrk`]), the same buffer for both operands, `beta` zero, one type, the size
+-/// gate of the output type, and the classic driver enabled (which owns the routine).
++/// ([`CallerGeom::is_syrk`]), the same buffer for both operands, `beta` zero, one type, the output
++/// type allowed by [`MatMulUseSyrk`], and the classic driver enabled (which owns the routine).
+ fn syrk_applies<TA: 'static, TB: 'static, TC: 'static, TBuf>(
+     p: &Problem<'_, TA, TB, TC, TBuf>,
+     enabled: MatMulDrivers,
++    use_syrk: MatMulUseSyrk,
+ ) -> bool {
+     same::<TA, TB>()
+         && same::<TB, TC>()
+@@ -428,7 +429,7 @@ fn syrk_applies<TA: 'static, TB: 'static, TC: 'static, TBuf>(
+         && p.geom.n_batch == 1
+         && p.geom.caller().is_syrk()
+         && std::ptr::eq(p.a.device_ptr() as *const u8, p.b.device_ptr() as *const u8)
+-        && syrk::gated::<TC>(p.geom.m)
++        && use_syrk.takes::<TC>()
+         && enabled.contains(GemmDriver::Cublas.flag())
+ }
+ 
+@@ -466,7 +467,7 @@ where
+         }
+     };
+     // the symmetric form first: `a @ a^T` with a fresh output is half the work of the gemm
+-    if syrk_applies::<TA, TB, TC, TBuf>(p, enabled) {
++    if syrk_applies::<TA, TB, TC, TBuf>(p, enabled, flags.matmul_use_syrk) {
+         let verdict = syrk::run(p, plan)?;
+         trace("cublas (syrk)", &verdict);
+         if let Verdict::Ran = verdict {
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/syrk.rs b/crates-device/rstsr-cuda/src/matmul/drivers/syrk.rs
+index 1e65c16..e71f2ea 100644
+--- a/crates-device/rstsr-cuda/src/matmul/drivers/syrk.rs
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/syrk.rs
+@@ -6,7 +6,8 @@
+ //!
+ //! The condition is the one the BLAS devices apply in their matmul: one type throughout, `beta`
+ //! zero, `b` the same buffer as `a` with reversed strides, unbatched ([`CallerGeom::is_syrk`]).
+-//! A size gate keeps the cases where cuBLAS's own `?syrk` kernels are slower than its gemm.
++//! Which output types take the form is [`MatMulUseSyrk`][crate::matmul::MatMulUseSyrk]; there is no
++//! size gate.
+ 
+ use cudarc::cublas::sys;
+ 
+@@ -18,19 +19,6 @@ use crate::kernels::elementwise::planned_function;
+ use crate::matmul::geom::CallerGeom;
+ use crate::prelude_dev::*;
+ 
+-/// The smallest `f32` output side cuBLAS's `Ssyrk` wins at (measured against its gemm); `f64` and
+-/// complex win at every measured size.
+-pub(crate) const F32_MIN_N: usize = 2048;
+-
+-/// Whether the symmetric form pays for an output of side `n` of this type.
+-pub(crate) fn gated<T: 'static>(n: usize) -> bool {
+-    !same::<T, f32>() || n >= F32_MIN_N
+-}
+-
+-fn same<T: 'static, U: 'static>() -> bool {
+-    std::any::TypeId::of::<T>() == std::any::TypeId::of::<U>()
+-}
+-
+ /// One `?syrk_v2` call, in cuBLAS's terms.
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+ pub(crate) struct SyrkArgs {
+@@ -225,14 +213,4 @@ mod tests {
+         assert!(args(&geom(RowMajor, (8, 1), (10, 2)).caller()).is_none());
+         assert!(args(&geom(RowMajor, (-1, -5), (5, 1)).caller()).is_none());
+     }
+-
+-    /// The gate is an `f32` size floor only.
+-    #[test]
+-    fn gate_is_per_output_type() {
+-        assert!(!gated::<f32>(F32_MIN_N - 1));
+-        assert!(gated::<f32>(F32_MIN_N));
+-        assert!(gated::<f64>(0));
+-        assert!(gated::<num::Complex<f32>>(1));
+-        assert!(gated::<num::Complex<f64>>(256));
+-    }
+ }
+diff --git a/crates-device/rstsr-cuda/src/matmul/flags.rs b/crates-device/rstsr-cuda/src/matmul/flags.rs
+index 9b7dae6..f5ca186 100644
+--- a/crates-device/rstsr-cuda/src/matmul/flags.rs
++++ b/crates-device/rstsr-cuda/src/matmul/flags.rs
+@@ -1,4 +1,4 @@
+-//! The driver enable set of the matmul chain.
++//! Runtime switches of the matmul chain: the driver enable set and the symmetric form.
+ 
+ use core::fmt;
+ use std::ops::{BitOr, BitOrAssign, Sub, SubAssign};
+@@ -102,10 +102,55 @@ impl fmt::Debug for MatMulDrivers {
+     }
+ }
+ 
++/// When the matmul runs `a @ a.t()` as a symmetric rank-k update
++/// ([`CudaRuntimeFlags::matmul_use_syrk`]).
++///
++/// [`CudaRuntimeFlags::matmul_use_syrk`]: crate::flags::CudaRuntimeFlags::matmul_use_syrk
++///
++/// The form is tried before the driver chain, for a fresh output of one type when `b` is `a` with
++/// reversed strides in the same buffer. It is not gated by size.
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
++#[non_exhaustive]
++pub enum MatMulUseSyrk {
++    /// Every type cuBLAS's `?syrk` entries cover: `f32`, `f64`, `c32`, `c64`. cuBLAS's `f32`
++    /// kernels lose against its gemm on thin operands (`k` well below `n`), by up to 2.3x.
++    Allow,
++    /// `f64`, `c32` and `c64` only (they gain 1.3x to 3.6x); `f32` stays on the gemm chain.
++    #[default]
++    Scientific,
++    /// Never: the gemm chain always.
++    Disallow,
++}
++
++impl MatMulUseSyrk {
++    /// Whether the form is taken for an output of type `T`.
++    pub(crate) fn takes<T: 'static>(self) -> bool {
++        let real32 = std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>();
++        match self {
++            Self::Allow => true,
++            Self::Scientific => !real32,
++            Self::Disallow => false,
++        }
++    }
++}
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
++    /// `Scientific` leaves out exactly `f32`; `Allow` takes every type, `Disallow` none.
++    #[test]
++    fn syrk_flag_by_output_type() {
++        use num::Complex;
++        assert_eq!(MatMulUseSyrk::default(), MatMulUseSyrk::Scientific);
++        for t in [MatMulUseSyrk::Allow, MatMulUseSyrk::Scientific, MatMulUseSyrk::Disallow] {
++            assert_eq!(t.takes::<f32>(), t == MatMulUseSyrk::Allow, "{t:?}");
++            assert_eq!(t.takes::<f64>(), t != MatMulUseSyrk::Disallow, "{t:?}");
++            assert_eq!(t.takes::<Complex<f32>>(), t != MatMulUseSyrk::Disallow, "{t:?}");
++            assert_eq!(t.takes::<Complex<f64>>(), t != MatMulUseSyrk::Disallow, "{t:?}");
++        }
++    }
++
+     /// The five drivers own one bit each, and `all` is their union.
+     #[test]
+     fn one_bit_per_driver() {
+diff --git a/crates-device/rstsr-cuda/src/matmul/mod.rs b/crates-device/rstsr-cuda/src/matmul/mod.rs
+index 919be54..3b206cf 100644
+--- a/crates-device/rstsr-cuda/src/matmul/mod.rs
++++ b/crates-device/rstsr-cuda/src/matmul/mod.rs
+@@ -43,9 +43,11 @@
+ //! `a @ a.t()` into a fresh output of one type (`f32`, `f64`, `c32`, `c64`) is half the work of the
+ //! gemm, and is run as one cuBLAS `?syrk` call before the chain is tried: `b` must be `a` with
+ //! reversed strides in the same buffer, `beta` must be zero, and the product unbatched. The other
+-//! triangle of the output is mirrored by a small kernel. cuBLAS's `f32` `syrk` kernels only pay
+-//! from an output side of 2048 on, so smaller `f32` products stay on the chain; `f64` and the
+-//! complex types take the form at every size. A product that looks alike but is not (`beta != 0`,
++//! triangle of the output is mirrored by a small kernel. The types are chosen by
++//! [`MatMulUseSyrk`] in [`CudaRuntimeFlags::matmul_use_syrk`][crate::flags::CudaRuntimeFlags::matmul_use_syrk],
++//! not by size: the default, `Scientific`, takes `f64` and the complex types (1.3x to 3.6x on a
++//! RTX 5070 Laptop) and leaves `f32` on the chain, because cuBLAS's `f32` syrk kernels lose
++//! against its gemm on thin operands (up to 2.3x); `Allow` takes `f32` as well; `Disallow` never. A product that looks alike but is not (`beta != 0`,
+ //! the conjugate transpose, a copy of the transpose, a batch) runs the chain as before.
+ //!
+ //! # Layouts
+@@ -79,6 +81,6 @@ pub mod tensor;
+ mod flags;
+ 
+ pub use drivers::GemmDriver;
+-pub use flags::MatMulDrivers;
++pub use flags::{MatMulDrivers, MatMulUseSyrk};
+ pub use mode::{ComputeType16F, ComputeType32F, ComputeType64F, CudaMatMulMode};
+ pub use tensor::{matmul_with_mode_f, TensorCudaMatMulAPI, WithMode};
+diff --git a/crates-device/rstsr-cuda/tests/test_matmul_forms.rs b/crates-device/rstsr-cuda/tests/test_matmul_forms.rs
+index 12e0e2f..ef5fcaf 100644
+--- a/crates-device/rstsr-cuda/tests/test_matmul_forms.rs
++++ b/crates-device/rstsr-cuda/tests/test_matmul_forms.rs
+@@ -7,7 +7,7 @@ use num::Complex;
+ use rstsr::prelude::*;
+ use rstsr_cuda::dtype::CudaDType;
+ use rstsr_cuda::funcs;
+-use rstsr_cuda::matmul::{CudaMatMulMode, MatMulDrivers};
++use rstsr_cuda::matmul::{CudaMatMulMode, MatMulDrivers, MatMulUseSyrk};
+ use rstsr_cuda::prelude_dev::*;
+ 
+ /// Uniform data in `[-1, 1]` with an imaginary part in `[0, 1]`.
+@@ -57,7 +57,7 @@ fn syrk_views<S: CudaDType + CudaMatMulMode + Copy + Clone + Send + Sync + 'stat
+     mk: fn(Vec<Complex<f64>>) -> Vec<S>,
+ ) {
+     require_cuda!();
+-    let (n, k) = (37usize, 53usize);
++    let (n, k) = (513usize, 53usize);
+     let v = data_c(4 * n * k, 7);
+     // the reference is row-major on the CPU; the device operand takes the order's own layout
+     let dcpu = DeviceCpuSerial::default();
+@@ -114,7 +114,7 @@ fn syrk_c64() {
+ #[test]
+ fn syrk_look_alikes_take_the_chain() {
+     require_cuda!();
+-    let (n, k, p) = (12usize, 20usize, 3usize);
++    let (n, k, p) = (600usize, 20usize, 3usize);
+     let v = data_c(n * k, 11);
+     // the references are row-major on the CPU; the device operands take the order's own layout
+     let dcpu = DeviceCpuSerial::default();
+@@ -202,23 +202,37 @@ fn syrk_look_alikes_take_the_chain() {
+     }
+ }
+ 
+-/// Both sides of the `f32` size gate (`F32_MIN_N = 2048`), against the CPU device.
++/// The flag chooses the output types: `f32` takes the form under `Allow` only, `f64` never under
++/// `Disallow`. Every setting gives the gemm's answer (a thin operand and a square one).
+ #[test]
+-fn syrk_f32_around_the_gate() {
++fn syrk_follows_the_flag() {
+     require_cuda!();
+-    let k = 48usize;
+-    for n in [2047usize, 2048] {
+-        let v = data(n * k, 7);
+-        let mut dcpu = DeviceCpuSerial::default();
+-        dcpu.set_default_order(RowMajor);
+-        let w: Cpu<f32> = rt::asarray((v.iter().map(|&x| x as f32).collect::<Vec<_>>(), &dcpu)).into_shape([n, k]);
+-        let want: Vec<f64> = host_cpu(&rt::matmul(&w, w.t())).into_iter().map(f64::from).collect();
+-        let d = DeviceCuda::new(0);
+-        let a: Tensor<f32, DeviceCuda, IxD> =
+-            rt::asarray((v.iter().map(|&x| x as f32).collect::<Vec<_>>(), &d)).into_shape([n, k]);
+-        let got = host(&rt::matmul(&a, a.t()));
+-        for (x, y) in got.iter().zip(&want) {
+-            assert!((f64::from(*x) - y).abs() <= 2e-5 * (1.0 + y.abs()), "f32, n = {n}: {x} vs {y}");
++    let cells: [(usize, usize); 2] = [(2048, 64), (512, 512)];
++    for use_syrk in [MatMulUseSyrk::Allow, MatMulUseSyrk::Scientific, MatMulUseSyrk::Disallow] {
++        // the reference never takes the form: the classic driver off switches it off
++        for ((n, k), t) in cells.iter().flat_map(|c| [(*c, "f32"), (*c, "f64")]) {
++            let mk = |flags: CudaRuntimeFlags, no_form: bool| -> Vec<f64> {
++                let mut flags = flags;
++                if no_form {
++                    flags.matmul_drivers = flags.matmul_drivers.minus(MatMulDrivers::CUBLAS);
++                }
++                let d = DeviceCuda::new(0).with_flags(flags);
++                if t == "f32" {
++                    let v: Vec<f32> = data(n * k, 7).into_iter().map(|x| x as f32).collect();
++                    let a = rt::asarray((v, &d)).into_shape([n, k]);
++                    host(&rt::matmul(&a, a.t())).into_iter().map(f64::from).collect()
++                } else {
++                    let v = data(n * k, 7);
++                    let a = rt::asarray((v, &d)).into_shape([n, k]);
++                    host(&rt::matmul(&a, a.t()))
++                }
++            };
++            let mut flags = CudaRuntimeFlags::default();
++            flags.matmul_use_syrk = use_syrk;
++            let (got, want) = (mk(flags, false), mk(flags, true));
++            for (x, y) in got.iter().zip(&want) {
++                assert!((x - y).abs() <= 1e-4 * (1.0 + y.abs()), "{use_syrk:?}, {t}, ({n}, {k}): {x} vs {y}");
++            }
+         }
+     }
+ }
+diff --git a/crates-device/rstsr-cuda/tests/test_matmul_modes.rs b/crates-device/rstsr-cuda/tests/test_matmul_modes.rs
+index 3d446d4..1e76622 100644
+--- a/crates-device/rstsr-cuda/tests/test_matmul_modes.rs
++++ b/crates-device/rstsr-cuda/tests/test_matmul_modes.rs
+@@ -611,9 +611,10 @@ fn tensor_level_modes() {
+     }
+ }
+ 
+-/// The argument shapes of the layout matrix: a plain product, a strided batch, a transposed right
+-/// operand broadcast against the batch of `a`, a transposed left operand, a broadcast batch of `a`
+-/// against a batched `b`, and a stepped (strided) `a`. `mk(data(seed, count), shape)` makes a
++/// The argument shapes of the layout matrix: a plain product, the inner dot, the symmetric
++/// product `a @ a.t()`, a strided batch, a transposed right operand broadcast against the batch
++/// of `a`, a transposed left operand, a broadcast batch of `a` against a batched `b`, and a
++/// stepped (strided) `a`. `mk(data(seed, count), shape)` makes a
+ /// tensor and `sh(batch, [m, k])` places the batch axis as the default order has it (leading
+ /// under row-major, trailing under column-major), so the same cases are built on the CPU (`f64`
+ /// of the rounded values) and on the device (the storage type), each in its own order.
+@@ -627,8 +628,13 @@ macro_rules! shape_cases {
+         let at = $mk($data(11, k * m), $sh(1, [k, m]));
+         let stepped0 = $mk($data(12, 4 * m * k), $sh(1, [2 * m, 2 * k]));
+         let stepped = stepped0.i(s![slice!(None, None, 2), slice!(None, None, 2)]);
++        // the two special forms of the chain: the inner dot and the symmetric product
++        let dot = $mk($data(16, k), vec![k]);
++        let square = $mk($data(17, m * k), $sh(1, [m, k]));
+         vec![
+             ("plain", $mk($data(13, m * k), $sh(1, [m, k])), $mk($data(14, k * n), $sh(1, [k, n]))),
++            ("inner dot", dot.clone(), dot.clone()),
++            ("syrk", square.clone(), square.t().to_owned()),
+             ("batched", a.clone(), b.clone()),
+             ("transposed b, broadcast", a.clone(), c2.t().to_owned()),
+             ("transposed a", at.t().to_owned(), b.clone()),

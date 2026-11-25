@@ -1,0 +1,1318 @@
+diff --git a/crates-device/rstsr-cuda/Cargo.toml b/crates-device/rstsr-cuda/Cargo.toml
+index 2c400d9..21024b2 100644
+--- a/crates-device/rstsr-cuda/Cargo.toml
++++ b/crates-device/rstsr-cuda/Cargo.toml
+@@ -37,7 +37,9 @@ faer = ["rstsr-core/faer"]
+ # CUDA version resolution: cudarc detects the toolkit version from the build
+ # system by default. Without nvcc, set the `CUDARC_CUDA_VERSION` environment
+ # variable instead of enabling a per-version feature (cudarc cannot compile
+-# with two version features active, which `--all-features` would do).
++# with two version features active, which `--all-features` would do). The
++# version also selects the cuBLAS bindings: the matmul math modes need 12.9,
++# the FP64 fixed-point emulation 13.0 (build.rs mirrors the choice).
+ # Link against the installed toolkit (requires LD_LIBRARY_PATH or rpath).
+ # Only the dynamic mode is exposed: cudarc's linking modes are mutually
+ # exclusive and panic when combined, so forwarding more than one breaks the
+diff --git a/crates-device/rstsr-cuda/build.rs b/crates-device/rstsr-cuda/build.rs
+new file mode 100644
+index 0000000..2d42458
+--- /dev/null
++++ b/crates-device/rstsr-cuda/build.rs
+@@ -0,0 +1,55 @@
++//! Tells the crate which cuBLAS bindings `cudarc` was built with.
++//!
++//! `cudarc` gates part of its `cublas` bindings on the CUDA version it is built for (the
++//! `CUDARC_CUDA_VERSION` environment variable, else `nvcc --version` under
++//! `cuda-version-from-build-system`): `cublasSetMathMode` from 12.9 on, the fixed-point FP64
++//! emulation math mode from 13.0 on. A dependency's features are not visible to `cfg`, so the
++//! version is resolved here the same way `cudarc` resolves it, and turned into:
++//!
++//! - `cublas_math_mode`: the handle math-mode entries are bound;
++//! - `cublas_fixedpoint_math`: `CUBLAS_FP64_EMULATED_FIXEDPOINT_MATH` is bound.
++//!
++//! A `cudarc` version feature pinned by another crate of the build is not seen here; in that case
++//! set `CUDARC_CUDA_VERSION` to the version that feature names.
++
++use std::process::Command;
++
++fn main() {
++    println!("cargo:rerun-if-changed=build.rs");
++    println!("cargo:rerun-if-env-changed=CUDARC_CUDA_VERSION");
++    println!("cargo:rustc-check-cfg=cfg(cublas_math_mode)");
++    println!("cargo:rustc-check-cfg=cfg(cublas_fixedpoint_math)");
++
++    let (major, minor) = cudarc_cuda_version().unwrap_or((0, 0));
++    if (major, minor) >= (12, 9) {
++        println!("cargo:rustc-cfg=cublas_math_mode");
++    }
++    if (major, minor) >= (13, 0) {
++        println!("cargo:rustc-cfg=cublas_fixedpoint_math");
++    }
++}
++
++/// `(major, minor)` of the CUDA version `cudarc` binds, or `None` when it cannot be told (nvcc
++/// absent: `cudarc`'s own build script then fails unless it pins a version feature).
++fn cudarc_cuda_version() -> Option<(u32, u32)> {
++    // cudarc's own spelling of 12.6 is `12060`: `major`, `0`, `minor`, `0`.
++    if let Ok(v) = std::env::var("CUDARC_CUDA_VERSION") {
++        // cudarc's own spelling of 12.6 is `12060`: `major`, `0`, `minor`, `0`.
++        if v.len() == 6 && v.as_bytes()[1] == b'0' && v.as_bytes()[5] == b'0' {
++            if let (Ok(major), Ok(minor)) = (v[0..1].parse::<u32>(), v[2..4].parse::<u32>()) {
++                return Some((major, minor));
++            }
++        }
++        // an unparsable value is cudarc's build script's error to report
++        return None;
++    }
++    let Ok(output) = Command::new("nvcc").arg("--version").output() else {
++        return None;
++    };
++    let stdout = String::from_utf8_lossy(&output.stdout);
++    // line 4: `Cuda compilation tools, release 13.2, V13.2.78`
++    let release = stdout.lines().nth(3).and_then(|l| l.split(", ").nth(1))?;
++    let number = release.strip_prefix("release ")?;
++    let (major, minor) = number.split_once('.')?;
++    Some((major.parse().ok()?, minor.parse().ok()?))
++}
+diff --git a/crates-device/rstsr-cuda/src/flags.rs b/crates-device/rstsr-cuda/src/flags.rs
+index a672ffe..382bf28 100644
+--- a/crates-device/rstsr-cuda/src/flags.rs
++++ b/crates-device/rstsr-cuda/src/flags.rs
+@@ -28,7 +28,8 @@ pub struct CudaRuntimeFlags {
+     /// Compute type for 16-bit-float matmul (read by `f16`/`bf16`-output calls only).
+     pub compute_type_16f: ComputeType16F,
+     /// Mantissa bits of the 64-bit-float fixed-point emulation; `0` keeps the library
+-    /// default. Read only when `compute_type_64f` is `EmulatedFixedPoint`.
++    /// default (the only value `cudarc` 0.19 can honour: any other is an error naming this
++    /// field). Read only when `compute_type_64f` is `EmulatedFixedPoint`.
+     pub fixedpoint_mantissa_bits: u32,
+     /// The matmul drivers a device may use (default: all of them).
+     pub matmul_drivers: MatMulDrivers,
+diff --git a/crates-device/rstsr-cuda/src/lib.rs b/crates-device/rstsr-cuda/src/lib.rs
+index b0397ea..b81e703 100644
+--- a/crates-device/rstsr-cuda/src/lib.rs
++++ b/crates-device/rstsr-cuda/src/lib.rs
+@@ -44,7 +44,7 @@
+ //! | pinned host memory | `PinnedBuffer<T>` on `DeviceCudaPinned` (alloc/zeros/full/from_vec), non-blocking `to_device` both ways against `DeviceCuda`, copies against the CPU devices, zero-copy `host_view`/`host_view_mut`, one ordering event per buffer |
+ //! | elementwise | arithmetic, comparison, transcendentals, unary float families, `where`, `clip` (same dtype) |
+ //! | reductions | `sum`/`prod`/`mean`/`l2_norm`/`min`/`max`/`all`/`any`/`count_nonzero` (+ dtype variants), `var`/`std` (+ dtype), `argmin`/`argmax`/`nanarg*` (raveled, all + axes), `cumsum`/`cumprod` (real dtypes) |
+-//! | linalg | `outer`, `cross`, `matmul`/`matmul_uninit` (driver chain: cuBLAS, tiled kernel, naive kernel), `tensordot` (view-only tier) |
++//! | linalg | `outer`, `cross`, `matmul`/`matmul_uninit` (driver chain: `cublasGemmEx`, classic cuBLAS, tiled kernel, naive kernel; compute modes by the flags), `tensordot` (view-only tier) |
+ //! | indexing | `index_select`, `index_put` |
+ //!
+ //! **Absent, and why** — these are deliberate, not pending:
+@@ -103,13 +103,20 @@
+ //! CUDARC_CUDA_VERSION=12060 cargo test -p rstsr-cuda --test test_kernels
+ //! CUDARC_CUDA_VERSION=12060 cargo test -p rstsr-cuda --test test_matmul_tiled
+ //! CUDARC_CUDA_VERSION=12060 cargo test -p rstsr-cuda --test test_matmul_naive
++//! CUDARC_CUDA_VERSION=12060 cargo test -p rstsr-cuda --test test_matmul_modes
+ //! CUDARC_CUDA_VERSION=12060 cargo test -p rstsr-cuda --test test_pinned
+ //! ```
+ //!
+ //! Without a visible driver every hardware test prints `skipping: no CUDA device visible` and
+ //! passes, so a green run on a machine without a GPU means *nothing ran*. `--lib` is the half that
+-//! runs anywhere: the reduction plan, the kernel-token checks, the cuBLAS argument derivation and
+-//! the addressing rules are all pure functions and are tested there.
++//! runs anywhere: the reduction plan, the kernel-token checks, the cuBLAS argument derivation, the
++//! matmul driver table and the addressing rules are all pure functions and are tested there.
++//!
++//! `CUDARC_CUDA_VERSION` picks the cuBLAS bindings `cudarc` compiles, so it also picks what the
++//! matmul drivers can do: with the 12.6 bindings of the lines above the classic entries take no
++//! math mode (`Pedantic`, `FastTF32`, `Fast16F`) and no FP64 fixed-point emulation; those drivers
++//! then decline and the chain falls through. Left unset, the version comes from `nvcc` (13.0 or
++//! newer carries everything); `test_matmul_modes` expects whichever was built.
+ //!
+ //! Environment knobs, all read once per process and all kernel-build inputs (op behaviour,
+ //! including which matmul drivers run, is set through [`flags::CudaRuntimeFlags`] instead):
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs b/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs
+index cf88552..fd2f2f9 100644
+--- a/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs
+@@ -6,7 +6,9 @@
+ //! [`super::super::cublas_args`] and handed to the next driver.
+ //!
+ //! The entries cover `f32` and `f64` only; the other accelerated triples come with the
+-//! `cublasGemmEx` and cuBLASLt drivers.
++//! `cublasGemmEx` and cuBLASLt drivers. The compute mode is a math mode of the handle here (the
++//! typed entries have no compute-type argument), set inside the handle lock and restored before it
++//! is released; [`with_gemm_call`] is the preparation the `cublasGemmEx` driver shares.
+ //!
+ //! # Thread safety
+ //!
+@@ -15,16 +17,16 @@
+ //! itself. That is a requirement of cuBLAS, not a precaution: two host threads entering a `gemm` on
+ //! one handle at the same time is undefined.
+ 
+-use std::any::TypeId;
+-
+ use cudarc::cublas::sys;
+ 
+-use super::{Problem, Refusal, Uniform, Verdict};
++use super::{CublasPlan, Problem, Refusal, Uniform, Verdict};
+ use crate::dtype::CudaDType;
+ use crate::kernel::{order_input, order_output};
+ use crate::matmul::cublas_args;
++use crate::matmul::mode::{ComputeType32F, ComputeType64F};
+ use crate::prelude_dev::*;
+ use crate::stream::CublasHandle;
++use std::sync::Arc;
+ 
+ /// The float widths cuBLAS's typed `gemm` covers, which is exactly what `DeviceMatMulAPI` is
+ /// instantiated for on this device.
+@@ -171,9 +173,112 @@ fn op(t: bool) -> sys::cublasOperation_t {
+     }
+ }
+ 
++/// A compute mode as the classic entries take it: a math mode of the handle.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub(crate) enum MathMode {
++    /// `CUBLAS_PEDANTIC_MATH`: the effect of the matching `_PEDANTIC` compute type.
++    Pedantic,
++    /// `CUBLAS_TENSOR_OP_MATH` (deprecated): the effect of `CUBLAS_COMPUTE_32F_FAST_16F`.
++    TensorOp,
++    /// `CUBLAS_TF32_TENSOR_OP_MATH`.
++    Tf32TensorOp,
++    /// `CUBLAS_FP64_EMULATED_FIXEDPOINT_MATH`.
++    Fp64EmulatedFixedPoint,
++}
++
++impl MathMode {
++    #[cfg(cublas_math_mode)]
++    fn cublas(self) -> sys::cublasMath_t {
++        use sys::cublasMath_t as M;
++        match self {
++            Self::Pedantic => M::CUBLAS_PEDANTIC_MATH,
++            Self::TensorOp => M::CUBLAS_TENSOR_OP_MATH,
++            Self::Tf32TensorOp => M::CUBLAS_TF32_TENSOR_OP_MATH,
++            #[cfg(cublas_fixedpoint_math)]
++            Self::Fp64EmulatedFixedPoint => M::CUBLAS_FP64_EMULATED_FIXEDPOINT_MATH,
++            #[cfg(not(cublas_fixedpoint_math))]
++            Self::Fp64EmulatedFixedPoint => unreachable!("refused by `bound` before any launch"),
++        }
++    }
++}
++
++/// What the driver does with the handle for one compute mode.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++enum Ask {
++    /// Run with the handle as it is (`Default`).
++    Leave,
++    /// Set this math mode for the call.
++    Math(MathMode),
++    /// Decline, for this reason.
++    No(&'static str),
++}
++
++fn ask_32f(mode: ComputeType32F) -> Ask {
++    match mode {
++        ComputeType32F::Default => Ask::Leave,
++        ComputeType32F::Pedantic => Ask::Math(MathMode::Pedantic),
++        ComputeType32F::FastTF32 => Ask::Math(MathMode::Tf32TensorOp),
++        ComputeType32F::Fast16F => Ask::Math(MathMode::TensorOp),
++        ComputeType32F::Fast16BF => Ask::No("no math mode of the classic entries converts the inputs to bf16"),
++    }
++}
++
++fn ask_64f(mode: ComputeType64F, mantissa_bits: u32) -> Result<Ask> {
++    Ok(match mode {
++        ComputeType64F::Default => Ask::Leave,
++        ComputeType64F::Pedantic => Ask::Math(MathMode::Pedantic),
++        ComputeType64F::EmulatedFixedPoint => {
++            if mantissa_bits != 0 {
++                rstsr_raise!(
++                    UnImplemented,
++                    "cuda matmul: fixedpoint_mantissa_bits = {mantissa_bits} cannot be applied: \
++                     cudarc 0.19 binds no entry for the fixed-point mantissa bit count"
++                )?
++            }
++            Ask::Math(MathMode::Fp64EmulatedFixedPoint)
++        },
++    })
++}
++
++/// A math mode this build's `cudarc` bindings do not carry is a refusal, never a silent `Default`.
++fn bound(ask: Ask) -> Ask {
++    match ask {
++        Ask::Math(MathMode::Fp64EmulatedFixedPoint) if !cfg!(cublas_fixedpoint_math) => {
++            Ask::No("this build's cudarc bindings have no fixed-point emulation math mode (CUDA 13.0 or newer needed)")
++        },
++        Ask::Math(_) if !cfg!(cublas_math_mode) => {
++            Ask::No("this build's cudarc bindings have no cublasSetMathMode (CUDA 12.9 or newer needed)")
++        },
++        ask => ask,
++    }
++}
++
++/// Set the handle's math mode and return the mode it had before.
++///
++/// # Safety
++/// The handle must be live and its lock held.
++#[cfg(cublas_math_mode)]
++unsafe fn replace_math_mode(
++    handle: sys::cublasHandle_t,
++    mode: MathMode,
++) -> core::result::Result<sys::cublasMath_t, sys::cublasStatus_t> {
++    let mut previous = sys::cublasMath_t::CUBLAS_DEFAULT_MATH;
++    let status = unsafe { sys::cublasGetMathMode(handle, &mut previous) };
++    if status != sys::cublasStatus_t::CUBLAS_STATUS_SUCCESS {
++        return Err(status);
++    }
++    let status = unsafe { sys::cublasSetMathMode(handle, mode.cublas()) };
++    if status == sys::cublasStatus_t::CUBLAS_STATUS_SUCCESS {
++        Ok(previous)
++    } else {
++        Err(status)
++    }
++}
++
+ /// Issue the `gemm`. Returns the cuBLAS status; the caller hands the problem to the next driver on
+ /// any non-success, because a returned status is a launch-time validation failure and nothing has
+-/// been enqueued.
++/// been enqueued. The only [`Err`] is a handle that could not be put back after the product was
++/// enqueued.
+ ///
+ /// The pointers are named after the **geom** operands; the slot swap happens here, once, and is the
+ /// same swap `cublas_args::args` assumes.
+@@ -193,22 +298,60 @@ fn op(t: bool) -> sys::cublasOperation_t {
+ /// The handle's lock is taken **here** rather than by the caller: a `cublasHandle_t` is not
+ /// thread-safe, and this stream's handle is shared by every thread that uses the ordinal, so this
+ /// is the one call that has to be serialized and the one place a guard cannot be forgotten. See
+-/// [`CublasHandle`].
++/// [`CublasHandle`]. A math mode is set inside that lock and the previous one restored before it
++/// is released, so no other call of this crate ever sees it.
+ ///
+ /// # Safety
+ /// The three pointers must be valid for `geom`'s extents on the handle's stream, including the
+ /// batch range `batchCount * stride` reaches.
++#[allow(clippy::too_many_arguments)]
+ pub(crate) unsafe fn launch<T: CublasScalar>(
+     blas: &CublasHandle,
+     a: &cublas_args::CublasArgs,
++    math: Option<MathMode>,
+     alpha: &T,
+     beta: &T,
+-    ptr_a: u64,
+-    ptr_b: u64,
+-    ptr_c: u64,
+-) -> sys::cublasStatus_t {
++    ptrs: [u64; 3],
++) -> Result<sys::cublasStatus_t> {
+     let _api = blas.lock();
+     let handle = *blas.blas().handle();
++    // Nothing is enqueued yet, so a failure to set the mode is a plain refusal.
++    #[cfg(not(cublas_math_mode))]
++    let _ = math;
++    #[cfg(cublas_math_mode)]
++    let previous = match math {
++        None => None,
++        Some(mode) => match unsafe { replace_math_mode(handle, mode) } {
++            Ok(previous) => Some(previous),
++            Err(status) => return Ok(status),
++        },
++    };
++    let status = unsafe { gemm_unchecked::<T>(handle, a, alpha, beta, ptrs) };
++    // The product is enqueued by now: a handle left in the asked mode would leak the mode into
++    // later calls, which is an error rather than a fall-through.
++    #[cfg(cublas_math_mode)]
++    if let Some(previous) = previous {
++        let restored = unsafe { sys::cublasSetMathMode(handle, previous) };
++        if restored != sys::cublasStatus_t::CUBLAS_STATUS_SUCCESS {
++            rstsr_raise!(
++                RuntimeError,
++                "cuda matmul: cuBLAS status {restored:?} while restoring the handle math mode after a gemm"
++            )?;
++        }
++    }
++    Ok(status)
++}
++
++/// The `gemm` call proper, on a handle whose lock is held.
++#[allow(clippy::too_many_arguments)]
++unsafe fn gemm_unchecked<T: CublasScalar>(
++    handle: sys::cublasHandle_t,
++    a: &cublas_args::CublasArgs,
++    alpha: &T,
++    beta: &T,
++    ptrs: [u64; 3],
++) -> sys::cublasStatus_t {
++    let [ptr_a, ptr_b, ptr_c] = ptrs;
+     let (stride_a, stride_b, stride_c) = cublas_args::batch_strides(a);
+     unsafe {
+         if a.batch > 1 {
+@@ -254,32 +397,26 @@ pub(crate) unsafe fn launch<T: CublasScalar>(
+     }
+ }
+ 
+-/// One attempt of the classic driver.
+-pub(super) fn run<TA, TB, TC, TBuf>(p: &Problem<'_, TA, TB, TC, TBuf>) -> Result<Verdict>
++/// Prepare one `gemm` call for the cuBLAS drivers and run `f` with what they need.
++///
++/// Refuses the problems cuBLAS cannot express (the rule table in [`cublas_args`]) and calls `f`
++/// with the handle (unlocked: `f` takes the lock), the arguments and the three pointers `[a, b, c]`
++/// named after the **geom** operands, each the buffer's base folded with its layout's own offset in
++/// bytes. The read-event guards of the three buffers live in this frame, so they are held until
++/// `f` returns.
++pub(crate) fn with_gemm_call<T, TA, TB, TC, TBuf, F>(
++    u: &Uniform<'_, T>,
++    p: &Problem<'_, TA, TB, TC, TBuf>,
++    f: F,
++) -> Result<Verdict>
+ where
++    T: 'static,
+     TA: 'static,
+     TB: 'static,
+-    TC: Copy + 'static,
++    TC: 'static,
+     TBuf: 'static,
++    F: FnOnce(&Arc<CublasHandle>, &cublas_args::CublasArgs, [u64; 3]) -> Result<Verdict>,
+ {
+-    // the typed entries cover f32 and f64 only
+-    if TypeId::of::<TC>() == TypeId::of::<f32>() {
+-        return typed(p.uniform::<f32>(), p);
+-    }
+-    if TypeId::of::<TC>() == TypeId::of::<f64>() {
+-        return typed(p.uniform::<f64>(), p);
+-    }
+-    Ok(Verdict::Declined(Refusal::Cannot("the typed gemm entries cover f32 and f64 only")))
+-}
+-
+-/// Derive the arguments, decline on anything cuBLAS cannot express, launch.
+-fn typed<T: CublasScalar, TA, TB, TC, TBuf>(
+-    u: Option<Uniform<'_, T>>,
+-    p: &Problem<'_, TA, TB, TC, TBuf>,
+-) -> Result<Verdict> {
+-    let Some(u) = u else {
+-        return Ok(Verdict::Declined(Refusal::Cannot("the operands and the output must share one dtype")));
+-    };
+     let geom = &p.geom;
+     let Some(args) = cublas_args::args(geom) else {
+         return Ok(Verdict::Declined(Refusal::Cannot(
+@@ -291,8 +428,8 @@ fn typed<T: CublasScalar, TA, TB, TC, TBuf>(
+     let Some(blas) = exec.cublas() else {
+         return Ok(Verdict::Declined(Refusal::NoCublas));
+     };
+-    // Read-event guards held until after the cuBLAS enqueue (fn scope). `geom.a` is the buffer
+-    // whose layout went first to the rule table: the caller's `b` under `ColMajor`.
++    // `geom.a` is the buffer whose layout went first to the rule table: the caller's `b` under
++    // `ColMajor`.
+     let (buf_a, buf_b) = if geom.swapped { (u.b, u.a) } else { (u.a, u.b) };
+     let _ga = order_input(buf_a, exec)?;
+     let _gb = order_input(buf_b, exec)?;
+@@ -301,18 +438,119 @@ fn typed<T: CublasScalar, TA, TB, TC, TBuf>(
+     let (pb, _rb) = buf_b.read_ptr_on(exec);
+     let (pc, _rc) = u.c.read_ptr_on(exec);
+     let esz = core::mem::size_of::<T>() as u64;
+-    let (pa, pb, pc) = (
++    let ptrs = [
+         (pa as u64).wrapping_add(geom.a.0 as u64 * esz),
+         (pb as u64).wrapping_add(geom.b.0 as u64 * esz),
+         (pc as u64).wrapping_add(geom.c.0 as u64 * esz),
+-    );
++    ];
++    f(blas, &args, ptrs)
++}
+ 
+-    // SAFETY: the pointers are the buffers' bases folded with the layouts' own offsets, and
+-    // `args` was derived from the same `geom` those offsets came from.
+-    let status = unsafe { launch(blas, &args, &u.alpha, &u.beta, pa, pb, pc) };
+-    if matches!(status, sys::cublasStatus_t::CUBLAS_STATUS_SUCCESS) {
+-        Ok(Verdict::Ran)
++/// The status as a verdict: a non-success status is a refusal (nothing was enqueued).
++pub(crate) fn status_verdict(status: sys::cublasStatus_t) -> Verdict {
++    if status == sys::cublasStatus_t::CUBLAS_STATUS_SUCCESS {
++        Verdict::Ran
+     } else {
+-        Ok(Verdict::Declined(Refusal::CublasStatus(status)))
++        Verdict::Declined(Refusal::CublasStatus(status))
++    }
++}
++
++/// One attempt of the classic driver.
++///
++/// The compute mode is a math mode of the handle here: the typed entries have no compute-type
++/// argument. `Default` leaves the handle alone.
++pub(super) fn run<TA, TB, TC, TBuf>(
++    p: &Problem<'_, TA, TB, TC, TBuf>,
++    plan: CublasPlan,
++    mantissa_bits: u32,
++) -> Result<Verdict>
++where
++    TA: 'static,
++    TB: 'static,
++    TC: Copy + 'static,
++    TBuf: 'static,
++{
++    // the typed entries cover f32 and f64 only
++    match plan {
++        CublasPlan::F32(mode) => {
++            let ask = bound(ask_32f(mode));
++            if let Ask::No(why) = ask {
++                return Ok(Verdict::Declined(Refusal::Cannot(why)));
++            }
++            typed::<f32, TA, TB, TC, TBuf>(p, ask)
++        },
++        CublasPlan::F64(mode) => {
++            let ask = bound(ask_64f(mode, mantissa_bits)?);
++            if let Ask::No(why) = ask {
++                return Ok(Verdict::Declined(Refusal::Cannot(why)));
++            }
++            typed::<f64, TA, TB, TC, TBuf>(p, ask)
++        },
++        CublasPlan::None => Ok(Verdict::Declined(Refusal::Cannot("the typed gemm entries cover f32 and f64 only"))),
++    }
++}
++
++/// Derive the arguments, decline on anything cuBLAS cannot express, launch.
++fn typed<T: CublasScalar, TA, TB, TC, TBuf>(p: &Problem<'_, TA, TB, TC, TBuf>, ask: Ask) -> Result<Verdict>
++where
++    TA: 'static,
++    TB: 'static,
++    TC: Copy + 'static,
++    TBuf: 'static,
++{
++    let Some(u) = p.uniform::<T>() else {
++        return Ok(Verdict::Declined(Refusal::Cannot("the operands and the output must share one dtype")));
++    };
++    let math = match ask {
++        Ask::Leave => None,
++        Ask::Math(mode) => Some(mode),
++        Ask::No(_) => unreachable!("a refusal is answered before the buffers are re-typed"),
++    };
++    with_gemm_call(&u, p, |blas, args, ptrs| {
++        // SAFETY: the pointers are the buffers' bases folded with the layouts' own offsets, and
++        // `args` was derived from the same `geom` those offsets came from.
++        let status = unsafe { launch::<T>(blas, args, math, &u.alpha, &u.beta, ptrs)? };
++        Ok(status_verdict(status))
++    })
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// Every 32F mode has a math mode of the classic entries but `Fast16BF`.
++    #[test]
++    fn math_modes_of_the_32f_family() {
++        assert_eq!(ask_32f(ComputeType32F::default()), Ask::Leave);
++        assert_eq!(ask_32f(ComputeType32F::Pedantic), Ask::Math(MathMode::Pedantic));
++        assert_eq!(ask_32f(ComputeType32F::FastTF32), Ask::Math(MathMode::Tf32TensorOp));
++        assert_eq!(ask_32f(ComputeType32F::Fast16F), Ask::Math(MathMode::TensorOp));
++        assert!(matches!(ask_32f(ComputeType32F::Fast16BF), Ask::No(why) if why.contains("bf16")));
++    }
++
++    /// Every 64F mode has one; the fixed-point emulation asks for its bindings.
++    #[test]
++    fn math_modes_of_the_64f_family() {
++        assert_eq!(ask_64f(ComputeType64F::default(), 0).unwrap(), Ask::Leave);
++        assert_eq!(ask_64f(ComputeType64F::Pedantic, 0).unwrap(), Ask::Math(MathMode::Pedantic));
++        let ask = ask_64f(ComputeType64F::EmulatedFixedPoint, 0).unwrap();
++        assert_eq!(ask, Ask::Math(MathMode::Fp64EmulatedFixedPoint));
++        assert_eq!(bound(ask).is_refusal(), !cfg!(cublas_fixedpoint_math));
++        // a mantissa width cannot be applied by this cudarc: an error, never a silent default
++        assert!(ask_64f(ComputeType64F::EmulatedFixedPoint, 30).is_err());
++    }
++
++    /// A math mode the bindings lack is a refusal naming the bindings, not a `Default`.
++    #[test]
++    fn unbound_math_modes_refuse() {
++        for mode in [ComputeType32F::Pedantic, ComputeType32F::FastTF32, ComputeType32F::Fast16F] {
++            assert_eq!(bound(ask_32f(mode)).is_refusal(), !cfg!(cublas_math_mode), "{mode:?}");
++        }
++    }
++
++    impl Ask {
++        fn is_refusal(&self) -> bool {
++            matches!(self, Ask::No(_))
++        }
+     }
+ }
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/cublas_ex.rs b/crates-device/rstsr-cuda/src/matmul/drivers/cublas_ex.rs
+new file mode 100644
+index 0000000..b92c4da
+--- /dev/null
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/cublas_ex.rs
+@@ -0,0 +1,175 @@
++//! The `cublasGemmEx` driver: `cublasGemmEx` / `cublasGemmStridedBatchedEx`.
++//!
++//! The same column-major mapping as the classic entries (it shares [`cublas::with_gemm_call`]),
++//! with the compute type as an argument instead of a handle math mode, so nothing on the handle
++//! is touched. The storage type of all three matrices and the type of `alpha`/`beta` is the
++//! output type (`CUDA_R_32F` for the 32F family, `CUDA_R_64F` for the 64F family).
++//!
++//! What it cannot express: the FP64 fixed-point emulation (a math mode of the classic handle) and
++//! a triple whose storage it has no uniform type for (mixed operands).
++
++use cudarc::cublas::sys;
++
++use super::cublas::{status_verdict, with_gemm_call, CublasScalar};
++use super::{CublasPlan, Problem, Refusal, Verdict};
++use crate::matmul::cublas_args::CublasArgs;
++use crate::prelude_dev::*;
++
++/// A scalar the `*Ex` entries take in all three matrix slots, with the scales of the same type.
++pub(crate) trait ExScalar: CublasScalar {
++    /// The `cudaDataType_t` of `A`, `B` and `C`.
++    const DATA: sys::cudaDataType_t;
++
++    /// # Safety
++    /// `ptrs` must be valid for `args`' extents on the handle's stream; the handle's lock must be
++    /// held.
++    #[allow(clippy::too_many_arguments)]
++    unsafe fn gemm_ex(
++        handle: sys::cublasHandle_t,
++        a: &CublasArgs,
++        compute: sys::cublasComputeType_t,
++        alpha: &Self,
++        beta: &Self,
++        ptrs: [u64; 3],
++    ) -> sys::cublasStatus_t;
++}
++
++/// The `gemm` call proper, on a handle whose lock is held.
++///
++/// # Safety
++/// See [`ExScalar::gemm_ex`].
++#[allow(clippy::too_many_arguments)]
++unsafe fn gemm_ex_unchecked<T: ExScalar>(
++    handle: sys::cublasHandle_t,
++    a: &CublasArgs,
++    compute: sys::cublasComputeType_t,
++    alpha: &T,
++    beta: &T,
++    ptrs: [u64; 3],
++) -> sys::cublasStatus_t {
++    let [ptr_a, ptr_b, ptr_c] = ptrs;
++    let (stride_a, stride_b, stride_c) = crate::matmul::cublas_args::batch_strides(a);
++    let op = |t: bool| if t { sys::cublasOperation_t::CUBLAS_OP_T } else { sys::cublasOperation_t::CUBLAS_OP_N };
++    // slot A holds `geom.b`, slot B holds `geom.a`; the strides follow the buffer.
++    let (a_ptr, b_ptr) = (ptr_b as *const core::ffi::c_void, ptr_a as *const core::ffi::c_void);
++    let c_ptr = ptr_c as *mut core::ffi::c_void;
++    let (alpha, beta) = (alpha as *const T as *const core::ffi::c_void, beta as *const T as *const core::ffi::c_void);
++    let algo = sys::cublasGemmAlgo_t::CUBLAS_GEMM_DEFAULT;
++    unsafe {
++        if a.batch > 1 {
++            sys::cublasGemmStridedBatchedEx(
++                handle,
++                op(a.transa),
++                op(a.transb),
++                a.mo,
++                a.no,
++                a.ko,
++                alpha,
++                a_ptr,
++                T::DATA,
++                a.lda,
++                stride_a,
++                b_ptr,
++                T::DATA,
++                a.ldb,
++                stride_b,
++                beta,
++                c_ptr,
++                T::DATA,
++                a.ldc,
++                stride_c,
++                a.batch,
++                compute,
++                algo,
++            )
++        } else {
++            sys::cublasGemmEx(
++                handle,
++                op(a.transa),
++                op(a.transb),
++                a.mo,
++                a.no,
++                a.ko,
++                alpha,
++                a_ptr,
++                T::DATA,
++                a.lda,
++                b_ptr,
++                T::DATA,
++                a.ldb,
++                beta,
++                c_ptr,
++                T::DATA,
++                a.ldc,
++                compute,
++                algo,
++            )
++        }
++    }
++}
++
++macro_rules! impl_ex_scalar {
++    ($t:ty, $data:ident) => {
++        impl ExScalar for $t {
++            const DATA: sys::cudaDataType_t = sys::cudaDataType_t::$data;
++
++            unsafe fn gemm_ex(
++                handle: sys::cublasHandle_t,
++                a: &CublasArgs,
++                compute: sys::cublasComputeType_t,
++                alpha: &Self,
++                beta: &Self,
++                ptrs: [u64; 3],
++            ) -> sys::cublasStatus_t {
++                unsafe { gemm_ex_unchecked::<$t>(handle, a, compute, alpha, beta, ptrs) }
++            }
++        }
++    };
++}
++
++impl_ex_scalar!(f32, CUDA_R_32F);
++impl_ex_scalar!(f64, CUDA_R_64F);
++
++/// One attempt of the `cublasGemmEx` driver.
++pub(super) fn run<TA, TB, TC, TBuf>(p: &Problem<'_, TA, TB, TC, TBuf>, plan: CublasPlan) -> Result<Verdict>
++where
++    TA: 'static,
++    TB: 'static,
++    TC: Copy + 'static,
++    TBuf: 'static,
++{
++    let compute = match plan {
++        CublasPlan::F32(mode) => return typed::<f32, TA, TB, TC, TBuf>(p, mode.gemm_ex()),
++        CublasPlan::F64(mode) => mode.gemm_ex(),
++        CublasPlan::None => None,
++    };
++    match compute {
++        Some(compute) => typed::<f64, TA, TB, TC, TBuf>(p, compute),
++        None => Ok(Verdict::Declined(Refusal::Cannot(
++            "cublasGemmEx serves f32 and f64 outputs in their own storage, and has no fixed-point emulation",
++        ))),
++    }
++}
++
++/// Derive the arguments, decline on anything cuBLAS cannot express, launch.
++fn typed<T: ExScalar, TA, TB, TC, TBuf>(
++    p: &Problem<'_, TA, TB, TC, TBuf>,
++    compute: sys::cublasComputeType_t,
++) -> Result<Verdict>
++where
++    TA: 'static,
++    TB: 'static,
++    TC: Copy + 'static,
++    TBuf: 'static,
++{
++    let Some(u) = p.uniform::<T>() else {
++        return Ok(Verdict::Declined(Refusal::Cannot("the operands and the output must share one dtype")));
++    };
++    with_gemm_call(&u, p, |blas, args, ptrs| {
++        let _api = blas.lock();
++        // SAFETY: the pointers are the buffers' bases folded with the layouts' own offsets, and
++        // `args` was derived from the same `geom` those offsets came from.
++        let status = unsafe { T::gemm_ex(*blas.blas().handle(), args, compute, &u.alpha, &u.beta, ptrs) };
++        Ok(status_verdict(status))
++    })
++}
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs b/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
+index 2d78d0f..6e0d290 100644
+--- a/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
+@@ -11,12 +11,13 @@ use std::any::TypeId;
+ 
+ use super::flags::MatMulDrivers;
+ use super::geom::GemmGeom;
+-use super::mode::CudaMatMulMode;
++use super::mode::{ComputeType32F, ComputeType64F, CudaMatMulMode};
+ use crate::dtype::CudaDType;
+ use crate::prelude_dev::*;
+ pub(crate) use naive::NaiveScalar;
+ 
+ pub(crate) mod cublas;
++pub(crate) mod cublas_ex;
+ pub(crate) mod naive;
+ pub(crate) mod tiled;
+ 
+@@ -170,23 +171,90 @@ fn same<T: 'static, U: 'static>() -> bool {
+     TypeId::of::<T>() == TypeId::of::<U>()
+ }
+ 
++/// The compute mode of one call, resolved for its output type: what the cuBLAS drivers are asked
++/// for.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub(crate) enum CublasPlan {
++    /// An `f32` output: the 32F mode.
++    F32(ComputeType32F),
++    /// An `f64` output: the 64F mode.
++    F64(ComputeType64F),
++    /// No cuBLAS compute mode: integers, half, or a type the accelerated drivers do not serve yet.
++    None,
++}
++
++/// The compute mode of one call, resolved for its output type: what the cuBLAS drivers are asked
++/// for. Every `CudaMatMulMode` impl pairs an output type with the mode enum of its family, so the
++/// mode is re-typed by the output type's `TypeId` (the shape `rules/code-concepts.md` names).
++///
++/// Complex and half outputs have no accelerated driver yet, so they have no plan; with those
++/// drivers, this is where a mode of the right family that the triple cannot serve resolves to the
++/// family default (never [`CublasPlan::None`], which would hand an asked-for mode to a kernel that
++/// never heard of it).
++pub(crate) fn plan<TC: CudaMatMulMode>(mode: &TC::Mode) -> CublasPlan {
++    if same::<TC, f32>() {
++        // SAFETY: these output types have `Mode = ComputeType32F`.
++        CublasPlan::F32(unsafe { *(mode as *const TC::Mode as *const ComputeType32F) })
++    } else if same::<TC, f64>() {
++        // SAFETY: these output types have `Mode = ComputeType64F`.
++        CublasPlan::F64(unsafe { *(mode as *const TC::Mode as *const ComputeType64F) })
++    } else {
++        CublasPlan::None
++    }
++}
++
++/// An ordered candidate list: at most one entry per driver.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub(crate) struct Chain {
++    list: [GemmDriver; N],
++    len: u8,
++}
++
++/// The number of drivers.
++const N: usize = GemmDriver::ALL.len();
++
++impl Chain {
++    const EMPTY: [GemmDriver; N] = [GemmDriver::Naive; N];
++
++    fn new(list: &[GemmDriver]) -> Self {
++        let mut out = Self { list: Self::EMPTY, len: list.len() as u8 };
++        out.list[..list.len()].copy_from_slice(list);
++        out
++    }
++
++    pub fn iter(&self) -> impl Iterator<Item = GemmDriver> + '_ {
++        self.list[..self.len as usize].iter().copied()
++    }
++}
++
+ /// The drivers that can serve `(TA, TB) -> TC` under `mode`, in the chain order.
+ ///
+ /// Pure: a table lookup on the type triple and the mode, with no layout input. (Layout decides
+-/// whether a listed driver *can*; that is the run-time fall-through.) Until the mode-aware drivers
+-/// land, only the `Default`-independent part of the table is filled in:
++/// whether a listed driver *can*; that is the run-time fall-through.)
++///
++/// | call | mode | candidates in order |
++/// |---|---|---|
++/// | `f32 -> f32` | any 32F mode | `cublasEx`, cuBLAS, tiled, naive |
++/// | `f64 -> f64` | `Default` / `Pedantic` | `cublasEx`, cuBLAS, tiled, naive |
++/// | `f64 -> f64` | `EmulatedFixedPoint` | cuBLAS, tiled, naive |
++/// | anything else | — | naive |
+ ///
+-/// | call | candidates in order |
+-/// |---|---|
+-/// | `f32 -> f32`, `f64 -> f64` | cuBLAS, tiled, naive |
+-/// | anything else | naive |
+-pub(crate) fn candidates<TA: 'static, TB: 'static, TC: CudaMatMulMode>(mode: &TC::Mode) -> Vec<GemmDriver> {
+-    let _ = mode;
++/// The tiled and naive kernels are mode-agnostic: they compute in the output precision (or
++/// better), which every mode allows, so only the cuBLAS drivers read the plan. cuBLASLt joins as
++/// the first candidate of the accelerated rows with its own driver.
++pub(crate) fn candidates<TA: 'static, TB: 'static, TC: CudaMatMulMode>(mode: &TC::Mode) -> Chain {
+     let same_type = same::<TA, TC>() && same::<TB, TC>();
+-    if same_type && (same::<TC, f32>() || same::<TC, f64>()) {
+-        vec![GemmDriver::Cublas, GemmDriver::Tiled, GemmDriver::Naive]
+-    } else {
+-        vec![GemmDriver::Naive]
++    match plan::<TC>(mode) {
++        CublasPlan::F32(_) if same_type => {
++            Chain::new(&[GemmDriver::CublasEx, GemmDriver::Cublas, GemmDriver::Tiled, GemmDriver::Naive])
++        },
++        CublasPlan::F64(ComputeType64F::EmulatedFixedPoint) if same_type => {
++            Chain::new(&[GemmDriver::Cublas, GemmDriver::Tiled, GemmDriver::Naive])
++        },
++        CublasPlan::F64(_) if same_type => {
++            Chain::new(&[GemmDriver::CublasEx, GemmDriver::Cublas, GemmDriver::Tiled, GemmDriver::Naive])
++        },
++        CublasPlan::F32(_) | CublasPlan::F64(_) | CublasPlan::None => Chain::new(&[GemmDriver::Naive]),
+     }
+ }
+ 
+@@ -202,17 +270,19 @@ where
+     TC: NaiveScalar + CudaMatMulMode,
+     TBuf: 'static,
+ {
++    let plan = plan::<TC>(mode);
+     let enabled = flags.matmul_drivers;
+     let mut declined: Vec<(&'static str, Refusal)> = Vec::new();
+-    for driver in candidates::<TA, TB, TC>(mode) {
++    for driver in candidates::<TA, TB, TC>(mode).iter() {
+         if !enabled.contains(driver.flag()) {
+             continue;
+         }
+         let verdict = match driver {
+-            GemmDriver::Cublas => cublas::run(p)?,
++            GemmDriver::CublasEx => cublas_ex::run(p, plan)?,
++            GemmDriver::Cublas => cublas::run(p, plan, flags.fixedpoint_mantissa_bits)?,
+             GemmDriver::Tiled => tiled::run(p)?,
+             GemmDriver::Naive => naive::run(p)?,
+-            GemmDriver::CublasLt | GemmDriver::CublasEx => {
++            GemmDriver::CublasLt => {
+                 rstsr_raise!(UnImplemented, "cuda matmul: the {} driver is not implemented yet", driver.name())?
+             },
+         };
+@@ -273,20 +343,56 @@ mod tests {
+     use super::*;
+     use crate::matmul::mode::{ComputeType16F, ComputeType32F, ComputeType64F};
+ 
+-    fn names(c: &[GemmDriver]) -> Vec<&'static str> {
++    fn names(c: &Chain) -> Vec<&'static str> {
+         c.iter().map(|d| d.name()).collect()
+     }
+ 
+-    /// The real single-type triples get the accelerated chain; every other triple starts at naive.
++    /// Every 32F mode gives the full accelerated chain to `f32 -> f32`.
+     #[test]
+-    fn table_by_type_triple() {
+-        let chain = ["cublas", "tiled", "naive"];
+-        let naive = ["naive"];
+-        assert_eq!(names(&candidates::<f32, f32, f32>(&ComputeType32F::default())), chain);
++    fn table_32f() {
++        let chain = ["cublasEx", "cublas", "tiled", "naive"];
++        let modes = [
++            ComputeType32F::default(),
++            ComputeType32F::Pedantic,
++            ComputeType32F::Fast16F,
++            ComputeType32F::Fast16BF,
++            ComputeType32F::FastTF32,
++        ];
++        for mode in modes {
++            assert_eq!(names(&candidates::<f32, f32, f32>(&mode)), chain, "{mode:?}");
++        }
++    }
++
++    /// `f64 -> f64`: the full chain, except that the fixed-point emulation is served by the
++    /// classic handle only.
++    #[test]
++    fn table_64f() {
++        let chain = ["cublasEx", "cublas", "tiled", "naive"];
+         assert_eq!(names(&candidates::<f64, f64, f64>(&ComputeType64F::default())), chain);
+         assert_eq!(names(&candidates::<f64, f64, f64>(&ComputeType64F::Pedantic)), chain);
++        assert_eq!(names(&candidates::<f64, f64, f64>(&ComputeType64F::EmulatedFixedPoint)), [
++            "cublas", "tiled", "naive"
++        ]);
++    }
++
++    /// The plan is keyed by the output type: the family mode for `f32`/`f64`, none for the types
++    /// without an accelerated driver yet.
++    #[test]
++    fn plan_by_output_type() {
++        assert_eq!(plan::<f32>(&ComputeType32F::FastTF32), CublasPlan::F32(ComputeType32F::FastTF32));
++        assert_eq!(plan::<f64>(&ComputeType64F::Pedantic), CublasPlan::F64(ComputeType64F::Pedantic));
++        assert_eq!(plan::<num::Complex<f64>>(&ComputeType64F::default()), CublasPlan::None);
++        assert_eq!(plan::<i32>(&()), CublasPlan::None);
++        assert_eq!(plan::<half::bf16>(&ComputeType16F::default()), CublasPlan::None);
++    }
++
++    /// Every other triple starts and ends at naive, whatever the mode.
++    #[test]
++    fn table_by_type_triple() {
++        let naive = ["naive"];
+         assert_eq!(names(&candidates::<i32, i32, i32>(&())), naive);
+         assert_eq!(names(&candidates::<f32, f64, f64>(&ComputeType64F::default())), naive, "mixed operands");
++        assert_eq!(names(&candidates::<f32, f64, f32>(&ComputeType32F::default())), naive, "mixed operands, f32 out");
+         assert_eq!(names(&candidates::<half::f16, half::f16, f32>(&ComputeType32F::default())), naive);
+         assert_eq!(names(&candidates::<half::bf16, half::bf16, half::bf16>(&ComputeType16F::default())), naive);
+         assert_eq!(
+@@ -295,6 +401,13 @@ mod tests {
+         );
+     }
+ 
++    /// The candidate list holds every driver at most once and never overflows.
++    #[test]
++    fn chain_bounds() {
++        assert_eq!(Chain::new(&GemmDriver::ALL).iter().collect::<Vec<_>>(), GemmDriver::ALL.to_vec());
++        assert_eq!(Chain::new(&[]).iter().count(), 0);
++    }
++
+     /// Each driver owns one enable-set bit, and the default set enables all of them.
+     #[test]
+     fn driver_flags() {
+diff --git a/crates-device/rstsr-cuda/src/matmul/mod.rs b/crates-device/rstsr-cuda/src/matmul/mod.rs
+index 5922c05..360fd26 100644
+--- a/crates-device/rstsr-cuda/src/matmul/mod.rs
++++ b/crates-device/rstsr-cuda/src/matmul/mod.rs
+@@ -15,11 +15,16 @@
+ //! family. `DeviceMatMulAPI` reads the mode of the output type from the device flags; the
+ //! tensor-level `*_mode` entries (passing it per call) are not built yet.
+ //!
++//! The cuBLAS drivers take the mode as given; the tiled and naive kernels compute in the output
++//! precision (or better) whatever the mode. A driver that cannot express a mode declines and the
++//! next candidate runs: `Fast16BF` on the classic entries, and `EmulatedFixedPoint` without
++//! `cudarc`'s CUDA 13.0 bindings.
++//!
+ //! # Type triples
+ //!
+ //! | `(a, b) -> c` | accelerated drivers | always |
+ //! |---|---|---|
+-//! | `f32 -> f32`, `f64 -> f64` | classic cuBLAS, tiled | naive |
++//! | `f32 -> f32`, `f64 -> f64` | `cublasGemmEx`, classic cuBLAS, tiled | naive |
+ //! | everything else (integers, complex, half, mixed operands) | — (later batches) | naive |
+ //!
+ //! # Layouts
+diff --git a/crates-device/rstsr-cuda/src/matmul/mode.rs b/crates-device/rstsr-cuda/src/matmul/mode.rs
+index c0b9d3a..66f8e2d 100644
+--- a/crates-device/rstsr-cuda/src/matmul/mode.rs
++++ b/crates-device/rstsr-cuda/src/matmul/mode.rs
+@@ -6,6 +6,7 @@
+ 
+ use crate::dtype::CudaDType;
+ use crate::flags::CudaRuntimeFlags;
++use cudarc::cublas::sys;
+ use duplicate::duplicate_item;
+ use num::Complex;
+ 
+@@ -13,6 +14,10 @@ use num::Complex;
+ ///
+ /// Read by calls with an `f32` (or `f32`-family) output only. A mode the type triple cannot serve
+ /// resolves to [`Self::Default`] silently; [`Self::Pedantic`] is never downgraded and is an error.
++///
++/// A driver that cannot express a mode declines the problem, and the next candidate runs
++/// (`Fast16BF` has no classic-entry math mode, so the classic driver hands it to the tiled or
++/// naive kernel, which compute in full `f32`).
+ #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+ #[non_exhaustive]
+ pub enum ComputeType32F {
+@@ -31,6 +36,8 @@ pub enum ComputeType32F {
+ }
+ 
+ /// 64-bit-float compute-type family.
++///
++/// Read by calls with an `f64` output only, with the same resolution rule as [`ComputeType32F`].
+ #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+ #[non_exhaustive]
+ pub enum ComputeType64F {
+@@ -39,8 +46,9 @@ pub enum ComputeType64F {
+     Default,
+     /// Exact arithmetic semantics and the specified internal storage format.
+     Pedantic,
+-    /// Emulate the `f64` product in fixed point; the mantissa width is
+-    /// [`CudaRuntimeFlags::fixedpoint_mantissa_bits`].
++    /// Emulate the `f64` product in fixed point. Only the classic cuBLAS driver serves it, and it
++    /// needs `cudarc`'s CUDA 13.0 bindings (`CUDARC_CUDA_VERSION=13000` or newer); the mantissa
++    /// width is [`CudaRuntimeFlags::fixedpoint_mantissa_bits`].
+     EmulatedFixedPoint,
+ }
+ 
+@@ -68,6 +76,33 @@ pub trait CudaMatMulMode: CudaDType {
+     fn matmul_mode(flags: &CudaRuntimeFlags) -> Self::Mode;
+ }
+ 
++impl ComputeType32F {
++    /// The `cublasGemmEx` compute type of this mode.
++    pub(crate) fn gemm_ex(self) -> sys::cublasComputeType_t {
++        use sys::cublasComputeType_t as C;
++        match self {
++            Self::Default => C::CUBLAS_COMPUTE_32F,
++            Self::Pedantic => C::CUBLAS_COMPUTE_32F_PEDANTIC,
++            Self::Fast16F => C::CUBLAS_COMPUTE_32F_FAST_16F,
++            Self::Fast16BF => C::CUBLAS_COMPUTE_32F_FAST_16BF,
++            Self::FastTF32 => C::CUBLAS_COMPUTE_32F_FAST_TF32,
++        }
++    }
++}
++
++impl ComputeType64F {
++    /// The `cublasGemmEx` compute type of this mode, or `None` where the entry has none: the
++    /// fixed-point emulation is a math mode of the classic handle only.
++    pub(crate) fn gemm_ex(self) -> Option<sys::cublasComputeType_t> {
++        use sys::cublasComputeType_t as C;
++        match self {
++            Self::Default => Some(C::CUBLAS_COMPUTE_64F),
++            Self::Pedantic => Some(C::CUBLAS_COMPUTE_64F_PEDANTIC),
++            Self::EmulatedFixedPoint => None,
++        }
++    }
++}
++
+ impl CudaMatMulMode for f32 {
+     type Mode = ComputeType32F;
+     fn matmul_mode(flags: &CudaRuntimeFlags) -> Self::Mode {
+@@ -119,3 +154,39 @@ impl CudaMatMulMode for T {
+     type Mode = ();
+     fn matmul_mode(_: &CudaRuntimeFlags) -> Self::Mode {}
+ }
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn every_32f_mode_is_a_gemm_ex_compute_type() {
++        use sys::cublasComputeType_t as C;
++        assert_eq!(ComputeType32F::default().gemm_ex(), C::CUBLAS_COMPUTE_32F);
++        assert_eq!(ComputeType32F::Pedantic.gemm_ex(), C::CUBLAS_COMPUTE_32F_PEDANTIC);
++        assert_eq!(ComputeType32F::Fast16F.gemm_ex(), C::CUBLAS_COMPUTE_32F_FAST_16F);
++        assert_eq!(ComputeType32F::Fast16BF.gemm_ex(), C::CUBLAS_COMPUTE_32F_FAST_16BF);
++        assert_eq!(ComputeType32F::FastTF32.gemm_ex(), C::CUBLAS_COMPUTE_32F_FAST_TF32);
++    }
++
++    #[test]
++    fn fixed_point_emulation_has_no_gemm_ex_compute_type() {
++        use sys::cublasComputeType_t as C;
++        assert_eq!(ComputeType64F::default().gemm_ex(), Some(C::CUBLAS_COMPUTE_64F));
++        assert_eq!(ComputeType64F::Pedantic.gemm_ex(), Some(C::CUBLAS_COMPUTE_64F_PEDANTIC));
++        assert_eq!(ComputeType64F::EmulatedFixedPoint.gemm_ex(), None);
++    }
++
++    /// A call reads the field of its own family only.
++    #[test]
++    fn mode_read_from_the_family_field() {
++        let flags = CudaRuntimeFlags {
++            compute_type_32f: ComputeType32F::FastTF32,
++            compute_type_64f: ComputeType64F::EmulatedFixedPoint,
++            ..CudaRuntimeFlags::default()
++        };
++        assert_eq!(<f32 as CudaMatMulMode>::matmul_mode(&flags), ComputeType32F::FastTF32);
++        assert_eq!(<f64 as CudaMatMulMode>::matmul_mode(&flags), ComputeType64F::EmulatedFixedPoint);
++        assert_eq!(<Complex<f32> as CudaMatMulMode>::matmul_mode(&flags), ComputeType32F::FastTF32);
++    }
++}
+diff --git a/crates-device/rstsr-cuda/tests/test_matmul_modes.rs b/crates-device/rstsr-cuda/tests/test_matmul_modes.rs
+new file mode 100644
+index 0000000..ce58c22
+--- /dev/null
++++ b/crates-device/rstsr-cuda/tests/test_matmul_modes.rs
+@@ -0,0 +1,241 @@
++//! Compute modes of the matmul drivers, on hardware: every `(triple, mode)` of `f32` and `f64`
++//! on each cuBLAS driver that serves it, against a CPU `f64` reference.
++//!
++//! The tolerance is per `(triple, mode)`: the exact modes are held to ordinary summation error,
++//! the ones that down-convert the inputs (`Fast16F`, `Fast16BF`, `FastTF32`) to the precision of
++//! the conversion, the fixed-point emulation to the width cuBLAS picks by default. A driver that
++//! cannot serve a mode must say so: forced alone it is an error naming the reason, never a
++//! silently different precision.
++//!
++//! The printed `max rel err` per mode is the measurement the tolerances were set from.
++
++use rstsr::prelude::*;
++use rstsr_cuda::dtype::CudaDType;
++use rstsr_cuda::funcs;
++use rstsr_cuda::matmul::{ComputeType32F, ComputeType64F};
++use rstsr_cuda::prelude_dev::*;
++
++/// Uniform data in `[-1, 1]`.
++fn data(n: usize, seed: u64) -> Vec<f64> {
++    let mut s = seed | 1;
++    (0..n)
++        .map(|_| {
++            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++            ((s >> 11) as f64 / (1u64 << 53) as f64) * 2.0 - 1.0
++        })
++        .collect()
++}
++
++macro_rules! require_cuda {
++    () => {
++        if !std::panic::catch_unwind(funcs::is_available).unwrap_or(false) {
++            eprintln!("skipping: no CUDA device visible");
++            return;
++        }
++    };
++}
++
++fn device(drivers: MatMulDrivers, edit: impl FnOnce(&mut CudaRuntimeFlags)) -> DeviceCuda {
++    let mut flags = CudaRuntimeFlags::default();
++    flags.matmul_drivers = drivers;
++    edit(&mut flags);
++    DeviceCuda::new(0).with_flags(flags)
++}
++
++/// The error of `a @ b` on `d` (which must fail), with `f64` operands.
++fn matmul_err(d: &DeviceCuda, a: Vec<f64>, b: Vec<f64>) -> String {
++    let (a, b) = (square(d, a, 2), square(d, b, 2));
++    match rt::matmul_f(&a, &b) {
++        Ok(_) => panic!("the matmul should have failed"),
++        Err(e) => format!("{e:?}").chars().filter(|&c| c != '\n').collect(),
++    }
++}
++
++/// The error of `a @ b` on `d` (which must fail), with `f32` operands rounded from `f64` data.
++fn matmul_err_f32(d: &DeviceCuda, a: Vec<f64>, b: Vec<f64>) -> String {
++    let (a, b) = (
++        square(d, a.into_iter().map(|x| x as f32).collect(), 2),
++        square(d, b.into_iter().map(|x| x as f32).collect(), 2),
++    );
++    match rt::matmul_f(&a, &b) {
++        Ok(_) => panic!("the matmul should have failed"),
++        Err(e) => format!("{e:?}").chars().filter(|&c| c != '\n').collect(),
++    }
++}
++
++/// A `[n, n]` device tensor.
++fn square<T: CudaDType + Copy + Clone + Send + Sync + 'static + num::Zero + num::One + core::ops::Mul<Output = T>>(
++    d: &DeviceCuda,
++    v: Vec<T>,
++    n: usize,
++) -> Tensor<T, DeviceCuda, IxD> {
++    rt::asarray((v, d)).into_shape([n, n])
++}
++
++/// `max |got - want| / max |want|`, elementwise over the `f64` values of both.
++fn rel_err(got: &[f64], want: &[f64]) -> f64 {
++    let scale = want.iter().fold(0.0, |s: f64, &x| s.max(x.abs()));
++    got.iter().zip(want).map(|(&g, &w)| (g - w).abs()).fold(0.0, |e: f64, d| e.max(d)) / scale
++}
++
++/// `a @ b` on the device with `dtype` storage, compared with the CPU `f64` product of the
++/// `f32`-rounded operands (for `f32`) or of the operands themselves (for `f64`).
++fn check_f32(d: &DeviceCuda, what: &str, m: usize, k: usize, n: usize, tol: f64) {
++    let dcpu = DeviceCpuSerial::default();
++    let av = data(m * k, 1);
++    let bv = data(k * n, 2);
++    let a32: Tensor<f32, DeviceCpuSerial, _> =
++        rt::asarray((av.iter().map(|&x| x as f32).collect::<Vec<_>>(), &dcpu)).into_shape([m, k]);
++    let b32: Tensor<f32, DeviceCpuSerial, _> =
++        rt::asarray((bv.iter().map(|&x| x as f32).collect::<Vec<_>>(), &dcpu)).into_shape([k, n]);
++    let a64: Tensor<f64, DeviceCpuSerial, _> =
++        rt::asarray((av.iter().map(|&x| x as f32 as f64).collect::<Vec<_>>(), &dcpu)).into_shape([m, k]);
++    let b64: Tensor<f64, DeviceCpuSerial, _> =
++        rt::asarray((bv.iter().map(|&x| x as f32 as f64).collect::<Vec<_>>(), &dcpu)).into_shape([k, n]);
++    let want = rt::matmul(&a64, &b64);
++    let want = DeviceToCpuAPI::<f64>::to_cpu_vec(want.to_contig(RowMajor).storage()).rstsr_unwrap();
++    let got = rt::matmul(a32.to_device(d), b32.to_device(d));
++    let got: Vec<f64> = DeviceToCpuAPI::<f32>::to_cpu_vec(got.to_contig(RowMajor).storage())
++        .rstsr_unwrap()
++        .into_iter()
++        .map(f64::from)
++        .collect();
++    let err = rel_err(&got, &want);
++    eprintln!("  [f32 {what}] max rel err {err:.3e}");
++    assert!(err <= tol, "{what}: max rel err {err:.3e} > {tol:.1e}");
++}
++
++fn check_f64(d: &DeviceCuda, what: &str, m: usize, k: usize, n: usize, tol: f64) {
++    let dcpu = DeviceCpuSerial::default();
++    let a: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((data(m * k, 3), &dcpu)).into_shape([m, k]);
++    let b: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((data(k * n, 4), &dcpu)).into_shape([k, n]);
++    let want = rt::matmul(&a, &b);
++    let want = DeviceToCpuAPI::<f64>::to_cpu_vec(want.to_contig(RowMajor).storage()).rstsr_unwrap();
++    let got = rt::matmul(a.to_device(d), b.to_device(d));
++    let got = DeviceToCpuAPI::<f64>::to_cpu_vec(got.to_contig(RowMajor).storage()).rstsr_unwrap();
++    let err = rel_err(&got, &want);
++    eprintln!("  [f64 {what}] max rel err {err:.3e}");
++    assert!(err <= tol, "{what}: max rel err {err:.3e} > {tol:.1e}");
++}
++
++/// Whether this build's `cudarc` bindings carry the math-mode entry the classic driver needs.
++fn classic_serves(mode: ComputeType32F) -> bool {
++    use ComputeType32F::*;
++    match mode {
++        Default => true,
++        Fast16BF => false,
++        Pedantic | Fast16F | FastTF32 => cfg!(cublas_math_mode),
++        _ => true,
++    }
++}
++
++/// Every 32F mode on `cublasGemmEx` (always served) and on the classic entries (served where a
++/// math mode exists for it), through the device flags.
++#[test]
++fn modes_32f() {
++    require_cuda!();
++    let (m, k, n) = (200usize, 300usize, 180usize);
++    let cases: [(ComputeType32F, &str, f64); 5] = [
++        (ComputeType32F::Default, "default", 1e-5),
++        (ComputeType32F::Pedantic, "pedantic", 1e-5),
++        (ComputeType32F::FastTF32, "fast tf32", 1e-2),
++        (ComputeType32F::Fast16F, "fast 16f", 1e-2),
++        (ComputeType32F::Fast16BF, "fast 16bf", 5e-2),
++    ];
++    for (mode, name, tol) in cases {
++        let ex = device(MatMulDrivers::CUBLAS_EX, |f| f.compute_type_32f = mode);
++        check_f32(&ex, &format!("{name}, cublasEx"), m, k, n, tol);
++        // the default chain takes the same driver
++        let all = device(MatMulDrivers::all(), |f| f.compute_type_32f = mode);
++        check_f32(&all, &format!("{name}, chain"), m, k, n, tol);
++
++        let classic = device(MatMulDrivers::CUBLAS, |f| f.compute_type_32f = mode);
++        if classic_serves(mode) {
++            check_f32(&classic, &format!("{name}, cublas"), m, k, n, tol);
++        } else {
++            let msg = matmul_err_f32(&classic, data(4, 5), data(4, 6));
++            let why = if mode == ComputeType32F::Fast16BF { "bf16" } else { "cudarc bindings" };
++            assert!(msg.contains("cublas: cannot serve") && msg.contains(why), "{name}: {msg}");
++        }
++    }
++}
++
++/// Every 64F mode on both drivers; the fixed-point emulation on the classic handle only.
++#[test]
++fn modes_64f() {
++    require_cuda!();
++    let (m, k, n) = (200usize, 300usize, 180usize);
++    for (mode, name, tol) in
++        [(ComputeType64F::Default, "default", 1e-13), (ComputeType64F::Pedantic, "pedantic", 1e-13)]
++    {
++        let ex = device(MatMulDrivers::CUBLAS_EX, |f| f.compute_type_64f = mode);
++        check_f64(&ex, &format!("{name}, cublasEx"), m, k, n, tol);
++        let all = device(MatMulDrivers::all(), |f| f.compute_type_64f = mode);
++        check_f64(&all, &format!("{name}, chain"), m, k, n, tol);
++        let classic = device(MatMulDrivers::CUBLAS, |f| f.compute_type_64f = mode);
++        if cfg!(cublas_math_mode) {
++            check_f64(&classic, &format!("{name}, cublas"), m, k, n, tol);
++        }
++    }
++
++    let emu = ComputeType64F::EmulatedFixedPoint;
++    let classic = device(MatMulDrivers::CUBLAS, |f| f.compute_type_64f = emu);
++    let all = device(MatMulDrivers::all(), |f| f.compute_type_64f = emu);
++    if cfg!(cublas_fixedpoint_math) {
++        // the default mantissa width of cuBLAS: measured, then held with a margin
++        check_f64(&classic, "fixed point, cublas", m, k, n, 1e-9);
++        check_f64(&all, "fixed point, chain", m, k, n, 1e-9);
++    } else {
++        let msg = matmul_err(&classic, data(4, 5), data(4, 6));
++        assert!(msg.contains("cublas: cannot serve") && msg.contains("fixed-point"), "{msg}");
++    }
++    // `cublasGemmEx` is not a candidate: no Ex-only chain, and the error says why
++    let ex = device(MatMulDrivers::CUBLAS_EX, |f| f.compute_type_64f = emu);
++    let msg = matmul_err(&ex, data(4, 5), data(4, 6));
++    assert!(msg.contains("no enabled driver is a candidate"), "{msg}");
++}
++
++/// A mantissa width cannot be applied by this `cudarc`: with the emulation asked for it is an
++/// error naming the field, and it is not read by any other mode.
++#[test]
++fn fixedpoint_mantissa_bits() {
++    require_cuda!();
++    let emu = device(MatMulDrivers::all(), |f| {
++        f.compute_type_64f = ComputeType64F::EmulatedFixedPoint;
++        f.fixedpoint_mantissa_bits = 30;
++    });
++    let msg = matmul_err(&emu, data(4, 5), data(4, 6));
++    assert!(msg.contains("fixedpoint_mantissa_bits"), "{msg}");
++
++    let d = device(MatMulDrivers::all(), |f| f.fixedpoint_mantissa_bits = 30);
++    let _ = rt::matmul(square(&d, data(4, 5), 2), square(&d, data(4, 6), 2));
++}
++
++/// `cublasGemmEx` with the batched and the transposed argument shapes: a strided batch, and a
++/// transposed operand broadcast against it.
++#[test]
++fn cublas_ex_batched_and_transposed() {
++    require_cuda!();
++    let d = device(MatMulDrivers::CUBLAS_EX, |_| {});
++    let dcpu = DeviceCpuSerial::default();
++    let (p, m, k, n) = (4usize, 32usize, 40usize, 24usize);
++    let a: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((data(p * m * k, 7), &dcpu)).into_shape([p, m, k]);
++    let b: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((data(p * k * n, 8), &dcpu)).into_shape([p, k, n]);
++    let want = rt::matmul(&a, &b);
++    let want = DeviceToCpuAPI::<f64>::to_cpu_vec(want.to_contig(RowMajor).storage()).rstsr_unwrap();
++    let got = rt::matmul(a.to_device(&d), b.to_device(&d));
++    let got = DeviceToCpuAPI::<f64>::to_cpu_vec(got.to_contig(RowMajor).storage()).rstsr_unwrap();
++    let err = rel_err(&got, &want);
++    assert!(err <= 1e-13, "batched: max rel err {err:.3e}");
++
++    // a transposed right operand against the broadcast batch of `a`
++    let a2: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((data(n * k, 9), &dcpu)).into_shape([n, k]);
++    let bt = a2.t();
++    assert_eq!(bt.stride(), &[1, k as isize], "fixture: transposed operand");
++    let want = rt::matmul(&a, &bt);
++    let want = DeviceToCpuAPI::<f64>::to_cpu_vec(want.to_contig(RowMajor).storage()).rstsr_unwrap();
++    let got = rt::matmul(a.to_device(&d), bt.to_device(&d));
++    let got = DeviceToCpuAPI::<f64>::to_cpu_vec(got.to_contig(RowMajor).storage()).rstsr_unwrap();
++    let err = rel_err(&got, &want);
++    assert!(err <= 1e-13, "transposed b: max rel err {err:.3e}");
++}

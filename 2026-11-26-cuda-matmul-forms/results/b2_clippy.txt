@@ -1,0 +1,170 @@
+warning: unnecessary closure used to substitute value for `Option::None`
+  --> rstsr-core/src/device_faer/matmul_impl.rs:32:20
+   |
+32 |     let nthreads = pool.map_or_else(|| 1, |pool| pool.current_num_threads());
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://clippy.rust-lang.org/main/index.html#unnecessary_lazy_evaluations
+   = note: `#[warn(clippy::unnecessary_lazy_evaluations)]` on by default
+help: use `map_or` instead
+   |
+32 -     let nthreads = pool.map_or_else(|| 1, |pool| pool.current_num_threads());
+32 +     let nthreads = pool.map_or(1, |pool| pool.current_num_threads());
+   |
+
+warning: unnecessary closure used to substitute value for `Option::None`
+   --> rstsr-core/src/device_faer/matmul_impl.rs:129:20
+    |
+129 |     let nthreads = pool.map_or_else(|| 1, |pool| pool.current_num_threads());
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#unnecessary_lazy_evaluations
+help: use `map_or` instead
+    |
+129 -     let nthreads = pool.map_or_else(|| 1, |pool| pool.current_num_threads());
+129 +     let nthreads = pool.map_or(1, |pool| pool.current_num_threads());
+    |
+
+warning: unnecessary closure used to substitute value for `Option::None`
+   --> rstsr-core/src/device_faer/matmul_impl.rs:227:20
+    |
+227 |     let nthreads = pool.map_or_else(|| 1, |pool| pool.current_num_threads());
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#unnecessary_lazy_evaluations
+help: use `map_or` instead
+    |
+227 -     let nthreads = pool.map_or_else(|| 1, |pool| pool.current_num_threads());
+227 +     let nthreads = pool.map_or(1, |pool| pool.current_num_threads());
+    |
+
+warning: `rstsr-core` (lib) generated 3 warnings (run `cargo clippy --fix --lib -p rstsr-core -- ` to apply 3 suggestions)
+    Checking rstsr-cuda v0.10.3 (/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda)
+warning: casting to the same type is unnecessary (`isize` -> `isize`)
+   --> crates-device/rstsr-cuda/src/matmul/drivers/syrk.rs:185:21
+    |
+185 |         .arg_bytes(&(scm as isize).to_ne_bytes())
+    |                     ^^^^^^^^^^^^^^ help: try: `scm`
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#unnecessary_cast
+    = note: `#[warn(clippy::unnecessary_cast)]` on by default
+
+warning: casting to the same type is unnecessary (`isize` -> `isize`)
+   --> crates-device/rstsr-cuda/src/matmul/drivers/syrk.rs:186:21
+    |
+186 |         .arg_bytes(&(scn as isize).to_ne_bytes())
+    |                     ^^^^^^^^^^^^^^ help: try: `scn`
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#unnecessary_cast
+
+warning: use `std::ptr::eq` when comparing raw pointers
+   --> crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:430:12
+    |
+430 |         && (p.a.device_ptr() as usize) == (p.b.device_ptr() as usize)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `std::ptr::eq(p.a.device_ptr(), p.b.device_ptr())`
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#ptr_eq
+    = note: `#[warn(clippy::ptr_eq)]` on by default
+
+warning: `rstsr-cuda` (lib) generated 3 warnings (run `cargo clippy --fix --lib -p rstsr-cuda -- ` to apply 3 suggestions)
+warning: the borrowed expression implements the required traits
+  --> crates-device/rstsr-cuda/tests/test_matmul_forms.rs:66:37
+   |
+66 |     let want_t = rt::matmul(&cpu_a, &cpu_a.t());
+   |                                     ^^^^^^^^^^ help: change this to: `cpu_a.t()`
+   |
+   = help: for further information visit https://clippy.rust-lang.org/main/index.html#needless_borrows_for_generic_args
+   = note: `#[warn(clippy::needless_borrows_for_generic_args)]` on by default
+
+warning: the borrowed expression implements the required traits
+  --> crates-device/rstsr-cuda/tests/test_matmul_forms.rs:78:38
+   |
+78 |             let got = rt::matmul(&a, &a.t());
+   |                                      ^^^^^^ help: change this to: `a.t()`
+   |
+   = help: for further information visit https://clippy.rust-lang.org/main/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> crates-device/rstsr-cuda/tests/test_matmul_forms.rs:157:39
+    |
+157 |         rt::matmul_from(&mut w, &cpu, &cpu.t(), Complex::new(2.0, 0.0), Complex::new(3.0, 0.0));
+    |                                       ^^^^^^^^ help: change this to: `cpu.t()`
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> crates-device/rstsr-cuda/tests/test_matmul_forms.rs:158:37
+    |
+158 |         rt::matmul_from(&mut g, &a, &a.t(), Complex::new(2.0, 0.0), Complex::new(3.0, 0.0));
+    |                                     ^^^^^^ help: change this to: `a.t()`
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> crates-device/rstsr-cuda/tests/test_matmul_forms.rs:162:28
+    |
+162 |         cp(&rt::matmul(&a, &ah.t()), &rt::matmul(&cpu, &cpu_ah.t()), "a @ a.h()");
+    |                            ^^^^^^^ help: change this to: `ah.t()`
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> crates-device/rstsr-cuda/tests/test_matmul_forms.rs:162:56
+    |
+162 |         cp(&rt::matmul(&a, &ah.t()), &rt::matmul(&cpu, &cpu_ah.t()), "a @ a.h()");
+    |                                                        ^^^^^^^^^^^ help: change this to: `cpu_ah.t()`
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> crates-device/rstsr-cuda/tests/test_matmul_forms.rs:174:36
+    |
+174 |         let want = rt::matmul(&wb, &wb.transpose([0, 2, 1]));
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `wb.transpose([0, 2, 1])`
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> crates-device/rstsr-cuda/tests/test_matmul_forms.rs:177:28
+    |
+177 |             rt::matmul(&a, &a.transpose([0, 2, 1]))
+    |                            ^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `a.transpose([0, 2, 1])`
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> crates-device/rstsr-cuda/tests/test_matmul_forms.rs:201:29
+    |
+201 |         cp(&rt::matmul(&gs, &gs.t()), &rt::matmul(&ws, &ws.t()), "stepped");
+    |                             ^^^^^^^ help: change this to: `gs.t()`
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> crates-device/rstsr-cuda/tests/test_matmul_forms.rs:201:56
+    |
+201 |         cp(&rt::matmul(&gs, &gs.t()), &rt::matmul(&ws, &ws.t()), "stepped");
+    |                                                        ^^^^^^^ help: change this to: `ws.t()`
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> crates-device/rstsr-cuda/tests/test_matmul_forms.rs:215:55
+    |
+215 |         let want: Vec<f64> = host_cpu(&rt::matmul(&w, &w.t())).into_iter().map(f64::from).collect();
+    |                                                       ^^^^^^ help: change this to: `w.t()`
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> crates-device/rstsr-cuda/tests/test_matmul_forms.rs:219:40
+    |
+219 |         let got = host(&rt::matmul(&a, &a.t()));
+    |                                        ^^^^^^ help: change this to: `a.t()`
+    |
+    = help: for further information visit https://clippy.rust-lang.org/main/index.html#needless_borrows_for_generic_args
+
+warning: `rstsr-cuda` (test "test_matmul_forms") generated 12 warnings (run `cargo clippy --fix --test "test_matmul_forms" -p rstsr-cuda -- ` to apply 12 suggestions)
+warning: `rstsr-cuda` (lib test) generated 3 warnings (3 duplicates)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.10s
+[exit 0]

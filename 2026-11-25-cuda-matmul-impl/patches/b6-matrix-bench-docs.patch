@@ -1,0 +1,412 @@
+diff --git a/crates-device/rstsr-cuda/Cargo.toml b/crates-device/rstsr-cuda/Cargo.toml
+index ab126a7..a200677 100644
+--- a/crates-device/rstsr-cuda/Cargo.toml
++++ b/crates-device/rstsr-cuda/Cargo.toml
+@@ -48,6 +48,10 @@ faer = ["rstsr-core/faer"]
+ # (set on the dependency) covers the runtime-dlopen case.
+ dynamic-linking = ["cudarc/dynamic-linking"]
+ 
++[[bench]]
++name = "bench_matmul"
++harness = false
++
+ [[bench]]
+ name = "bench_elementwise"
+ harness = false
+diff --git a/crates-device/rstsr-cuda/benches/bench_matmul.rs b/crates-device/rstsr-cuda/benches/bench_matmul.rs
+new file mode 100644
+index 0000000..e719522
+--- /dev/null
++++ b/crates-device/rstsr-cuda/benches/bench_matmul.rs
+@@ -0,0 +1,162 @@
++//! Matmul benchmark cells: type triple x shape x driver, median-of-R wall timing per cell (sync
++//! once per repeat; each product enqueued once per iteration).
++//!
++//! Output: one `triple,shape,driver,median_ms,tflops` CSV line per cell, then the same as a
++//! markdown table. `RSTSR_BENCH_TIME` is the time budget per repeat in seconds (default 0.2) and
++//! `RSTSR_BENCH_REPEAT` the number of repeats (default 5); the iteration count follows from one
++//! timed call.
++//!
++//! Run: cargo bench --bench bench_matmul   (or: cargo run --release --bench bench_matmul)
++//!
++//! Triples: f32 -> f32, f64 -> f64, c64 -> c64, f16 -> f16, f16 -> f32.
++//! Shapes: square 2048, square 512, tall-skinny 65536x64x64, batch 256 x (256,256,256).
++//! Drivers: the default chain, then every driver that serves the triple alone; the naive kernel
++//! on square 512 only (it is minutes on the larger shapes). A complex product counts as four
++//! real ones.
++
++use std::time::Instant;
++
++use num::Complex;
++use rstsr::prelude::*;
++use rstsr_cuda::funcs;
++use rstsr_cuda::matmul::{ComputeType32F, MatMulDrivers, TensorCudaMatMulAPI};
++use rstsr_cuda::prelude_dev::*;
++
++fn data(n: usize, seed: u64) -> Vec<f64> {
++    let mut s = seed | 1;
++    (0..n)
++        .map(|_| {
++            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++            ((s >> 11) as f64 / (1u64 << 53) as f64) * 2.0 - 1.0
++        })
++        .collect()
++}
++
++fn device(drivers: MatMulDrivers) -> DeviceCuda {
++    let mut flags = CudaRuntimeFlags::default();
++    flags.matmul_drivers = drivers;
++    DeviceCuda::new(0).with_flags(flags)
++}
++
++/// The shapes: `(label, m, k, n, batch)`.
++fn shapes() -> Vec<(&'static str, usize, usize, usize, usize)> {
++    vec![
++        ("square 2048", 2048, 2048, 2048, 1),
++        ("square 512", 512, 512, 512, 1),
++        ("tall-skinny 65536x64x64", 65536, 64, 64, 1),
++        ("batch 256 x (256,256,256)", 256, 256, 256, 256),
++    ]
++}
++
++/// Time `f` (one product per call) on `d`: the iteration count from one timed call, then the
++/// median of `repeat` timed runs.
++fn bench_cell<T>(d: &DeviceCuda, f: impl Fn() -> T) -> f64 {
++    let budget = std::env::var("RSTSR_BENCH_TIME").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.2);
++    let repeat = std::env::var("RSTSR_BENCH_REPEAT").ok().and_then(|v| v.parse::<usize>().ok()).unwrap_or(5);
++    // warmup: kernel JIT, the cuBLASLt heuristic, the cuBLAS workspace
++    for _ in 0..3 {
++        let _ = f();
++    }
++    funcs::synchronize(d).unwrap();
++    let t0 = Instant::now();
++    let _ = f();
++    funcs::synchronize(d).unwrap();
++    let one = t0.elapsed().as_secs_f64().max(1e-7);
++    let n_iter = ((budget / one) as usize).clamp(1, 5000);
++    let mut samples = Vec::with_capacity(repeat);
++    for _ in 0..repeat {
++        let t0 = Instant::now();
++        for _ in 0..n_iter {
++            let _ = f();
++        }
++        funcs::synchronize(d).unwrap();
++        samples.push(t0.elapsed().as_secs_f64() / n_iter as f64);
++    }
++    samples.sort_by(|x, y| x.total_cmp(y));
++    samples[samples.len() / 2]
++}
++
++
++struct Row {
++    triple: &'static str,
++    shape: &'static str,
++    driver: String,
++    ms: f64,
++    tflops: f64,
++}
++
++fn main() {
++    if !funcs::is_available() {
++        eprintln!("no CUDA device");
++        return;
++    }
++    let mut rows: Vec<Row> = Vec::new();
++    // per triple: (name, real products per call, the serving drivers, the cell builder); the
++    // naive kernel is timed on square 512 for every triple
++    macro_rules! cells {
++        ($triple:literal, $products:expr, [$($driver:ident),*], $mk:expr) => {{
++            let drivers: Vec<(&'static str, MatMulDrivers)> = vec![$((stringify!($driver), MatMulDrivers::$driver)),*];
++            for (label, m, k, n, p) in shapes() {
++                let flops = 2.0 * $products * m as f64 * k as f64 * n as f64 * p as f64;
++                let mk = $mk;
++                let mut settings: Vec<(&'static str, MatMulDrivers)> = vec![("chain", MatMulDrivers::all())];
++                settings.extend(drivers.clone());
++                if label == "square 512" {
++                    settings.push(("NAIVE", MatMulDrivers::NAIVE));
++                }
++                for (driver, flags) in settings {
++                    // a fresh device per cell: the first call of a shape pays the Lt heuristic
++                    let d = device(flags);
++                    let f = mk(&d, m, k, n, p);
++                    let s = bench_cell(&d, || f());
++                    rows.push(Row { triple: $triple, shape: label, driver: driver.to_lowercase(), ms: s * 1e3, tflops: flops / s / 1e12 });
++                }
++            }
++        }};
++    }
++
++    // a helper: `[p,] m, k` shaped tensor of the data on `d`
++    macro_rules! operand {
++        ($t:ty, $d:expr, $seed:expr, $m:expr, $k:expr, $p:expr, $conv:expr) => {{
++            let v: Vec<$t> = data($p * $m * $k, $seed).into_iter().map($conv).collect();
++            let t: Tensor<$t, DeviceCuda, IxD> =
++                rt::asarray((v, $d)).into_shape(if $p > 1 { vec![$p, $m, $k] } else { vec![$m, $k] });
++            t
++        }};
++    }
++
++    cells!("f32 -> f32", 1.0, [CUBLAS_LT, CUBLAS_EX, CUBLAS, TILED], |d: &DeviceCuda, m, k, n, p| {
++        let a = operand!(f32, d, 1, m, k, p, |x| x as f32);
++        let b = operand!(f32, d, 2, k, n, p, |x| x as f32);
++        move || rt::matmul(&a, &b)
++    });
++    cells!("f64 -> f64", 1.0, [CUBLAS_LT, CUBLAS_EX, CUBLAS, TILED], |d: &DeviceCuda, m, k, n, p| {
++        let a = operand!(f64, d, 1, m, k, p, |x| x);
++        let b = operand!(f64, d, 2, k, n, p, |x| x);
++        move || rt::matmul(&a, &b)
++    });
++    cells!("c64 -> c64", 4.0, [CUBLAS_LT, CUBLAS_EX, CUBLAS], |d: &DeviceCuda, m, k, n, p| {
++        let a = operand!(Complex<f64>, d, 1, m, k, p, |x| Complex::new(x, 0.5 * x));
++        let b = operand!(Complex<f64>, d, 2, k, n, p, |x| Complex::new(x, -0.5 * x));
++        move || rt::matmul(&a, &b)
++    });
++    cells!("f16 -> f16", 1.0, [CUBLAS_LT, CUBLAS_EX], |d: &DeviceCuda, m, k, n, p| {
++        let a = operand!(half::f16, d, 1, m, k, p, half::f16::from_f64);
++        let b = operand!(half::f16, d, 2, k, n, p, half::f16::from_f64);
++        move || rt::matmul(&a, &b)
++    });
++    cells!("f16 -> f32", 1.0, [CUBLAS_LT, CUBLAS_EX], |d: &DeviceCuda, m, k, n, p| {
++        let a = operand!(half::f16, d, 1, m, k, p, half::f16::from_f64);
++        let b = operand!(half::f16, d, 2, k, n, p, half::f16::from_f64);
++        move || a.matmul_with_mode::<half::f16, f32, IxD, IxD>(&b, ComputeType32F::Default)
++    });
++
++    println!("triple,shape,driver,median_ms,tflops");
++    for r in &rows {
++        println!("{},{},{},{:.4},{:.3}", r.triple, r.shape, r.driver, r.ms, r.tflops);
++    }
++    println!("\n| triple | shape | driver | ms | TFLOP/s |\n|---|---|---|---|---|");
++    for r in &rows {
++        println!("| {} | {} | {} | {:.4} | {:.2} |", r.triple, r.shape, r.driver, r.ms, r.tflops);
++    }
++}
+diff --git a/crates-device/rstsr-cuda/src/lib.rs b/crates-device/rstsr-cuda/src/lib.rs
+index 247e3fd..fb917c4 100644
+--- a/crates-device/rstsr-cuda/src/lib.rs
++++ b/crates-device/rstsr-cuda/src/lib.rs
+@@ -35,6 +35,9 @@
+ //! - Integer `matmul` wraps on overflow (C semantics, as NumPy does); the CPU reference devices
+ //!   panic in debug builds.
+ //! - `fill`/`ones`/`zeros` take the kernel path for every supported dtype (complex included).
++//! - `matmul` of operands with different dtypes (`matmul_from`/`matmul_with_output`, which have
++//!   no `Mul` bound) casts each operand to the output type in the naive kernel: no copy, and no
++//!   cuBLAS driver. Same-dtype `f32`, `f64`, complex and half products run on cuBLAS.
+ //!
+ //! # What is implemented
+ //!
+@@ -44,7 +47,7 @@
+ //! | pinned host memory | `PinnedBuffer<T>` on `DeviceCudaPinned` (alloc/zeros/full/from_vec), non-blocking `to_device` both ways against `DeviceCuda`, copies against the CPU devices, zero-copy `host_view`/`host_view_mut`, one ordering event per buffer |
+ //! | elementwise | arithmetic, comparison, transcendentals, unary float families, `where`, `clip` (same dtype) |
+ //! | reductions | `sum`/`prod`/`mean`/`l2_norm`/`min`/`max`/`all`/`any`/`count_nonzero` (+ dtype variants), `var`/`std` (+ dtype), `argmin`/`argmax`/`nanarg*` (raveled, all + axes), `cumsum`/`cumprod` (real dtypes) |
+-//! | linalg | `outer`, `cross`, `matmul`/`matmul_uninit` (driver chain: cuBLASLt, `cublasGemmEx`, classic cuBLAS, tiled kernel, naive kernel; compute modes by the flags), `tensordot` (view-only tier) |
++//! | linalg | `outer`, `cross`, `matmul`/`matmul_uninit` (driver chain: cuBLASLt, `cublasGemmEx`, classic cuBLAS, tiled kernel, naive kernel; `f32`/`f64`/`c32`/`c64`/`f16`/`bf16` on the cuBLAS drivers, everything else on the naive kernel; compute modes by the flags or per call through `TensorCudaMatMulAPI`), `tensordot` (view-only tier) |
+ //! | indexing | `index_select`, `index_put` |
+ //!
+ //! **Absent, and why** — these are deliberate, not pending:
+@@ -104,6 +107,7 @@
+ //! CUDARC_CUDA_VERSION=12060 cargo test -p rstsr-cuda --test test_matmul_tiled
+ //! CUDARC_CUDA_VERSION=12060 cargo test -p rstsr-cuda --test test_matmul_naive
+ //! CUDARC_CUDA_VERSION=12060 cargo test -p rstsr-cuda --test test_matmul_modes
++//! CUDARC_CUDA_VERSION=12060 cargo bench -p rstsr-cuda --bench bench_matmul   # timing per triple, shape, driver
+ //! CUDARC_CUDA_VERSION=12060 cargo test -p rstsr-cuda --test test_pinned
+ //! ```
+ //!
+@@ -118,6 +122,10 @@
+ //! then decline and the chain falls through. Left unset, the version comes from `nvcc` (13.0 or
+ //! newer carries everything); `test_matmul_modes` expects whichever was built.
+ //!
++//! `test_matmul_modes` also runs the type-triple layout matrix: every accelerated triple, six
++//! argument shapes (plain, batched, transposed, broadcast, stepped), both default orders, on each
++//! serving driver alone, on the naive kernel and on the chain.
++//!
+ //! Environment knobs, all read once per process and all kernel-build inputs (op behaviour,
+ //! including which matmul drivers run, is set through [`flags::CudaRuntimeFlags`] instead):
+ //!
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/naive.rs b/crates-device/rstsr-cuda/src/matmul/drivers/naive.rs
+index 0174497..bcb87a8 100644
+--- a/crates-device/rstsr-cuda/src/matmul/drivers/naive.rs
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/naive.rs
+@@ -81,11 +81,12 @@ fn term(ta: &str, tb: &str, tacc: &str, a: &str, b: &str) -> String {
+ 
+ /// The C expression of the scaled sum, and of the epilogue `v + beta * *p`.
+ fn epilogue(tc: &str) -> (String, String) {
++    use crate::kernels::exprs::{load, store};
+     if is_half_cname(tc) {
+-        // `alpha` and `beta` are half, `acc` is float: compute the epilogue in float, store once
++        // `alpha`, `beta` and `v` are half, `acc` is float: compute the epilogue in float, store once
+         (
+-            crate::kernels::exprs::store(tc, "__half2float(alpha) * acc"),
+-            "__float2half(__half2float(v) + __half2float(beta) * __half2float(*p))".to_string(),
++            store(tc, &format!("{} * acc", load(tc, "alpha"))),
++            store(tc, &format!("{} + {} * {}", load(tc, "v"), load(tc, "beta"), load(tc, "*p"))),
+         )
+     } else {
+         ("alpha * acc".to_string(), "v + beta * (*p)".to_string())
+diff --git a/crates-device/rstsr-cuda/tests/test_matmul_modes.rs b/crates-device/rstsr-cuda/tests/test_matmul_modes.rs
+index 8534f57..97b4207 100644
+--- a/crates-device/rstsr-cuda/tests/test_matmul_modes.rs
++++ b/crates-device/rstsr-cuda/tests/test_matmul_modes.rs
+@@ -610,3 +610,122 @@ fn tensor_level_modes() {
+         assert!((x - f32::from(y)).abs() <= 1e-2 * (1.0 + x.abs()), "f16 output against the f32 output");
+     }
+ }
++
++/// The argument shapes of the layout matrix: a plain product, a strided batch, a transposed right
++/// operand broadcast against the batch of `a`, a transposed left operand, a broadcast batch of `a`
++/// against a batched `b`, and a stepped (strided) `a`. `mk(data(seed, count), shape)` makes a
++/// tensor and `sh(batch, [m, k])` places the batch axis as the default order has it (leading
++/// under row-major, trailing under column-major), so the same cases are built on the CPU (`f64`
++/// of the rounded values) and on the device (the storage type), each in its own order.
++macro_rules! shape_cases {
++    ($mk:expr, $sh:expr, $data:expr, $m:expr, $k:expr, $n:expr, $p:expr) => {{
++        let (m, k, n, p) = ($m, $k, $n, $p);
++        let a = $mk($data(7, p * m * k), $sh(p, [m, k]));
++        let b = $mk($data(8, p * k * n), $sh(p, [k, n]));
++        let c2 = $mk($data(9, n * k), $sh(1, [n, k]));
++        let a2 = $mk($data(10, m * k), $sh(1, [m, k]));
++        let at = $mk($data(11, k * m), $sh(1, [k, m]));
++        let stepped0 = $mk($data(12, 4 * m * k), $sh(1, [2 * m, 2 * k]));
++        let stepped = stepped0.i(s![slice!(None, None, 2), slice!(None, None, 2)]);
++        vec![
++            ("plain", $mk($data(13, m * k), $sh(1, [m, k])), $mk($data(14, k * n), $sh(1, [k, n]))),
++            ("batched", a.clone(), b.clone()),
++            ("transposed b, broadcast", a.clone(), c2.t().to_owned()),
++            ("transposed a", at.t().to_owned(), b.clone()),
++            ("a broadcast over the batch", a2.clone(), b.clone()),
++            ("stepped a", stepped.to_owned(), $mk($data(15, k * n), $sh(1, [k, n]))),
++        ]
++    }};
++}
++
++/// `[batch, dims]` under row-major, `[dims, batch]` under column-major (a unit batch is dropped).
++fn sh(order: FlagOrder, batch: usize, dims: [usize; 2]) -> Vec<usize> {
++    let mut out = Vec::new();
++    if batch > 1 && order == RowMajor {
++        out.push(batch);
++    }
++    out.extend_from_slice(&dims);
++    if batch > 1 && order == ColMajor {
++        out.push(batch);
++    }
++    out
++}
++
++/// Every serving cuBLAS driver alone, the naive kernel (the on-device oracle) and the chain, for
++/// `to_s` operands stored as `S` and the output `C`, in both default orders.
++#[allow(clippy::too_many_arguments)]
++fn matrix<S, C>(what: &str, cublas_classic: bool, to_s: fn(f64) -> S, of_s: fn(S) -> f64, of_c: fn(C) -> f64, tol: f64)
++where
++    S: CudaDType + CudaMatMulMode + Copy + Clone + Send + Sync + 'static + num::Zero,
++    C: CudaDType + CudaMatMulMode + Copy + Clone + Send + Sync + 'static + num::Zero + num::One,
++{
++    let (m, k, n, p) = (12usize, 32usize, 8usize, 3usize);
++    let rounded = |seed: u64, cnt: usize| -> Vec<f64> { data(cnt, seed).into_iter().map(to_s).map(of_s).collect() };
++    let stored = |seed: u64, cnt: usize| -> Vec<S> { data(cnt, seed).into_iter().map(to_s).collect() };
++
++    let mut drivers = vec![MatMulDrivers::CUBLAS_LT, MatMulDrivers::CUBLAS_EX];
++    if cublas_classic {
++        drivers.push(MatMulDrivers::CUBLAS);
++    }
++    drivers.extend([MatMulDrivers::NAIVE, MatMulDrivers::all()]);
++    for order in [RowMajor, ColMajor] {
++        let mut dcpu = DeviceCpuSerial::default();
++        dcpu.set_default_order(order);
++        let cpu = |v: Vec<f64>, s: Vec<usize>| -> Cpu<f64> { rt::asarray((v, &dcpu)).into_shape(s) };
++        let cases = shape_cases!(cpu, |b: usize, d: [usize; 2]| sh(order, b, d), rounded, m, k, n, p);
++        for forced in &drivers {
++            let mut flags = CudaRuntimeFlags::default();
++            flags.matmul_drivers = *forced;
++            let mut d = DeviceCuda::new(0).with_flags(flags);
++            d.set_default_order(order);
++            let on_device = shape_cases!(
++                |v: Vec<S>, s: Vec<usize>| rt::asarray((v, &d)).into_shape(s),
++                |b: usize, dims: [usize; 2]| sh(order, b, dims),
++                stored,
++                m,
++                k,
++                n,
++                p
++            );
++            for ((shape, a, b), (_, ag, bg)) in cases.iter().zip(&on_device) {
++                let want = rt::matmul(a, b);
++                let c_shape = want.shape().to_vec();
++                let want = DeviceToCpuAPI::<f64>::to_cpu_vec(want.to_contig(RowMajor).storage()).rstsr_unwrap();
++                let mut c: Tensor<C, DeviceCuda, IxD> = rt::full((c_shape, C::one(), &d));
++                ag.matmul_with_output::<S, C, IxD, IxD>(bg, &mut c.view_mut());
++                let got: Vec<f64> = DeviceToCpuAPI::<C>::to_cpu_vec(c.to_contig(RowMajor).storage())
++                    .rstsr_unwrap()
++                    .into_iter()
++                    .map(of_c)
++                    .collect();
++                let err = rel_err(&got, &want);
++                assert!(err <= tol, "{what} {shape}, {order:?}, {forced:?}: max rel err {err:.3e} > {tol:.1e}");
++            }
++        }
++    }
++    eprintln!("  [{what}] 6 shapes x 2 orders x {} driver settings within {tol:.1e}", drivers.len());
++}
++
++/// The layout matrix over the type triples: tolerance per `(triple, mode)` here means the output
++/// rounding (all in the `Default` mode), the same numbers as `modes_half` and `modes_complex`.
++#[test]
++fn triple_layout_matrix() {
++    require_cuda!();
++    let re = |x: f64| Complex::new(x, 0.0);
++    let re_of = |z: Complex<f64>| z.re;
++    matrix::<f32, f32>("f32 -> f32", true, |x| x as f32, f64::from, f64::from, 1e-5);
++    matrix::<f64, f64>("f64 -> f64", true, |x| x, |x| x, |x| x, 1e-13);
++    matrix::<Complex<f32>, Complex<f32>>(
++        "c32 -> c32",
++        true,
++        |x: f64| Complex::new(x as f32, 0.0),
++        |z| z.re as f64,
++        |z| z.re as f64,
++        1e-5,
++    );
++    matrix::<Complex<f64>, Complex<f64>>("c64 -> c64", true, re, re_of, re_of, 1e-13);
++    matrix::<f16, f16>("f16 -> f16", false, f16::from_f64, f64::from, f64::from, 1e-2);
++    matrix::<f16, f32>("f16 -> f32", false, f16::from_f64, f64::from, f64::from, 1e-5);
++    matrix::<bf16, bf16>("bf16 -> bf16", false, bf16::from_f64, f64::from, f64::from, 1e-2);
++    matrix::<bf16, f32>("bf16 -> f32", false, bf16::from_f64, f64::from, f64::from, 1e-5);
++}
+diff --git a/crates-device/rstsr-cuda/tests/test_matmul_naive.rs b/crates-device/rstsr-cuda/tests/test_matmul_naive.rs
+index 6445cc4..a95137d 100644
+--- a/crates-device/rstsr-cuda/tests/test_matmul_naive.rs
++++ b/crates-device/rstsr-cuda/tests/test_matmul_naive.rs
+@@ -372,3 +372,35 @@ fn naive_both_orders() {
+     assert_eq!(got.shape(), &[m, n, p]);
+     assert_eq!(host_nd(&got), host_nd(&want.transpose([1, 2, 0])), "col-major");
+ }
++
++/// `bf16` on the naive kernel: `bf16 -> bf16` and `bf16 -> f32`. The kernel's half helpers are
++/// per dtype (`__bfloat162float`, not `__half2float`): with the `f16` names the kernel did not
++/// compile, which only a `bf16` triple forced onto naive shows.
++#[test]
++fn bf16_triples_on_naive() {
++    require_cuda!();
++    let d = forced(MatMulDrivers::NAIVE);
++    let dcpu = DeviceCpuSerial::default();
++    let (m, k, n) = (8usize, 16usize, 6usize);
++    let round = |seed: u64, cnt: usize| -> Vec<half::bf16> { exact_data(cnt, seed).into_iter().map(half::bf16::from_f64).collect() };
++    let a: Tensor<half::bf16, DeviceCpuSerial, _> = rt::asarray((round(1, m * k), &dcpu)).into_shape([m, k]);
++    let b: Tensor<half::bf16, DeviceCpuSerial, _> = rt::asarray((round(2, k * n), &dcpu)).into_shape([k, n]);
++    let (ag, bg) = (a.to_device(&d), b.to_device(&d));
++
++    let mut c: Tensor<f32, _, _> = rt::full(([m * n], f32::NAN, &d)).into_shape([m, n]);
++    c.matmul_from(&ag, &bg, 1.0, 0.0);
++    let up = |t: &Tensor<half::bf16, DeviceCpuSerial, IxD>| -> Tensor<f32, DeviceCpuSerial, IxD> {
++        rt::asarray((host_nd(t).into_iter().map(f32::from).collect::<Vec<_>>(), &dcpu)).into_shape(t.shape().to_vec())
++    };
++    let want = rt::matmul(up(&a), up(&b));
++    assert_eq!(host_nd(&c), host_nd(&want), "bf16 @ bf16 -> f32");
++    assert!(!host_nd(&c).contains(&f32::NAN));
++
++    let got: Tensor<half::bf16, DeviceCuda, IxD> = rt::matmul(&ag, &bg);
++    let got: Vec<f32> = host_nd(&got).into_iter().map(f32::from).collect();
++    let want: Vec<f32> = host_nd(&want);
++    // bf16 output: within one bf16 rounding of the f32 product
++    for (g, w) in got.iter().zip(&want) {
++        assert!((g - w).abs() <= 4e-3 * (1.0 + w.abs()), "bf16 @ bf16 -> bf16");
++    }
++}

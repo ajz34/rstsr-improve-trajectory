@@ -1,0 +1,120 @@
+   Compiling rstsr-cuda v0.10.3 (/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.48s
+     Running tests/test_matmul_tiled_check.rs (target/debug/build/rstsr-cuda/1cb61979cf5c82fe/out/test_matmul_tiled_check-1cb61979cf5c82fe)
+
+running 18 tests
+test t_f32::batched_and_broadcast_batch ...   ok       batched [p]
+  ok       a unbatched [m,k] @ [p,k,n]
+  ok       b unbatched [p,m,k] @ [k,n]
+  ok       rank-4 batched [p,q]
+  REFUSED  batch broadcast [p,1] vs [1,q]: Error { inner: UnImplemented("crates-device/rstsr-cuda/src/kernels/gemm.rs:330: Error::UnImplemented : cuda matmul: the batch part of a is not one linear run (s
+  ok       explicit [1,m,k] @ [p,k,n]
+  ok       batch block not leading
+  ok       stepped batch
+ok
+test t_f32::col_major ...   (col-major a strides [1, 20, 240])
+  ok       col batched [m,k,p] @ [k,n,p]
+  ok       col a unbatched [m,k] @ [k,n,p]
+  ok       col transposed a: [k,m,p] @ [m,n,p]
+  ok       col transposed b: [m,k,p] @ [k,n,p] from [n,k,p]
+  ok       col b unbatched [m,k,p] @ [k,n]
+  ok       col a unbatched-batch [m,k] @ [k,n,p]
+ok
+test t_f32::contiguous_and_tile_edges ...   ok       contiguous 64x64x64
+  ok       contiguous 65x65x65
+  ok       contiguous 1x1x1
+  ok       contiguous 1x37x1
+  ok       contiguous 17x33x5
+  ok       contiguous 130x70x129
+ok
+test t_f32::negative_strides ...   ok       a flipped on m
+  ok       a flipped on k
+  ok       b flipped on k
+  ok       b flipped on n
+  ok       a.flip(1) @ b.flip(0)
+  ok       a0.transpose(1,0).flip(0) @ b (unit stride -1)
+ok
+test t_f32::refusals_are_errors ...   [refusal: no unit-stride axis] Error { inner: UnImplemented("crates-device/rstsr-cuda/src/kernels/gemm.rs:210: Error::UnImplemented : cuda matmul: the a operand has no unit-stride axis (strid
+  [refusal: non-affine batch] Error { inner: UnImplemented("crates-device/rstsr-cuda/src/kernels/gemm.rs:330: Error::UnImplemented : cuda matmul: the batch part of a is not one linear run (s
+ok
+test t_f32::stepped_operands ...   ok       a stepped on m
+  ok       b stepped on k
+  ok       both stepped on outer axes
+  REFUSED  a stepped on k: Error { inner: UnImplemented("crates-device/rstsr-cuda/src/kernels/gemm.rs:210: Error::UnImplemented : cuda matmul: the a operand has no unit-stride axis (strid
+  REFUSED  b stepped on n: Error { inner: UnImplemented("crates-device/rstsr-cuda/src/kernels/gemm.rs:210: Error::UnImplemented : cuda matmul: the b operand has no unit-stride axis (strid
+ok
+test t_f32::strided_output_matmul_from ...   ok       c stepped on n, beta != 0
+  ok       c stepped on n, beta = 0
+  ok       c flipped on m, beta != 0
+  ok       c flipped on n, beta != 0
+  ok       c contiguous, beta != 0
+ok
+test t_f32::transposed_operands ...   ok       a transposed
+  ok       b transposed
+  ok       both transposed
+ok
+test t_f32::zero_strides ...   (broadcast a rows strides [0, 1], b cols strides [1, 0])
+  ok       a rows broadcast
+  ok       b cols broadcast
+  ok       both broadcast
+  REFUSED  a scalar broadcast: Error { inner: UnImplemented("crates-device/rstsr-cuda/src/kernels/gemm.rs:210: Error::UnImplemented : cuda matmul: the a operand has no unit-stride axis (strid
+ok
+test t_f64::batched_and_broadcast_batch ...   ok       batched [p]
+  ok       a unbatched [m,k] @ [p,k,n]
+  ok       b unbatched [p,m,k] @ [k,n]
+  ok       rank-4 batched [p,q]
+  REFUSED  batch broadcast [p,1] vs [1,q]: Error { inner: UnImplemented("crates-device/rstsr-cuda/src/kernels/gemm.rs:330: Error::UnImplemented : cuda matmul: the batch part of a is not one linear run (s
+  ok       explicit [1,m,k] @ [p,k,n]
+  ok       batch block not leading
+  ok       stepped batch
+ok
+test t_f64::col_major ...   (col-major a strides [1, 20, 240])
+  ok       col batched [m,k,p] @ [k,n,p]
+  ok       col a unbatched [m,k] @ [k,n,p]
+  ok       col transposed a: [k,m,p] @ [m,n,p]
+  ok       col transposed b: [m,k,p] @ [k,n,p] from [n,k,p]
+  ok       col b unbatched [m,k,p] @ [k,n]
+  ok       col a unbatched-batch [m,k] @ [k,n,p]
+ok
+test t_f64::contiguous_and_tile_edges ...   ok       contiguous 64x64x64
+  ok       contiguous 65x65x65
+  ok       contiguous 1x1x1
+  ok       contiguous 1x37x1
+  ok       contiguous 17x33x5
+  ok       contiguous 130x70x129
+ok
+test t_f64::negative_strides ...   ok       a flipped on m
+  ok       a flipped on k
+  ok       b flipped on k
+  ok       b flipped on n
+  ok       a.flip(1) @ b.flip(0)
+  ok       a0.transpose(1,0).flip(0) @ b (unit stride -1)
+ok
+test t_f64::refusals_are_errors ...   [refusal: no unit-stride axis] Error { inner: UnImplemented("crates-device/rstsr-cuda/src/kernels/gemm.rs:210: Error::UnImplemented : cuda matmul: the a operand has no unit-stride axis (strid
+  [refusal: non-affine batch] Error { inner: UnImplemented("crates-device/rstsr-cuda/src/kernels/gemm.rs:330: Error::UnImplemented : cuda matmul: the batch part of a is not one linear run (s
+ok
+test t_f64::stepped_operands ...   ok       a stepped on m
+  ok       b stepped on k
+  ok       both stepped on outer axes
+  REFUSED  a stepped on k: Error { inner: UnImplemented("crates-device/rstsr-cuda/src/kernels/gemm.rs:210: Error::UnImplemented : cuda matmul: the a operand has no unit-stride axis (strid
+  REFUSED  b stepped on n: Error { inner: UnImplemented("crates-device/rstsr-cuda/src/kernels/gemm.rs:210: Error::UnImplemented : cuda matmul: the b operand has no unit-stride axis (strid
+ok
+test t_f64::strided_output_matmul_from ...   ok       c stepped on n, beta != 0
+  ok       c stepped on n, beta = 0
+  ok       c flipped on m, beta != 0
+  ok       c flipped on n, beta != 0
+  ok       c contiguous, beta != 0
+ok
+test t_f64::transposed_operands ...   ok       a transposed
+  ok       b transposed
+  ok       both transposed
+ok
+test t_f64::zero_strides ...   (broadcast a rows strides [0, 1], b cols strides [1, 0])
+  ok       a rows broadcast
+  ok       b cols broadcast
+  ok       both broadcast
+  REFUSED  a scalar broadcast: Error { inner: UnImplemented("crates-device/rstsr-cuda/src/kernels/gemm.rs:210: Error::UnImplemented : cuda matmul: the a operand has no unit-stride axis (strid
+ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.41s
+

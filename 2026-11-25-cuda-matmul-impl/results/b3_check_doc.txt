@@ -1,0 +1,2 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.28s
+   Generated /scratch/rstsr_pack/rstsr/target/doc/rstsr_cuda/index.html

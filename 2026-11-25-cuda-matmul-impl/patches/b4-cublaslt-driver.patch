@@ -1,0 +1,1264 @@
+diff --git a/crates-device/rstsr-cuda/Cargo.toml b/crates-device/rstsr-cuda/Cargo.toml
+index 21024b2..ab126a7 100644
+--- a/crates-device/rstsr-cuda/Cargo.toml
++++ b/crates-device/rstsr-cuda/Cargo.toml
+@@ -21,6 +21,7 @@ cudarc = { version = "0.19", default-features = false, features = [
+     "driver",
+     "nvrtc",
+     "cublas",
++    "cublaslt",
+     "cuda-version-from-build-system",
+     "fallback-dynamic-loading",
+ ] }
+diff --git a/crates-device/rstsr-cuda/src/lib.rs b/crates-device/rstsr-cuda/src/lib.rs
+index b81e703..03fc270 100644
+--- a/crates-device/rstsr-cuda/src/lib.rs
++++ b/crates-device/rstsr-cuda/src/lib.rs
+@@ -44,7 +44,7 @@
+ //! | pinned host memory | `PinnedBuffer<T>` on `DeviceCudaPinned` (alloc/zeros/full/from_vec), non-blocking `to_device` both ways against `DeviceCuda`, copies against the CPU devices, zero-copy `host_view`/`host_view_mut`, one ordering event per buffer |
+ //! | elementwise | arithmetic, comparison, transcendentals, unary float families, `where`, `clip` (same dtype) |
+ //! | reductions | `sum`/`prod`/`mean`/`l2_norm`/`min`/`max`/`all`/`any`/`count_nonzero` (+ dtype variants), `var`/`std` (+ dtype), `argmin`/`argmax`/`nanarg*` (raveled, all + axes), `cumsum`/`cumprod` (real dtypes) |
+-//! | linalg | `outer`, `cross`, `matmul`/`matmul_uninit` (driver chain: `cublasGemmEx`, classic cuBLAS, tiled kernel, naive kernel; compute modes by the flags), `tensordot` (view-only tier) |
++//! | linalg | `outer`, `cross`, `matmul`/`matmul_uninit` (driver chain: cuBLASLt, `cublasGemmEx`, classic cuBLAS, tiled kernel, naive kernel; compute modes by the flags), `tensordot` (view-only tier) |
+ //! | indexing | `index_select`, `index_put` |
+ //!
+ //! **Absent, and why** — these are deliberate, not pending:
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs b/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs
+index fd2f2f9..a0ff55b 100644
+--- a/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs
+@@ -166,11 +166,7 @@ impl_cublas_scalar!(f32, cublasSgemm_v2, cublasSgemmStridedBatched);
+ impl_cublas_scalar!(f64, cublasDgemm_v2, cublasDgemmStridedBatched);
+ 
+ fn op(t: bool) -> sys::cublasOperation_t {
+-    if t {
+-        sys::cublasOperation_t::CUBLAS_OP_T
+-    } else {
+-        sys::cublasOperation_t::CUBLAS_OP_N
+-    }
++    if t { sys::cublasOperation_t::CUBLAS_OP_T } else { sys::cublasOperation_t::CUBLAS_OP_N }
+ }
+ 
+ /// A compute mode as the classic entries take it: a math mode of the handle.
+@@ -268,11 +264,7 @@ unsafe fn replace_math_mode(
+         return Err(status);
+     }
+     let status = unsafe { sys::cublasSetMathMode(handle, mode.cublas()) };
+-    if status == sys::cublasStatus_t::CUBLAS_STATUS_SUCCESS {
+-        Ok(previous)
+-    } else {
+-        Err(status)
+-    }
++    if status == sys::cublasStatus_t::CUBLAS_STATUS_SUCCESS { Ok(previous) } else { Err(status) }
+ }
+ 
+ /// Issue the `gemm`. Returns the cuBLAS status; the caller hands the problem to the next driver on
+@@ -397,53 +389,95 @@ unsafe fn gemm_unchecked<T: CublasScalar>(
+     }
+ }
+ 
+-/// Prepare one `gemm` call for the cuBLAS drivers and run `f` with what they need.
++/// One `gemm` call prepared for the cuBLAS drivers.
++pub(crate) struct GemmCall<'a> {
++    /// The stream the call is enqueued on.
++    pub exec: &'a Arc<CudaStreamObj>,
++    /// The arguments, in cuBLAS's terms.
++    pub args: cublas_args::CublasArgs,
++    /// `[a, b, c]` named after the **geom** operands: each the buffer's base folded with its
++    /// layout's own offset in bytes.
++    pub ptrs: [u64; 3],
++    /// Cross-stream ordering events and read-event guards; held until the enqueue is done.
++    #[allow(dead_code)]
++    orders: [Option<crate::kernel::Event>; 3],
++    #[allow(dead_code)]
++    reads: [cudarc::driver::SyncOnDrop<'a>; 3],
++}
++
++/// A value, or the refusal of the problem.
++pub(crate) type Served<T> = core::result::Result<T, Refusal>;
++
++/// Derive the arguments and the pointers of a `gemm` on this problem.
+ ///
+-/// Refuses the problems cuBLAS cannot express (the rule table in [`cublas_args`]) and calls `f`
+-/// with the handle (unlocked: `f` takes the lock), the arguments and the three pointers `[a, b, c]`
+-/// named after the **geom** operands, each the buffer's base folded with its layout's own offset in
+-/// bytes. The read-event guards of the three buffers live in this frame, so they are held until
+-/// `f` returns.
+-pub(crate) fn with_gemm_call<T, TA, TB, TC, TBuf, F>(
+-    u: &Uniform<'_, T>,
+-    p: &Problem<'_, TA, TB, TC, TBuf>,
+-    f: F,
+-) -> Result<Verdict>
++/// Refuses the problems cuBLAS cannot express (the rule table in [`cublas_args`]). The read-event
++/// guards of the three buffers live in the returned call, so they are held until the caller drops
++/// it, after the enqueue.
++pub(crate) fn prepare<'a, T, TA, TB, TC, TBuf>(
++    u: &Uniform<'a, T>,
++    p: &Problem<'a, TA, TB, TC, TBuf>,
++) -> Result<Served<GemmCall<'a>>>
+ where
+     T: 'static,
+     TA: 'static,
+     TB: 'static,
+     TC: 'static,
+     TBuf: 'static,
+-    F: FnOnce(&Arc<CublasHandle>, &cublas_args::CublasArgs, [u64; 3]) -> Result<Verdict>,
+ {
+     let geom = &p.geom;
+     let Some(args) = cublas_args::args(geom) else {
+-        return Ok(Verdict::Declined(Refusal::Cannot(
++        return Ok(Err(Refusal::Cannot(
+             "no column-major expression (stepped or reversed layout, no unit-stride operand axis, \
+              non-affine batch, or a dimension over i32)",
+         )));
+     };
+     let exec = p.device.stream();
+-    let Some(blas) = exec.cublas() else {
+-        return Ok(Verdict::Declined(Refusal::NoCublas));
+-    };
+     // `geom.a` is the buffer whose layout went first to the rule table: the caller's `b` under
+     // `ColMajor`.
+     let (buf_a, buf_b) = if geom.swapped { (u.b, u.a) } else { (u.a, u.b) };
+-    let _ga = order_input(buf_a, exec)?;
+-    let _gb = order_input(buf_b, exec)?;
+-    let _gc = order_output(u.c, exec)?;
+-    let (pa, _ra) = buf_a.read_ptr_on(exec);
+-    let (pb, _rb) = buf_b.read_ptr_on(exec);
+-    let (pc, _rc) = u.c.read_ptr_on(exec);
++    let orders = [order_input(buf_a, exec)?, order_input(buf_b, exec)?, order_output(u.c, exec)?];
++    let (pa, ra) = buf_a.read_ptr_on(exec);
++    let (pb, rb) = buf_b.read_ptr_on(exec);
++    let (pc, rc) = u.c.read_ptr_on(exec);
+     let esz = core::mem::size_of::<T>() as u64;
+-    let ptrs = [
+-        (pa as u64).wrapping_add(geom.a.0 as u64 * esz),
+-        (pb as u64).wrapping_add(geom.b.0 as u64 * esz),
+-        (pc as u64).wrapping_add(geom.c.0 as u64 * esz),
+-    ];
+-    f(blas, &args, ptrs)
++    Ok(Ok(GemmCall {
++        exec,
++        args,
++        ptrs: [
++            (pa as u64).wrapping_add(geom.a.0 as u64 * esz),
++            (pb as u64).wrapping_add(geom.b.0 as u64 * esz),
++            (pc as u64).wrapping_add(geom.c.0 as u64 * esz),
++        ],
++        orders,
++        reads: [ra, rb, rc],
++    }))
++}
++
++/// Prepare one `gemm` call and run `f` with what a cuBLAS driver needs.
++///
++/// Declines with [`Refusal::NoCublas`] when `libcublas` is not loadable; otherwise `f` gets the
++/// handle (unlocked: `f` takes the lock), the arguments and the pointers of [`prepare`].
++pub(crate) fn with_gemm_call<T, TA, TB, TC, TBuf, F>(
++    u: &Uniform<'_, T>,
++    p: &Problem<'_, TA, TB, TC, TBuf>,
++    f: F,
++) -> Result<Verdict>
++where
++    T: 'static,
++    TA: 'static,
++    TB: 'static,
++    TC: 'static,
++    TBuf: 'static,
++    F: FnOnce(&Arc<CublasHandle>, &cublas_args::CublasArgs, [u64; 3]) -> Result<Verdict>,
++{
++    let call = match prepare(u, p)? {
++        Ok(call) => call,
++        Err(r) => return Ok(Verdict::Declined(r)),
++    };
++    let Some(blas) = call.exec.cublas() else {
++        return Ok(Verdict::Declined(Refusal::NoCublas));
++    };
++    f(blas, &call.args, call.ptrs)
+ }
+ 
+ /// The status as a verdict: a non-success status is a refusal (nothing was enqueued).
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/cublas_lt.rs b/crates-device/rstsr-cuda/src/matmul/drivers/cublas_lt.rs
+new file mode 100644
+index 0000000..91b766f
+--- /dev/null
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/cublas_lt.rs
+@@ -0,0 +1,594 @@
++//! The cuBLASLt driver: `cublasLtMatmul`.
++//!
++//! The same column-major mapping as the other cuBLAS drivers (it shares [`cublas::prepare`]), but
++//! the problem is described by descriptors: a matmul descriptor, four matrix layouts and a
++//! heuristic preference, and the kernel is chosen by `cublasLtMatmulAlgoGetHeuristic`.
++//!
++//! # Resources
++//!
++//! [`CublasLtHandle`] is the per-ordinal state: one `cublasLtHandle_t`, the lock held across every
++//! call on it, and the heuristic cache. A problem is built and asked for its algorithm once per
++//! cache key, and the key holds every descriptor field plus the pointer alignment classes (an
++//! algorithm states a required alignment per matrix, which `cublasLtMatmul` checks). The workspace
++//! is one 32 MiB buffer per **stream**
++//! ([`CudaStreamObj::cublaslt_workspace`][crate::stream::CudaStreamObj]): it is the
++//! kernels' scratch memory, so two streams of one ordinal never share it.
++//!
++//! Every 32F mode is served, `Fast16BF` included (a compute type, where the classic entries only
++//! have a handle math mode); of the 64F family `Default` and `Pedantic`, the fixed-point emulation
++//! being left to the classic driver.
++
++use core::ffi::c_void;
++use cudarc::cublas::sys as cb;
++use cudarc::cublaslt::sys as lt;
++use std::collections::HashMap;
++use std::sync::{Arc, Mutex};
++
++use super::cublas::{GemmCall, Served, prepare};
++use super::cublas_ex::ExScalar;
++use super::{CublasPlan, Problem, Refusal, Verdict};
++use crate::matmul::cublas_args::CublasArgs;
++use crate::prelude_dev::*;
++
++/// The cuBLASLt workspace, per stream.
++pub(crate) const WORKSPACE_BYTES: usize = 32 << 20;
++
++/// Entries kept before the heuristic cache is dropped whole.
++const CACHE_MAX: usize = 1024;
++
++/// The same enum in the `cublaslt` bindings: the `cublas` and `cublaslt` modules are generated from
++/// one header and differ only in name.
++///
++/// # Safety
++/// `A` and `B` must be the same `#[repr(u32)]` enum.
++unsafe fn retyped<A: Copy, B: Copy>(x: A) -> B {
++    assert_eq!(core::mem::size_of::<A>(), core::mem::size_of::<B>());
++    unsafe { core::mem::transmute_copy(&x) }
++}
++
++fn succeeded(status: lt::cublasStatus_t) -> bool {
++    status == lt::cublasStatus_t::CUBLAS_STATUS_SUCCESS
++}
++
++/// One matrix layout as the cache sees it: every field of the descriptor.
++#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
++pub(crate) struct LayoutKey {
++    dtype: u32,
++    rows: u64,
++    cols: u64,
++    ld: i64,
++    batch: i32,
++    stride: i64,
++}
++
++/// The stored (column-major) matrix of one cuBLAS slot.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub(crate) struct Stored {
++    pub rows: u64,
++    pub cols: u64,
++    pub ld: i64,
++}
++
++/// The stored matrices of cuBLAS's slots `A`, `B` and `C`/`D` for these arguments.
++///
++/// `op(A)` is `m x k`: the stored matrix is `m x k` under `OP_N` and `k x m` under `OP_T`; `op(B)`
++/// is `k x n`: stored `k x n` or `n x k`; `C` and `D` are `m x n`.
++pub(crate) fn stored_matrices(a: &CublasArgs) -> [Stored; 3] {
++    let (m, n, k) = (a.mo as u64, a.no as u64, a.ko as u64);
++    let (lda, ldb, ldc) = (a.lda as i64, a.ldb as i64, a.ldc as i64);
++    let a_stored = if a.transa { Stored { rows: k, cols: m, ld: lda } } else { Stored { rows: m, cols: k, ld: lda } };
++    let b_stored = if a.transb { Stored { rows: n, cols: k, ld: ldb } } else { Stored { rows: k, cols: n, ld: ldb } };
++    [a_stored, b_stored, Stored { rows: m, cols: n, ld: ldc }]
++}
++
++/// The full problem as the heuristic sees it.
++#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
++pub(crate) struct Key {
++    compute: u32,
++    scale: u32,
++    trans: [bool; 2],
++    /// The layouts of the slots `A`, `B`, `C`, `D` (`D` equals `C`).
++    layouts: [LayoutKey; 4],
++    workspace: u64,
++    /// The low address bits of the pointers `A`, `B`, `C`, `D`: an algorithm's alignment
++    /// requirement is per matrix, so it is chosen and cached per alignment class.
++    align: [u8; 4],
++}
++
++/// The low 8 address bits of a pointer: the alignment class the algorithm is checked for.
++fn align(ptr: u64) -> u8 {
++    (ptr & 0xff) as u8
++}
++
++/// The layouts of the three stored matrices; batch count and batch stride (in **elements**, like
++/// the strided-batched entries) follow [`crate::matmul::cublas_args::batch_strides`], slot by slot.
++fn layout_keys(a: &CublasArgs, dtype: u32) -> [LayoutKey; 3] {
++    let (stride_a, stride_b, stride_c) = crate::matmul::cublas_args::batch_strides(a);
++    let mut out = [LayoutKey { dtype, rows: 0, cols: 0, ld: 0, batch: 0, stride: 0 }; 3];
++    for (o, (s, stride)) in out.iter_mut().zip(stored_matrices(a).into_iter().zip([stride_a, stride_b, stride_c])) {
++        *o = LayoutKey { dtype, rows: s.rows, cols: s.cols, ld: s.ld, batch: a.batch, stride };
++    }
++    out
++}
++
++/// The cache key of one call: its cuBLAS arguments, the three pointers (named after the **geom**
++/// operands) and the compute type.
++pub(crate) fn key<T: ExScalar>(args: &CublasArgs, ptrs: [u64; 3], compute: lt::cublasComputeType_t) -> Key {
++    // SAFETY: `cudaDataType_t` is the same enum in both modules.
++    let scale: lt::cudaDataType_t = unsafe { retyped(T::DATA) };
++    let [a_l, b_l, c_l] = layout_keys(args, scale as u32);
++    let [ptr_a, ptr_b, ptr_c] = slot_ptrs(ptrs);
++    Key {
++        compute: compute as u32,
++        scale: scale as u32,
++        trans: [args.transa, args.transb],
++        layouts: [a_l, b_l, c_l, c_l],
++        workspace: WORKSPACE_BYTES as u64,
++        align: [align(ptr_a), align(ptr_b), align(ptr_c), align(ptr_c)],
++    }
++}
++
++/// The pointers of cuBLAS's slots `A`, `B`, `C`: `CublasArgs` describes the slots, and slot `A`
++/// holds `geom.b` (the operand swap of `cublas_args`), slot `B` `geom.a`.
++pub(crate) fn slot_ptrs(ptrs: [u64; 3]) -> [u64; 3] {
++    [ptrs[1], ptrs[0], ptrs[2]]
++}
++
++/// Everything a cached problem holds: the descriptors and the chosen algorithm. A descriptor
++/// that is null was never created (a build that failed half-way).
++struct Entry {
++    desc: lt::cublasLtMatmulDesc_t,
++    layouts: [lt::cublasLtMatrixLayout_t; 4],
++    pref: lt::cublasLtMatmulPreference_t,
++    algo: lt::cublasLtMatmulAlgo_t,
++    /// The workspace this algorithm needs, in bytes (at most the preference's maximum).
++    workspace: usize,
++}
++
++impl Drop for Entry {
++    fn drop(&mut self) {
++        // Either the ordinal is done with the descriptors, or the cache is cleared under its
++        // lock: nothing is running against them.
++        unsafe {
++            if !self.pref.is_null() {
++                lt::cublasLtMatmulPreferenceDestroy(self.pref);
++            }
++            for l in self.layouts {
++                if !l.is_null() {
++                    lt::cublasLtMatrixLayoutDestroy(l);
++                }
++            }
++            if !self.desc.is_null() {
++                lt::cublasLtMatmulDescDestroy(self.desc);
++            }
++        }
++    }
++}
++
++fn set_desc(
++    desc: lt::cublasLtMatmulDesc_t,
++    attr: lt::cublasLtMatmulDescAttributes_t,
++    value: &impl Sized,
++) -> lt::cublasStatus_t {
++    unsafe {
++        lt::cublasLtMatmulDescSetAttribute(
++            desc,
++            attr,
++            value as *const _ as *const c_void,
++            core::mem::size_of_val(value),
++        )
++    }
++}
++
++fn set_layout(
++    layout: lt::cublasLtMatrixLayout_t,
++    attr: lt::cublasLtMatrixLayoutAttribute_t,
++    value: &impl Sized,
++) -> lt::cublasStatus_t {
++    unsafe {
++        lt::cublasLtMatrixLayoutSetAttribute(
++            layout,
++            attr,
++            value as *const _ as *const c_void,
++            core::mem::size_of_val(value),
++        )
++    }
++}
++
++fn set_pref(
++    pref: lt::cublasLtMatmulPreference_t,
++    attr: lt::cublasLtMatmulPreferenceAttributes_t,
++    value: &impl Sized,
++) -> lt::cublasStatus_t {
++    unsafe {
++        lt::cublasLtMatmulPreferenceSetAttribute(
++            pref,
++            attr,
++            value as *const _ as *const c_void,
++            core::mem::size_of_val(value),
++        )
++    }
++}
++
++/// The status as a refusal; `None` on success.
++fn refused(status: lt::cublasStatus_t) -> Option<Refusal> {
++    if succeeded(status) { None } else { Some(Refusal::CublasLtStatus(status)) }
++}
++
++/// Build the descriptors of `call` and ask the heuristic for its algorithm.
++///
++/// Every failure is a refusal: nothing has been enqueued at this point.
++///
++/// # Safety
++/// The handle must be live and its lock held.
++unsafe fn build<T: ExScalar>(
++    handle: lt::cublasLtHandle_t,
++    call: &GemmCall<'_>,
++    compute: lt::cublasComputeType_t,
++) -> Served<Entry> {
++    // SAFETY: `cudaDataType_t` is the same enum in both modules.
++    let scale: lt::cudaDataType_t = unsafe { retyped(T::DATA) };
++    let a = &call.args;
++    let mut desc = core::mem::MaybeUninit::uninit();
++    if let Some(r) = refused(unsafe { lt::cublasLtMatmulDescCreate(desc.as_mut_ptr(), compute, scale) }) {
++        return Err(r);
++    }
++    // From here on a failure drops `entry`, which destroys what was created so far.
++    let mut entry = Entry {
++        desc: unsafe { desc.assume_init() },
++        layouts: [core::ptr::null_mut(); 4],
++        pref: core::ptr::null_mut(),
++        algo: core::mem::zeroed(),
++        workspace: 0,
++    };
++    let op = |t: bool| if t { cb::cublasOperation_t::CUBLAS_OP_T } else { cb::cublasOperation_t::CUBLAS_OP_N };
++    if let Some(r) =
++        refused(set_desc(entry.desc, lt::cublasLtMatmulDescAttributes_t::CUBLASLT_MATMUL_DESC_TRANSA, &op(a.transa)))
++    {
++        return Err(r);
++    }
++    if let Some(r) =
++        refused(set_desc(entry.desc, lt::cublasLtMatmulDescAttributes_t::CUBLASLT_MATMUL_DESC_TRANSB, &op(a.transb)))
++    {
++        return Err(r);
++    }
++    // The batch stride of each slot, in elements (the same triple `cublasGemmStridedBatched`
++    // takes).
++    let (stride_a, stride_b, stride_c) = crate::matmul::cublas_args::batch_strides(a);
++    // `D` is `C`: the product is accumulated in place, or written over the unread `C`.
++    let [s_a, s_b, s_c] = stored_matrices(a);
++    let slots = [s_a, s_b, s_c, s_c].into_iter().zip([stride_a, stride_b, stride_c, stride_c]);
++    for (l, (s, stride)) in entry.layouts.iter_mut().zip(slots) {
++        if let Some(r) = refused(unsafe { lt::cublasLtMatrixLayoutCreate(l, scale, s.rows, s.cols, s.ld) }) {
++            return Err(r);
++        }
++        if a.batch > 1 {
++            set_layout(*l, lt::cublasLtMatrixLayoutAttribute_t::CUBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &a.batch);
++            set_layout(*l, lt::cublasLtMatrixLayoutAttribute_t::CUBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride);
++        }
++    }
++    let mut pref = core::mem::MaybeUninit::uninit();
++    if let Some(r) = refused(unsafe { lt::cublasLtMatmulPreferenceCreate(pref.as_mut_ptr()) }) {
++        return Err(r);
++    }
++    entry.pref = unsafe { pref.assume_init() };
++    if let Some(r) = refused(set_pref(
++        entry.pref,
++        lt::cublasLtMatmulPreferenceAttributes_t::CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES,
++        &(WORKSPACE_BYTES as u64),
++    )) {
++        return Err(r);
++    }
++
++    let [l_a, l_b, l_c, l_d] = entry.layouts;
++    let mut heuristic: lt::cublasLtMatmulHeuristicResult_t = core::mem::zeroed();
++    let mut count = 0i32;
++    let status = unsafe {
++        lt::cublasLtMatmulAlgoGetHeuristic(
++            handle,
++            entry.desc,
++            l_a,
++            l_b,
++            l_c,
++            l_d,
++            entry.pref,
++            1,
++            &mut heuristic,
++            &mut count,
++        )
++    };
++    if let Some(r) = refused(status) {
++        return Err(r);
++    }
++    if count == 0 {
++        return Err(Refusal::Cannot("no algorithm for this problem (layout, precision or workspace)"));
++    }
++    if let Some(r) = refused(heuristic.state) {
++        return Err(r);
++    }
++    // The algorithm's configuration for exactly these descriptors (workspace, tiles, ...).
++    let mut checked: lt::cublasLtMatmulHeuristicResult_t = core::mem::zeroed();
++    let status =
++        unsafe { lt::cublasLtMatmulAlgoCheck(handle, entry.desc, l_a, l_b, l_c, l_d, &heuristic.algo, &mut checked) };
++    if let Some(r) = refused(status) {
++        return Err(r);
++    }
++    if let Some(r) = refused(checked.state) {
++        return Err(r);
++    }
++    if checked.workspaceSize > WORKSPACE_BYTES {
++        return Err(Refusal::Cannot("the chosen algorithm needs a larger workspace"));
++    }
++    entry.algo = checked.algo;
++    entry.workspace = checked.workspaceSize;
++    Ok(entry)
++}
++
++/// The per-ordinal cuBLASLt state: the handle, the lock held across every call, and the cache.
++pub(crate) struct CublasLtHandle {
++    handle: lt::cublasLtHandle_t,
++    locked: Mutex<HashMap<Key, Entry>>,
++}
++
++// SAFETY: the handle is only used under `locked`.
++unsafe impl Send for CublasLtHandle {}
++unsafe impl Sync for CublasLtHandle {}
++
++impl CublasLtHandle {
++    /// Create the handle on the context of `stream`'s ordinal.
++    pub(crate) fn new(stream: &Arc<crate::stream::CudaStreamObj>) -> Result<Self> {
++        stream.inner().context().bind_to_thread().map_err(crate::error::map_driver_error)?;
++        let mut handle = core::mem::MaybeUninit::<lt::cublasLtHandle_t>::uninit();
++        let status = unsafe { lt::cublasLtCreate(handle.as_mut_ptr()) };
++        if !succeeded(status) {
++            rstsr_raise!(RuntimeError, "cuda matmul: cuBLASLt status {status:?} while creating the handle")?;
++        }
++        Ok(Self { handle: unsafe { handle.assume_init() }, locked: Mutex::new(HashMap::new()) })
++    }
++
++    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<Key, Entry>> {
++        self.locked.lock().unwrap_or_else(|e| e.into_inner())
++    }
++}
++
++impl Drop for CublasLtHandle {
++    fn drop(&mut self) {
++        // Entries first: the descriptors must not outlive the handle.
++        self.lock().clear();
++        unsafe { lt::cublasLtDestroy(self.handle) };
++    }
++}
++
++/// One attempt of the cuBLASLt driver.
++pub(super) fn run<TA, TB, TC, TBuf>(p: &Problem<'_, TA, TB, TC, TBuf>, plan: CublasPlan) -> Result<Verdict>
++where
++    TA: 'static,
++    TB: 'static,
++    TC: Copy + 'static,
++    TBuf: 'static,
++{
++    match plan {
++        CublasPlan::F32(mode) => typed::<f32, TA, TB, TC, TBuf>(p, unsafe { retyped(mode.gemm_ex()) }),
++        CublasPlan::F64(mode) => match mode.gemm_ex() {
++            Some(compute) => typed::<f64, TA, TB, TC, TBuf>(p, unsafe { retyped(compute) }),
++            None => Ok(Verdict::Declined(Refusal::Cannot("the fixed-point emulation is served by the classic driver"))),
++        },
++        CublasPlan::None => {
++            Ok(Verdict::Declined(Refusal::Cannot("cuBLASLt serves f32 and f64 outputs in their own storage")))
++        },
++    }
++}
++
++fn typed<T: ExScalar, TA, TB, TC, TBuf>(
++    p: &Problem<'_, TA, TB, TC, TBuf>,
++    compute: lt::cublasComputeType_t,
++) -> Result<Verdict>
++where
++    TA: 'static,
++    TB: 'static,
++    TC: Copy + 'static,
++    TBuf: 'static,
++{
++    let Some(u) = p.uniform::<T>() else {
++        return Ok(Verdict::Declined(Refusal::Cannot("the operands and the output must share one dtype")));
++    };
++    let call = match prepare(&u, p)? {
++        Ok(call) => call,
++        Err(r) => return Ok(Verdict::Declined(r)),
++    };
++    let Some(lt_state) = p.device.ordinal_obj().cublaslt() else {
++        return Ok(Verdict::Declined(Refusal::NoCublasLt));
++    };
++    let Some(workspace) = call.exec.cublaslt_workspace() else {
++        return Ok(Verdict::Declined(Refusal::Cannot("the cuBLASLt workspace could not be allocated")));
++    };
++    let key = key::<T>(&call.args, call.ptrs, compute);
++    let mut cache = lt_state.lock();
++    if !cache.contains_key(&key) {
++        // SAFETY: the handle is live and this thread holds its lock.
++        let entry = match unsafe { build::<T>(lt_state.handle, &call, compute) } {
++            Ok(entry) => entry,
++            Err(r) => return Ok(Verdict::Declined(r)),
++        };
++        if cache.len() >= CACHE_MAX {
++            cache.clear();
++        }
++        cache.insert(key, entry);
++    }
++    let e = &cache[&key];
++    let [ptr_a, ptr_b, ptr_c] = slot_ptrs(call.ptrs);
++    let ptr = |p: u64| p as *mut c_void;
++    let status = unsafe {
++        lt::cublasLtMatmul(
++            lt_state.handle,
++            e.desc,
++            &u.alpha as *const T as *const c_void,
++            ptr(ptr_a) as *const c_void,
++            e.layouts[0],
++            ptr(ptr_b) as *const c_void,
++            e.layouts[1],
++            &u.beta as *const T as *const c_void,
++            ptr(ptr_c) as *const c_void,
++            e.layouts[2],
++            ptr(ptr_c),
++            e.layouts[3],
++            &e.algo,
++            workspace.device_ptr_on(call.exec) as *mut c_void,
++            e.workspace,
++            // the stream handle: the same opaque type in the driver and cublaslt modules
++            call.exec.inner().cu_stream().cast::<c_void>() as lt::cudaStream_t,
++        )
++    };
++    match refused(status) {
++        None => Ok(Verdict::Ran),
++        Some(r) => Ok(Verdict::Declined(r)),
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::matmul::cublas_args::{args, batch_strides};
++    use crate::matmul::geom::resolve_geom;
++    use crate::matmul::mode::{ComputeType32F, ComputeType64F};
++
++    fn layout(shape: &[usize], stride: &[isize]) -> Layout<IxD> {
++        Layout::<IxD>::new(shape.to_vec(), stride.to_vec(), 0).unwrap()
++    }
++
++    /// (batch, a's strides, b's strides): the four operand orientations, then a strided batch
++    /// and a broadcast one.
++    fn cases() -> Vec<(&'static str, usize, &'static [isize], &'static [isize])> {
++        vec![
++            ("a k-contig, b n-contig", 1, &[4, 1], &[5, 1]),
++            ("a m-contig, b n-contig", 1, &[1, 4], &[5, 1]),
++            ("a k-contig, b k-contig", 1, &[4, 1], &[1, 5]),
++            ("a m-contig, b k-contig", 1, &[1, 4], &[1, 5]),
++            ("batched", 6, &[4, 1], &[5, 1]),
++            ("a broadcast over the batch", 6, &[0, 4, 1], &[5, 1]),
++        ]
++    }
++
++    fn arguments(a_strides: &[isize], b_strides: &[isize], batch: usize) -> CublasArgs {
++        let (m, k, n) = (3usize, 4usize, 5usize);
++        let (la, lb, lc) = if batch > 1 {
++            // a 2-D stride list gets the batch axis in front, stepping by one matrix
++            let batched = |s: &[isize], per: usize| match s.len() {
++                2 => vec![per as isize, s[0], s[1]],
++                _ => s.to_vec(),
++            };
++            (
++                layout(&[batch, m, k], &batched(a_strides, m * k)),
++                layout(&[batch, k, n], &batched(b_strides, k * n)),
++                layout(&[batch, m, n], &[(m * n) as isize, n as isize, 1]),
++            )
++        } else {
++            (layout(&[m, k], a_strides), layout(&[k, n], b_strides), layout(&[m, n], &[n as isize, 1]))
++        };
++        let g = resolve_geom(RowMajor, &lc, &la, &lb).unwrap();
++        args(&g).unwrap()
++    }
++
++    /// The descriptors declare what `cublas_args` declares: `op(A)` is `n x k` of `geom.b` and
++    /// `op(B)` is `k x m` of `geom.a`, each stored one way or the other, and the output `n x m`
++    /// with `ldc`; the batch count and the element strides follow the strided-batched triple.
++    #[test]
++    fn stored_matrices_follow_the_declared_dimensions() {
++        for (label, batch, sa, sb) in cases() {
++            let a = arguments(sa, sb, batch);
++            let [s_a, s_b, s_c] = stored_matrices(&a);
++            // cuBLAS's m = our n, n = our m, k = our k
++            assert_eq!((a.mo, a.no, a.ko), (5, 3, 4), "{label}");
++            let (rows_a, cols_a) = if a.transa { (a.ko as u64, a.mo as u64) } else { (a.mo as u64, a.ko as u64) };
++            assert_eq!((s_a.rows, s_a.cols, s_a.ld), (rows_a, cols_a, a.lda as i64), "{label}: slot A");
++            let (rows_b, cols_b) = if a.transb { (a.no as u64, a.ko as u64) } else { (a.ko as u64, a.no as u64) };
++            assert_eq!((s_b.rows, s_b.cols, s_b.ld), (rows_b, cols_b, a.ldb as i64), "{label}: slot B");
++            assert_eq!((s_c.rows, s_c.cols, s_c.ld), (5, 3, a.ldc as i64), "{label}: slot C/D");
++            // a declared `ld` is never below the declared row count
++            assert!(s_a.ld >= s_a.rows as i64 && s_b.ld >= s_b.rows as i64 && s_c.ld >= s_c.rows as i64, "{label}");
++
++            let keys = layout_keys(&a, 0);
++            let strides = batch_strides(&a);
++            assert_eq!((keys[0].batch, keys[1].batch, keys[2].batch), (a.batch, a.batch, a.batch), "{label}");
++            assert_eq!(
++                (keys[0].stride, keys[1].stride, keys[2].stride),
++                strides,
++                "{label}: strides in elements, by slot"
++            );
++            assert_eq!(keys[0].rows, s_a.rows);
++        }
++    }
++
++    /// The key is the whole problem: equal for an equal problem, different in the compute type,
++    /// in a transpose, in a batch stride, and in the alignment class of any pointer.
++    #[test]
++    fn key_is_the_whole_problem() {
++        let (plain, transposed) = (arguments(&[4, 1], &[5, 1], 1), arguments(&[1, 4], &[1, 5], 1));
++        let ptrs = [0x1000, 0x2000, 0x3000];
++        let base = key::<f32>(&plain, ptrs, unsafe { retyped(ComputeType32F::default().gemm_ex()) });
++        assert_eq!(base, key::<f32>(&plain, ptrs, unsafe { retyped(ComputeType32F::default().gemm_ex()) }));
++        assert_ne!(base, key::<f32>(&plain, ptrs, unsafe { retyped(ComputeType32F::FastTF32.gemm_ex()) }));
++        assert_ne!(base, key::<f32>(&transposed, ptrs, unsafe { retyped(ComputeType32F::default().gemm_ex()) }));
++        assert_ne!(
++            base,
++            key::<f32>(&arguments(&[4, 1], &[5, 1], 6), ptrs, unsafe { retyped(ComputeType32F::default().gemm_ex()) })
++        );
++        for i in 0..3 {
++            let mut p = ptrs;
++            p[i] += 4;
++            assert_ne!(
++                base,
++                key::<f32>(&plain, p, unsafe { retyped(ComputeType32F::default().gemm_ex()) }),
++                "pointer {i}"
++            );
++        }
++        // 256-byte-equivalent addresses are one class
++        let far = [ptrs[0] + 0x100, ptrs[1], ptrs[2]];
++        assert_eq!(base, key::<f32>(&plain, far, unsafe { retyped(ComputeType32F::default().gemm_ex()) }));
++        // the scale type is the output type
++        let scale = |k: &Key| k.scale;
++        assert_eq!(
++            scale(&key::<f32>(&plain, ptrs, unsafe { retyped(ComputeType32F::default().gemm_ex()) })),
++            lt::cudaDataType_t::CUDA_R_32F as u32
++        );
++        assert_eq!(
++            scale(&key::<f64>(&plain, ptrs, unsafe { retyped(ComputeType64F::default().gemm_ex().unwrap()) })),
++            lt::cudaDataType_t::CUDA_R_64F as u32
++        );
++    }
++
++    /// The `cublas` and `cublaslt` bindings spell one enum twice: every value the drivers pass
++    /// keeps its name and value.
++    #[test]
++    fn retyped_enums_keep_their_values() {
++        let same = |a: cb::cublasComputeType_t| {
++            let b: lt::cublasComputeType_t = unsafe { retyped(a) };
++            assert_eq!(a as u32, b as u32, "{a:?}");
++        };
++        for mode in [
++            ComputeType32F::default(),
++            ComputeType32F::Pedantic,
++            ComputeType32F::Fast16F,
++            ComputeType32F::Fast16BF,
++            ComputeType32F::FastTF32,
++        ] {
++            same(mode.gemm_ex());
++        }
++        same(ComputeType64F::default().gemm_ex().unwrap());
++        same(ComputeType64F::Pedantic.gemm_ex().unwrap());
++        let data: lt::cudaDataType_t = unsafe { retyped(cb::cudaDataType_t::CUDA_R_32F) };
++        assert_eq!(data, lt::cudaDataType_t::CUDA_R_32F);
++    }
++
++    /// The pointers follow the slots: `geom.b` in cuBLAS's `A`, `geom.a` in its `B`.
++    #[test]
++    fn pointers_follow_the_slots() {
++        assert_eq!(slot_ptrs([0x10, 0x20, 0x30]), [0x20, 0x10, 0x30]);
++    }
++
++    /// The fixed-point emulation of the 64F family is the classic driver's.
++    #[test]
++    fn fixed_point_emulation_is_left_to_the_classic_driver() {
++        assert!(ComputeType64F::EmulatedFixedPoint.gemm_ex().is_none());
++    }
++}
+diff --git a/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs b/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
+index 6e0d290..d54d8a8 100644
+--- a/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
++++ b/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs
+@@ -6,6 +6,9 @@
+ //! triple is tried in turn until one runs. An error is returned only when nothing ran.
+ //!
+ //! A driver that declines never enqueues anything, so fall-through cannot change the answer.
++//!
++//! The three cuBLAS drivers share the argument derivation ([`cublas::prepare`]): which layouts
++//! they can express is one rule, whatever entry is called.
+ 
+ use std::any::TypeId;
+ 
+@@ -18,6 +21,7 @@ pub(crate) use naive::NaiveScalar;
+ 
+ pub(crate) mod cublas;
+ pub(crate) mod cublas_ex;
++pub(crate) mod cublas_lt;
+ pub(crate) mod naive;
+ pub(crate) mod tiled;
+ 
+@@ -72,8 +76,12 @@ pub(crate) enum Refusal {
+     Cannot(&'static str),
+     /// cuBLAS answered with this status; nothing was enqueued.
+     CublasStatus(cudarc::cublas::sys::cublasStatus_t),
++    /// cuBLASLt answered with this status; nothing was enqueued.
++    CublasLtStatus(cudarc::cublaslt::sys::cublasStatus_t),
+     /// `libcublas` is not loadable on this machine.
+     NoCublas,
++    /// `libcublasLt` is not loadable on this machine.
++    NoCublasLt,
+ }
+ 
+ impl core::fmt::Display for Refusal {
+@@ -81,7 +89,9 @@ impl core::fmt::Display for Refusal {
+         match self {
+             Self::Cannot(what) => write!(f, "cannot serve: {what}"),
+             Self::CublasStatus(status) => write!(f, "cuBLAS status {status:?}"),
++            Self::CublasLtStatus(status) => write!(f, "cuBLASLt status {status:?}"),
+             Self::NoCublas => write!(f, "libcublas is not loadable"),
++            Self::NoCublasLt => write!(f, "libcublasLt is not loadable"),
+         }
+     }
+ }
+@@ -227,6 +237,9 @@ impl Chain {
+     }
+ }
+ 
++/// The accelerated rows of the table: every driver, in the chain order.
++const ACCELERATED: [GemmDriver; 5] = GemmDriver::ALL;
++
+ /// The drivers that can serve `(TA, TB) -> TC` under `mode`, in the chain order.
+ ///
+ /// Pure: a table lookup on the type triple and the mode, with no layout input. (Layout decides
+@@ -234,26 +247,21 @@ impl Chain {
+ ///
+ /// | call | mode | candidates in order |
+ /// |---|---|---|
+-/// | `f32 -> f32` | any 32F mode | `cublasEx`, cuBLAS, tiled, naive |
+-/// | `f64 -> f64` | `Default` / `Pedantic` | `cublasEx`, cuBLAS, tiled, naive |
++/// | `f32 -> f32` | any 32F mode | cuBLASLt, `cublasEx`, cuBLAS, tiled, naive |
++/// | `f64 -> f64` | `Default` / `Pedantic` | cuBLASLt, `cublasEx`, cuBLAS, tiled, naive |
+ /// | `f64 -> f64` | `EmulatedFixedPoint` | cuBLAS, tiled, naive |
+ /// | anything else | — | naive |
+ ///
+ /// The tiled and naive kernels are mode-agnostic: they compute in the output precision (or
+-/// better), which every mode allows, so only the cuBLAS drivers read the plan. cuBLASLt joins as
+-/// the first candidate of the accelerated rows with its own driver.
++/// better), which every mode allows, so only the cuBLAS drivers read the plan.
+ pub(crate) fn candidates<TA: 'static, TB: 'static, TC: CudaMatMulMode>(mode: &TC::Mode) -> Chain {
+     let same_type = same::<TA, TC>() && same::<TB, TC>();
+     match plan::<TC>(mode) {
+-        CublasPlan::F32(_) if same_type => {
+-            Chain::new(&[GemmDriver::CublasEx, GemmDriver::Cublas, GemmDriver::Tiled, GemmDriver::Naive])
+-        },
++        CublasPlan::F32(_) if same_type => Chain::new(&ACCELERATED),
+         CublasPlan::F64(ComputeType64F::EmulatedFixedPoint) if same_type => {
+             Chain::new(&[GemmDriver::Cublas, GemmDriver::Tiled, GemmDriver::Naive])
+         },
+-        CublasPlan::F64(_) if same_type => {
+-            Chain::new(&[GemmDriver::CublasEx, GemmDriver::Cublas, GemmDriver::Tiled, GemmDriver::Naive])
+-        },
++        CublasPlan::F64(_) if same_type => Chain::new(&ACCELERATED),
+         CublasPlan::F32(_) | CublasPlan::F64(_) | CublasPlan::None => Chain::new(&[GemmDriver::Naive]),
+     }
+ }
+@@ -278,13 +286,11 @@ where
+             continue;
+         }
+         let verdict = match driver {
++            GemmDriver::CublasLt => cublas_lt::run(p, plan)?,
+             GemmDriver::CublasEx => cublas_ex::run(p, plan)?,
+             GemmDriver::Cublas => cublas::run(p, plan, flags.fixedpoint_mantissa_bits)?,
+             GemmDriver::Tiled => tiled::run(p)?,
+             GemmDriver::Naive => naive::run(p)?,
+-            GemmDriver::CublasLt => {
+-                rstsr_raise!(UnImplemented, "cuda matmul: the {} driver is not implemented yet", driver.name())?
+-            },
+         };
+         if flags.trace_matmul {
+             let g = &p.geom;
+@@ -347,10 +353,10 @@ mod tests {
+         c.iter().map(|d| d.name()).collect()
+     }
+ 
+-    /// Every 32F mode gives the full accelerated chain to `f32 -> f32`.
++    /// Every 32F mode gives the full chain to `f32 -> f32`.
+     #[test]
+     fn table_32f() {
+-        let chain = ["cublasEx", "cublas", "tiled", "naive"];
++        let chain = ["cublasLt", "cublasEx", "cublas", "tiled", "naive"];
+         let modes = [
+             ComputeType32F::default(),
+             ComputeType32F::Pedantic,
+@@ -367,7 +373,7 @@ mod tests {
+     /// classic handle only.
+     #[test]
+     fn table_64f() {
+-        let chain = ["cublasEx", "cublas", "tiled", "naive"];
++        let chain = ["cublasLt", "cublasEx", "cublas", "tiled", "naive"];
+         assert_eq!(names(&candidates::<f64, f64, f64>(&ComputeType64F::default())), chain);
+         assert_eq!(names(&candidates::<f64, f64, f64>(&ComputeType64F::Pedantic)), chain);
+         assert_eq!(names(&candidates::<f64, f64, f64>(&ComputeType64F::EmulatedFixedPoint)), [
+diff --git a/crates-device/rstsr-cuda/src/matmul/mod.rs b/crates-device/rstsr-cuda/src/matmul/mod.rs
+index 360fd26..c513a9e 100644
+--- a/crates-device/rstsr-cuda/src/matmul/mod.rs
++++ b/crates-device/rstsr-cuda/src/matmul/mod.rs
+@@ -24,7 +24,7 @@
+ //!
+ //! | `(a, b) -> c` | accelerated drivers | always |
+ //! |---|---|---|
+-//! | `f32 -> f32`, `f64 -> f64` | `cublasGemmEx`, classic cuBLAS, tiled | naive |
++//! | `f32 -> f32`, `f64 -> f64` | cuBLASLt, `cublasGemmEx`, classic cuBLAS, tiled | naive |
+ //! | everything else (integers, complex, half, mixed operands) | — (later batches) | naive |
+ //!
+ //! # Layouts
+@@ -32,6 +32,12 @@
+ //! Every layout the rule table admits is served: strided, negative and zero strides, broadcast
+ //! and non-affine batches, either default order. The inner dot (`[k] @ [k]`) has no GEMM geometry
+ //! and is refused by name.
++//!
++//! # Resources
++//!
++//! The cuBLAS drivers share one handle per stream, kept behind a lock; cuBLASLt keeps one handle
++//! and one heuristic cache per ordinal (a problem is described to it once, then reused), and one
++//! 32 MiB workspace per stream, allocated on the first matmul that stream runs through it.
+ 
+ pub(crate) mod cublas_args;
+ pub(crate) mod drivers;
+diff --git a/crates-device/rstsr-cuda/src/matmul/mode.rs b/crates-device/rstsr-cuda/src/matmul/mode.rs
+index 66f8e2d..700aeda 100644
+--- a/crates-device/rstsr-cuda/src/matmul/mode.rs
++++ b/crates-device/rstsr-cuda/src/matmul/mode.rs
+@@ -16,8 +16,8 @@ use num::Complex;
+ /// resolves to [`Self::Default`] silently; [`Self::Pedantic`] is never downgraded and is an error.
+ ///
+ /// A driver that cannot express a mode declines the problem, and the next candidate runs
+-/// (`Fast16BF` has no classic-entry math mode, so the classic driver hands it to the tiled or
+-/// naive kernel, which compute in full `f32`).
++/// (`Fast16BF` has no classic-entry math mode, so the classic driver hands it on; the cuBLASLt
++/// and `cublasGemmEx` drivers serve it as a compute type).
+ #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+ #[non_exhaustive]
+ pub enum ComputeType32F {
+diff --git a/crates-device/rstsr-cuda/src/registry.rs b/crates-device/rstsr-cuda/src/registry.rs
+index bc47818..5af3946 100644
+--- a/crates-device/rstsr-cuda/src/registry.rs
++++ b/crates-device/rstsr-cuda/src/registry.rs
+@@ -2,6 +2,7 @@
+ 
+ use crate::error::{map_driver_error, map_driver_result};
+ use crate::flags;
++use crate::matmul::drivers::cublas_lt::CublasLtHandle;
+ use crate::prelude_dev::*;
+ use cudarc::driver::CudaContext;
+ use std::collections::HashMap;
+@@ -26,6 +27,8 @@ pub struct CudaOrdinalObj {
+     pub(crate) planned_cache_slot: OnceLock<crate::kernel::PlannedCache>,
+     /// Cached arch string (one driver query per ordinal).
+     pub(crate) arch_slot: OnceLock<core::result::Result<String, rstsr_core::prelude_dev::Error>>,
++    /// The cuBLASLt handle and heuristic cache, or a cached "not available".
++    pub(crate) cublaslt_slot: OnceLock<Option<Arc<CublasLtHandle>>>,
+ }
+ 
+ impl CudaOrdinalObj {
+@@ -40,6 +43,7 @@ impl CudaOrdinalObj {
+             kernel_cache_slot: OnceLock::new(),
+             planned_cache_slot: OnceLock::new(),
+             arch_slot: OnceLock::new(),
++            cublaslt_slot: OnceLock::new(),
+         })
+     }
+ 
+@@ -58,6 +62,20 @@ impl CudaOrdinalObj {
+         map_driver_result(self.ctx.compute_capability())
+     }
+ 
++    /// The cuBLASLt state of this ordinal (see [`CublasLtHandle`]), or `None` when `libcublasLt` is
++    /// not loadable (cached: the probe either works once or never).
++    pub(crate) fn cublaslt(&self) -> Option<&Arc<CublasLtHandle>> {
++        self.cublaslt_slot
++            .get_or_init(|| {
++                // cudarc resolves the symbols lazily and panics when one is missing.
++                let made = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
++                    CublasLtHandle::new(&self.default_stream)
++                }));
++                made.ok().and_then(|r| r.ok()).map(Arc::new)
++            })
++            .as_ref()
++    }
++
+     /// `(free, total)` device memory in bytes.
+     pub fn memory_info(&self) -> Result<(usize, usize)> {
+         map_driver_result(self.ctx.mem_get_info())
+diff --git a/crates-device/rstsr-cuda/src/stream.rs b/crates-device/rstsr-cuda/src/stream.rs
+index d7bb181..84deeb6 100644
+--- a/crates-device/rstsr-cuda/src/stream.rs
++++ b/crates-device/rstsr-cuda/src/stream.rs
+@@ -1,5 +1,6 @@
+ //! Stream wrapper for `DeviceCuda`.
+ 
++use crate::buffer::CudaBuffer;
+ use crate::device::DeviceCuda;
+ use crate::error::{map_driver_error, map_driver_result};
+ use crate::prelude_dev::*;
+@@ -71,6 +72,9 @@ pub struct CudaStreamObj {
+     /// dlopening `libcublas`, which either works once or never — retrying per launch would turn a
+     /// missing library into a per-call panic.
+     cublas_slot: OnceLock<Option<Arc<CublasHandle>>>,
++    /// The cuBLASLt workspace of this stream (32 MiB, lazy): scratch memory of the kernels, so
++    /// two streams never share one.
++    cublaslt_workspace_slot: OnceLock<Option<Arc<CudaBuffer<u8>>>>,
+ }
+ 
+ impl CudaStreamObj {
+@@ -82,7 +86,12 @@ impl CudaStreamObj {
+     /// Create a new stream on `ctx`.
+     pub(crate) fn new(ctx: &Arc<CudaContext>) -> Result<Self> {
+         let stream = ctx.new_stream().map_err(map_driver_error)?;
+-        Ok(Self { stream, ordinal: ctx.ordinal(), cublas_slot: OnceLock::new() })
++        Ok(Self {
++            stream,
++            ordinal: ctx.ordinal(),
++            cublas_slot: OnceLock::new(),
++            cublaslt_workspace_slot: OnceLock::new(),
++        })
+     }
+ 
+     /// The underlying stream handle (launches, copies, synchronization).
+@@ -93,7 +102,7 @@ impl CudaStreamObj {
+     /// Wrap an existing cudarc stream of the given ordinal (test/interop
+     /// helper; production code goes through `CudaOrdinalObj::new`).
+     pub fn wrap(ordinal: usize, stream: Arc<CudaStream>) -> Self {
+-        Self { stream, ordinal, cublas_slot: OnceLock::new() }
++        Self { stream, ordinal, cublas_slot: OnceLock::new(), cublaslt_workspace_slot: OnceLock::new() }
+     }
+ 
+     /// The cuBLAS handle for this stream, or `None` when the library cannot be loaded.
+@@ -117,6 +126,15 @@ impl CudaStreamObj {
+             .as_ref()
+     }
+ 
++    /// The cuBLASLt workspace of this stream, or `None` when it could not be allocated (cached).
++    pub(crate) fn cublaslt_workspace(self: &Arc<Self>) -> Option<&Arc<CudaBuffer<u8>>> {
++        self.cublaslt_workspace_slot
++            .get_or_init(|| {
++                CudaBuffer::new_f(self, crate::matmul::drivers::cublas_lt::WORKSPACE_BYTES).ok().map(Arc::new)
++            })
++            .as_ref()
++    }
++
+     /// The ordinal of this stream's context.
+     pub fn ordinal(&self) -> usize {
+         self.ordinal
+diff --git a/crates-device/rstsr-cuda/tests/test_matmul_modes.rs b/crates-device/rstsr-cuda/tests/test_matmul_modes.rs
+index ce58c22..f12f3bf 100644
+--- a/crates-device/rstsr-cuda/tests/test_matmul_modes.rs
++++ b/crates-device/rstsr-cuda/tests/test_matmul_modes.rs
+@@ -5,7 +5,9 @@
+ //! the ones that down-convert the inputs (`Fast16F`, `Fast16BF`, `FastTF32`) to the precision of
+ //! the conversion, the fixed-point emulation to the width cuBLAS picks by default. A driver that
+ //! cannot serve a mode must say so: forced alone it is an error naming the reason, never a
+-//! silently different precision.
++//! silently different precision. cuBLASLt serves every 32F mode (`Fast16BF` included) and
++//! `Default`/`Pedantic` of 64F; the argument shapes (batch, broadcast, transposes) run on each
++//! cuBLAS driver alone, and pointer alignment on cuBLASLt.
+ //!
+ //! The printed `max rel err` per mode is the measurement the tolerances were set from.
+ 
+@@ -129,8 +131,8 @@ fn classic_serves(mode: ComputeType32F) -> bool {
+     }
+ }
+ 
+-/// Every 32F mode on `cublasGemmEx` (always served) and on the classic entries (served where a
+-/// math mode exists for it), through the device flags.
++/// Every 32F mode on cuBLASLt and `cublasGemmEx` (always served) and on the classic entries
++/// (served where a math mode exists for it), through the device flags.
+ #[test]
+ fn modes_32f() {
+     require_cuda!();
+@@ -143,6 +145,8 @@ fn modes_32f() {
+         (ComputeType32F::Fast16BF, "fast 16bf", 5e-2),
+     ];
+     for (mode, name, tol) in cases {
++        let lt = device(MatMulDrivers::CUBLAS_LT, |f| f.compute_type_32f = mode);
++        check_f32(&lt, &format!("{name}, cublasLt"), m, k, n, tol);
+         let ex = device(MatMulDrivers::CUBLAS_EX, |f| f.compute_type_32f = mode);
+         check_f32(&ex, &format!("{name}, cublasEx"), m, k, n, tol);
+         // the default chain takes the same driver
+@@ -160,7 +164,7 @@ fn modes_32f() {
+     }
+ }
+ 
+-/// Every 64F mode on both drivers; the fixed-point emulation on the classic handle only.
++/// Every 64F mode on the three drivers; the fixed-point emulation on the classic handle only.
+ #[test]
+ fn modes_64f() {
+     require_cuda!();
+@@ -168,6 +172,8 @@ fn modes_64f() {
+     for (mode, name, tol) in
+         [(ComputeType64F::Default, "default", 1e-13), (ComputeType64F::Pedantic, "pedantic", 1e-13)]
+     {
++        let lt = device(MatMulDrivers::CUBLAS_LT, |f| f.compute_type_64f = mode);
++        check_f64(&lt, &format!("{name}, cublasLt"), m, k, n, tol);
+         let ex = device(MatMulDrivers::CUBLAS_EX, |f| f.compute_type_64f = mode);
+         check_f64(&ex, &format!("{name}, cublasEx"), m, k, n, tol);
+         let all = device(MatMulDrivers::all(), |f| f.compute_type_64f = mode);
+@@ -189,10 +195,12 @@ fn modes_64f() {
+         let msg = matmul_err(&classic, data(4, 5), data(4, 6));
+         assert!(msg.contains("cublas: cannot serve") && msg.contains("fixed-point"), "{msg}");
+     }
+-    // `cublasGemmEx` is not a candidate: no Ex-only chain, and the error says why
+-    let ex = device(MatMulDrivers::CUBLAS_EX, |f| f.compute_type_64f = emu);
+-    let msg = matmul_err(&ex, data(4, 5), data(4, 6));
+-    assert!(msg.contains("no enabled driver is a candidate"), "{msg}");
++    // neither cuBLASLt nor `cublasGemmEx` is a candidate: no Lt-only or Ex-only chain
++    for forced in [MatMulDrivers::CUBLAS_LT, MatMulDrivers::CUBLAS_EX] {
++        let d = device(forced, |f| f.compute_type_64f = emu);
++        let msg = matmul_err(&d, data(4, 5), data(4, 6));
++        assert!(msg.contains("no enabled driver is a candidate"), "{msg}");
++    }
+ }
+ 
+ /// A mantissa width cannot be applied by this `cudarc`: with the emulation asked for it is an
+@@ -211,31 +219,119 @@ fn fixedpoint_mantissa_bits() {
+     let _ = rt::matmul(square(&d, data(4, 5), 2), square(&d, data(4, 6), 2));
+ }
+ 
+-/// `cublasGemmEx` with the batched and the transposed argument shapes: a strided batch, and a
+-/// transposed operand broadcast against it.
++/// The batched and the transposed argument shapes, on each cuBLAS driver alone: a strided batch,
++/// a transposed right operand broadcast against the batch of `a`, a transposed left operand, and
++/// a broadcast batch of `a` against a batched `b`. The batch stride of cuBLASLt's layouts is an
++/// element count, like the strided-batched entries: this is where a byte count would show.
+ #[test]
+-fn cublas_ex_batched_and_transposed() {
++fn cublas_batched_and_transposed() {
+     require_cuda!();
+-    let d = device(MatMulDrivers::CUBLAS_EX, |_| {});
+     let dcpu = DeviceCpuSerial::default();
+     let (p, m, k, n) = (4usize, 32usize, 40usize, 24usize);
++
+     let a: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((data(p * m * k, 7), &dcpu)).into_shape([p, m, k]);
+     let b: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((data(p * k * n, 8), &dcpu)).into_shape([p, k, n]);
+-    let want = rt::matmul(&a, &b);
+-    let want = DeviceToCpuAPI::<f64>::to_cpu_vec(want.to_contig(RowMajor).storage()).rstsr_unwrap();
+-    let got = rt::matmul(a.to_device(&d), b.to_device(&d));
+-    let got = DeviceToCpuAPI::<f64>::to_cpu_vec(got.to_contig(RowMajor).storage()).rstsr_unwrap();
+-    let err = rel_err(&got, &want);
+-    assert!(err <= 1e-13, "batched: max rel err {err:.3e}");
++    let c2: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((data(n * k, 9), &dcpu)).into_shape([n, k]);
++    let a2: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((data(m * k, 10), &dcpu)).into_shape([m, k]);
++    let at: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((data(m * k, 11), &dcpu)).into_shape([k, m]).t().to_owned();
+ 
+-    // a transposed right operand against the broadcast batch of `a`
+-    let a2: Tensor<f64, DeviceCpuSerial, _> = rt::asarray((data(n * k, 9), &dcpu)).into_shape([n, k]);
+-    let bt = a2.t();
+-    assert_eq!(bt.stride(), &[1, k as isize], "fixture: transposed operand");
+-    let want = rt::matmul(&a, &bt);
+-    let want = DeviceToCpuAPI::<f64>::to_cpu_vec(want.to_contig(RowMajor).storage()).rstsr_unwrap();
+-    let got = rt::matmul(a.to_device(&d), bt.to_device(&d));
+-    let got = DeviceToCpuAPI::<f64>::to_cpu_vec(got.to_contig(RowMajor).storage()).rstsr_unwrap();
+-    let err = rel_err(&got, &want);
+-    assert!(err <= 1e-13, "transposed b: max rel err {err:.3e}");
++    type Cpu = Tensor<f64, DeviceCpuSerial, IxD>;
++    let cases: [(&str, Cpu, Cpu); 4] = [
++        ("batched", a.clone(), b.clone()),
++        ("transposed b, broadcast", a.clone(), c2.t().to_owned()),
++        ("transposed a", at, b.clone()),
++        ("a broadcast over the batch", a2.clone(), b.clone()),
++    ];
++    for forced in [MatMulDrivers::CUBLAS_LT, MatMulDrivers::CUBLAS_EX, MatMulDrivers::CUBLAS] {
++        let d = device(forced, |f| f.trace_matmul = true);
++        for (what, a, b) in &cases {
++            let want = rt::matmul(a, b);
++            let want = DeviceToCpuAPI::<f64>::to_cpu_vec(want.to_contig(RowMajor).storage()).rstsr_unwrap();
++            let got = rt::matmul(a.to_device(&d), b.to_device(&d));
++            let got = DeviceToCpuAPI::<f64>::to_cpu_vec(got.to_contig(RowMajor).storage()).rstsr_unwrap();
++            let err = rel_err(&got, &want);
++            assert!(err <= 1e-13, "{what}, {forced:?}: max rel err {err:.3e}");
++        }
++    }
++}
++
++/// Operands and output that are views one element into their buffers: the addresses are not
++/// 16-byte aligned. The chain must get the product right, and cuBLASLt alone must either get it
++/// right or decline (an algorithm's alignment requirement is checked by `cublasLtMatmul`).
++#[test]
++fn cublas_lt_misaligned_views() {
++    require_cuda!();
++    let dcpu = DeviceCpuSerial::default();
++    let (m, k, n) = (32usize, 40usize, 24usize);
++    // an owning tensor whose layout starts one element into a buffer of `total + 1` (addresses
++    // off the 16-byte grid), on the device; the data also as a CPU vector
++    let shifted =
++        |rows: usize, cols: usize, seed: u64, d: &DeviceCuda| -> (Vec<f64>, Vec<f64>, Tensor<f64, DeviceCuda, IxD>) {
++            let total = rows * cols;
++            let v = data(total + 1, seed);
++            let t: Tensor<f64, DeviceCuda, _> = rt::asarray((v.clone(), d));
++            let (storage, _) = t.into_raw_parts();
++            let layout = Layout::<IxD>::new(vec![rows, cols], vec![cols as isize, 1], 1).unwrap();
++            (v[1..].to_vec(), v, Tensor::new(storage, layout))
++        };
++    for forced in [MatMulDrivers::CUBLAS_LT, MatMulDrivers::CUBLAS_EX, MatMulDrivers::all()] {
++        let d = device(forced, |f| f.trace_matmul = true);
++        let (av, _, a) = shifted(m, k, 12, &d);
++        let (bv, _, b) = shifted(k, n, 13, &d);
++        let (cv, cv_full, mut c) = shifted(m, n, 14, &d);
++        assert_eq!((a.offset(), b.offset(), c.offset()), (1, 1, 1), "fixture: shifted views");
++        let want =
++            rt::matmul(rt::asarray((av, &dcpu)).into_shape([m, k]), rt::asarray((bv, &dcpu)).into_shape([k, n]));
++        let want = DeviceToCpuAPI::<f64>::to_cpu_vec(want.to_contig(RowMajor).storage()).rstsr_unwrap();
++        // only cuBLASLt alone may refuse: the chain has the other drivers behind it
++        let refused =
++            |e: &dyn core::fmt::Debug| forced == MatMulDrivers::CUBLAS_LT && format!("{e:?}").contains("cublasLt");
++
++        // the fresh output of `a @ b`
++        match rt::matmul_f(&a, &b) {
++            Ok(got) => {
++                let got = DeviceToCpuAPI::<f64>::to_cpu_vec(got.to_contig(RowMajor).storage()).rstsr_unwrap();
++                let err = rel_err(&got, &want);
++                assert!(err <= 1e-13, "fresh output, {forced:?}: max rel err {err:.3e}");
++            },
++            Err(e) => assert!(refused(&e), "{forced:?}: {e:?}"),
++        }
++        // `c = 2 a b + c`, into the shifted `c` (read and written in place)
++        let before = DeviceToCpuAPI::<f64>::to_cpu_vec(c.to_contig(RowMajor).storage()).rstsr_unwrap();
++        eprintln!("  c before matches fixture: {}", rel_err(&before, &cv));
++        {
++            // the same offset layout on the CPU device, read back the same way
++            let cpu = Tensor::<f64, DeviceCpuSerial, IxD>::new(
++                Storage::new(DataOwned::from(cv_full.clone()), dcpu.clone()),
++                Layout::<IxD>::new(vec![m, n], vec![n as isize, 1], 1).unwrap(),
++            );
++            let back = DeviceToCpuAPI::<f64>::to_cpu_vec(cpu.to_contig(RowMajor).storage()).rstsr_unwrap();
++            eprintln!("  cpu offset read-back matches: {}", rel_err(&back, &cv));
++            let dev_plain = rt::asarray((cv.clone(), &d)).into_shape([m, n]);
++            let plain = DeviceToCpuAPI::<f64>::to_cpu_vec(dev_plain.to_contig(RowMajor).storage()).rstsr_unwrap();
++            eprintln!("  cuda plain read-back matches: {}", rel_err(&plain, &cv));
++            let raw = DeviceToCpuAPI::<f64>::to_cpu_vec(c.to_contig(RowMajor).storage()).rstsr_unwrap();
++            eprintln!(
++                "  before[0..3] = {:?} v[0..3] = {:?} v[1..4] = {:?}",
++                &before[0..3],
++                &cv_full[0..3],
++                &cv_full[1..4]
++            );
++            eprintln!("  cpu back[0..3] = {:?}", &back[0..3]);
++            eprintln!("  rel(before, v[0..]) = {}", rel_err(&before, &cv_full[..768]));
++            let _ = raw;
++        }
++        eprintln!("  want[0..3] = {:?} cv[0..3] = {:?}", &want[0..3], &cv[0..3]);
++        match op_mutc_refa_refb_matmul(&mut c, &a, &b, 2.0, 1.0) {
++            Ok(()) => {
++                // a fresh elementwise result reads `c` through its layout (a whole-storage read
++                // would start at the buffer, not at the offset)
++                let out = &c + 0.0;
++                let got = DeviceToCpuAPI::<f64>::to_cpu_vec(out.to_contig(RowMajor).storage()).rstsr_unwrap();
++                let err = rel_err(&got, &(0..want.len()).map(|i| 2.0 * want[i] + cv[i]).collect::<Vec<_>>());
++                assert!(err <= 1e-13, "beta path, {forced:?}: max rel err {err:.3e}");
++            },
++            Err(e) => assert!(refused(&e), "{forced:?}: {e:?}"),
++        }
++    }
+ }

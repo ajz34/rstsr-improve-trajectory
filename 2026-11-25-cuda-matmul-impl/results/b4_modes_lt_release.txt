@@ -1,0 +1,15 @@
+driver = cublaslt (MatMulDrivers(cublasLt)); math-mode bindings: true, fixed-point bindings: true
+## f32 2048^3 (reference: Default on the same driver)
+| mode | ms | TFLOP/s | max rel err vs default | same bits |
+|---|---|---|---|---|
+| Default | 1.222 | 14.05 | 0.000e0 | true |
+| Pedantic | 1.254 | 13.69 | 0.000e0 | true |
+| FastTF32 | 0.895 | 19.20 | 2.753e-4 | false |
+| Fast16F | 0.850 | 20.21 | 2.753e-4 | false |
+| Fast16BF | 0.837 | 20.54 | 2.753e-4 | false |
+## f64 2048^3 (reference: Default on the same driver)
+| mode | ms | TFLOP/s | max rel err vs default | same bits |
+|---|---|---|---|---|
+| Default | 52.921 | 0.32 | 0.000e0 | true |
+| Pedantic | 52.949 | 0.32 | 0.000e0 | true |
+| EmulatedFixedPoint | - | - | not served (classic handle only) | - |

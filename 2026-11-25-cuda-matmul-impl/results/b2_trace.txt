@@ -1,0 +1,9 @@
+--- default chain, stepped operand
+[rstsr-cuda matmul] double x double -> double 20x16x12 batch 1 mode Default: cublas -> declined (cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32))
+[rstsr-cuda matmul] double x double -> double 20x16x12 batch 1 mode Default: tiled -> declined (cannot serve: an operand has no unit-stride axis (strides of the left operand))
+[rstsr-cuda matmul] double x double -> double 20x16x12 batch 1 mode Default: naive -> ran
+--- default chain, contiguous (cublas only enabled)
+[rstsr-cuda matmul] double x double -> double 20x16x12 batch 1 mode Default: cublas -> ran
+--- tiled only, stepped operand (error)
+[rstsr-cuda matmul] double x double -> double 20x16x12 batch 1 mode Default: tiled -> declined (cannot serve: an operand has no unit-stride axis (strides of the left operand))
+Error { inner: UnImplemented("crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:243: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (20x16 @ 16x12, batch 1); enabled MatMulDrivers(tiled); declined: tiled: cannot serve: an operand has no unit-stride axis (strides of the left operand)"), backtrace: None }

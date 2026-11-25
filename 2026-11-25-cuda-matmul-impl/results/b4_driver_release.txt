@@ -1,0 +1,68 @@
+ --> crates-device/rstsr-cuda/examples/bench_matmul_driver_check.rs:9:5
+  |
+9 | use rstsr_cuda::dtype::CudaDType;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+reps = 20; GPU: NVRM version: NVIDIA UNIX Open Kernel Module for x86_64  595.99.02  Release Build  (dvs-builder@U22-I3-AF05-06-2)  Wed Aug 26 05:20:50 UTC 2026
+driver = cublaslt (f32, Default mode)
+
+| shape | flops | first call ms | steady ms | TFLOP/s |
+|---|---|---|---|---|
+| square 2048 | 1.72e10 | 58.663 | 1.178 | 14.58 |
+| square 512 | 2.68e8 | 0.168 | 0.033 | 8.20 |
+| tall-skinny 65536x64x64 | 5.37e8 | 0.273 | 0.069 | 7.79 |
+| small 64 | 5.24e5 | 3.585 | 0.014 | 0.04 |
+| batch 256 x (256,256,256) | 8.59e9 | 1.583 | 0.990 | 8.67 |
+
+driver = cublasex (f32, Default mode)
+
+| shape | flops | first call ms | steady ms | TFLOP/s |
+|---|---|---|---|---|
+| square 2048 | 1.72e10 | 2.681 | 1.219 | 14.09 |
+| square 512 | 2.68e8 | 0.200 | 0.032 | 8.37 |
+| tall-skinny 65536x64x64 | 5.37e8 | 0.387 | 0.073 | 7.32 |
+| small 64 | 5.24e5 | 0.129 | 0.013 | 0.04 |
+| batch 256 x (256,256,256) | 8.59e9 | 1.528 | 0.991 | 8.66 |
+
+driver = cublas (f32, Default mode)
+
+| shape | flops | first call ms | steady ms | TFLOP/s |
+|---|---|---|---|---|
+| square 2048 | 1.72e10 | 1.571 | 1.202 | 14.30 |
+| square 512 | 2.68e8 | 0.194 | 0.032 | 8.38 |
+| tall-skinny 65536x64x64 | 5.37e8 | 0.407 | 0.078 | 6.92 |
+| small 64 | 5.24e5 | 0.119 | 0.014 | 0.04 |
+| batch 256 x (256,256,256) | 8.59e9 | 1.581 | 0.992 | 8.66 |
+
+driver = cublaslt (f64, Default mode)
+
+| shape | flops | first call ms | steady ms | TFLOP/s |
+|---|---|---|---|---|
+| square 2048 | 1.72e10 | 81.747 | 51.520 | 0.33 |
+| square 512 | 2.68e8 | 1.062 | 0.870 | 0.31 |
+| tall-skinny 65536x64x64 | 5.37e8 | 1.863 | 1.648 | 0.33 |
+| small 64 | 5.24e5 | 0.110 | 0.016 | 0.03 |
+| batch 256 x (256,256,256) | 8.59e9 | 25.373 | 24.602 | 0.35 |
+
+driver = cublasex (f64, Default mode)
+
+| shape | flops | first call ms | steady ms | TFLOP/s |
+|---|---|---|---|---|
+| square 2048 | 1.72e10 | 51.879 | 51.502 | 0.33 |
+| square 512 | 2.68e8 | 1.092 | 0.890 | 0.30 |
+| tall-skinny 65536x64x64 | 5.37e8 | 1.894 | 1.666 | 0.32 |
+| small 64 | 5.24e5 | 0.153 | 0.016 | 0.03 |
+| batch 256 x (256,256,256) | 8.59e9 | 25.437 | 24.597 | 0.35 |
+
+driver = cublas (f64, Default mode)
+
+| shape | flops | first call ms | steady ms | TFLOP/s |
+|---|---|---|---|---|
+| square 2048 | 1.72e10 | 52.072 | 51.490 | 0.33 |
+| square 512 | 2.68e8 | 1.086 | 0.863 | 0.31 |
+| tall-skinny 65536x64x64 | 5.37e8 | 1.962 | 1.657 | 0.32 |
+| small 64 | 5.24e5 | 0.161 | 0.016 | 0.03 |
+| batch 256 x (256,256,256) | 8.59e9 | 25.460 | 24.596 | 0.35 |
+
