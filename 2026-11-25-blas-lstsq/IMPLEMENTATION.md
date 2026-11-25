@@ -24,9 +24,10 @@ DECISIONS D1–D16 / PLAN B0–B6 of this directory.
 
 ### `rstsr-linalg-traits` (entry layer)
 
-- `src/stack.rs`: `LstsqPlan` + `lstsq_plan` (rectangular `(M, N)`, vector or
-  matrix `b`, broadcast batch; both matrix-axis orders). `solve_plan` keeps its
-  square-only check.
+- `src/stack.rs`: the `b`-shape half of `solve_plan` is factored into a shared
+  `split_rhs` helper, and `LstsqPlan` + `lstsq_plan` are added (rectangular
+  `(M, N)`, vector or matrix `b`, broadcast batch; both matrix-axis orders).
+  `solve_plan` keeps its square-only check.
 - `src/blas_impl/lstsq.rs` (compiled per device crate through
   `src/linalg_auto_impl/lstsq.rs` symlinks): `blas_impl_lstsq_f` walks the
   stack, consumes `a` in place when it is owned/mutable and already in the
