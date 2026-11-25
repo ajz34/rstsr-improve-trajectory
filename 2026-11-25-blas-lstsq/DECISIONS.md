@@ -258,6 +258,20 @@ Recorded, skill not edited (QR/eig precedent): §3a has no `gelsd`/`gelss`/
 "NaN/Inf in `A`" rule (and LAPACKE's `-5`/`-7`); §2 has no "solution and
 residuals live in the `B` workspace, `LDB >= max(M,N)`" pattern.
 
+Implementation findings to fold into a future skill revision (2026-11-25):
+- The row-major bridge must copy **`max(M,N)` rows** of `B` in and back:
+  for `M < N`, `DGELSD` calls `DLASET('F', N-M, NRHS, 0, 0, B(M+1,1), LDB)`
+  and leaves the length-`N` solution in rows `1:N`. Copying `M` rows returns a
+  truncated solution with an identical `S` (caught by the wide 512×1024
+  fingerprint case).
+- `NRHS = 0` must be avoided (`DLALSD` reports `info = -4`, SciPy 1.18.1
+  raises "Internal LAPACK errors: slice 0 emits lapack info=-4"); pad to one
+  zero column and trim the outputs.
+- The `-4` NaN/Inf check is not reliable: LAPACK computes
+  `DLANGE('Max')` over `A`, and on x86 the reduction may swallow NaN (MAXSS),
+  so a NaN input can instead surface as a convergence failure, not `-4`. Keep
+  the mapping, but tests should assert "an error", not the exact message.
+
 ### D16 — Delivery and out of scope
 
 - Branch `261125/blas-lstsq` off `ed1f62d`; **no auto-commit** in rstsr, one

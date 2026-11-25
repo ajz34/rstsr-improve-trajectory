@@ -39,14 +39,25 @@ DECISIONS D1–D16 / PLAN B0–B6 of this directory.
 
 ### Tests and validators
 
-- Driver: `blas_tests_impl/driver_impl/f64/gelsd.rs` — 4 fingerprints
-  (tall 1024×512 K=1/K=3, wide 512×1024 K=1, rank-deficient with `rank = 511`)
-  plus 16 layout combinations (call order × a/b order × padded `lda/ldb`)
-  against the compact column-major reference.
-- Function: `linalg_func/func_f64/lstsq.rs` (4 cases + explicit `rcond` + n-d
-  batch consistency and owned-input consumption), `func_c64/lstsq.rs`
-  (3 cases; `c64` is `Complex<f64>` here); both f64 tests cover the
-  rank-deficient NaN residuals (vector and matrix `b`).
+- Driver: `blas_tests_impl/driver_impl/f64/gelsd.rs` —
+  `test_dgelsd` (4 fingerprints: tall 1024×512 K=1/K=3, wide 512×1024 K=1,
+  rank-deficient with `rank = 511`), `test_dgelsd_layout` (16 combinations:
+  call order × a/b order × padded `lda/ldb` against the compact column-major
+  reference), `test_dgelsd_relations` (tall/square/wide: `A x ≈ b`,
+  `Aᵀ(b − Ax) ≈ 0`, residuals equal Σ(`b − Ax`)², `s` agrees with `DGESDD`),
+  `test_dgelsd_rank` (`rcond` sweep on graded singular values incl. the
+  LAPACK `<= 0`/`>= 1` → eps clamp), `test_dgelsd_nan` (NaN `a` must error,
+  NaN `rcond` rejected before the call), `test_dgelsd_zero_size`
+  (`m == 0`, `n == 0` synthesized residuals, `k == 0` pad-and-trim).
+- Function: `linalg_func/func_f64/lstsq.rs` — `test_lstsq` (4 fingerprint
+  cases, explicit `rcond`, rank-deficient NaN residuals for vector and matrix
+  `b`), `test_lstsq_nd` (batch consistency against per-slice 2-D calls,
+  batched vector `b`, owned-input consumption), `test_lstsq_order`
+  (row-major vs column-major device give identical values, in-place
+  column-major `a`), `test_lstsq_overloads` (`&A`, `TensorView`, `TensorMut`,
+  `Tensor`, 2-arg/3-arg/`_f`), `test_lstsq_errors` (1-D `a`, row mismatch,
+  NaN `rcond`); `func_c64/lstsq.rs` — 3 fingerprint cases (`c64` is
+  `Complex<f64>` here).
 - OpenBLAS-only zero-size (`tests/zero_size/lapack.rs`): empty rows, empty
   cols (synthesized residuals), `K == 0` (padded to one zero column), empty
   batch.
@@ -73,6 +84,11 @@ multi-output list; `docs/array_api_standard_extension.md` Notes bullet.
 - Residuals for `rank < min(M, N)`: the *driver* returns `None`, the *entry*
   fills NaN (SciPy semantics). The driver validator prints NaN for that case
   even though LAPACK leaves numbers in `B(n+1:m)`.
+- The documented `info = -4` ("NaN/Inf in `A`") path is not reachable on this
+  OpenBLAS build: `DLANGE('Max')` swallows NaN on x86 (MAXSS), so a NaN `a`
+  fails later with a convergence error (`info = 3`). The mapping is kept
+  defensively; `test_dgelsd_nan` asserts "an error", and the NaN-`rcond`
+  rejection (which is ours) asserts the exact message.
 
 ## Driver bug found by the tests
 
@@ -86,10 +102,14 @@ GELSD/GELSS/GELSY, and `nrhs = 0` must be avoided (`info = -4` from `DLALSD`).
 
 ## Verification (this machine)
 
-- `cargo fmt --all --check`, `cargo check --workspace --all-targets`,
-  `cargo clippy -p rstsr-blas-traits -p rstsr-linalg-traits -p rstsr-openblas
-  --all-targets` clean.
-- OpenBLAS: `tests_driver_impl` 85 passed, `tests_linalg_func` 97 passed,
+- `cargo fmt --all --check`, `cargo check --workspace --all-targets` clean;
+  `cargo clippy --all-targets -- -D warnings` clean for `rstsr-blas-traits`,
+  `rstsr-linalg-traits`, `rstsr` (linalg), and all five device crates
+  (openblas also with `--features lapacke`).
+- `cargo test -p rstsr-blas-traits` (debug and release) and
+  `cargo test -p rstsr --features linalg` (cheat-sheet suite 13/13) pass;
+  `cargo doc -p rstsr --no-deps --features linalg` has no warnings.
+- OpenBLAS: `tests_driver_impl` 89 passed, `tests_linalg_func` 100 passed,
   `tests_zero_size` 30 passed (`RSTSR_DEV=1`, `--test-threads=1`).
 - Other devices: compile-checked only (their BLAS/LAPACK shared libraries are
   not on this machine's linker path); BLIS/AOCL/KML/MKL `cargo test` links fail
