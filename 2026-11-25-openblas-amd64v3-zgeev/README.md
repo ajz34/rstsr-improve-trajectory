@@ -103,3 +103,26 @@ default, which is how it was found.
 select the same `Cooperlake` core, so the difference is in how the package was
 compiled. The failure threshold at `n = 76` may help locate the affected code
 path in the LAPACK translation unit that the rebuild miscompiles.
+
+## Follow-up 2026-11-25: root cause found
+
+The defect is **not in OpenBLAS source** and not a numerical-instability issue.
+Ubuntu's `amd64v3` OpenBLAS package embeds
+`/usr/lib/x86_64-linux-gnu/liblapack_pic.a` from `liblapack-dev`
+(`no-embedded-lapack.patch`). That archive's `zlaqr5.o` is miscompiled by
+**GCC 15.2** (wrong-code **PR 124802**, duplicate **PR 124111**,
+"lapack-3.12.1 miscompiled since r15-2820"; fixed in GCC 15.3 / `r15-11080`).
+`ZLAQR5` is the multishift QR sweep called by `ZLAQR0`; `ZHSEQR` uses it only
+for `n > NMIN = 75`, which is the observed threshold. The distro
+`liblapack.so` escapes because it is LTO-linked; OpenBLAS is on
+`lto-disabled-list` and links the broken native objects.
+
+Verified by: from-source LAPACK 3.12.1 with the Ubuntu flags reproduces the
+residuals; object substitution isolates `zlaqr5.o`; `-fno-tree-vectorize`,
+`-fno-tree-slp-vectorize` or `-ffp-contract=off` fix it; the official GCC
+PR124802 testcase aborts with host gcc-15; upstream OpenBLAS 0.3.32 built
+here passes; stonking `0.3.33+ds-3ubuntu1` (gcc 15.3, lapack 3.12.1-8) passes;
+resolute `0.3.32+ds-5` and Proposed `0.3.32+ds-5ubuntu0.1` still fail.
+
+Full report: `local-runs/261125-openblas-zgeev/reports/README.md`; Launchpad
+draft: `local-runs/261125-openblas-zgeev/reports/launchpad.md`.
