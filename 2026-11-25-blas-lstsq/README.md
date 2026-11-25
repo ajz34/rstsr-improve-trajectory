@@ -2,7 +2,7 @@
 
 Least-squares entry (`rt::linalg::lstsq`) for the BLAS/LAPACK device crates.
 
-- rstsr: `ed1f62d` (branch `261125/blas-lstsq`; not committed by the agent)
+- rstsr: `ed1f62d`, implemented by commit `182e38d` on branch `261125/blas-lstsq` (not pushed)
 - environment: 1-thread BLAS (`RSTSR_DEV=1`), OpenBLAS from the system,
   torch conda env for the Python validators (NumPy 2.5.4 / SciPy 1.18.1)
 
