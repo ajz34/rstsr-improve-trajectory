@@ -96,3 +96,8 @@ Facts learned:
 - `rt::asarray` on a device lays data out in that device's default order; `to_device` keeps the layout.
 - Baseline timing: `git worktree add /tmp/wt-base 9c7d49a`, drop a bench into its `benches/` with a
   `[[bench]]` entry, `CARGO_TARGET_DIR=/tmp/...`, remove the worktree; keep the source in the task dir `src/`.
+
+Update 2026-11-26: implementation through rstsr `67a0c79` reviewed; findings and probe in
+`2026-11-26-cuda-matmul-review/REVIEW.md` (memory: `cuda-matmul-broadcast-axis-wrong.md`,
+`cuda-matmul-order-output-before-launch.md`, `cuda-syrk-ignores-compute-mode.md`,
+`rstsr-cuda-build-rs-pin-parse.md`).

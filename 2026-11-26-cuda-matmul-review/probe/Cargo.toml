@@ -1,0 +1,16 @@
+[package]
+name = "matmul-review-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Review probe for rstsr `261021/cuda` @ `67a0c79`: depends on the rstsr tree by
+# path, changes nothing there. Run from this directory:
+#   CARGO_TARGET_DIR=<rstsr>/target cargo test --features rstsr-cuda/faer --test probe -- --nocapture --test-threads=1
+
+[dependencies]
+rstsr = { path = "../../../rstsr/rstsr", default-features = false }
+rstsr-core = { path = "../../../rstsr/rstsr-core", default-features = false, features = ["std"] }
+rstsr-cuda = { path = "../../../rstsr/crates-device/rstsr-cuda" }
+num = { version = "0.4", default-features = false, features = ["alloc", "libm"] }
+half = { version = "2.7", default-features = false, features = ["alloc", "num-traits"] }
