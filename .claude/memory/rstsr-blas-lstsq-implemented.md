@@ -30,3 +30,8 @@ because their libs are not on the linker path.
 Pitfall: for `M < N` `DGELSD` zeroes `B(M+1:N, :)` and puts the length-`N`
 solution in `B(1:N, :)`, so a row-major bridge must copy `max(M, N)` rows back —
 copying `M` rows silently returns a truncated solution with identical `s`.
+
+Follow-up 2026-11-26: review fixes, in-place consumption and the LAPACKE
+write-back are committed on `261126/lstsq-review-fixes`, and `lapacke` and
+MKL do run on this machine now — see `rstsr-blas-lstsq-review.md` and
+`blas-lapacke-mkl-test-env.md`.
