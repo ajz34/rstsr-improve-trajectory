@@ -20,3 +20,10 @@ Found in the 2026-11-26 review (`2026-11-26-cuda-matmul-review/REVIEW.md`, C1), 
   cuBLAS driver (no test had them).
 - Related low ones from the same probe: `ld()` yields 0 for `[0] @ [0]` (cuBLAS INVALID_VALUE on cublasEx and
   classic alone; chain fine via Lt) -> needs `.max(1)`; strides over i32::MAX are clamped, not refused.
+- **FIXED 2026-11-26**, uncommitted on rstsr `261021/cuda` (9 files, +214/-23): both `args()`
+  refuse `stride <= 0` with extent > 1 (`syrk.rs` keeps its unconditional negative-stride refusal
+  and adds the zero-stride loop). Chain serves the shapes through tiled/naive; forced cuBLAS
+  drivers refuse with "no enabled driver can serve". Regression: unit tests in `cublas_args.rs`
+  and `syrk.rs` (`broadcast_matmul_axis_is_refused`) and hw `test_matmul_modes.rs::
+  broadcast_along_matmul_axis` (chain correctness + forced refusal + the syrk form on a broadcast
+  operand). Suite green; probe rerun 0 FAIL.

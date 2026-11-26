@@ -9,6 +9,14 @@ Severity: **critical** = silent wrong results or stale data on the default path;
 wrong behaviour on a documented configuration; **medium** = a promise the code does not keep,
 or a performance trap; **low** = robustness, documentation, leftovers.
 
+Status 2026-11-26 (same day): **C1 and C2 are fixed**, uncommitted on `261021/cuda`
+(9 files, +214/-23): both `args()` functions refuse `stride <= 0` with extent over 1; every
+matmul driver orders `c` as an input before the enqueue and its allocation stream behind the
+enqueue. Regression tests: unit tests in `cublas_args.rs` and `syrk.rs`, and
+`broadcast_along_matmul_axis` + `inplace_cross_stream_is_ordered` in `tests/test_matmul_modes.rs`.
+Suite green (109 lib + 8 hw binaries); probe rerun: 0 `FAIL`, T5 0 of 30 stale on all three
+drivers, T9/T11 correct on the chain and refused when a cuBLAS driver is forced alone.
+
 ## Summary
 
 | # | Sev. | Finding | Where | Verified |

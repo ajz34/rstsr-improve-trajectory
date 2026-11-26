@@ -17,13 +17,15 @@ The driver chain, the layout algebra and the complex, batched, degenerate and st
 are correct on the GPU, and the crate's suite is green (10 binaries, 242 tests). Three things
 need fixing before merge; details, evidence and fixes are in [REVIEW.md](REVIEW.md).
 
-1. **Critical:** an operand broadcast along a matmul axis (stride 0, extent > 1) gives
-   silently wrong results on cuBLASLt, `cublasGemmEx`, classic cuBLAS, the default chain and
-   the symmetric form, because `cublas_args` clamps a zero leading dimension to the row count
-   instead of refusing it (pre-existing in `cublas_args.rs`, now reached by three drivers).
-2. **High:** in-place matmul across two streams returns stale data: every matmul driver calls
-   `order_output` before the launch, while the helper records its event at call time; the
-   elementwise kernels call it after the launch. 30 of 30 probe iterations stale.
+1. **Critical, FIXED 2026-11-26 (uncommitted on `261021/cuda`):** an operand broadcast along
+   a matmul axis (stride 0, extent > 1) gave silently wrong results on cuBLASLt, `cublasGemmEx`,
+   classic cuBLAS, the default chain and the symmetric form, because `cublas_args` clamped a
+   zero leading dimension to the row count instead of refusing it. Both `args()` functions now
+   refuse `stride <= 0` with extent > 1; the chain serves the shapes through tiled/naive.
+2. **High, FIXED 2026-11-26 (same changeset):** in-place matmul across two streams returned
+   stale data: every matmul driver called `order_output` before the launch, while the helper
+   records its event at call time. All five drivers now order `c` as an input before the
+   enqueue and its allocation stream behind the enqueue. Probe T5: 0 of 30 stale (was 30/30).
 3. **Medium:** the symmetric form ignores the compute mode (`a @ a.t()` is 3.3x slower than
    `a @ b` under `EmulatedFixedPoint`, `Pedantic` is not applied, the documented mantissa
    error is bypassed), and `build.rs` never recognises a pinned `CUDARC_CUDA_VERSION`
@@ -32,7 +34,9 @@ need fixing before merge; details, evidence and fixes are in [REVIEW.md](REVIEW.
 
 Test gaps that let the first two through: no cuBLAS test with a broadcast operand; complex
 tests with purely real data; the symmetric form never run on a non-base offset; nothing
-observes routing.
+observes routing. The two broadcast tests and the cross-stream test now close part of that
+(`broadcast_along_matmul_axis`, `inplace_cross_stream_is_ordered`, plus unit tests in
+`cublas_args.rs` and `syrk.rs`); the complex-imaginary and routing gaps stay open with C3+.
 
 ## Numbers (probe T3, n = k = 1024, `f64`, mean of 5 launches)
 
@@ -48,7 +52,10 @@ observes routing.
   standards, spec fidelity, probe index).
 - `probe/` — the probe crate (`tests/probe.rs`, one test per group; prints `ok`, `FAIL`, `ERR`,
   `ref` lines). Path dependencies on the rstsr checkout next to this repository.
-- `results/probe.log` — final probe output (479 `ok`, 66 `FAIL` = the two broadcast findings,
+- `results/probe.log` — probe output before the C1/C2 fixes (479 `ok`, 66 `FAIL`)
+- `results/probe_after_fix.log` — after the C1/C2 fixes (497 `ok`, 0 `FAIL`, T5 0 of 30 stale)
+- `results/rstsr_cuda_full_suite_after_fix.log` — the gate after the fixes (109 lib + hw, green)
+- `results/probe.log` — probe output (479 `ok`, 66 `FAIL` = the two broadcast findings,
   30 `ERR` = 28 expected tiled refusals of complex types + 2 `k = 0` refusals, 8 `ref`).
 - `results/rstsr_cuda_full_suite.log` — the crate's suite:
   `RUST_BACKTRACE=1 cargo test -p rstsr-cuda --features faer -- --test-threads=1`.
