@@ -1,0 +1,867 @@
+   Compiling rstsr-cuda v0.10.3 (/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda)
+   Compiling matmul-review-probe v0.0.0 (/scratch/rstsr_pack/rstsr-improve-trajectory/2026-11-26-cuda-matmul-review/probe)
+warning: unreachable pattern
+   --> tests/probe.rs:712:13
+    |
+712 |             _ => unreachable!(),
+    |             ^ no value can reach this
+    |
+note: multiple earlier patterns match some of the same values
+   --> tests/probe.rs:712:13
+    |
+710 |             RowMajor => (vec![3usize, 4usize, 5usize], vec![3, 5, 6]),
+    |             -------- matches some of the same values
+711 |             ColMajor => (vec![4, 5, 3], vec![5, 6, 3]),
+    |             -------- matches some of the same values
+712 |             _ => unreachable!(),
+    |             ^ collectively making this unreachable
+    = note: `#[warn(unreachable_patterns)]` (part of `#[warn(unused)]`) on by default
+
+warning: unreachable pattern
+   --> tests/probe.rs:124:9
+    |
+124 |         _ => unreachable!(),
+    |         ^ no value can reach this
+    |
+note: multiple earlier patterns match some of the same values
+   --> tests/probe.rs:124:9
+    |
+122 |         FlagOrder::RowMajor => DeviceToCpuAPI::<S>::to_cpu_vec(cpu.to_contig(RowMajor).storage()).rstsr_unwrap(),
+    |         ------------------- matches some of the same values
+123 |         FlagOrder::ColMajor => DeviceToCpuAPI::<S>::to_cpu_vec(cpu.to_contig(ColMajor).storage()).rstsr_unwrap(),
+    |         ------------------- matches some of the same values
+124 |         _ => unreachable!(),
+    |         ^ collectively making this unreachable
+
+warning: unreachable pattern
+   --> tests/probe.rs:184:13
+    |
+184 |             _ => unreachable!(),
+    |             ^ no value can reach this
+    |
+note: multiple earlier patterns match some of the same values
+   --> tests/probe.rs:184:13
+    |
+182 |             RowMajor => (vec![p, m, k], vec![p, k, n]),
+    |             -------- matches some of the same values
+183 |             ColMajor => (vec![m, k, p], vec![k, n, p]),
+    |             -------- matches some of the same values
+184 |             _ => unreachable!(),
+    |             ^ collectively making this unreachable
+
+warning: unused variable: `bits`
+   --> tests/probe.rs:388:29
+    |
+388 |     for (label, mode, syrk, bits) in [
+    |                             ^^^^ help: if this is intentional, prefix it with an underscore: `_bits`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tests/probe.rs:470:18
+    |
+470 |         let (mut d1, mut d2) = (d1.clone().with_flags(flags), DeviceCuda::new(0).with_flags(flags));
+    |              ----^^
+    |              |
+    |              help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: `matmul-review-probe` (test "probe") generated 5 warnings (run `cargo fix --test "probe" -p matmul-review-probe` to apply 2 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.73s
+     Running tests/probe.rs (/scratch/rstsr_pack/rstsr/target/debug/build/matmul-review-probe/aabd2fb2c63f97e6/out/probe-aabd2fb2c63f97e6)
+
+running 9 tests
+test t11_syrk_of_a_broadcast_operand ... ref  T11 C MatMulDrivers(cublas): Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (37x19 @ 19x37, batch 1); en
+ok   T11 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a @ a.t() with a broadcast along k: 0 of 1369 wrong
+ref  T11 F MatMulDrivers(cublas): Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (37x19 @ 19x37, batch 1); en
+ok   T11 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a @ a.t() with a broadcast along k: 0 of 1369 wrong
+ok
+test t1_complex_imaginary_parts ... ok   T1 c32 C MatMulDrivers(cublasLt) plain
+ok   T1 c32 C MatMulDrivers(cublasLt) a stored as its transpose, used as a.t()
+ok   T1 c32 C MatMulDrivers(cublasLt) b in row-contiguous storage
+ok   T1 c32 C MatMulDrivers(cublasLt) batched
+ok   T1 c32 C MatMulDrivers(cublasLt) b broadcast over the batch
+ok   T1 c32 C MatMulDrivers(cublasLt) a strided view (offset, lda)
+ok   T1 c32 C MatMulDrivers(cublasLt) a.t() of a strided view (offset, lda)
+ok   T1 c32 C MatMulDrivers(cublasEx) plain
+ok   T1 c32 C MatMulDrivers(cublasEx) a stored as its transpose, used as a.t()
+ok   T1 c32 C MatMulDrivers(cublasEx) b in row-contiguous storage
+ok   T1 c32 C MatMulDrivers(cublasEx) batched
+ok   T1 c32 C MatMulDrivers(cublasEx) b broadcast over the batch
+ok   T1 c32 C MatMulDrivers(cublasEx) a strided view (offset, lda)
+ok   T1 c32 C MatMulDrivers(cublasEx) a.t() of a strided view (offset, lda)
+ok   T1 c32 C MatMulDrivers(cublas) plain
+ok   T1 c32 C MatMulDrivers(cublas) a stored as its transpose, used as a.t()
+ok   T1 c32 C MatMulDrivers(cublas) b in row-contiguous storage
+ok   T1 c32 C MatMulDrivers(cublas) batched
+ok   T1 c32 C MatMulDrivers(cublas) b broadcast over the batch
+ok   T1 c32 C MatMulDrivers(cublas) a strided view (offset, lda)
+ok   T1 c32 C MatMulDrivers(cublas) a.t() of a strided view (offset, lda)
+ERR  T1 c32 C MatMulDrivers(tiled) plain: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c32 x rstsr_c32 -> rstsr_c32 (12x32 @ 32x8, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c32 C MatMulDrivers(tiled) a stored as its transpose, used as a.t(): Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c32 x rstsr_c32 -> rstsr_c32 (12x32 @ 32x8, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c32 C MatMulDrivers(tiled) b in row-contiguous storage: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c32 x rstsr_c32 -> rstsr_c32 (12x32 @ 32x8, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c32 C MatMulDrivers(tiled) batched: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c32 x rstsr_c32 -> rstsr_c32 (12x32 @ 32x8, batch 3); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c32 C MatMulDrivers(tiled) b broadcast over the batch: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c32 x rstsr_c32 -> rstsr_c32 (12x32 @ 32x8, batch 3); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c32 C MatMulDrivers(tiled) a strided view (offset, lda): Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c32 x rstsr_c32 -> rstsr_c32 (12x32 @ 32x8, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c32 C MatMulDrivers(tiled) a.t() of a strided view (offset, lda): Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c32 x rstsr_c32 -> rstsr_c32 (12x32 @ 32x8, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ok   T1 c32 C MatMulDrivers(naive) plain
+ok   T1 c32 C MatMulDrivers(naive) a stored as its transpose, used as a.t()
+ok   T1 c32 C MatMulDrivers(naive) b in row-contiguous storage
+ok   T1 c32 C MatMulDrivers(naive) batched
+ok   T1 c32 C MatMulDrivers(naive) b broadcast over the batch
+ok   T1 c32 C MatMulDrivers(naive) a strided view (offset, lda)
+ok   T1 c32 C MatMulDrivers(naive) a.t() of a strided view (offset, lda)
+ok   T1 c32 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) plain
+ok   T1 c32 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a stored as its transpose, used as a.t()
+ok   T1 c32 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b in row-contiguous storage
+ok   T1 c32 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) batched
+ok   T1 c32 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast over the batch
+ok   T1 c32 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a strided view (offset, lda)
+ok   T1 c32 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a.t() of a strided view (offset, lda)
+ok   T1 c32 F MatMulDrivers(cublasLt) plain
+ok   T1 c32 F MatMulDrivers(cublasLt) a stored as its transpose, used as a.t()
+ok   T1 c32 F MatMulDrivers(cublasLt) b in row-contiguous storage
+ok   T1 c32 F MatMulDrivers(cublasLt) batched
+ok   T1 c32 F MatMulDrivers(cublasLt) b broadcast over the batch
+ok   T1 c32 F MatMulDrivers(cublasLt) a strided view (offset, lda)
+ok   T1 c32 F MatMulDrivers(cublasLt) a.t() of a strided view (offset, lda)
+ok   T1 c32 F MatMulDrivers(cublasEx) plain
+ok   T1 c32 F MatMulDrivers(cublasEx) a stored as its transpose, used as a.t()
+ok   T1 c32 F MatMulDrivers(cublasEx) b in row-contiguous storage
+ok   T1 c32 F MatMulDrivers(cublasEx) batched
+ok   T1 c32 F MatMulDrivers(cublasEx) b broadcast over the batch
+ok   T1 c32 F MatMulDrivers(cublasEx) a strided view (offset, lda)
+ok   T1 c32 F MatMulDrivers(cublasEx) a.t() of a strided view (offset, lda)
+ok   T1 c32 F MatMulDrivers(cublas) plain
+ok   T1 c32 F MatMulDrivers(cublas) a stored as its transpose, used as a.t()
+ok   T1 c32 F MatMulDrivers(cublas) b in row-contiguous storage
+ok   T1 c32 F MatMulDrivers(cublas) batched
+ok   T1 c32 F MatMulDrivers(cublas) b broadcast over the batch
+ok   T1 c32 F MatMulDrivers(cublas) a strided view (offset, lda)
+ok   T1 c32 F MatMulDrivers(cublas) a.t() of a strided view (offset, lda)
+ERR  T1 c32 F MatMulDrivers(tiled) plain: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c32 x rstsr_c32 -> rstsr_c32 (8x32 @ 32x12, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c32 F MatMulDrivers(tiled) a stored as its transpose, used as a.t(): Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c32 x rstsr_c32 -> rstsr_c32 (8x32 @ 32x12, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c32 F MatMulDrivers(tiled) b in row-contiguous storage: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c32 x rstsr_c32 -> rstsr_c32 (8x32 @ 32x12, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c32 F MatMulDrivers(tiled) batched: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c32 x rstsr_c32 -> rstsr_c32 (8x32 @ 32x12, batch 3); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c32 F MatMulDrivers(tiled) b broadcast over the batch: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c32 x rstsr_c32 -> rstsr_c32 (8x32 @ 32x12, batch 3); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c32 F MatMulDrivers(tiled) a strided view (offset, lda): Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c32 x rstsr_c32 -> rstsr_c32 (8x32 @ 32x12, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c32 F MatMulDrivers(tiled) a.t() of a strided view (offset, lda): Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c32 x rstsr_c32 -> rstsr_c32 (8x32 @ 32x12, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ok   T1 c32 F MatMulDrivers(naive) plain
+ok   T1 c32 F MatMulDrivers(naive) a stored as its transpose, used as a.t()
+ok   T1 c32 F MatMulDrivers(naive) b in row-contiguous storage
+ok   T1 c32 F MatMulDrivers(naive) batched
+ok   T1 c32 F MatMulDrivers(naive) b broadcast over the batch
+ok   T1 c32 F MatMulDrivers(naive) a strided view (offset, lda)
+ok   T1 c32 F MatMulDrivers(naive) a.t() of a strided view (offset, lda)
+ok   T1 c32 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) plain
+ok   T1 c32 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a stored as its transpose, used as a.t()
+ok   T1 c32 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b in row-contiguous storage
+ok   T1 c32 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) batched
+ok   T1 c32 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast over the batch
+ok   T1 c32 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a strided view (offset, lda)
+ok   T1 c32 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a.t() of a strided view (offset, lda)
+ok   T1 c64 C MatMulDrivers(cublasLt) plain
+ok   T1 c64 C MatMulDrivers(cublasLt) a stored as its transpose, used as a.t()
+ok   T1 c64 C MatMulDrivers(cublasLt) b in row-contiguous storage
+ok   T1 c64 C MatMulDrivers(cublasLt) batched
+ok   T1 c64 C MatMulDrivers(cublasLt) b broadcast over the batch
+ok   T1 c64 C MatMulDrivers(cublasLt) a strided view (offset, lda)
+ok   T1 c64 C MatMulDrivers(cublasLt) a.t() of a strided view (offset, lda)
+ok   T1 c64 C MatMulDrivers(cublasEx) plain
+ok   T1 c64 C MatMulDrivers(cublasEx) a stored as its transpose, used as a.t()
+ok   T1 c64 C MatMulDrivers(cublasEx) b in row-contiguous storage
+ok   T1 c64 C MatMulDrivers(cublasEx) batched
+ok   T1 c64 C MatMulDrivers(cublasEx) b broadcast over the batch
+ok   T1 c64 C MatMulDrivers(cublasEx) a strided view (offset, lda)
+ok   T1 c64 C MatMulDrivers(cublasEx) a.t() of a strided view (offset, lda)
+ok   T1 c64 C MatMulDrivers(cublas) plain
+ok   T1 c64 C MatMulDrivers(cublas) a stored as its transpose, used as a.t()
+ok   T1 c64 C MatMulDrivers(cublas) b in row-contiguous storage
+ok   T1 c64 C MatMulDrivers(cublas) batched
+ok   T1 c64 C MatMulDrivers(cublas) b broadcast over the batch
+ok   T1 c64 C MatMulDrivers(cublas) a strided view (offset, lda)
+ok   T1 c64 C MatMulDrivers(cublas) a.t() of a strided view (offset, lda)
+ERR  T1 c64 C MatMulDrivers(tiled) plain: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (12x32 @ 32x8, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c64 C MatMulDrivers(tiled) a stored as its transpose, used as a.t(): Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (12x32 @ 32x8, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c64 C MatMulDrivers(tiled) b in row-contiguous storage: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (12x32 @ 32x8, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c64 C MatMulDrivers(tiled) batched: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (12x32 @ 32x8, batch 3); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c64 C MatMulDrivers(tiled) b broadcast over the batch: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (12x32 @ 32x8, batch 3); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c64 C MatMulDrivers(tiled) a strided view (offset, lda): Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (12x32 @ 32x8, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c64 C MatMulDrivers(tiled) a.t() of a strided view (offset, lda): Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (12x32 @ 32x8, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ok   T1 c64 C MatMulDrivers(naive) plain
+ok   T1 c64 C MatMulDrivers(naive) a stored as its transpose, used as a.t()
+ok   T1 c64 C MatMulDrivers(naive) b in row-contiguous storage
+ok   T1 c64 C MatMulDrivers(naive) batched
+ok   T1 c64 C MatMulDrivers(naive) b broadcast over the batch
+ok   T1 c64 C MatMulDrivers(naive) a strided view (offset, lda)
+ok   T1 c64 C MatMulDrivers(naive) a.t() of a strided view (offset, lda)
+ok   T1 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) plain
+ok   T1 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a stored as its transpose, used as a.t()
+ok   T1 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b in row-contiguous storage
+ok   T1 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) batched
+ok   T1 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast over the batch
+ok   T1 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a strided view (offset, lda)
+ok   T1 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a.t() of a strided view (offset, lda)
+ok   T1 c64 F MatMulDrivers(cublasLt) plain
+ok   T1 c64 F MatMulDrivers(cublasLt) a stored as its transpose, used as a.t()
+ok   T1 c64 F MatMulDrivers(cublasLt) b in row-contiguous storage
+ok   T1 c64 F MatMulDrivers(cublasLt) batched
+ok   T1 c64 F MatMulDrivers(cublasLt) b broadcast over the batch
+ok   T1 c64 F MatMulDrivers(cublasLt) a strided view (offset, lda)
+ok   T1 c64 F MatMulDrivers(cublasLt) a.t() of a strided view (offset, lda)
+ok   T1 c64 F MatMulDrivers(cublasEx) plain
+ok   T1 c64 F MatMulDrivers(cublasEx) a stored as its transpose, used as a.t()
+ok   T1 c64 F MatMulDrivers(cublasEx) b in row-contiguous storage
+ok   T1 c64 F MatMulDrivers(cublasEx) batched
+ok   T1 c64 F MatMulDrivers(cublasEx) b broadcast over the batch
+ok   T1 c64 F MatMulDrivers(cublasEx) a strided view (offset, lda)
+ok   T1 c64 F MatMulDrivers(cublasEx) a.t() of a strided view (offset, lda)
+ok   T1 c64 F MatMulDrivers(cublas) plain
+ok   T1 c64 F MatMulDrivers(cublas) a stored as its transpose, used as a.t()
+ok   T1 c64 F MatMulDrivers(cublas) b in row-contiguous storage
+ok   T1 c64 F MatMulDrivers(cublas) batched
+ok   T1 c64 F MatMulDrivers(cublas) b broadcast over the batch
+ok   T1 c64 F MatMulDrivers(cublas) a strided view (offset, lda)
+ok   T1 c64 F MatMulDrivers(cublas) a.t() of a strided view (offset, lda)
+ERR  T1 c64 F MatMulDrivers(tiled) plain: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (8x32 @ 32x12, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c64 F MatMulDrivers(tiled) a stored as its transpose, used as a.t(): Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (8x32 @ 32x12, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c64 F MatMulDrivers(tiled) b in row-contiguous storage: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (8x32 @ 32x12, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c64 F MatMulDrivers(tiled) batched: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (8x32 @ 32x12, batch 3); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c64 F MatMulDrivers(tiled) b broadcast over the batch: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (8x32 @ 32x12, batch 3); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c64 F MatMulDrivers(tiled) a strided view (offset, lda): Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (8x32 @ 32x12, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ERR  T1 c64 F MatMulDrivers(tiled) a.t() of a strided view (offset, lda): Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (8x32 @ 32x12, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ok   T1 c64 F MatMulDrivers(naive) plain
+ok   T1 c64 F MatMulDrivers(naive) a stored as its transpose, used as a.t()
+ok   T1 c64 F MatMulDrivers(naive) b in row-contiguous storage
+ok   T1 c64 F MatMulDrivers(naive) batched
+ok   T1 c64 F MatMulDrivers(naive) b broadcast over the batch
+ok   T1 c64 F MatMulDrivers(naive) a strided view (offset, lda)
+ok   T1 c64 F MatMulDrivers(naive) a.t() of a strided view (offset, lda)
+ok   T1 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) plain
+ok   T1 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a stored as its transpose, used as a.t()
+ok   T1 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b in row-contiguous storage
+ok   T1 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) batched
+ok   T1 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast over the batch
+ok   T1 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a strided view (offset, lda)
+ok   T1 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a.t() of a strided view (offset, lda)
+ok   T1 f32 C MatMulDrivers(cublasLt) plain
+ok   T1 f32 C MatMulDrivers(cublasLt) a stored as its transpose, used as a.t()
+ok   T1 f32 C MatMulDrivers(cublasLt) b in row-contiguous storage
+ok   T1 f32 C MatMulDrivers(cublasLt) batched
+ok   T1 f32 C MatMulDrivers(cublasLt) b broadcast over the batch
+ok   T1 f32 C MatMulDrivers(cublasLt) a strided view (offset, lda)
+ok   T1 f32 C MatMulDrivers(cublasLt) a.t() of a strided view (offset, lda)
+ok   T1 f32 C MatMulDrivers(cublasEx) plain
+ok   T1 f32 C MatMulDrivers(cublasEx) a stored as its transpose, used as a.t()
+ok   T1 f32 C MatMulDrivers(cublasEx) b in row-contiguous storage
+ok   T1 f32 C MatMulDrivers(cublasEx) batched
+ok   T1 f32 C MatMulDrivers(cublasEx) b broadcast over the batch
+ok   T1 f32 C MatMulDrivers(cublasEx) a strided view (offset, lda)
+ok   T1 f32 C MatMulDrivers(cublasEx) a.t() of a strided view (offset, lda)
+ok   T1 f32 C MatMulDrivers(cublas) plain
+ok   T1 f32 C MatMulDrivers(cublas) a stored as its transpose, used as a.t()
+ok   T1 f32 C MatMulDrivers(cublas) b in row-contiguous storage
+ok   T1 f32 C MatMulDrivers(cublas) batched
+ok   T1 f32 C MatMulDrivers(cublas) b broadcast over the batch
+ok   T1 f32 C MatMulDrivers(cublas) a strided view (offset, lda)
+ok   T1 f32 C MatMulDrivers(cublas) a.t() of a strided view (offset, lda)
+ok   T1 f32 C MatMulDrivers(tiled) plain
+ok   T1 f32 C MatMulDrivers(tiled) a stored as its transpose, used as a.t()
+ok   T1 f32 C MatMulDrivers(tiled) b in row-contiguous storage
+ok   T1 f32 C MatMulDrivers(tiled) batched
+ok   T1 f32 C MatMulDrivers(tiled) b broadcast over the batch
+ok   T1 f32 C MatMulDrivers(tiled) a strided view (offset, lda)
+ok   T1 f32 C MatMulDrivers(tiled) a.t() of a strided view (offset, lda)
+ok   T1 f32 C MatMulDrivers(naive) plain
+ok   T1 f32 C MatMulDrivers(naive) a stored as its transpose, used as a.t()
+ok   T1 f32 C MatMulDrivers(naive) b in row-contiguous storage
+ok   T1 f32 C MatMulDrivers(naive) batched
+ok   T1 f32 C MatMulDrivers(naive) b broadcast over the batch
+ok   T1 f32 C MatMulDrivers(naive) a strided view (offset, lda)
+ok   T1 f32 C MatMulDrivers(naive) a.t() of a strided view (offset, lda)
+ok   T1 f32 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) plain
+ok   T1 f32 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a stored as its transpose, used as a.t()
+ok   T1 f32 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b in row-contiguous storage
+ok   T1 f32 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) batched
+ok   T1 f32 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast over the batch
+ok   T1 f32 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a strided view (offset, lda)
+ok   T1 f32 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a.t() of a strided view (offset, lda)
+ok   T1 f32 F MatMulDrivers(cublasLt) plain
+ok   T1 f32 F MatMulDrivers(cublasLt) a stored as its transpose, used as a.t()
+ok   T1 f32 F MatMulDrivers(cublasLt) b in row-contiguous storage
+ok   T1 f32 F MatMulDrivers(cublasLt) batched
+ok   T1 f32 F MatMulDrivers(cublasLt) b broadcast over the batch
+ok   T1 f32 F MatMulDrivers(cublasLt) a strided view (offset, lda)
+ok   T1 f32 F MatMulDrivers(cublasLt) a.t() of a strided view (offset, lda)
+ok   T1 f32 F MatMulDrivers(cublasEx) plain
+ok   T1 f32 F MatMulDrivers(cublasEx) a stored as its transpose, used as a.t()
+ok   T1 f32 F MatMulDrivers(cublasEx) b in row-contiguous storage
+ok   T1 f32 F MatMulDrivers(cublasEx) batched
+ok   T1 f32 F MatMulDrivers(cublasEx) b broadcast over the batch
+ok   T1 f32 F MatMulDrivers(cublasEx) a strided view (offset, lda)
+ok   T1 f32 F MatMulDrivers(cublasEx) a.t() of a strided view (offset, lda)
+ok   T1 f32 F MatMulDrivers(cublas) plain
+ok   T1 f32 F MatMulDrivers(cublas) a stored as its transpose, used as a.t()
+ok   T1 f32 F MatMulDrivers(cublas) b in row-contiguous storage
+ok   T1 f32 F MatMulDrivers(cublas) batched
+ok   T1 f32 F MatMulDrivers(cublas) b broadcast over the batch
+ok   T1 f32 F MatMulDrivers(cublas) a strided view (offset, lda)
+ok   T1 f32 F MatMulDrivers(cublas) a.t() of a strided view (offset, lda)
+ok   T1 f32 F MatMulDrivers(tiled) plain
+ok   T1 f32 F MatMulDrivers(tiled) a stored as its transpose, used as a.t()
+ok   T1 f32 F MatMulDrivers(tiled) b in row-contiguous storage
+ok   T1 f32 F MatMulDrivers(tiled) batched
+ok   T1 f32 F MatMulDrivers(tiled) b broadcast over the batch
+ok   T1 f32 F MatMulDrivers(tiled) a strided view (offset, lda)
+ok   T1 f32 F MatMulDrivers(tiled) a.t() of a strided view (offset, lda)
+ok   T1 f32 F MatMulDrivers(naive) plain
+ok   T1 f32 F MatMulDrivers(naive) a stored as its transpose, used as a.t()
+ok   T1 f32 F MatMulDrivers(naive) b in row-contiguous storage
+ok   T1 f32 F MatMulDrivers(naive) batched
+ok   T1 f32 F MatMulDrivers(naive) b broadcast over the batch
+ok   T1 f32 F MatMulDrivers(naive) a strided view (offset, lda)
+ok   T1 f32 F MatMulDrivers(naive) a.t() of a strided view (offset, lda)
+ok   T1 f32 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) plain
+ok   T1 f32 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a stored as its transpose, used as a.t()
+ok   T1 f32 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b in row-contiguous storage
+ok   T1 f32 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) batched
+ok   T1 f32 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast over the batch
+ok   T1 f32 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a strided view (offset, lda)
+ok   T1 f32 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a.t() of a strided view (offset, lda)
+ok   T1 f64 C MatMulDrivers(cublasLt) plain
+ok   T1 f64 C MatMulDrivers(cublasLt) a stored as its transpose, used as a.t()
+ok   T1 f64 C MatMulDrivers(cublasLt) b in row-contiguous storage
+ok   T1 f64 C MatMulDrivers(cublasLt) batched
+ok   T1 f64 C MatMulDrivers(cublasLt) b broadcast over the batch
+ok   T1 f64 C MatMulDrivers(cublasLt) a strided view (offset, lda)
+ok   T1 f64 C MatMulDrivers(cublasLt) a.t() of a strided view (offset, lda)
+ok   T1 f64 C MatMulDrivers(cublasEx) plain
+ok   T1 f64 C MatMulDrivers(cublasEx) a stored as its transpose, used as a.t()
+ok   T1 f64 C MatMulDrivers(cublasEx) b in row-contiguous storage
+ok   T1 f64 C MatMulDrivers(cublasEx) batched
+ok   T1 f64 C MatMulDrivers(cublasEx) b broadcast over the batch
+ok   T1 f64 C MatMulDrivers(cublasEx) a strided view (offset, lda)
+ok   T1 f64 C MatMulDrivers(cublasEx) a.t() of a strided view (offset, lda)
+ok   T1 f64 C MatMulDrivers(cublas) plain
+ok   T1 f64 C MatMulDrivers(cublas) a stored as its transpose, used as a.t()
+ok   T1 f64 C MatMulDrivers(cublas) b in row-contiguous storage
+ok   T1 f64 C MatMulDrivers(cublas) batched
+ok   T1 f64 C MatMulDrivers(cublas) b broadcast over the batch
+ok   T1 f64 C MatMulDrivers(cublas) a strided view (offset, lda)
+ok   T1 f64 C MatMulDrivers(cublas) a.t() of a strided view (offset, lda)
+ok   T1 f64 C MatMulDrivers(tiled) plain
+ok   T1 f64 C MatMulDrivers(tiled) a stored as its transpose, used as a.t()
+ok   T1 f64 C MatMulDrivers(tiled) b in row-contiguous storage
+ok   T1 f64 C MatMulDrivers(tiled) batched
+ok   T1 f64 C MatMulDrivers(tiled) b broadcast over the batch
+ok   T1 f64 C MatMulDrivers(tiled) a strided view (offset, lda)
+ok   T1 f64 C MatMulDrivers(tiled) a.t() of a strided view (offset, lda)
+ok   T1 f64 C MatMulDrivers(naive) plain
+ok   T1 f64 C MatMulDrivers(naive) a stored as its transpose, used as a.t()
+ok   T1 f64 C MatMulDrivers(naive) b in row-contiguous storage
+ok   T1 f64 C MatMulDrivers(naive) batched
+ok   T1 f64 C MatMulDrivers(naive) b broadcast over the batch
+ok   T1 f64 C MatMulDrivers(naive) a strided view (offset, lda)
+ok   T1 f64 C MatMulDrivers(naive) a.t() of a strided view (offset, lda)
+ok   T1 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) plain
+ok   T1 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a stored as its transpose, used as a.t()
+ok   T1 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b in row-contiguous storage
+ok   T1 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) batched
+ok   T1 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast over the batch
+ok   T1 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a strided view (offset, lda)
+ok   T1 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a.t() of a strided view (offset, lda)
+ok   T1 f64 F MatMulDrivers(cublasLt) plain
+ok   T1 f64 F MatMulDrivers(cublasLt) a stored as its transpose, used as a.t()
+ok   T1 f64 F MatMulDrivers(cublasLt) b in row-contiguous storage
+ok   T1 f64 F MatMulDrivers(cublasLt) batched
+ok   T1 f64 F MatMulDrivers(cublasLt) b broadcast over the batch
+ok   T1 f64 F MatMulDrivers(cublasLt) a strided view (offset, lda)
+ok   T1 f64 F MatMulDrivers(cublasLt) a.t() of a strided view (offset, lda)
+ok   T1 f64 F MatMulDrivers(cublasEx) plain
+ok   T1 f64 F MatMulDrivers(cublasEx) a stored as its transpose, used as a.t()
+ok   T1 f64 F MatMulDrivers(cublasEx) b in row-contiguous storage
+ok   T1 f64 F MatMulDrivers(cublasEx) batched
+ok   T1 f64 F MatMulDrivers(cublasEx) b broadcast over the batch
+ok   T1 f64 F MatMulDrivers(cublasEx) a strided view (offset, lda)
+ok   T1 f64 F MatMulDrivers(cublasEx) a.t() of a strided view (offset, lda)
+ok   T1 f64 F MatMulDrivers(cublas) plain
+ok   T1 f64 F MatMulDrivers(cublas) a stored as its transpose, used as a.t()
+ok   T1 f64 F MatMulDrivers(cublas) b in row-contiguous storage
+ok   T1 f64 F MatMulDrivers(cublas) batched
+ok   T1 f64 F MatMulDrivers(cublas) b broadcast over the batch
+ok   T1 f64 F MatMulDrivers(cublas) a strided view (offset, lda)
+ok   T1 f64 F MatMulDrivers(cublas) a.t() of a strided view (offset, lda)
+ok   T1 f64 F MatMulDrivers(tiled) plain
+ok   T1 f64 F MatMulDrivers(tiled) a stored as its transpose, used as a.t()
+ok   T1 f64 F MatMulDrivers(tiled) b in row-contiguous storage
+ok   T1 f64 F MatMulDrivers(tiled) batched
+ok   T1 f64 F MatMulDrivers(tiled) b broadcast over the batch
+ok   T1 f64 F MatMulDrivers(tiled) a strided view (offset, lda)
+ok   T1 f64 F MatMulDrivers(tiled) a.t() of a strided view (offset, lda)
+ok   T1 f64 F MatMulDrivers(naive) plain
+ok   T1 f64 F MatMulDrivers(naive) a stored as its transpose, used as a.t()
+ok   T1 f64 F MatMulDrivers(naive) b in row-contiguous storage
+ok   T1 f64 F MatMulDrivers(naive) batched
+ok   T1 f64 F MatMulDrivers(naive) b broadcast over the batch
+ok   T1 f64 F MatMulDrivers(naive) a strided view (offset, lda)
+ok   T1 f64 F MatMulDrivers(naive) a.t() of a strided view (offset, lda)
+ok   T1 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) plain
+ok   T1 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a stored as its transpose, used as a.t()
+ok   T1 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b in row-contiguous storage
+ok   T1 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) batched
+ok   T1 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast over the batch
+ok   T1 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a strided view (offset, lda)
+ok   T1 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a.t() of a strided view (offset, lda)
+T1 bad cells: 28
+ok
+test t2_syrk_shapes ... [rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublas) a strided view
+[rstsr-cuda matmul] double x double -> double 19x37x19 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublas) a other orientation
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublas) a of the device order's own orientation
+[rstsr-cuda matmul] double x double -> double 37x0x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublas) k = 0 gives zeros
+[rstsr-cuda matmul] double x double -> double 1x19x1 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublas) n = 1
+[rstsr-cuda matmul] double x double -> double 37x1x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublas) k = 1
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublas) alpha = 0, beta = 0
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublas) c strided view
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublas) c strided view, transposed
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a strided view
+[rstsr-cuda matmul] double x double -> double 19x37x19 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a other orientation
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a of the device order's own orientation
+[rstsr-cuda matmul] double x double -> double 37x0x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 0 gives zeros
+[rstsr-cuda matmul] double x double -> double 1x19x1 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) n = 1
+[rstsr-cuda matmul] double x double -> double 37x1x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 1
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) alpha = 0, beta = 0
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) c strided view
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) c strided view, transposed
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublas) a strided view
+[rstsr-cuda matmul] double x double -> double 19x37x19 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublas) a other orientation
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublas) a of the device order's own orientation
+[rstsr-cuda matmul] double x double -> double 37x0x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublas) k = 0 gives zeros
+[rstsr-cuda matmul] double x double -> double 1x19x1 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublas) n = 1
+[rstsr-cuda matmul] double x double -> double 37x1x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublas) k = 1
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublas) alpha = 0, beta = 0
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublas) c strided view
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublas) c strided view, transposed
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a strided view
+[rstsr-cuda matmul] double x double -> double 19x37x19 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a other orientation
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a of the device order's own orientation
+[rstsr-cuda matmul] double x double -> double 37x0x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 0 gives zeros
+[rstsr-cuda matmul] double x double -> double 1x19x1 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) n = 1
+[rstsr-cuda matmul] double x double -> double 37x1x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 1
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) alpha = 0, beta = 0
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) c strided view
+[rstsr-cuda matmul] double x double -> double 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) c strided view, transposed
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublas) a strided view
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 19x37x19 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublas) a other orientation
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublas) a of the device order's own orientation
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x0x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublas) k = 0 gives zeros
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 1x19x1 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublas) n = 1
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x1x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublas) k = 1
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublas) alpha = 0, beta = 0
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublas) c strided view
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublas) c strided view, transposed
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a strided view
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 19x37x19 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a other orientation
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a of the device order's own orientation
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x0x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 0 gives zeros
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 1x19x1 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) n = 1
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x1x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 1
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) alpha = 0, beta = 0
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) c strided view
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) c strided view, transposed
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublas) a strided view
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 19x37x19 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublas) a other orientation
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublas) a of the device order's own orientation
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x0x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublas) k = 0 gives zeros
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 1x19x1 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublas) n = 1
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x1x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublas) k = 1
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublas) alpha = 0, beta = 0
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublas) c strided view
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublas) c strided view, transposed
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a strided view
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 19x37x19 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a other orientation
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a of the device order's own orientation
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x0x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 0 gives zeros
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 1x19x1 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) n = 1
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x1x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 1
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) alpha = 0, beta = 0
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) c strided view
+[rstsr-cuda matmul] rstsr_c64 x rstsr_c64 -> rstsr_c64 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) c strided view, transposed
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublas) a strided view
+[rstsr-cuda matmul] float x float -> float 19x37x19 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublas) a other orientation
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublas) a of the device order's own orientation
+[rstsr-cuda matmul] float x float -> float 37x0x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublas) k = 0 gives zeros
+[rstsr-cuda matmul] float x float -> float 1x19x1 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublas) n = 1
+[rstsr-cuda matmul] float x float -> float 37x1x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublas) k = 1
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublas) alpha = 0, beta = 0
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublas) c strided view
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublas) c strided view, transposed
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a strided view
+[rstsr-cuda matmul] float x float -> float 19x37x19 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a other orientation
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a of the device order's own orientation
+[rstsr-cuda matmul] float x float -> float 37x0x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 0 gives zeros
+[rstsr-cuda matmul] float x float -> float 1x19x1 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) n = 1
+[rstsr-cuda matmul] float x float -> float 37x1x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 1
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) alpha = 0, beta = 0
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) c strided view
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) c strided view, transposed
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublas) a strided view
+[rstsr-cuda matmul] float x float -> float 19x37x19 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublas) a other orientation
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublas) a of the device order's own orientation
+[rstsr-cuda matmul] float x float -> float 37x0x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublas) k = 0 gives zeros
+[rstsr-cuda matmul] float x float -> float 1x19x1 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublas) n = 1
+[rstsr-cuda matmul] float x float -> float 37x1x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublas) k = 1
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublas) alpha = 0, beta = 0
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublas) c strided view
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublas) c strided view, transposed
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a strided view
+[rstsr-cuda matmul] float x float -> float 19x37x19 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a other orientation
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a of the device order's own orientation
+[rstsr-cuda matmul] float x float -> float 37x0x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 0 gives zeros
+[rstsr-cuda matmul] float x float -> float 1x19x1 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) n = 1
+[rstsr-cuda matmul] float x float -> float 37x1x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 1
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) alpha = 0, beta = 0
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) c strided view
+[rstsr-cuda matmul] float x float -> float 37x19x37 batch 1 mode Default: cublas (syrk) -> ran
+ok   T2 f32 with MatMulUseSyrk::Allow F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) c strided view, transposed
+T2 bad cells: 0
+ok
+test t3_syrk_and_compute_mode ... --- EmulatedFixedPoint, syrk Scientific (default)
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas (syrk) -> declined (cannot serve: the syrk entries do not apply a math mode that changes the arithmetic)
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas (syrk) -> declined (cannot serve: the syrk entries do not apply a math mode that changes the arithmetic)
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas (syrk) -> declined (cannot serve: the syrk entries do not apply a math mode that changes the arithmetic)
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas (syrk) -> declined (cannot serve: the syrk entries do not apply a math mode that changes the arithmetic)
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas (syrk) -> declined (cannot serve: the syrk entries do not apply a math mode that changes the arithmetic)
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas (syrk) -> declined (cannot serve: the syrk entries do not apply a math mode that changes the arithmetic)
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas (syrk) -> declined (cannot serve: the syrk entries do not apply a math mode that changes the arithmetic)
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+T3 EmulatedFixedPoint, syrk Scientific (default): a @ b 1.049 ms, a @ a.t() 1.019 ms
+--- EmulatedFixedPoint, syrk Disallow
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode EmulatedFixedPoint: cublas -> ran
+T3 EmulatedFixedPoint, syrk Disallow: a @ b 1.091 ms, a @ a.t() 1.008 ms
+--- Default, syrk Scientific (default)
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Default: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Default: cublas (syrk) -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Default: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Default: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Default: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Default: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Default: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Default: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Default: cublas (syrk) -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Default: cublas (syrk) -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Default: cublas (syrk) -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Default: cublas (syrk) -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Default: cublas (syrk) -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Default: cublas (syrk) -> ran
+T3 Default, syrk Scientific (default): a @ b 6.740 ms, a @ a.t() 3.602 ms
+--- Pedantic, syrk Scientific (default)
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Pedantic: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Pedantic: cublas (syrk) -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Pedantic: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Pedantic: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Pedantic: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Pedantic: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Pedantic: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Pedantic: cublasLt -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Pedantic: cublas (syrk) -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Pedantic: cublas (syrk) -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Pedantic: cublas (syrk) -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Pedantic: cublas (syrk) -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Pedantic: cublas (syrk) -> ran
+[rstsr-cuda matmul] double x double -> double 1024x1024x1024 batch 1 mode Pedantic: cublas (syrk) -> ran
+T3 Pedantic, syrk Scientific (default): a @ b 6.677 ms, a @ a.t() 3.632 ms
+T3 mantissa bits = 30: a @ b -> Some("Error { inner: UnImplemented(\"/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs:282: Error::UnImplemented : cuda matmul: fixedpoint_mantissa_bits = 30 cannot be applied: cudarc 0.19 binds no entry for the fixed-point mantissa bit count\"), backtrace: None }")
+T3 mantissa bits = 30: a @ a.t() -> Some("Error { inner: UnImplemented(\"/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs:282: Error::UnImplemented : cuda matmul: fixedpoint_mantissa_bits = 30 cannot be applied: cudarc 0.19 binds no entry for the fixed-point mantissa bit count\"), backtrace: None }")
+ok
+test t4_degenerate_dots ... ok   T4 MatMulDrivers(cublasLt) k = 0: dot = 0 (want 0)
+ok   T4 MatMulDrivers(cublasLt) k = 1: dot = 9 (want 9)
+ok   T4 MatMulDrivers(cublasEx) k = 0: dot = 0 (want 0)
+ok   T4 MatMulDrivers(cublasEx) k = 1: dot = 9 (want 9)
+ok   T4 MatMulDrivers(cublas) k = 0: dot = 0 (want 0)
+ok   T4 MatMulDrivers(cublas) k = 1: dot = 9 (want 9)
+ok   T4 MatMulDrivers(tiled) k = 0: dot = 0 (want 0)
+ok   T4 MatMulDrivers(tiled) k = 1: dot = 9 (want 9)
+ok   T4 MatMulDrivers(naive) k = 0: dot = 0 (want 0)
+ok   T4 MatMulDrivers(naive) k = 1: dot = 9 (want 9)
+ok   T4 MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 0: dot = 0 (want 0)
+ok   T4 MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 1: dot = 9 (want 9)
+ok
+test t5_cross_stream_inplace ... T5 same-stream control: 0 of 10 iterations with stale elements
+T5 cross-stream chain: 0 of 30 iterations with stale elements
+T5 cross-stream cublasLt: 0 of 30 iterations with stale elements
+T5 cross-stream tiled: 0 of 30 iterations with stale elements
+ok
+test t6_empty_and_k0 ... ok   T6 MatMulDrivers(cublasLt) [2,3] @ [0,3,4] -> shape [0, 2, 4]
+ok   T6 MatMulDrivers(cublasLt) k = 0, beta = 0: 0 of 8 wrong (first values [0.0, 0.0, 0.0, 0.0])
+ok   T6 MatMulDrivers(cublasLt) k = 0, beta = 1: 0 of 8 wrong (first values [0.5, 0.5, 0.5, 0.5])
+ok   T6 MatMulDrivers(cublasLt) k = 0, beta = 2: 0 of 8 wrong (first values [1.0, 1.0, 1.0, 1.0])
+ok   T6 MatMulDrivers(cublasLt) k = 0, fresh output: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+ok   T6 MatMulDrivers(cublas) [2,3] @ [0,3,4] -> shape [0, 2, 4]
+ok   T6 MatMulDrivers(cublas) k = 0, beta = 0: 0 of 8 wrong (first values [0.0, 0.0, 0.0, 0.0])
+ok   T6 MatMulDrivers(cublas) k = 0, beta = 1: 0 of 8 wrong (first values [0.5, 0.5, 0.5, 0.5])
+ok   T6 MatMulDrivers(cublas) k = 0, beta = 2: 0 of 8 wrong (first values [1.0, 1.0, 1.0, 1.0])
+ok   T6 MatMulDrivers(cublas) k = 0, fresh output: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+ok   T6 MatMulDrivers(naive) [2,3] @ [0,3,4] -> shape [0, 2, 4]
+ok   T6 MatMulDrivers(naive) k = 0, beta = 0: 0 of 8 wrong (first values [0.0, 0.0, 0.0, 0.0])
+ok   T6 MatMulDrivers(naive) k = 0, beta = 1: 0 of 8 wrong (first values [0.5, 0.5, 0.5, 0.5])
+ok   T6 MatMulDrivers(naive) k = 0, beta = 2: 0 of 8 wrong (first values [1.0, 1.0, 1.0, 1.0])
+ok   T6 MatMulDrivers(naive) k = 0, fresh output: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+ok   T6 MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) [2,3] @ [0,3,4] -> shape [0, 2, 4]
+ok   T6 MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 0, beta = 0: 0 of 8 wrong (first values [0.0, 0.0, 0.0, 0.0])
+ok   T6 MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 0, beta = 1: 0 of 8 wrong (first values [0.5, 0.5, 0.5, 0.5])
+ok   T6 MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 0, beta = 2: 0 of 8 wrong (first values [1.0, 1.0, 1.0, 1.0])
+ok   T6 MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) k = 0, fresh output: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+ok
+test t7_mode_entries ... T7 matmul_with_output_mode (Pedantic per call): 0 wrong
+T7 matmul_from_mode (Pedantic per call): 0 wrong
+T7 matmul_with_mode(..).out(): 0 wrong
+T7 flag Fast16BF: 366 wrong;  per-call Pedantic on the same device: 0 wrong
+T7 mixed f64 @ f32 -> f64 through matmul_with_mode: 0 wrong
+ok
+test t9_broadcast_matmul_axis ... ref  T9 f64 C MatMulDrivers(cublasLt) b broadcast along k: [1,4] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 C MatMulDrivers(cublasLt) b broadcast along n: [3,1] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 C MatMulDrivers(cublasLt) a broadcast along m: [1,2] -> [3,2]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (3x2 @ 2x4, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 C MatMulDrivers(cublasLt) a broadcast along k: [2,1] -> [2,3]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 C MatMulDrivers(cublasEx) b broadcast along k: [1,4] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 C MatMulDrivers(cublasEx) b broadcast along n: [3,1] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 C MatMulDrivers(cublasEx) a broadcast along m: [1,2] -> [3,2]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (3x2 @ 2x4, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 C MatMulDrivers(cublasEx) a broadcast along k: [2,1] -> [2,3]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 C MatMulDrivers(cublas) b broadcast along k: [1,4] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 C MatMulDrivers(cublas) b broadcast along n: [3,1] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 C MatMulDrivers(cublas) a broadcast along m: [1,2] -> [3,2]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (3x2 @ 2x4, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 C MatMulDrivers(cublas) a broadcast along k: [2,1] -> [2,3]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ok   T9 f64 C MatMulDrivers(tiled) b broadcast along k: [1,4] -> [3,4]
+ok   T9 f64 C MatMulDrivers(tiled) b broadcast along n: [3,1] -> [3,4]
+ok   T9 f64 C MatMulDrivers(tiled) a broadcast along m: [1,2] -> [3,2]
+ok   T9 f64 C MatMulDrivers(tiled) a broadcast along k: [2,1] -> [2,3]
+ok   T9 f64 C MatMulDrivers(naive) b broadcast along k: [1,4] -> [3,4]
+ok   T9 f64 C MatMulDrivers(naive) b broadcast along n: [3,1] -> [3,4]
+ok   T9 f64 C MatMulDrivers(naive) a broadcast along m: [1,2] -> [3,2]
+ok   T9 f64 C MatMulDrivers(naive) a broadcast along k: [2,1] -> [2,3]
+ok   T9 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast along k: [1,4] -> [3,4]
+ok   T9 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast along n: [3,1] -> [3,4]
+ok   T9 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a broadcast along m: [1,2] -> [3,2]
+ok   T9 f64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a broadcast along k: [2,1] -> [2,3]
+ref  T9 f64 F MatMulDrivers(cublasLt) b broadcast along k: [1,4] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 F MatMulDrivers(cublasLt) b broadcast along n: [3,1] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 F MatMulDrivers(cublasLt) a broadcast along m: [1,2] -> [3,2]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (4x2 @ 2x3, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 F MatMulDrivers(cublasLt) a broadcast along k: [2,1] -> [2,3]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 F MatMulDrivers(cublasEx) b broadcast along k: [1,4] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 F MatMulDrivers(cublasEx) b broadcast along n: [3,1] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 F MatMulDrivers(cublasEx) a broadcast along m: [1,2] -> [3,2]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (4x2 @ 2x3, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 F MatMulDrivers(cublasEx) a broadcast along k: [2,1] -> [2,3]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 F MatMulDrivers(cublas) b broadcast along k: [1,4] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 F MatMulDrivers(cublas) b broadcast along n: [3,1] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 F MatMulDrivers(cublas) a broadcast along m: [1,2] -> [3,2]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (4x2 @ 2x3, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 f64 F MatMulDrivers(cublas) a broadcast along k: [2,1] -> [2,3]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve double x double -> double (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ok   T9 f64 F MatMulDrivers(tiled) b broadcast along k: [1,4] -> [3,4]
+ok   T9 f64 F MatMulDrivers(tiled) b broadcast along n: [3,1] -> [3,4]
+ok   T9 f64 F MatMulDrivers(tiled) a broadcast along m: [1,2] -> [3,2]
+ok   T9 f64 F MatMulDrivers(tiled) a broadcast along k: [2,1] -> [2,3]
+ok   T9 f64 F MatMulDrivers(naive) b broadcast along k: [1,4] -> [3,4]
+ok   T9 f64 F MatMulDrivers(naive) b broadcast along n: [3,1] -> [3,4]
+ok   T9 f64 F MatMulDrivers(naive) a broadcast along m: [1,2] -> [3,2]
+ok   T9 f64 F MatMulDrivers(naive) a broadcast along k: [2,1] -> [2,3]
+ok   T9 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast along k: [1,4] -> [3,4]
+ok   T9 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast along n: [3,1] -> [3,4]
+ok   T9 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a broadcast along m: [1,2] -> [3,2]
+ok   T9 f64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a broadcast along k: [2,1] -> [2,3]
+ref  T9 c64 C MatMulDrivers(cublasLt) b broadcast along k: [1,4] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(cublasLt) b broadcast along n: [3,1] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(cublasLt) a broadcast along m: [1,2] -> [3,2]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (3x2 @ 2x4, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(cublasLt) a broadcast along k: [2,1] -> [2,3]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(cublasEx) b broadcast along k: [1,4] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(cublasEx) b broadcast along n: [3,1] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(cublasEx) a broadcast along m: [1,2] -> [3,2]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (3x2 @ 2x4, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(cublasEx) a broadcast along k: [2,1] -> [2,3]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(cublas) b broadcast along k: [1,4] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(cublas) b broadcast along n: [3,1] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(cublas) a broadcast along m: [1,2] -> [3,2]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (3x2 @ 2x4, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(cublas) a broadcast along k: [2,1] -> [2,3]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (2x3 @ 3x4, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(tiled) b broadcast along k: [1,4] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (2x3 @ 3x4, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(tiled) b broadcast along n: [3,1] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (2x3 @ 3x4, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(tiled) a broadcast along m: [1,2] -> [3,2]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (3x2 @ 2x4, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ref  T9 c64 C MatMulDrivers(tiled) a broadcast along k: [2,1] -> [2,3]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (2x3 @ 3x4, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ok   T9 c64 C MatMulDrivers(naive) b broadcast along k: [1,4] -> [3,4]
+ok   T9 c64 C MatMulDrivers(naive) b broadcast along n: [3,1] -> [3,4]
+ok   T9 c64 C MatMulDrivers(naive) a broadcast along m: [1,2] -> [3,2]
+ok   T9 c64 C MatMulDrivers(naive) a broadcast along k: [2,1] -> [2,3]
+ok   T9 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast along k: [1,4] -> [3,4]
+ok   T9 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast along n: [3,1] -> [3,4]
+ok   T9 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a broadcast along m: [1,2] -> [3,2]
+ok   T9 c64 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a broadcast along k: [2,1] -> [2,3]
+ref  T9 c64 F MatMulDrivers(cublasLt) b broadcast along k: [1,4] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(cublasLt) b broadcast along n: [3,1] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(cublasLt) a broadcast along m: [1,2] -> [3,2]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x2 @ 2x3, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(cublasLt) a broadcast along k: [2,1] -> [2,3]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublasLt); declined: cublasLt: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(cublasEx) b broadcast along k: [1,4] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(cublasEx) b broadcast along n: [3,1] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(cublasEx) a broadcast along m: [1,2] -> [3,2]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x2 @ 2x3, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(cublasEx) a broadcast along k: [2,1] -> [2,3]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublasEx); declined: cublasEx: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(cublas) b broadcast along k: [1,4] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(cublas) b broadcast along n: [3,1] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(cublas) a broadcast along m: [1,2] -> [3,2]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x2 @ 2x3, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(cublas) a broadcast along k: [2,1] -> [2,3]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x3 @ 3x2, batch 1); enabled MatMulDrivers(cublas); declined: cublas: cannot serve: no column-major expression (stepped or reversed layout, no unit-stride operand axis, non-affine batch, or a dimension over i32)"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(tiled) b broadcast along k: [1,4] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x3 @ 3x2, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(tiled) b broadcast along n: [3,1] -> [3,4]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x3 @ 3x2, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(tiled) a broadcast along m: [1,2] -> [3,2]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x2 @ 2x3, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ref  T9 c64 F MatMulDrivers(tiled) a broadcast along k: [2,1] -> [2,3]: Error { inner: UnImplemented("/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/mod.rs:497: Error::UnImplemented : cuda matmul: no enabled driver can serve rstsr_c64 x rstsr_c64 -> rstsr_c64 (4x3 @ 3x2, batch 1); enabled MatMulDrivers(tiled); no enabled driver is a candidate for this type triple"), backtrace: None }
+ok   T9 c64 F MatMulDrivers(naive) b broadcast along k: [1,4] -> [3,4]
+ok   T9 c64 F MatMulDrivers(naive) b broadcast along n: [3,1] -> [3,4]
+ok   T9 c64 F MatMulDrivers(naive) a broadcast along m: [1,2] -> [3,2]
+ok   T9 c64 F MatMulDrivers(naive) a broadcast along k: [2,1] -> [2,3]
+ok   T9 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast along k: [1,4] -> [3,4]
+ok   T9 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) b broadcast along n: [3,1] -> [3,4]
+ok   T9 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a broadcast along m: [1,2] -> [3,2]
+ok   T9 c64 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) a broadcast along k: [2,1] -> [2,3]
+T9 bad cells: 0
+ok   T10 C MatMulDrivers(cublasLt) reversed batch axis: 0 of 72 wrong
+ok   T10 C MatMulDrivers(cublasEx) reversed batch axis: 0 of 72 wrong
+ok   T10 C MatMulDrivers(cublas) reversed batch axis: 0 of 72 wrong
+ok   T10 C MatMulDrivers(tiled) reversed batch axis: 0 of 72 wrong
+ok   T10 C MatMulDrivers(naive) reversed batch axis: 0 of 72 wrong
+ok   T10 C MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) reversed batch axis: 0 of 72 wrong
+ok   T10 F MatMulDrivers(cublasLt) reversed batch axis: 0 of 72 wrong
+ok   T10 F MatMulDrivers(cublasEx) reversed batch axis: 0 of 72 wrong
+ok   T10 F MatMulDrivers(cublas) reversed batch axis: 0 of 72 wrong
+ok   T10 F MatMulDrivers(tiled) reversed batch axis: 0 of 72 wrong
+ok   T10 F MatMulDrivers(naive) reversed batch axis: 0 of 72 wrong
+ok   T10 F MatMulDrivers(cublasLt|cublasEx|cublas|tiled|naive) reversed batch axis: 0 of 72 wrong
+ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.73s
+

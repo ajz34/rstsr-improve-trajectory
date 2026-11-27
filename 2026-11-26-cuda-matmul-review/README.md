@@ -39,6 +39,12 @@ need fixing before merge; details, evidence and fixes are in [REVIEW.md](REVIEW.
    `{major}0{minor}0` spelling (unit-tested by including `build.rs` into the lib test build);
    the `13000` pin yields both cfgs and passes the whole hardware suite; `tier3-cuda.yml` runs
    `--print cfg` checks for both pins via a CI matrix.
+5. **Low, FIXED 2026-11-27 (uncommitted on `261021/cuda`):** `[0] @ [0]` failed with
+   `INVALID_VALUE` on `cublasGemmEx` and the classic entries (the lifted `1 x 0` operand declared
+   `ld = 0`; cuBLAS wants `ld >= max(1, rows)` even for an empty matrix) and a leading dimension
+   over `i32::MAX` was clamped instead of refused. Both derivations now floor every declared
+   `ld` at 1 and refuse strides that do not fit `i32`; probe T4 serves `dot = 0` on every driver
+   set (499 `ok`, the two `k = 0` ERRs gone).
 
 Test gaps that let the first two through: no cuBLAS test with a broadcast operand; complex
 tests with purely real data; the symmetric form never run on a non-base offset; nothing
@@ -66,6 +72,8 @@ Before (the findings) and after (`results/t3_after_c3c4.txt`):
 - `results/probe_after_fix.log` — after the C1/C2 fixes (497 `ok`, 0 `FAIL`, T5 0 of 30 stale)
 - `results/probe_after_c3c4.log` — after the C3/C4 fixes (497 `ok`, 0 `FAIL`, same 28
   intentional forced-tiled-complex ERRs)
+- `results/probe_after_c5c6.log` — after the C5/C6 fixes (499 `ok`, 0 `FAIL`: the two `k = 0`
+  ERRs are now `dot = 0` on every driver set)
 - `results/t3_after_c3c4.txt` — the T3 timing/error lines after the C3 fix
 - `results/cfg_CUDARC_CUDA_VERSION_13000.txt` — before the C4 fix (neither cfg — the bug)
 - `results/cfg_*_after_fix.txt` — after the C4 fix: `13000` → both cfgs, `12060` → neither

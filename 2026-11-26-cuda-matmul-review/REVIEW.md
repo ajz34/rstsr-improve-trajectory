@@ -25,8 +25,8 @@ drivers, T9/T11 correct on the chain and refused when a cuBLAS driver is forced 
 | C2 | high | In-place matmul across two streams: the host read-back sees the state before the product, systematically (the matmul drivers order the output **before** the launch; the elementwise kernels do it after) | `drivers/cublas.rs:493`, `syrk.rs:106,170`, `tiled.rs:269`, `naive.rs:208` | yes (T5) |
 | C3 | medium | **FIXED (261021/cuda, uncommitted)** The symmetric form ignores the compute mode: under `EmulatedFixedPoint`, `a @ a.t()` is 3.3x slower than `a @ b`; `Pedantic` is not applied; the documented `fixedpoint_mantissa_bits` error is bypassed | `drivers/syrk.rs:66-80`; `drivers/mod.rs:421-434, 471` | yes (T3) |
 | C4 | medium | **FIXED (261021/cuda, uncommitted)** `build.rs` never recognises a pinned `CUDARC_CUDA_VERSION` (parses 6 characters; cudarc spells 5), so any pinned build — including the `=13000` recommended for the emulation — has neither cfg | `build.rs:36-45`; docs `mode.rs:52`, `Cargo.toml:39` | yes (`results/cfg_*`) |
-| C5 | low | `[0] @ [0]` fails with `CUBLAS_STATUS_INVALID_VALUE` when only `cublasEx` or classic is enabled (`ld` = 0) | `cublas_args.rs:65-69` | yes (T4) |
-| C6 | low | A leading dimension over `i32::MAX` is clamped instead of refused (silent wrong addressing) | `cublas_args.rs:68`, `syrk.rs:47` | by reading (needs > 8 GiB) |
+| C5 | low | **FIXED (261021/cuda, uncommitted)** `[0] @ [0]` fails with `CUBLAS_STATUS_INVALID_VALUE` when only `cublasEx` or classic is enabled (`ld` = 0) | `cublas_args.rs:65-69` | yes (T4) |
+| C6 | low | **FIXED (261021/cuda, uncommitted)** A leading dimension over `i32::MAX` is clamped instead of refused (silent wrong addressing) | `cublas_args.rs:68`, `syrk.rs:47` | by reading (needs > 8 GiB) |
 | C7 | low | The two batch `cublasLtMatrixLayoutSetAttribute` statuses are dropped | `cublas_lt.rs:281-282` | by reading |
 | T1 | medium | The suite's complex matmul data is purely real (`Complex::new(x, 0.0)`, `.re` compared): `cublasEx` and classic never run with imaginary parts | `tests/test_matmul_modes.rs` | yes (probe T1: 319 cells correct) |
 | T2 | medium | The suite never runs the symmetric form on a non-base offset or `lda != k`: `syrk_views` copies to contiguous (its comment says otherwise); the layout-matrix "syrk" row is a copied transpose, i.e. a fall-through case | `tests/test_matmul_forms.rs:75-76`, `test_matmul_modes.rs:637` | yes (probe T2: 108 cells correct) |
@@ -218,6 +218,28 @@ asserting the cfg set of each pin.
 - C7: `cublas_lt.rs:281-282` drop the status of the two batch attributes while every sibling
   `SetAttribute` goes through `refused(..)`; a failure would leave a batch-1 layout and an
   unwritten rest of the output. Not observed.
+
+### C5 and C6 fixed (261021/cuda, uncommitted)
+
+One rule change in both derivations, one commit: **a declared leading dimension floors at 1, and
+a stride that does not fit `i32` is refused rather than clamped.**
+
+- `ld()` (`cublas_args.rs`) and the `ld` closure (`syrk.rs`) now end in `.max(1)`: cuBLAS rejects
+  `ld = 0` even for an empty matrix (`ld >= max(1, rows)`), so the `[0] @ [0]` dot — whose lifted
+  `1 x 0` operand declared `ldb = ld(0, 0) = 0` — now serves `0.0` on every driver set. The dead
+  `ldc == 0` arm of the `args` re-check (its only live case was the same empty-output clamp) is
+  removed with it.
+- Both guard loops refuse `stride > i32::MAX as isize`: the clamp to `i32::MAX` was silent wrong
+  addressing (the module doc's promised refusal). Unreachable on this GPU (an extent-2 axis over
+  2^31 elements is an 8.6 GiB `f16` operand), so the regression tests are unit-level on the pure
+  derivations: `empty_dots_floor_and_wide_strides_refuse` in both files (the wide-stride case
+  must be `None`; an in-range stride of the same shape is declared as is).
+- Hardware regression: `degenerate_dots` (`tests/test_matmul_modes.rs`) — `[0] @ [0]` and
+  `[3] @ [3]` exact on every driver set. Verified against the pre-fix source: it fails there with
+  exactly the documented `CUBLAS_STATUS_INVALID_VALUE` ("GEMM_EX parameter number 12").
+- Probe T4 after (`results/probe_after_c5c6.log`): all six `k = 0` rows print `ok` (dot = 0),
+  `499 ok` / `0 FAIL` / `28 ERR` (the intentional complex-tiled refusals; the two `k = 0` ERRs
+  are gone). Full gate green.
 
 ## Test coverage
 
