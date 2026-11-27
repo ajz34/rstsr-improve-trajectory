@@ -50,6 +50,13 @@ need fixing before merge; details, evidence and fixes are in [REVIEW.md](REVIEW.
    slice written); they now decline like every sibling `SetAttribute`. `build` takes the derived
    `CublasArgs` directly, and `batch_attributes_read_back` pins the batch attributes of a built
    entry (the failure itself is not triggerable through a public path).
+7. **Coverage, FIXED 2026-11-27 (test-only):** the complex matmul tests carried real-only data
+   and compared the real part only (T1) — a conjugation error was invisible on `cublasEx` and
+   classic; demonstrated by injecting `OP_C`: `modes_complex` and `complex_layout_matrix` now
+   fail it with both-parts errors. The symmetric form's views were copies (T2): `syrk_views` now
+   runs on real strided views in both orientations plus the degenerate shapes (`k = 0`, `n = 1`,
+   `k = 1`, `alpha = 0`, strided and transposed output blocks). T3 (routing observation) stays
+   open by decision.
 
 Test gaps that let the first two through: no cuBLAS test with a broadcast operand; complex
 tests with purely real data; the symmetric form never run on a non-base offset; nothing

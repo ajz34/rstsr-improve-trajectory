@@ -259,14 +259,14 @@ a stride that does not fit `i32` is refused rather than clamped.**
 
 ## Test coverage
 
-- T1 (verified): `matrix`, `modes_complex` and `inner_dot` build complex data with
+- T1 (verified, FIXED): `matrix`, `modes_complex` and `inner_dot` build complex data with
   `Complex::new(x as f32, 0.0)` and compare `.re` only, so a conjugation error (`OP_C`
   instead of `OP_T`) would be invisible on `cublasEx` and classic. Only
   `test_matmul_forms.rs` uses imaginary parts (cuBLASLt through the chain, and `?syrk`).
   Probe T1 (c32, c64, f32, f64; 7 shapes; both orders; each driver alone and the chain; real
   and imaginary parts compared): 319 cells correct, the 28 "ERR" cells are the tiled driver's
   expected refusal of complex types.
-- T2 (verified): `syrk_views` does `big.i(s![..n, ..k]).to_contig(order).to_owned()` — a
+- T2 (verified, FIXED): `syrk_views` does `big.i(s![..n, ..k]).to_contig(order).to_owned()` — a
   copy, offset 0, `lda = k` — under a comment saying the offset is not the buffer base; the
   layout-matrix row named `syrk` is `square.t().to_owned()`, a transpose copied into another
   buffer, which is exactly a case the form must not take. Probe T2 (f64, c64, f32 under
@@ -275,7 +275,35 @@ a stride that does not fit `i32` is refused rather than clamped.**
   correct, 129 `cublas (syrk) -> ran` trace lines.
 - T3: no test fails if the form silently stops being taken (a performance regression); the
   promised "trace names the routine" check was not written, and `syrk_applies` has no host unit
-  test (unlike `syrk::args`).
+  test (unlike `syrk::args`). **Left open by decision (2026-11-27): the routing-observation gap
+  stays; the C3 fix's capture through `check_complex`-style numerics does not observe routing.**
+
+### T1 and T2 fixed (261021/cuda, uncommitted; test-only — no source change)
+
+- T1: the complex coverage now carries imaginary parts and compares both parts. `modes_complex`
+  runs through a new `check_complex` (CPU complex-f64 reference of the same narrowed operands,
+  re/im relative errors separately, plus a transposed-right-operand arm that is the `OP_T` path
+  a conjugation error corrupts); the complex triples moved out of the real-only plumbing of
+  `matrix`/`triple_layout_matrix` into `complex_layout_matrix`, which runs the same eight shapes
+  through `shape_cases!` with complex data; the real-only complex rows of `inner_dot` are
+  replaced by that matrix's inner-dot row. **Demonstrated**: with `OP_T` injected as `OP_C` in
+  the classic driver, `modes_complex` fails with "c32 default, MatMulDrivers(cublas), b
+  transposed: max rel err re 1.952e0, im 1.321e0" and `complex_layout_matrix` fails on the
+  classic rows (was: invisible).
+- T2: `syrk_views` uses **real views** now (`big.i(...)` and `big.t().i(...)` — no
+  `to_contig(order).to_owned()` copy, offset not the base, leading dimension the big matrix's
+  row stride), both orientations, plus the probe's shape family: `k = 0` (exact zeros), `n = 1`,
+  `k = 1`, `alpha = 0` with `beta = 0` into a caller's buffer, a strided output block (nothing
+  written outside), and the transposed output block on the chain only. The layout-matrix row
+  named `syrk` is renamed "transposed copy (a syrk look-alike)": with owned operands the macro
+  cannot hold the shared-buffer pair, and the form's view coverage lives in `syrk_views`.
+  (There is no pre-fix failure to demo — the old test passed while covering the wrong thing.)
+- Pitfall recorded en route: the CPU reference must take the **same default order** as the
+  device, or under `ColMajor` the two big matrices are different tensors and the views do not
+  mean the same thing (this failed once during the rewrite, before the fix).
+
+Full gate green: 254 tests (253 + `complex_layout_matrix`), 0 failures. Probe unaffected (the
+fixes are test-only); T3 stays open as decided.
 - No test anywhere multiplies a broadcast operand on a cuBLAS driver (C1); `matmul_with_output_mode`
   had no test at all (probe T7: correct); the tiled driver is not in the type-triple matrix.
 
