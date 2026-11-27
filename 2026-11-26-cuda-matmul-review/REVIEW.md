@@ -32,7 +32,7 @@ drivers, T9/T11 correct on the chain and refused when a cuBLAS driver is forced 
 | T2 | medium | The suite never runs the symmetric form on a non-base offset or `lda != k`: `syrk_views` copies to contiguous (its comment says otherwise); the layout-matrix "syrk" row is a copied transpose, i.e. a fall-through case | `tests/test_matmul_forms.rs:75-76`, `test_matmul_modes.rs:637` | yes (probe T2: 108 cells correct) |
 | T3 | low | No test observes routing (`trace_matmul`); `syrk_applies` has no host test | `tests/` | — |
 | A1 | medium | **FIXED (261021/cuda, uncommitted)** `matmul_with_output_mode` and `matmul_from_mode` have no `_f` twin; `matmul_with_mode` (method) takes `&TensorAny` while its two siblings take `impl TensorViewAPI` | `matmul/tensor.rs:30-66` | yes (hw test) |
-| A2 | low | Seven docstrings state things the code does not do (list in the section) | several | checked in the sources |
+| A2 | low | **FIXED (261021/cuda, uncommitted)** Seven docstrings state things the code does not do (list in the section) | several | checked in the sources |
 
 What is correct: the driver table and chain order, slot swap and `OP_*` flags under both
 orders, complex products with imaginary parts on every driver, batch and broadcast batches,
@@ -315,7 +315,7 @@ fixes are test-only); T3 stays open as decided.
   third entry is a free `matmul_with_mode_f` whose infallible form is the method builder
   `.out::<TC>()` (no free `matmul_with_mode`), and that method takes
   `rhs: &'a TensorAny<RB, ..>` where its two siblings take `impl TensorViewAPI`.
-- A2: docstrings at odds with the code:
+- A2 (FIXED): docstrings at odds with the code:
   - `flags.rs:24, 26` "(read by `f32`-output calls only)" / "(read by `f64`-output calls
     only)": complex outputs and half operands with a real output read the same fields
     (`mode.rs` documents it correctly).
@@ -333,6 +333,37 @@ fixes are test-only); T3 stays open as decided.
 - `CudaRuntimeFlags` is `#[non_exhaustive]`, so `CudaRuntimeFlags { matmul_drivers, ..
   Default::default() }` does not compile for users; `default()` plus field assignment is the
   only way (deliberate, D17, but worth knowing).
+
+### A2 fixed (261021/cuda, uncommitted; doc-only)
+
+Each claim rewritten to what the code does, checked against the sources before writing:
+
+1. `src/flags.rs` `compute_type_32f` / `compute_type_64f`: now "read by calls with an `f32` or
+   `Complex<f32>` output, or half operands into an `f32` output" / "`f64` or `Complex<f64>`
+   output" — matching `mode.rs` and the plan's `TypeId` dispatch. (`compute_type_16f`'s
+   "`f16`/`bf16`-output calls only" was already correct and is untouched.)
+2. `matmul/tensor.rs`: "read nothing from the device flags" → "only the mode moves to the call:
+   `matmul_drivers`, `matmul_use_syrk`, `fixedpoint_mantissa_bits` and `trace_matmul` still
+   come from the device flags" (all four are read in `drivers/mod.rs:449-485`).
+3. `matmul/mode.rs`: "`Pedantic` is never downgraded and is an error" → "`Pedantic` is served
+   by every triple and is never downgraded" — no error path exists; the wording mirrors
+   `drivers/mod.rs`.
+4. `matmul/drivers/naive.rs`: "refused by name before the chain" → "refused by name by the
+   naive driver — the last of the chain, so nothing falls through" (the `RANK_MAX` check is in
+   the naive driver's `run`).
+5. `stream.rs`: "`launch`, the only place that talks to cuBLAS" → "every entry into this handle
+   takes the guard — `launch` (the classic entries), the `cublasGemmEx` driver and the
+   symmetric form. The cuBLASLt driver serializes through its own per-ordinal lock."
+6. `lib.rs`: "six argument shapes" → "eight" (plain, inner dot, the syrk look-alike, batched,
+   transposed, broadcast, stepped — the rows of `shape_cases!`).
+7. `matmul/flags.rs`: `Scientific` "…`f64`, `c32` and `c64` only" now states the mechanism —
+   the flag takes every type but `f32` (halves included); the form's own table then serves
+   `f64`, `c32` and `c64` only — and `takes`'s doc notes the flag-level answer. (`Allow`'s doc
+   was already accurate about the covered set.)
+
+No code change; behavior untouched. Verification: full gate 254 passed / 0 failed, clippy
+clean for the crate, `cargo doc` with no warnings (intra-doc links intact), rustfmt-clean on
+the edited lines. Probe unaffected.
 
 ### A1 fixed (261021/cuda, uncommitted; source change)
 

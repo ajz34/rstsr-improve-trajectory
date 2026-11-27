@@ -62,7 +62,14 @@ need fixing before merge; details, evidence and fixes are in [REVIEW.md](REVIEW.
    the `Result` twins the core models already have, and the pending product's method now takes
    any tensor argument (`impl TensorViewAPI`, like its siblings) instead of `&TensorAny` only.
    Hardware-tested: twins agree with the infallible forms, a shape mismatch is an `Err`, and a
-   mutable-handle operand is accepted. A2 (seven stale docstrings) stays open.
+   mutable-handle operand is accepted. A2 follows in item 9.
+9. **Docstrings, FIXED 2026-11-27 (doc-only):** the seven docstrings that stated things the
+   code does not do (A2) now match the sources: which calls read each compute-type field, that
+   the per-call-mode entries still read the other device flags, that `Pedantic` is served by
+   every triple (no error path), that the rank-limit refusal comes from the naive driver (the
+   last of the chain), that every entry into the cuBLAS handle takes its guard (cuBLASLt has
+   its own per-ordinal lock), eight argument shapes in the layout matrix, and the flag-vs-table
+   mechanism of `MatMulUseSyrk::Scientific`. No code change.
 
 Test gaps that let the first two through: no cuBLAS test with a broadcast operand; complex
 tests with purely real data; the symmetric form never run on a non-base offset; nothing
