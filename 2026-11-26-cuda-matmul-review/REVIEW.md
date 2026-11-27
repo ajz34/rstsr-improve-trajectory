@@ -27,7 +27,7 @@ drivers, T9/T11 correct on the chain and refused when a cuBLAS driver is forced 
 | C4 | medium | **FIXED (261021/cuda, uncommitted)** `build.rs` never recognises a pinned `CUDARC_CUDA_VERSION` (parses 6 characters; cudarc spells 5), so any pinned build — including the `=13000` recommended for the emulation — has neither cfg | `build.rs:36-45`; docs `mode.rs:52`, `Cargo.toml:39` | yes (`results/cfg_*`) |
 | C5 | low | **FIXED (261021/cuda, uncommitted)** `[0] @ [0]` fails with `CUBLAS_STATUS_INVALID_VALUE` when only `cublasEx` or classic is enabled (`ld` = 0) | `cublas_args.rs:65-69` | yes (T4) |
 | C6 | low | **FIXED (261021/cuda, uncommitted)** A leading dimension over `i32::MAX` is clamped instead of refused (silent wrong addressing) | `cublas_args.rs:68`, `syrk.rs:47` | by reading (needs > 8 GiB) |
-| C7 | low | The two batch `cublasLtMatrixLayoutSetAttribute` statuses are dropped | `cublas_lt.rs:281-282` | by reading |
+| C7 | low | **FIXED (261021/cuda, uncommitted)** The two batch `cublasLtMatrixLayoutSetAttribute` statuses are dropped | `cublas_lt.rs:281-282` | by reading |
 | T1 | medium | The suite's complex matmul data is purely real (`Complex::new(x, 0.0)`, `.re` compared): `cublasEx` and classic never run with imaginary parts | `tests/test_matmul_modes.rs` | yes (probe T1: 319 cells correct) |
 | T2 | medium | The suite never runs the symmetric form on a non-base offset or `lda != k`: `syrk_views` copies to contiguous (its comment says otherwise); the layout-matrix "syrk" row is a copied transpose, i.e. a fall-through case | `tests/test_matmul_forms.rs:75-76`, `test_matmul_modes.rs:637` | yes (probe T2: 108 cells correct) |
 | T3 | low | No test observes routing (`trace_matmul`); `syrk_applies` has no host test | `tests/` | — |
@@ -218,6 +218,22 @@ asserting the cfg set of each pin.
 - C7: `cublas_lt.rs:281-282` drop the status of the two batch attributes while every sibling
   `SetAttribute` goes through `refused(..)`; a failure would leave a batch-1 layout and an
   unwritten rest of the output. Not observed.
+
+### C7 fixed (261021/cuda, uncommitted)
+
+The two batch attribute sets go through `refused(..)` like every sibling: a failure is now a
+decline (falling to the next driver) instead of a silently batch-1 layout. `build` also takes the
+derived `CublasArgs` directly instead of the whole `GemmCall` (it only ever used `.args`), which
+is what makes the new test constructible.
+
+The failure itself is not triggerable through any public path — a valid attribute on a valid
+layout fails only on a broken library — so there is no direct regression test for the check.
+What the fix protects is instead pinned: `batch_attributes_read_back` (a hardware-guarded lib
+test, skipped without a device) builds a batch-3 entry and reads `BATCH_COUNT` and
+`STRIDED_BATCH_OFFSET` back out of all four layouts, expecting the `batch_strides` triple by
+cuBLASLt's slots. A refactor that drops or mis-orders the sets (the precondition of the dropped
+status mattering at all) fails there. Probe unchanged after: 499 ok, 0 FAIL, the 28 intentional
+forced-tiled-complex ERRs (`results/probe_after_c7.log`).
 
 ### C5 and C6 fixed (261021/cuda, uncommitted)
 

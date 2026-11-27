@@ -45,6 +45,11 @@ need fixing before merge; details, evidence and fixes are in [REVIEW.md](REVIEW.
    over `i32::MAX` was clamped instead of refused. Both derivations now floor every declared
    `ld` at 1 and refuse strides that do not fit `i32`; probe T4 serves `dot = 0` on every driver
    set (499 `ok`, the two `k = 0` ERRs gone).
+6. **Low, FIXED 2026-11-27 (same changeset):** the two batch attribute sets of the cuBLASLt
+   driver dropped their status (a failure would have left a batch-1 layout — only the first
+   slice written); they now decline like every sibling `SetAttribute`. `build` takes the derived
+   `CublasArgs` directly, and `batch_attributes_read_back` pins the batch attributes of a built
+   entry (the failure itself is not triggerable through a public path).
 
 Test gaps that let the first two through: no cuBLAS test with a broadcast operand; complex
 tests with purely real data; the symmetric form never run on a non-base offset; nothing
@@ -74,6 +79,8 @@ Before (the findings) and after (`results/t3_after_c3c4.txt`):
   intentional forced-tiled-complex ERRs)
 - `results/probe_after_c5c6.log` — after the C5/C6 fixes (499 `ok`, 0 `FAIL`: the two `k = 0`
   ERRs are now `dot = 0` on every driver set)
+- `results/probe_after_c7.log` — after the C7 fix (unchanged: 499 `ok`, 0 `FAIL`, 28
+  intentional forced-tiled-complex ERRs)
 - `results/t3_after_c3c4.txt` — the T3 timing/error lines after the C3 fix
 - `results/cfg_CUDARC_CUDA_VERSION_13000.txt` — before the C4 fix (neither cfg — the bug)
 - `results/cfg_*_after_fix.txt` — after the C4 fix: `13000` → both cfgs, `12060` → neither
