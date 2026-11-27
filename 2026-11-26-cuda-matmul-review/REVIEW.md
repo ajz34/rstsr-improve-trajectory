@@ -23,8 +23,8 @@ drivers, T9/T11 correct on the chain and refused when a cuBLAS driver is forced 
 |---|---|---|---|---|
 | C1 | critical | An operand broadcast along a matmul axis (stride 0, extent > 1) gives silently wrong results on every cuBLAS driver and on the default chain (out-of-bounds reads) | `cublas_args.rs:81-87, 65-69`; `drivers/syrk.rs:44, 47`; promised at `matmul/mod.rs:55` | yes (T9, T11) |
 | C2 | high | In-place matmul across two streams: the host read-back sees the state before the product, systematically (the matmul drivers order the output **before** the launch; the elementwise kernels do it after) | `drivers/cublas.rs:493`, `syrk.rs:106,170`, `tiled.rs:269`, `naive.rs:208` | yes (T5) |
-| C3 | medium | The symmetric form ignores the compute mode: under `EmulatedFixedPoint`, `a @ a.t()` is 3.3x slower than `a @ b`; `Pedantic` is not applied; the documented `fixedpoint_mantissa_bits` error is bypassed | `drivers/syrk.rs:66-80`; `drivers/mod.rs:421-434, 471` | yes (T3) |
-| C4 | medium | `build.rs` never recognises a pinned `CUDARC_CUDA_VERSION` (parses 6 characters; cudarc spells 5), so any pinned build — including the `=13000` recommended for the emulation — has neither cfg | `build.rs:36-45`; docs `mode.rs:52`, `Cargo.toml:39` | yes (`results/cfg_*`) |
+| C3 | medium | **FIXED (261021/cuda, uncommitted)** The symmetric form ignores the compute mode: under `EmulatedFixedPoint`, `a @ a.t()` is 3.3x slower than `a @ b`; `Pedantic` is not applied; the documented `fixedpoint_mantissa_bits` error is bypassed | `drivers/syrk.rs:66-80`; `drivers/mod.rs:421-434, 471` | yes (T3) |
+| C4 | medium | **FIXED (261021/cuda, uncommitted)** `build.rs` never recognises a pinned `CUDARC_CUDA_VERSION` (parses 6 characters; cudarc spells 5), so any pinned build — including the `=13000` recommended for the emulation — has neither cfg | `build.rs:36-45`; docs `mode.rs:52`, `Cargo.toml:39` | yes (`results/cfg_*`) |
 | C5 | low | `[0] @ [0]` fails with `CUBLAS_STATUS_INVALID_VALUE` when only `cublasEx` or classic is enabled (`ld` = 0) | `cublas_args.rs:65-69` | yes (T4) |
 | C6 | low | A leading dimension over `i32::MAX` is clamped instead of refused (silent wrong addressing) | `cublas_args.rs:68`, `syrk.rs:47` | by reading (needs > 8 GiB) |
 | C7 | low | The two batch `cublasLtMatrixLayoutSetAttribute` statuses are dropped | `cublas_lt.rs:281-282` | by reading |
@@ -159,6 +159,50 @@ bindings are there. The CI pin `12060` hides the bug (no cfg is the right answer
 
 Fix: accept cudarc's spelling (`v.len() == 5`, major one digit, minor two), and add a line
 to the CI matrix that pins `13000` and checks the emulation runs.
+
+### C3 fixed (261021/cuda, uncommitted)
+
+Implemented with a measurement first, because the review's two candidate fixes differ in one
+observable: **cuBLAS's `?syrk` entries ignore the math modes that change the arithmetic.** A
+`cublasSsyrk_v2` under `CUBLAS_TF32_TENSOR_OP_MATH` measures `5.7e-7` max rel err — plain `f32`
+arithmetic, identical to `Default` (the same run's classic `gemm` under `FastTF32` measures the
+TF32 scale, so the set/restore mechanism itself works). So "set and restore the mode around the
+syrk" alone cannot honor a down-converting mode; the form must decline it.
+
+- `cublas.rs`: the ask machinery (`Ask`, `ask_32f`, `ask_64f`, `bound`) is now `pub(super)`, and
+  the set/restore dance of `launch` moved into `pub(super) with_math_mode(blas, math, call)` —
+  one place that takes the handle lock, sets the mode, runs the call, restores.
+- `syrk.rs`: `run` computes the same ask as `cublas::run` (mantissa bits included, so the
+  documented error fires identically from the form), then takes the form only for
+  `Ask::Leave` or `Ask::Math(Pedantic)` — the typed `?syrk` is exact arithmetic, so `Pedantic`
+  rides along (measured 3.46 ms vs the pedantic `gemm`'s 6.44 ms; the form is kept). Any other
+  mode declines with "the syrk entries do not apply a math mode that changes the arithmetic",
+  and the chain serves the mode on a `gemm`.
+- Probe T3 after (`results/t3_after_c3c4.txt`): EmulatedFixedPoint `a @ a.t()` now runs the
+  emulated `gemm` at **1.013 ms** (was 3.449 ms — the 3.3x loss is gone); Default/Pedantic keep
+  the form at 3.460 ms; `fixedpoint_mantissa_bits = 30` errors identically on `a @ b` and
+  `a @ a.t()` (was: a silent result). Full probe unchanged otherwise: 497 ok, 0 FAIL, the same
+  28 intentional forced-tiled-complex ERRs (`results/probe_after_c3c4.log`).
+- Regression test `syrk_honors_the_compute_mode` (`tests/test_matmul_modes.rs`): the mantissa
+  error parity, and forced-classic `a @ a.t()` under `FastTF32` measuring `6.5e-5` — TF32
+  accuracy, where the pre-fix form measured `5.7e-7` (`Default` silently).
+
+### C4 fixed (261021/cuda, uncommitted)
+
+`build.rs` now parses cudarc's actual spelling (`format!("{major}0{minor}0")`: two-digit major,
+literal zero, one-digit minor, literal zero — `12060` is 12.6, `13000` is 13.0), mirroring
+cudarc 0.19.10's own whole-string match (`build.rs` of cudarc: `detect_version_from_env`). The
+parse is unit-tested (`cudarc_spelling_parses`, `other_spellings_are_refused`); because `cargo
+test` does not execute `build.rs` as a target, the build script is included into the crate as a
+`#[cfg(test)] #[path = "../build.rs"] mod build_script` of `lib.rs` so the tests actually run
+(111 lib tests).
+
+Verification (`results/cfg_*_after_fix.txt`): `CUDARC_CUDA_VERSION=13000` now yields **both**
+cfgs (was neither); `12060` yields neither (correct for 12.6 — this is what hid the bug);
+unset (nvcc 13.2) yields both. The whole hardware suite passes on the `13000` pin, including
+the classic math-mode arms that the pin used to refuse; `--print cfg` checks run for both pins
+in CI: `tier3-cuda.yml` now has a matrix over `cudarc_cuda_version: [12060, 13000]` with a step
+asserting the cfg set of each pin.
 
 ## C5 to C7 (low)
 

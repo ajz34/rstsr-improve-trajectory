@@ -26,11 +26,19 @@ need fixing before merge; details, evidence and fixes are in [REVIEW.md](REVIEW.
    stale data: every matmul driver called `order_output` before the launch, while the helper
    records its event at call time. All five drivers now order `c` as an input before the
    enqueue and its allocation stream behind the enqueue. Probe T5: 0 of 30 stale (was 30/30).
-3. **Medium:** the symmetric form ignores the compute mode (`a @ a.t()` is 3.3x slower than
-   `a @ b` under `EmulatedFixedPoint`, `Pedantic` is not applied, the documented mantissa
-   error is bypassed), and `build.rs` never recognises a pinned `CUDARC_CUDA_VERSION`
-   (parses six characters, cudarc spells five), so the recommended `=13000` build loses the
-   math modes and the emulation.
+3. **Medium, FIXED 2026-11-27 (uncommitted on `261021/cuda`):** the symmetric form ignores the
+   compute mode. Measured on the way: cuBLAS's `?syrk` entries ignore a math mode that changes
+   the arithmetic (`?syrk` under TF32 is plain `f32`), so the form now declines such modes and
+   the chain serves them on a `gemm`; `Default`/`Pedantic` keep the form with the mode set and
+   restored around the call (`Pedantic` form 3.46 ms vs pedantic `gemm` 6.44 ms). Under
+   `EmulatedFixedPoint`, `a @ a.t()` now runs the emulated `gemm` at 1.01 ms (was 3.45 ms), and
+   `fixedpoint_mantissa_bits = 30` errors identically on both forms (was: a silent result).
+4. **Medium, FIXED 2026-11-27 (same changeset):** `build.rs` never recognised a pinned
+   `CUDARC_CUDA_VERSION` (parses six characters, cudarc spells five), so the recommended
+   `=13000` build lost the math modes and the emulation. It now parses cudarc's
+   `{major}0{minor}0` spelling (unit-tested by including `build.rs` into the lib test build);
+   the `13000` pin yields both cfgs and passes the whole hardware suite; `tier3-cuda.yml` runs
+   `--print cfg` checks for both pins via a CI matrix.
 
 Test gaps that let the first two through: no cuBLAS test with a broadcast operand; complex
 tests with purely real data; the symmetric form never run on a non-base offset; nothing
@@ -40,11 +48,13 @@ observes routing. The two broadcast tests and the cross-stream test now close pa
 
 ## Numbers (probe T3, n = k = 1024, `f64`, mean of 5 launches)
 
-| flags | `a @ b` | `a @ a.t()` |
-|---|---|---|
-| `EmulatedFixedPoint`, syrk `Scientific` (default) | 1.044 ms | 3.449 ms |
-| `EmulatedFixedPoint`, syrk `Disallow` | 1.045 ms | 1.010 ms |
-| `Default` or `Pedantic`, syrk `Scientific` | 6.419 ms | 3.448 ms |
+Before (the findings) and after (`results/t3_after_c3c4.txt`):
+
+| flags | `a @ b` | `a @ a.t()` before | `a @ a.t()` after |
+|---|---|---|---|
+| `EmulatedFixedPoint`, syrk `Scientific` (default) | 1.044 ms | 3.449 ms | **1.013 ms** |
+| `EmulatedFixedPoint`, syrk `Disallow` | 1.045 ms | 1.010 ms | 1.010 ms |
+| `Default` or `Pedantic`, syrk `Scientific` | 6.419 ms | 3.448 ms | 3.460 ms (form kept) |
 
 ## Files
 
@@ -54,6 +64,12 @@ observes routing. The two broadcast tests and the cross-stream test now close pa
   `ref` lines). Path dependencies on the rstsr checkout next to this repository.
 - `results/probe.log` — probe output before the C1/C2 fixes (479 `ok`, 66 `FAIL`)
 - `results/probe_after_fix.log` — after the C1/C2 fixes (497 `ok`, 0 `FAIL`, T5 0 of 30 stale)
+- `results/probe_after_c3c4.log` — after the C3/C4 fixes (497 `ok`, 0 `FAIL`, same 28
+  intentional forced-tiled-complex ERRs)
+- `results/t3_after_c3c4.txt` — the T3 timing/error lines after the C3 fix
+- `results/cfg_CUDARC_CUDA_VERSION_13000.txt` — before the C4 fix (neither cfg — the bug)
+- `results/cfg_*_after_fix.txt` — after the C4 fix: `13000` → both cfgs, `12060` → neither
+  (correct for 12.6), nvcc 13.2 → both
 - `results/rstsr_cuda_full_suite_after_fix.log` — the gate after the fixes (109 lib + hw, green)
 - `results/probe.log` — probe output (479 `ok`, 66 `FAIL` = the two broadcast findings,
   30 `ERR` = 28 expected tiled refusals of complex types + 2 `k = 0` refusals, 8 `ref`).

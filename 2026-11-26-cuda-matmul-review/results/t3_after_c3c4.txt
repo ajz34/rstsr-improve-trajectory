@@ -1,0 +1,6 @@
+T3 EmulatedFixedPoint, syrk Scientific (default): a @ b 1.054 ms, a @ a.t() 1.013 ms
+T3 EmulatedFixedPoint, syrk Disallow: a @ b 1.045 ms, a @ a.t() 1.010 ms
+T3 Default, syrk Scientific (default): a @ b 6.440 ms, a @ a.t() 3.460 ms
+T3 Pedantic, syrk Scientific (default): a @ b 6.440 ms, a @ a.t() 3.460 ms
+T3 mantissa bits = 30: a @ b -> Some("Error { inner: UnImplemented(\"/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs:282: Error::UnImplemented : cuda matmul: fixedpoint_mantissa_bits = 30 cannot be applied: cudarc 0.19 binds no entry for the fixed-point mantissa bit count\"), backtrace: None }")
+T3 mantissa bits = 30: a @ a.t() -> Some("Error { inner: UnImplemented(\"/scratch/rstsr_pack/rstsr/crates-device/rstsr-cuda/src/matmul/drivers/cublas.rs:282: Error::UnImplemented : cuda matmul: fixedpoint_mantissa_bits = 30 cannot be applied: cudarc 0.19 binds no entry for the fixed-point mantissa bit count\"), backtrace: None }")
