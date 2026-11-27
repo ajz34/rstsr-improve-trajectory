@@ -34,3 +34,35 @@ Started 2026-11-27. Target: the `rstsr-cuda` crate of the `rstsr` repo (read at
 - **Execution contract**: plan-based API (descriptor -> operation descriptor -> plan preference -> workspace estimate -> plan -> `cutensorContract` on a stream); "The active CUDA device must match the CUDA device that was active at the time at which the plan was created"; workspace optional, 256-byte aligned, "recommended ... e.g. 128 MB"; `descD` must equal `descC`; D may alias C (beta accumulation); A/B must not overlap D; plan cache is per handle and on by default (`CUTENSOR_DISABLE_PLAN_CACHE`); `CUTENSOR_ALGO_DEFAULT` / `DEFAULT_PATIENT` / GETT / TGETT / TTGT; incremental autotuning optional; handle APIs are "non-blocking, no reentrant, and thread-safe" (the plan cache is shared across threads of one handle).
 - **Local machine**: cuTENSOR is **not** installed system-wide. Available copies: pip `nvidia-cutensor` **2.7.0** (CUDA-13 build, only heavy dep `libcublasLt.so.13`) at `/home/a/miniconda3/envs/torch-gpu4pyscf/lib/python3.11/site-packages/cutensor/{include,lib/libcutensor.so.2}` (active conda env; needs its `lib/` on `LD_LIBRARY_PATH`); conda 2.4.1 in `/scratch/miniconda3-bak/pkgs/cutensor-2.4.1.4-*`; 2.0.1 in an old pyscf env. GPU: RTX 5070 Laptop, sm_120, 8 GB, driver 595.99.02; CUDA 13.2 (`nvcc` 13.2).
 - Empirical probe (strides, broadcast, alignment, rank-0, CONJ variants, scalar types, planning cost, cuTENSOR-vs-cuBLAS timing): running in `probe/`, report lands in `probe/PROBE-REPORT.md`; results are folded into round 2.
+
+### Probe 1 results (done 2026-11-27; `probe/PROBE-REPORT.md`, sources and raw outputs beside it)
+
+Where cuTENSOR 2.7.0 differs from its own documentation (2.4.1 identical unless noted):
+
+- **Stride 0 is accepted** (docs: must be > 0). Inputs broadcast correctly at any size; a stride-0
+  **output** is accepted too and yields garbage (write race). 2.4.1 rejects stride 0. Decision
+  consequence: copy stride-0 inputs (never rely on it), refuse stride-0 outputs (never silent).
+- **A mode listed twice in one tensor is accepted** and addresses the diagonal (offset = sum of the
+  two strides; 2.4.1 same). Undocumented; the explicit diagonal *view* does the same arithmetic.
+- **opC = CONJ is silently accepted and ignored** (D = A*B + beta*C; 2.4.1 same). opA/opB CONJ are
+  correct for c64/c32, strided included; CONJ on a real type is NOT_SUPPORTED.
+- **alignmentRequirement is not checked** (256 declared for 8-byte pointers: correct); only rule
+  alignment >= element size. **Scalar pointer types are never checked** (wrong type -> zeros).
+- **R32 x C32 -> C32** and **R64 x C64 -> R64** pass `cutensorCreateContraction` and fail only in
+  **`cutensorCreatePlan`** (NOT_SUPPORTED): a decline can arrive at any planning stage.
+- Negative stride / extent 0 -> INVALID_VALUE at descriptor creation; every D mode must occur in
+  A or B.
+
+As documented: arbitrary positive strides, permuted modes, C aliasing D, rank-0 operands and
+output, broadcast by omitting extent-1 modes, rank-8/12 operands, f16/bf16 (32F compute, f32
+scalars), mixed R64 x C64 -> C64, TF32 (rel 3.3e-4), 3XTF32 (2.4e-7).
+
+Timing (RTX 5070 Laptop, 36 SM): host planning has a **one-time ~28 ms lazy init** (first problem
+that maps to cuBLAS), then 20-50 us per new plan (0.2 ms non-GEMM), 12-16 us on a repeat; the plan
+cache saves nothing measurable. Device: GEMM-shaped f64/f32 **bit-identical to cuBLAS** (ratio
+1.00); **c64 1024^3 1.25x faster than `cublasZgemm`**; non-GEMM contractions run at the full f64
+GEMM rate (0.31-0.35 TFLOP/s) and need their 32-36 MiB workspace.
+
+Loading fact for the Rust side: cudarc's candidate names (`libcutensor.so`, `libcutensor64*.so`,
+`libcutensor.so.{13,12,11,10,9,1}`) do not include the pip package's `libcutensor.so.2`, so a
+`libcutensor.so` symlink in a directory on `LD_LIBRARY_PATH` is required locally.

@@ -1,0 +1,49 @@
+--- checks 10-12, 14-17 with c64 (alpha/beta = alpha/beta passed as cuDoubleComplex) ---
+[10] ok | maxabs=7.192e-15 maxrel=7.512e-15 maxabs/max|ref|=5.012e-16 | opA=CONJ, opB=ID: D = conj(A) @ B, packed; complex random data
+[11] ok | maxabs=8.449e-15 maxrel=1.484e-14 maxabs/max|ref|=6.263e-16 | opA=ID, opB=CONJ: D = A @ conj(B), packed
+[12] ok | maxabs=1.197e-14 maxrel=2.066e-14 maxabs/max|ref|=5.835e-16 | opA=CONJ, opB=CONJ: D = (1.5-0.5i)*conj(A) @ conj(B) + (0.5+0.25i)*C (complex alpha/beta)
+[12b] ok | maxabs=7.137e-15 maxrel=1.364e-14 maxabs/max|ref|=4.458e-16 | opA=CONJ, opB=CONJ with permuted modes modeA={k,m} modeB={n,k} modeD={n,m}
+--- check 13: opA = CONJ on a real f64 tensor ---
+[13a] ERR (probed) | stage=CreateContraction status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | opA=CONJ on CUDA_R_64F (docs table: CONJ is for complex types); record status
+[13b] ERR (probed) | stage=CreateContraction status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | opB=CONJ on CUDA_R_64F; record status
+[14a] FAIL (opC silently ignored) | maxabs_vs_conjC=1.498e+00 maxabs_vs_plainC=8.890e-15 | accepted but computed D = A*B + 0.75*C (conj NOT applied) | opC=CONJ, beta=0.75: status SUCCESS at op creation; result checked vs conj(C) and vs C
+[14b] ok | maxabs=7.161e-15 maxrel=7.519e-15 maxabs/max|ref|=5.695e-16 | opC=CONJ with beta=0 (C not read): record status; result must equal A@B
+[15a-align8] ERR (probed) | stage=descA status=7 (CUTENSOR_STATUS_INVALID_VALUE) | same strided layout but alignmentRequirement = 8 declared for CUDA_C_64F (16-byte elements)
+[15a] ok | maxabs=8.882e-15 maxrel=1.047e-14 maxabs/max|ref|=6.100e-16 | conj(A_strided) @ B_strided; A (109,2) B (1,58) D (82,1); beta=0
+[15b] ok | maxabs=8.926e-15 maxrel=1.114e-14 maxabs/max|ref|=6.978e-16 | A_strided @ conj(B_strided); beta=0
+[15c] ok | maxabs=7.119e-15 maxrel=1.535e-14 maxabs/max|ref|=5.434e-16 | conj(A_strided) @ conj(B_strided) + 0.5*C_strided (C separate, same layout as D)
+[15d] ok | maxabs=7.161e-15 maxrel=3.228e-15 maxabs/max|ref|=4.961e-16 | conj(A{k,m}) @ conj(B{n,k}) -> D{n,m}, all modes non-contiguous (2x interleaved); beta=0.5
+--- check 16: scalar pointer type for c64 (COMPUTE_DESC_64F) ---
+[16a] ok | maxabs=8.462e-15 maxrel=1.928e-14 maxabs/max|ref|=6.682e-16 | alpha/beta = cuDoubleComplex{1,0}/{0,0} (documented type) -- reference
+[16b] ok | maxabs=7.324e-15 maxrel=1.567e-14 maxabs/max|ref|=4.963e-16 | alpha/beta passed as double[2]{1,0}/{0,0} (same bytes as cuDoubleComplex): no error possible
+[16c] ok | maxabs=1.123e-14 maxrel=1.290e-14 maxabs/max|ref|=7.126e-16 | alpha passed as double[2]{1,0.25}: reference assumes it is read as (1+0.25i); 'ok' = silently interpreted as complex
+[16d] FAIL | maxabs=1.362e+01 maxrel=1.000e+00 maxabs/max|ref|=1.000e+00 | alpha passed as float[4]{1,0,0,0} (WRONG type; 16 bytes read as two doubles): reference assumes alpha=1
+   16e: SCALAR_TYPE default = 5 (CUDA_C_64F) [Get status 0], Set to CUDA_R_64F -> status 7 (CUTENSOR_STATUS_INVALID_VALUE)
+[16e] ERR (probed) | stage=SetAttribute(SCALAR_TYPE) status=7 (CUTENSOR_STATUS_INVALID_VALUE) | after SetAttribute(SCALAR_TYPE=CUDA_R_64F), alpha/beta passed as plain double (reference alpha=1 real)
+--- check 17: mixed real/complex (c64) ---
+   17a: SCALAR_TYPE attribute of the mixed problem = 5 (CUDA_C_64F)
+[17a] ok | maxabs=4.463e-15 maxrel=7.079e-15 maxabs/max|ref|=4.762e-16 | A real, B complex -> C/D complex; beta=0.5 (complex beta) with C complex
+[17b] ok | maxabs=4.529e-15 maxrel=1.856e-14 maxabs/max|ref|=4.655e-16 | A complex, B real -> C/D complex; beta=0.5
+[17c] ok | maxabs=7.119e-15 maxrel=8.871e-15 maxabs/max|ref|=6.934e-16 | A real, opB=CONJ on complex B -> D = A @ conj(B) + 0.5*C
+[17d] ok | maxabs=4.021e-15 maxrel=8.365e-15 maxabs/max|ref|=3.480e-16 | A real strided (109,2), B complex strided (1,58), D complex strided (82,1); beta=0.5
+[17e] ERR (probed) | stage=CreatePlan status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | A real, B complex -> C/D REAL (not in docs table); reference = complex result with imaginary part dropped
+--- checks 10-12, 14-17 with c32 (alpha/beta = alpha/beta passed as cuFloatComplex) ---
+[10 (c32)] ok | maxabs=4.074e-06 maxrel=4.829e-06 maxabs/max|ref|=2.756e-07 | opA=CONJ, opB=ID: D = conj(A) @ B, packed; complex random data
+[11 (c32)] ok | maxabs=3.844e-06 maxrel=8.712e-06 maxabs/max|ref|=3.082e-07 | opA=ID, opB=CONJ: D = A @ conj(B), packed
+[12 (c32)] ok | maxabs=7.644e-06 maxrel=3.210e-06 maxabs/max|ref|=3.020e-07 | opA=CONJ, opB=CONJ: D = (1.5-0.5i)*conj(A) @ conj(B) + (0.5+0.25i)*C (complex alpha/beta)
+[12b (c32)] ok | maxabs=3.372e-06 maxrel=1.643e-05 maxabs/max|ref|=2.747e-07 | opA=CONJ, opB=CONJ with permuted modes modeA={k,m} modeB={n,k} modeD={n,m}
+[14a (c32)] FAIL (opC silently ignored) | maxabs_vs_conjC=1.496e+00 maxabs_vs_plainC=3.905e-06 | accepted but computed D = A*B + 0.75*C (conj NOT applied) | opC=CONJ, beta=0.75: status SUCCESS at op creation; result checked vs conj(C) and vs C
+[14b (c32)] ok | maxabs=3.351e-06 maxrel=3.904e-06 maxabs/max|ref|=2.250e-07 | opC=CONJ with beta=0 (C not read): record status; result must equal A@B
+[15a (c32)] ok | maxabs=4.863e-06 maxrel=3.811e-06 maxabs/max|ref|=3.844e-07 | conj(A_strided) @ B_strided; A (109,2) B (1,58) D (82,1); beta=0
+[15b (c32)] ok | maxabs=3.997e-06 maxrel=7.177e-06 maxabs/max|ref|=2.437e-07 | A_strided @ conj(B_strided); beta=0
+[15c (c32)] ok | maxabs=4.768e-06 maxrel=7.418e-06 maxabs/max|ref|=3.077e-07 | conj(A_strided) @ conj(B_strided) + 0.5*C_strided (C separate, same layout as D)
+[15d (c32)] ok | maxabs=3.822e-06 maxrel=7.219e-06 maxabs/max|ref|=2.534e-07 | conj(A{k,m}) @ conj(B{n,k}) -> D{n,m}, all modes non-contiguous (2x interleaved); beta=0.5
+--- check 17: mixed real/complex (c32) ---
+   17a (c32): SCALAR_TYPE attribute of the mixed problem = 4 (CUDA_C_32F)
+[17a (c32)] ERR (probed) | stage=CreatePlan status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | A real, B complex -> C/D complex; beta=0.5 (complex beta) with C complex
+[17b (c32)] ERR (probed) | stage=CreatePlan status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | A complex, B real -> C/D complex; beta=0.5
+[17c (c32)] ERR (probed) | stage=CreatePlan status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | A real, opB=CONJ on complex B -> D = A @ conj(B) + 0.5*C
+[17d (c32)] ERR (probed) | stage=CreatePlan status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | A real strided (109,2), B complex strided (1,58), D complex strided (82,1); beta=0.5
+[17e (c32)] ERR (probed) | stage=CreatePlan status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | A real, B complex -> C/D REAL (not in docs table); reference = complex result with imaginary part dropped
+[17f (c32)] ERR (probed) | stage=CreatePlan status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | R32 x C32 -> C32 with alpha/beta passed as float[2]{1,0.5}/{0.5,0} (wrong type: read as alpha=1+0.5i, beta=0.5); reference alpha=1
+--- done (conj); last CUDA error: no error ---

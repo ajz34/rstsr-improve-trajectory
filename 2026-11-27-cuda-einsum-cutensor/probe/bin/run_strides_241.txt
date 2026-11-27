@@ -1,0 +1,57 @@
+--- check 1: arbitrary positive strides (f64, C[m,n]=sum_k A[m,k]B[k,n], m=37 k=53 n=41) ---
+[1.0] ok | maxabs=3.109e-15 maxrel=4.985e-12 maxabs/max|ref|=3.952e-16 | untouched-elems-preserved (none) | baseline: packed col-major A,B,D; beta=0; align=256
+[1.1] ok | maxabs=3.553e-15 maxrel=4.846e-13 maxabs/max|ref|=3.980e-16 | untouched-elems-preserved | A strides(109,2) align8; B strides(1,58) align16; D strides(82,1) align16; beta=0.5, C separate
+[1.2] ok | maxabs=3.553e-15 maxrel=3.817e-13 maxabs/max|ref|=4.696e-16 | untouched-elems-preserved | A strides(109,3) B strides(1,57) D strides(83,2); none a 16B multiple; align=8; beta=0
+[1.3] ok | maxabs=3.553e-15 maxrel=6.479e-13 maxabs/max|ref|=4.318e-16 | untouched-elems-preserved | same layout as 1.1 but C aliases D (in-place D = A*B + 0.5*D)
+[1.4] ok | maxabs=2.220e-15 maxrel=5.148e-13 maxabs/max|ref|=2.442e-16 | untouched-elems-preserved (none) | modeA={k,m} modeB={n,k} modeD={n,m}, all packed col-major (D^T = B^T A^T)
+[1.5] ok | maxabs=3.553e-15 maxrel=6.504e-14 maxabs/max|ref|=4.185e-16 | untouched-elems-preserved | A strides(2,74) B strides(2,212) D strides(2,148): no mode contiguous; beta=0.5
+--- check 2: stride zero (extent > 1) ---
+[2a] ERR (probed) | stage=descA status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | A[m,k] with stride_k = 0 (A[m,k]=a[m]); expect INVALID_VALUE at descA
+[2b] ERR (probed) | stage=descB status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | B[k,n] with stride_n = 0 (B[k,n]=b[k]); expect INVALID_VALUE at descB
+[2c] ERR (probed) | stage=descC status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | D[m,n] with stride_n = 0 (output broadcast); expect INVALID_VALUE at descD
+[2d] ERR (probed) | stage=descA status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | A[m,k] with stride_m = 0 on the non-contracted (batch) mode; expect INVALID_VALUE at descA
+[2e] ERR (probed) | stage=descA status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | 256^3 f64: A[m,k] with stride_k = 0 (A[m,k] = a[m]); status + correctness vs broadcast reference
+[2f] ERR (probed) | stage=descA status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | 256^3 f64: A[m,k] with stride_m = 0 on the batch mode (all rows equal); status + correctness
+[2g] ERR (probed) | stage=descA status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | batched 3x256^3 f64: A[b,m,k] with stride_b = 0 (A broadcast over the batch); status + correctness
+--- check 3: broadcast by omitting a mode ---
+[3a] ok | maxabs=0.000e+00 maxrel=0.000e+00 maxabs/max|ref|=0.000e+00 | untouched-elems-preserved (none) | outer product C[a,b] = A[a]*B[b] (A rank-1, B rank-1, no contracted mode)
+[3b] ok | maxabs=0.000e+00 maxrel=0.000e+00 maxabs/max|ref|=0.000e+00 | untouched-elems-preserved (none) | C[a,b] = A[a]*B[a,b] (A rank-1 shares batch mode a); beta=0.5
+[3c] ok | maxabs=2.665e-15 maxrel=2.853e-15 maxabs/max|ref|=3.447e-16 | untouched-elems-preserved (none) | matvec D[a] = sum_k A[a,k]*B[k] (B has only a contracted mode); beta=0.5
+[3d] ok | maxabs=1.776e-15 maxrel=1.973e-15 maxabs/max|ref|=3.697e-16 | untouched-elems-preserved (none) | D[a] = sum_b A[a,b]*B[b] (A batch over a, B rank-1 contracted); beta=0.5
+[3e] ok | maxabs=0.000e+00 maxrel=0.000e+00 maxabs/max|ref|=0.000e+00 | untouched-elems-preserved | C[a,b] = A[a](stride 2) * B[a,b] into strided D (82,1); beta=0.5
+--- check 4: extent-1 mode ---
+[4a] ok | maxabs=2.665e-15 maxrel=1.197e-14 maxabs/max|ref|=4.831e-16 | untouched-elems-preserved (none) | A ext (1,53) strides (3,1) [non-zero stride on extent-1 mode]; D ext (1,41) strides (1,1)
+[4b] ERR (probed) | stage=descA status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | same with stride 0 on the extent-1 mode; docs say every stride must be > 0
+[4c] ok | maxabs=1.776e-15 maxrel=1.225e-13 maxabs/max|ref|=2.649e-16 | untouched-elems-preserved (none) | batch-of-1 mode b in A, B and D (A (3,1), B (7,1,53), D (1,1))
+[4d] ok | maxabs=3.997e-15 maxrel=1.763e-14 maxabs/max|ref|=8.434e-16 | untouched-elems-preserved (none) | A ext (1,53) strides (3,1), mode b absent from B and D: D[n] = sum_{b,k} A[b,k]*B[k,n]
+--- check 5: negative stride (reversed view) ---
+[5a] ERR (probed) | stage=descA status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | A strides (1,-37) with base offset 1924 (A[:, ::-1]); record status
+[5b] ERR (probed) | stage=descC status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | D strides (-1,37) with base offset 36 (D[::-1, :] output view); record status
+[5c] ERR (probed) | stage=descA status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | A strides (-1,-37) (both modes reversed); record status
+--- check 6: extent 0 ---
+[6a] ERR (probed) | stage=descA status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | A extent (37,0) [contracted mode 0 in A, 53 in B]; expect INVALID_VALUE
+[6b] ERR (probed) | stage=descA status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | A extent (0,53), D extent (0,41) [batch mode 0]; expect INVALID_VALUE
+[6c] ERR (probed) | stage=descC status=15 (CUTENSOR_STATUS_NOT_SUPPORTED) | D extent (37,0) [output mode 0, not contracted]; expect INVALID_VALUE
+--- check 7: alignment declaration (f64, 8 bytes/element) ---
+[7a] ok | maxabs=2.220e-15 maxrel=3.834e-12 maxabs/max|ref|=2.388e-16 | untouched-elems-preserved | A and D base = cudaMalloc base + 8 bytes; alignmentRequirement = 8
+[7b] ok | maxabs=2.220e-15 maxrel=6.609e-12 maxabs/max|ref|=2.389e-16 | untouched-elems-preserved | same 8-byte-aligned pointers, alignmentRequirement declared 256 (over-declared)
+[7c] ok | maxabs=3.553e-15 maxrel=7.690e-14 maxabs/max|ref|=4.093e-16 | untouched-elems-preserved | strides with a 3-element (24 B) factor: A (3,111) B (3,159) D (123,3); alignmentRequirement = 8; beta=0.5
+[7d] ok | maxabs=3.553e-15 maxrel=3.693e-13 maxabs/max|ref|=4.441e-16 | untouched-elems-preserved | same strides as 7c (24 B multiples, not 256 B) but alignmentRequirement declared 256; beta=0.5
+--- check 7e: alignmentRequirement below the element size ---
+[7e f64 align 4] ERR (probed) | stage=descA status=7 (CUTENSOR_STATUS_INVALID_VALUE) | packed col-major, all four descriptors with this alignmentRequirement
+[7e f64 align 8] ok | maxabs=2.220e-15 maxrel=5.408e-14 maxabs/max|ref|=2.644e-16 | packed col-major, all four descriptors with this alignmentRequirement
+[7e c64 align 8] ERR (probed) | stage=descA status=7 (CUTENSOR_STATUS_INVALID_VALUE) | packed col-major, all four descriptors with this alignmentRequirement
+[7e c64 align 16] ok | maxabs=9.780e-15 maxrel=8.535e-15 maxabs/max|ref|=7.364e-16 | packed col-major, all four descriptors with this alignmentRequirement
+[7e f32 align 2] ERR (probed) | stage=descA status=7 (CUTENSOR_STATUS_INVALID_VALUE) | packed col-major, all four descriptors with this alignmentRequirement
+[7e f32 align 4] ok | maxabs=1.907e-06 maxrel=1.881e-02 maxabs/max|ref|=1.893e-07 | packed col-major, all four descriptors with this alignmentRequirement
+--- check 8: rank-0 operand (numModes = 0) ---
+[8a] ok | maxabs=0.000e+00 maxrel=0.000e+00 maxabs/max|ref|=0.000e+00 | untouched-elems-preserved (none) | D = s*B + 0.5*C with s = operand A of numModes=0 (scalar), B rank-2 (37,53) packed
+[8b] ok | maxabs=1.599e-14 maxrel=5.989e-15 maxabs/max|ref|=5.989e-15 | untouched-elems-preserved (none) | rank-0 output: D = sum_{m,k} A[m,k]*B[k,m] (full reduction to a scalar)
+[8c] ok | maxabs=0.000e+00 maxrel=0.000e+00 maxabs/max|ref|=0.000e+00 | untouched-elems-preserved (none) | all four rank-0: D = a*b + 0.5*c
+[8d] ok | maxabs=0.000e+00 maxrel=0.000e+00 maxabs/max|ref|=0.000e+00 | untouched-elems-preserved | rank-0 scalar x strided B (109,2) into strided D (107,2); beta=0.5
+--- check 9: same mode twice in one tensor (A[i,i]) ---
+[9a] ok | maxabs=1.776e-15 maxrel=1.446e-14 maxabs/max|ref|=3.305e-16 | untouched-elems-preserved (none) | modeA = {i,i}, A ext (53,53) strides (1,54); D[n] = sum_i A[i,i]*B[i,n]; docs: mode at most once
+[9b] ok | maxabs=2.665e-15 maxrel=1.189e-14 maxabs/max|ref|=3.579e-16 | untouched-elems-preserved (none) | modeA = {i,i,n} (rank-3 A with duplicated contracted mode)
+[9c] ok | maxabs=1.776e-15 maxrel=6.268e-15 maxabs/max|ref|=3.410e-16 | untouched-elems-preserved (none) | modeA = {i,i}, A strides (2,54): reference assumes offset = (2+54)*i (sum of the duplicated strides)
+[9d] ok | maxabs=3.553e-15 maxrel=4.168e-15 maxabs/max|ref|=4.020e-16 | untouched-elems-preserved (none) | modeA = {i,i}, A strides (3,5): reference assumes offset = 8*i
+--- done (strides); last CUDA error: no error ---

@@ -1,0 +1,42 @@
+--- check 20: host-side planning cost (f64 GEMM-shaped, CUTENSOR_ALGO_DEFAULT, JIT none, fresh process) ---
+[20] first-ever plan in process, 8^3 (includes library init) | ok | total=0.157 ms (CreateTensorDescriptor x3 0.005, CreateContraction 0.010, CreatePlanPreference 0.001, EstimateWorkspaceSize 0.059, CreatePlan 0.081) | wsEstimate=0 B wsRequired=0 B
+[20] 2048^3 FIRST (library initialised, problem new) | ok | total=28.425 ms (CreateTensorDescriptor x3 0.000, CreateContraction 0.003, CreatePlanPreference 0.000, EstimateWorkspaceSize 28.337, CreatePlan 0.084) | wsEstimate=33554432 B wsRequired=0 B
+[20] 2048^3 REPEATED x20 (identical problem; default plan cache) | ok | total median=0.013 ms mean=0.016 ms min=0.012 max=0.048 | CreatePlan median=0.005 ms | CreateContraction median=0.003 ms | EstimateWorkspaceSize median=0.006 ms
+[20] 64^3 FIRST (library initialised, problem new) | ok | total=0.036 ms (CreateTensorDescriptor x3 0.000, CreateContraction 0.002, CreatePlanPreference 0.000, EstimateWorkspaceSize 0.015, CreatePlan 0.019) | wsEstimate=33554432 B wsRequired=0 B
+[20] 64^3 REPEATED x20 (identical problem; default plan cache) | ok | total median=0.012 ms mean=0.012 ms min=0.012 max=0.014 | CreatePlan median=0.005 ms | CreateContraction median=0.002 ms | EstimateWorkspaceSize median=0.006 ms
+[20] 2050^3 FIRST (library warm; distinct problem, no cache hit) | ok | total=0.025 ms (CreateTensorDescriptor x3 0.000, CreateContraction 0.002, CreatePlanPreference 0.000, EstimateWorkspaceSize 0.008, CreatePlan 0.014) | wsEstimate=33554432 B wsRequired=0 B
+[20] 2048^3 REPEATED x5 with CUTENSOR_PLAN_PREFERENCE_CACHE_MODE=CUTENSOR_CACHE_MODE_NONE | ok | total median=0.012 ms min=0.011 max=0.016
+--- check 21: device time (cudaEvent), steady state after warm-up, cuTENSOR vs cuBLAS, same stream ---
+[21] cuBLAS version 130400, math mode CUBLAS_DEFAULT_MATH (no TF32), default cuBLAS workspace
+[21] f64 2048^3 (COMPUTE_DESC_64F) | wsEstimate(DEFAULT)=33554432 B wsRequired=0 B | flops=17.180 G
+[21] f64 2048^3 (COMPUTE_DESC_64F) round 1 | cuTENSOR median 52.235 ms (0.329 TFLOP/s; min 52.037 max 52.375) | cuBLAS f64 median 52.179 ms (0.329 TFLOP/s; min 52.016 max 52.369) | ratio cuBLAS-time/cuTENSOR-time = 0.999
+[21] f64 2048^3 (COMPUTE_DESC_64F) round 2 | cuTENSOR median 52.050 ms (0.330 TFLOP/s; min 52.021 max 52.418) | cuBLAS f64 median 52.205 ms (0.329 TFLOP/s; min 52.040 max 52.580) | ratio cuBLAS-time/cuTENSOR-time = 1.003
+[21] f64 2048^3 (COMPUTE_DESC_64F) cross-check | max|cuTENSOR - cuBLAS| = 0.000e+00, max|cuBLAS| = 7.834e+01, rel = 0.000e+00
+[21] f32 2048^3 (COMPUTE_DESC_32F) | wsEstimate(DEFAULT)=33554432 B wsRequired=1024 B | flops=17.180 G
+[21] f32 2048^3 (COMPUTE_DESC_32F) round 1 | cuTENSOR median 1.184 ms (14.513 TFLOP/s; min 1.179 max 1.190) | cuBLAS f32 median 1.200 ms (14.314 TFLOP/s; min 1.195 max 1.205) | ratio cuBLAS-time/cuTENSOR-time = 1.014
+[21] f32 2048^3 (COMPUTE_DESC_32F) round 2 | cuTENSOR median 1.235 ms (13.911 TFLOP/s; min 1.226 max 1.238) | cuBLAS f32 median 1.227 ms (14.004 TFLOP/s; min 1.223 max 1.237) | ratio cuBLAS-time/cuTENSOR-time = 0.993
+[21] f32 2048^3 (COMPUTE_DESC_32F) cross-check | max|cuTENSOR - cuBLAS| = 0.000e+00, max|cuBLAS| = 7.609e+01, rel = 0.000e+00
+[21] c64 1024^3 (COMPUTE_DESC_64F) | wsEstimate(DEFAULT)=33554432 B wsRequired=0 B | flops=8.590 G
+[21] c64 1024^3 (COMPUTE_DESC_64F) round 1 | cuTENSOR median 20.280 ms (0.424 TFLOP/s; min 20.258 max 20.724) | cuBLAS c64 median 25.274 ms (0.340 TFLOP/s; min 25.080 max 25.432) | ratio cuBLAS-time/cuTENSOR-time = 1.246
+[21] c64 1024^3 (COMPUTE_DESC_64F) round 2 | cuTENSOR median 20.267 ms (0.424 TFLOP/s; min 20.251 max 20.529) | cuBLAS c64 median 25.251 ms (0.340 TFLOP/s; min 25.080 max 25.412) | ratio cuBLAS-time/cuTENSOR-time = 1.246
+[21] c64 1024^3 (COMPUTE_DESC_64F) cross-check | max|cuTENSOR - cuBLAS| = 3.266e-13, max|cuBLAS| = 8.665e+01, rel = 3.770e-15
+[21] cuBLAS with explicit 128 MiB workspace (cublasSetWorkspace status 0) ---
+[21] f64 2048^3 | cuBLAS 128MiB-ws median 52.208 ms (0.329 TFLOP/s) | cuBLAS default-ws median 52.186 ms (0.329 TFLOP/s)
+[21] f32 2048^3 | cuBLAS 128MiB-ws median 1.192 ms (14.413 TFLOP/s) | cuBLAS default-ws median 1.208 ms (14.218 TFLOP/s)
+[21] c64 1024^3 | cuBLAS 128MiB-ws median 25.283 ms (0.340 TFLOP/s) | cuBLAS default-ws median 25.277 ms (0.340 TFLOP/s)
+--- check 22: non-GEMM contraction D[m,n,p] = sum_{k1,k2} A[m,k1,k2] * B[k2,n,k1(,p)] (f64) ---
+[22.0] ERR | stage=CreateContraction status=7 (CUTENSOR_STATUS_INVALID_VALUE) | packed p only in D (invalid), m=64 k1=32 k2=64 n=64 p=64
+[22a] ok | maxabs=2.913e-13 maxabs/max|ref|=3.897e-15 | strided, B[k2,n,k1,p], m=64 k1=32 k2=64 n=64 p=64 | 1.074 GFLOP | wsEstimate=33554432 B wsRequired=33554432 B | host plan: first 0.212 ms, repeated median 0.016 ms | device median 3.0751 ms (min 3.0720 max 3.4272) = 0.349 TFLOP/s
+[22b] ok | maxabs=2.913e-13 maxabs/max|ref|=4.260e-15 | packed col-major, B[k2,n,k1,p], m=64 k1=32 k2=64 n=64 p=64 | 1.074 GFLOP | wsEstimate=33554432 B wsRequired=33554432 B | host plan: first 0.208 ms, repeated median 0.016 ms | device median 3.4447 ms (min 3.4413 max 3.7450) = 0.312 TFLOP/s
+[22c] ok | maxabs=2.700e-13 maxabs/max|ref|=3.792e-15 | strided, A[m,k1,k2,p], m=64 k1=32 k2=64 n=64 p=64 | 1.074 GFLOP | wsEstimate=33554432 B wsRequired=33554432 B | host plan: first 0.193 ms, repeated median 0.017 ms | device median 3.4433 ms (min 3.4403 max 3.9230) = 0.312 TFLOP/s
+[22d] not verified | strided, B[k2,n,k1,p], m=128 k1=32 k2=64 n=128 p=128 | 8.590 GFLOP | wsEstimate=69206528 B wsRequired=35651584 B | host plan: first 0.236 ms, repeated median 0.017 ms | device median 27.9272 ms (min 27.7053 max 28.2182) = 0.308 TFLOP/s
+[22e] not verified | packed col-major, B[k2,n,k1,p], m=128 k1=32 k2=64 n=128 p=128 | 8.590 GFLOP | wsEstimate=69206528 B wsRequired=35651584 B | host plan: first 0.215 ms, repeated median 0.017 ms | device median 28.0602 ms (min 27.7859 max 28.3017) = 0.306 TFLOP/s
+[22f] not verified | strided, B[k2,n,k1,p], m=256 k1=32 k2=64 n=256 p=256 | 68.719 GFLOP | wsEstimate=71303680 B wsRequired=37748736 B | host plan: first 0.196 ms, repeated median 0.017 ms | device median 198.9581 ms (min 198.5511 max 199.0743) = 0.345 TFLOP/s
+[22g] not verified | packed col-major, B[k2,n,k1,p], m=256 k1=32 k2=64 n=256 p=256 | 68.719 GFLOP | wsEstimate=71303680 B wsRequired=37748736 B | host plan: first 0.201 ms, repeated median 0.016 ms | device median 198.8506 ms (min 198.5743 max 199.2885) = 0.346 TFLOP/s
+--- check 23: many-mode contractions (f64; extents 2..5) ---
+[23a] ok | maxabs=5.329e-15 maxrel=2.224e-12 maxabs/max|ref|=3.383e-16 | untouched-elems-preserved (none) | rank-8 A,B,D: 4 contracted + 4 batch modes each side, packed; D = A*B + 0.5*C
+[23b] ok | maxabs=1.066e-14 maxrel=1.517e-12 maxabs/max|ref|=7.469e-16 | untouched-elems-preserved | rank-8, every tensor a padded slice (strides from extents+pad, e.g. 3,4,8,12,...), align 8
+[23c] ok | maxabs=3.553e-15 maxrel=1.776e-12 maxabs/max|ref|=3.104e-16 | untouched-elems-preserved (none) | rank-8 operands with shared batch modes c,d; 4 contracted; rank-6 output
+[23d] ok | maxabs=1.421e-14 maxrel=5.918e-11 maxabs/max|ref|=6.109e-16 | untouched-elems-preserved | rank-12 operands (6 contracted modes), rank-12 output, extents 2/3, padded-slice strides
+[23e] ok | maxabs=7.105e-15 maxrel=1.123e-12 maxabs/max|ref|=5.804e-16 | untouched-elems-preserved | rank-8, modes permuted differently in A, B and D; extents 2..5; padded-slice strides
+--- done (perf); last CUDA error: no error ---

@@ -1,0 +1,6 @@
+[19] cutensorGetVersion() = 20700 (major.minor.patch = 2.7.0)
+[19] cutensorGetCudartVersion() = 13010 (13.1)
+[19] cudaRuntimeGetVersion() = 13020, cudaDriverGetVersion() = 13020
+[19] GPU = "NVIDIA GeForce RTX 5070 Laptop GPU", compute capability 12.0, 36 SMs, 7.50 GiB, nominal SM clock 1425 MHz
+[19] cuBLAS version = 130400
+--- done (version); last CUDA error: no error ---

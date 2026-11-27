@@ -1,0 +1,13 @@
+--- check 18: f16 with CUTENSOR_COMPUTE_DESC_32F, float scalars ---
+[18-f16-packed] ok | maxabs=3.906e-03 maxrel=7.422e-01 maxabs/max|ref|=4.965e-04 | packed col-major; beta=0; alpha/beta passed as float
+[18-f16-strided] ok | maxabs=0.000e+00 maxrel=0.000e+00 maxabs/max|ref|=0.000e+00 | strided: A (109,2) B (1,58) D (82,1), alignmentRequirement=2; beta=0.5
+--- check 18: bf16 with CUTENSOR_COMPUTE_DESC_32F, float scalars ---
+[18-bf16-packed] ok | maxabs=6.250e-02 maxrel=3.937e+00 maxabs/max|ref|=5.682e-03 | packed col-major; beta=0; alpha/beta passed as float
+[18-bf16-strided] ok | maxabs=3.125e-02 maxrel=4.153e+00 maxabs/max|ref|=4.132e-03 | strided: A (109,2) B (1,58) D (82,1), alignmentRequirement=2; beta=0.5
+--- check 18: f32 with CUTENSOR_COMPUTE_DESC_32F, float scalars ---
+[18-f32-packed] ok | maxabs=1.669e-06 maxrel=8.929e-05 maxabs/max|ref|=1.879e-07 | packed col-major; beta=0; alpha/beta passed as float
+[18-f32-strided] ok | maxabs=1.907e-06 maxrel=4.994e-04 maxabs/max|ref|=2.189e-07 | strided: A (109,2) B (1,58) D (82,1), alignmentRequirement=8; beta=0.5
+[18-f32-TF32] ok | maxabs=2.447e-03 maxrel=2.922e-01 maxabs/max|ref|=3.275e-04 (tolerance 1e-02) | f32 data with COMPUTE_DESC_TF32 (10-bit mantissa products; float CPU reference; tolerance 1e-2 relative)
+[18-f32-3xTF32] ok | maxabs=2.146e-06 maxrel=6.866e-05 maxabs/max|ref|=2.443e-07 (tolerance 1e-05) | f32 data with COMPUTE_DESC_3XTF32 (float CPU reference; tolerance 1e-5 relative)
+[18-f64-32F] ok (f32 tol) | maxabs=3.553e-15 maxrel=1.347e-13 maxabs/max|ref|=4.511e-16 | f64 data with COMPUTE_DESC_32F (docs list it; scalars stay double): result is f64-accurate
+--- done (dtype); last CUDA error: no error ---

@@ -1,0 +1,6 @@
+[7f align 8] ok | maxabs=1.243e-14 maxrel=8.522e-11 maxabs/max|ref|=7.409e-16 | untouched-elems-preserved | non-GEMM rank-3/rank-4 contraction; A, B, C, D base pointers at +8 bytes; alignmentRequirement=8 declared
+[7f align 16] ok | maxabs=1.776e-14 maxrel=9.859e-13 maxabs/max|ref|=1.116e-15 | untouched-elems-preserved | non-GEMM rank-3/rank-4 contraction; A, B, C, D base pointers at +8 bytes; alignmentRequirement=16 declared
+[7f align 256] ok | maxabs=1.243e-14 maxrel=3.406e-12 maxabs/max|ref|=7.884e-16 | untouched-elems-preserved | non-GEMM rank-3/rank-4 contraction; A, B, C, D base pointers at +8 bytes; alignmentRequirement=256 declared
+[7g align 8] ok | maxabs=1.066e-14 maxrel=2.532e-12 maxabs/max|ref|=6.102e-16 | untouched-elems-preserved | non-GEMM; all strides multiples of 3 elements (24 B); alignmentRequirement=8 declared
+[7g align 256] ok | maxabs=1.599e-14 maxrel=1.397e-12 maxabs/max|ref|=1.030e-15 | untouched-elems-preserved | non-GEMM; all strides multiples of 3 elements (24 B); alignmentRequirement=256 declared
+--- done (align-extra); last CUDA error: no error ---

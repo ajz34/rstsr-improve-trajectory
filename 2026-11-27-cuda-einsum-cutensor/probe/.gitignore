@@ -1,0 +1,6 @@
+# binaries and the symlink farms pointing at absolute paths (recreate with the recipe in PROBE-REPORT.md)
+bin/probe
+bin/probe241
+bin/debug_beta
+lib/
+lib241/
