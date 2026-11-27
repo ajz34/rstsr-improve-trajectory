@@ -57,6 +57,12 @@ need fixing before merge; details, evidence and fixes are in [REVIEW.md](REVIEW.
    runs on real strided views in both orientations plus the degenerate shapes (`k = 0`, `n = 1`,
    `k = 1`, `alpha = 0`, strided and transposed output blocks). T3 (routing observation) stays
    open by decision.
+8. **API soundness, FIXED 2026-11-27 (source change):** the per-call-mode entries had no
+   escape from their panic path (A1): `matmul_with_output_mode_f` and `matmul_from_mode_f` are
+   the `Result` twins the core models already have, and the pending product's method now takes
+   any tensor argument (`impl TensorViewAPI`, like its siblings) instead of `&TensorAny` only.
+   Hardware-tested: twins agree with the infallible forms, a shape mismatch is an `Err`, and a
+   mutable-handle operand is accepted. A2 (seven stale docstrings) stays open.
 
 Test gaps that let the first two through: no cuBLAS test with a broadcast operand; complex
 tests with purely real data; the symmetric form never run on a non-base offset; nothing

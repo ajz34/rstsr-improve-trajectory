@@ -31,7 +31,7 @@ drivers, T9/T11 correct on the chain and refused when a cuBLAS driver is forced 
 | T1 | medium | The suite's complex matmul data is purely real (`Complex::new(x, 0.0)`, `.re` compared): `cublasEx` and classic never run with imaginary parts | `tests/test_matmul_modes.rs` | yes (probe T1: 319 cells correct) |
 | T2 | medium | The suite never runs the symmetric form on a non-base offset or `lda != k`: `syrk_views` copies to contiguous (its comment says otherwise); the layout-matrix "syrk" row is a copied transpose, i.e. a fall-through case | `tests/test_matmul_forms.rs:75-76`, `test_matmul_modes.rs:637` | yes (probe T2: 108 cells correct) |
 | T3 | low | No test observes routing (`trace_matmul`); `syrk_applies` has no host test | `tests/` | — |
-| A1 | medium | `matmul_with_output_mode` and `matmul_from_mode` have no `_f` twin; `matmul_with_mode` (method) takes `&TensorAny` while its two siblings take `impl TensorViewAPI` | `matmul/tensor.rs:30-66` | — |
+| A1 | medium | **FIXED (261021/cuda, uncommitted)** `matmul_with_output_mode` and `matmul_from_mode` have no `_f` twin; `matmul_with_mode` (method) takes `&TensorAny` while its two siblings take `impl TensorViewAPI` | `matmul/tensor.rs:30-66` | yes (hw test) |
 | A2 | low | Seven docstrings state things the code does not do (list in the section) | several | checked in the sources |
 
 What is correct: the driver table and chain order, slot swap and `OP_*` flags under both
@@ -309,7 +309,7 @@ fixes are test-only); T3 stays open as decided.
 
 ## API soundness
 
-- A1: the public trait `TensorCudaMatMulAPI` has `matmul_with_output_mode` and
+- A1 (FIXED): the public trait `TensorCudaMatMulAPI` has `matmul_with_output_mode` and
   `matmul_from_mode` as infallible methods with no `_f` twin, while their core models
   (`matmul_with_output`, `matmul_from`) have one; a caller cannot avoid a panic path. The
   third entry is a free `matmul_with_mode_f` whose infallible form is the method builder
@@ -333,6 +333,28 @@ fixes are test-only); T3 stays open as decided.
 - `CudaRuntimeFlags` is `#[non_exhaustive]`, so `CudaRuntimeFlags { matmul_drivers, ..
   Default::default() }` does not compile for users; `default()` plus field assignment is the
   only way (deliberate, D17, but worth knowing).
+
+### A1 fixed (261021/cuda, uncommitted; source change)
+
+- The two GEMM forms have their `_f` twins now: `matmul_with_output_mode_f` and
+  `matmul_from_mode_f` return `Result<()>`, and the infallible entries are their
+  `.rstsr_unwrap()` — exactly the core convention the models follow. The pending product's
+  fallible form already existed (free `matmul_with_mode_f` behind `.out_f()`).
+- `matmul_with_mode` takes `rhs: &'a impl TensorViewAPI<Type = TB, Backend = DeviceCuda,
+  Dim = DB>` — the same argument family as its siblings; the `RB` type parameter and its
+  `DataAPI<Data = CudaBuffer<TB>>` bound are gone. The `&'a` stays because the returned
+  `WithMode<'a>` holds views of both operands.
+- Demonstrated in `tensor_level_modes` (hardware): both `_f` twins agree with their infallible
+  forms, a `k`-dim mismatch returns `Err` instead of panicking, and the pending product accepts
+  a `TensorMutable` operand (`b.i_mut(s![.., ..])`) — an argument the old `&TensorAny`
+  signature refused.
+- Doc touch-ups en route: the trait's `# Panics` paragraph and the `matmul` module's
+  compute-mode paragraph now name the `_f` twins. (A2's `tensor.rs:9` wording is untouched and
+  stays open.)
+
+Full gate green: 254 tests, 0 failures (`tensor_level_modes` extended in place, count
+unchanged); clippy clean for the crate; rustfmt-clean on the edited lines. Probe unaffected
+(no driver change).
 
 ## Standards (sub-agent report, annotated)
 
