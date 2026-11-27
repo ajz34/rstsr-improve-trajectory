@@ -1,0 +1,154 @@
+# cuTENSOR 2.7.0
+[G1] R16F unary IDENTITY                            create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F unary NEG                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F unary ABS                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F unary CONJ                                create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R16F unary EXP                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F unary SQRT                                create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F unary RCP                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F unary CEIL                                create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F unary SIN                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F trin ADD                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F bin-api ADD                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F trin MUL                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F bin-api MUL                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F trin MAX                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F bin-api MAX                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F trin MIN                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16F bin-api MIN                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF unary IDENTITY                           create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF unary NEG                                create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF unary ABS                                create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF unary CONJ                               create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R16BF unary EXP                                create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF unary SQRT                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF unary RCP                                create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF unary CEIL                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF unary SIN                                create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF trin ADD                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF bin-api ADD                              create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF trin MUL                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF bin-api MUL                              create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF trin MAX                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF bin-api MAX                              create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF trin MIN                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R16BF bin-api MIN                              create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F unary IDENTITY                            create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F unary NEG                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F unary ABS                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F unary CONJ                                create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32F unary EXP                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F unary SQRT                                create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F unary RCP                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F unary CEIL                                create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F unary SIN                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F trin ADD                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F bin-api ADD                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F trin MUL                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F bin-api MUL                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F trin MAX                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F bin-api MAX                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F trin MIN                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R32F bin-api MIN                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R32F
+[G1] R64F unary IDENTITY                            create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F unary NEG                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F unary ABS                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F unary CONJ                                create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64F unary EXP                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F unary SQRT                                create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F unary RCP                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F unary CEIL                                create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F unary SIN                                 create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F trin ADD                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F bin-api ADD                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F trin MUL                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F bin-api MUL                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F trin MAX                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F bin-api MAX                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F trin MIN                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] R64F bin-api MIN                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=R64F
+[G1] C32F unary IDENTITY                            create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=C32F
+[G1] C32F unary NEG                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C32F unary ABS                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C32F unary CONJ                                create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=C32F
+[G1] C32F unary EXP                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C32F unary SQRT                                create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C32F unary RCP                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C32F unary CEIL                                create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C32F unary SIN                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C32F trin ADD                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=C32F
+[G1] C32F bin-api ADD                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=C32F
+[G1] C32F trin MUL                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=C32F
+[G1] C32F bin-api MUL                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=C32F
+[G1] C32F trin MAX                                  create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C32F bin-api MAX                               create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C32F trin MIN                                  create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C32F bin-api MIN                               create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C64F unary IDENTITY                            create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=C64F
+[G1] C64F unary NEG                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C64F unary ABS                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C64F unary CONJ                                create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=C64F
+[G1] C64F unary EXP                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C64F unary SQRT                                create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C64F unary RCP                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C64F unary CEIL                                create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C64F unary SIN                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C64F trin ADD                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=C64F
+[G1] C64F bin-api ADD                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=C64F
+[G1] C64F trin MUL                                  create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=C64F
+[G1] C64F bin-api MUL                               create=OK pref=OK est=OK plan=OK exec=OK       verify=OK(0/35) scalar=C64F
+[G1] C64F trin MAX                                  create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C64F bin-api MAX                               create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C64F trin MIN                                  create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] C64F bin-api MIN                               create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I unary IDENTITY                            create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I unary NEG                                 create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I unary ABS                                 create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I unary CONJ                                create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I unary EXP                                 create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I unary SQRT                                create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I unary RCP                                 create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I unary CEIL                                create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I unary SIN                                 create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I trin ADD                                  create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I bin-api ADD                               create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I trin MUL                                  create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I bin-api MUL                               create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I trin MAX                                  create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I bin-api MAX                               create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I trin MIN                                  create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R32I bin-api MIN                               create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I unary IDENTITY                            create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I unary NEG                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I unary ABS                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I unary CONJ                                create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I unary EXP                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I unary SQRT                                create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I unary RCP                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I unary CEIL                                create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I unary SIN                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I trin ADD                                  create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I bin-api ADD                               create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I trin MUL                                  create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I bin-api MUL                               create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I trin MAX                                  create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I bin-api MAX                               create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I trin MIN                                  create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R64I bin-api MIN                               create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R8U unary IDENTITY                             create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U unary NEG                                  create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U unary ABS                                  create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U unary CONJ                                 create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G1] R8U unary EXP                                  create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U unary SQRT                                 create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U unary RCP                                  create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U unary CEIL                                 create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U unary SIN                                  create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U trin ADD                                   create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U bin-api ADD                                create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U trin MUL                                   create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U bin-api MUL                                create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U trin MAX                                   create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U bin-api MAX                                create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U trin MIN                                   create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G1] R8U bin-api MIN                                create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F

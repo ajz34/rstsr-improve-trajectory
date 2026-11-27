@@ -1,0 +1,19 @@
+# cuTENSOR 2.7.0
+[G3] contig R64F(37:53,53:1) | R64F(37:53,53:1)     create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] A.T R64F(37:1,53:53) | R64F(37:53,53:1)        create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] B.T R64F(37:53,53:1) | R64F(37:53,53:1)        create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] both.T R64F(37:1,53:53) | R64F(37:53,53:1)     create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] window R64F(37:73,53:1) | R64F(37:53,53:1)     create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] step R64F(37:212,53:2) | R64F(37:53,53:1)      create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] bcast-omit R64F(37:53,53:1) | R64F(37:53,53:1) create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] bcast-zero R64F(37:53,53:1) | R64F(37:53,53:1) create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] flip R64F(37:-53,53:1) | R64F(37:53,53:1)      create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR 
+[G3] out.T R64F(37:53,53:1) | R64F(37:1,53:37)      create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] out-window R64F(37:53,53:1) | R64F(37:73,53:1) create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] out-step R64F(37:53,53:1) | R64F(37:212,53:2)  create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] unary.T R64F(37:1,53:53) | R64F(37:53,53:1)    create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] unary-window R64F(37:73,53:1) | R64F(37:53,53:1) create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] unary-step R64F(37:212,53:2) | R64F(37:53,53:1) create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] unary-out.T R64F(37:53,53:1) | R64F(37:1,53:37) create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/1961)
+[G3] rank6 R64F(4:30,5:1,6:5) | R64F(4:30,5:6,6:1)  create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0/120)
+[G3] zero-extent R64F(0:53,53:1) | R64F(0:53,53:1)  create=CUTENSOR_STATUS_INVALID_VALUE pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR 

@@ -1,0 +1,14 @@
+[package]
+name = "cutensor-el-baseline"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+rstsr = { path = "../../../rstsr/rstsr" }
+rstsr-cuda = { path = "../../../rstsr/crates-device/rstsr-cuda" }
+num = "0.4"
+
+[[bin]]
+name = "baseline"
+path = "src/main.rs"

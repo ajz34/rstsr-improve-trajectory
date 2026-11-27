@@ -1,0 +1,11 @@
+# cuTENSOR 2.7.0
+[G2D] same AB=R32F CD=R32F 32F                       create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0)
+[G2D] up AB=R32F CD=R64F 64F                         create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED 
+[G2D] down AB=R64F CD=R32F 64F                       create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0)
+[G2D] up AB=R16F CD=R32F 32F                         create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED 
+[G2D] down AB=R32F CD=R16F 32F                       create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0)
+[G2D] up AB=C32F CD=C64F 64F                         create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED 
+[G2D] bad AB=R16F CD=R64F 64F                        create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED 
+[G2D] bad AB=R16BF CD=R32F 32F                       create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED 
+[G2D] bad AB=R32F CD=C64F 64F                        create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED 
+[G2D] bad AB=R32I CD=R32I 32F                        create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR 

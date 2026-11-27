@@ -1,0 +1,25 @@
+# cuTENSOR 2.7.0
+[G2] un-a A=R64F B=- CD=R32F comp=64F               create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35) scalar=R64F
+[G2] un-a A=R32F B=- CD=R64F comp=64F               create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35) scalar=R64F
+[G2] un-a A=R16F B=- CD=R32F comp=32F               create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35) scalar=R32F
+[G2] un-a A=R32F B=- CD=R16F comp=32F               create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35) scalar=R32F
+[G2] un-a A=C64F B=- CD=C32F comp=64F               create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35) scalar=C64F
+[G2] un-a A=C32F B=- CD=C64F comp=64F               create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35) scalar=C64F
+[G2] un-a A=R64F B=- CD=C64F comp=64F               create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=C64F
+[G2] un-a A=C64F B=- CD=R64F comp=64F               create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R64F
+[G2] un-a A=R32I B=- CD=R32F comp=32F               create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G2] un-a A=R32F B=- CD=R32I comp=32F               create=CUTENSOR_STATUS_INTERNAL_ERROR pref=CUTENSOR_STATUS_INTERNAL_ERROR est=CUTENSOR_STATUS_INTERNAL_ERROR plan=CUTENSOR_STATUS_INTERNAL_ERROR scalar=R32F
+[G2] trin A=R32F B=R64F CD=R64F comp=64F            create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R64F
+[G2] trin A=R64F B=R32F CD=R64F comp=64F            create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R64F
+[G2] trin A=R32F B=R32F CD=R64F comp=64F            create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R64F
+[G2] trin A=R64F B=R64F CD=R32F comp=64F            create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35) scalar=R64F
+[G2] trin A=C64F B=R64F CD=C64F comp=64F            create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=C64F
+[G2] trin A=R64F B=C64F CD=C64F comp=64F            create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=C64F
+[G2] trin A=C32F B=C64F CD=C64F comp=64F            create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=C64F
+[G2] trin A=R16F B=R16F CD=R32F comp=32F            create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G2] trin A=R32F B=R32F CD=R16F comp=32F            create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35) scalar=R32F
+[G2] trin A=R32I B=R32I CD=R32F comp=32F            create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G2] comp A=R32F B=R32F CD=R32F comp=64F            create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R64F
+[G2] comp A=R64F B=R64F CD=R64F comp=32F            create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED scalar=R32F
+[G2] comp A=R16F B=R16F CD=R16F comp=16F            create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35) scalar=R16F
+[G2] comp A=R16BF B=R16BF CD=R16BF comp=16BF        create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35) scalar=R16BF

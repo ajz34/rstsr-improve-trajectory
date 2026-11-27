@@ -1,0 +1,15 @@
+# cuTENSOR 2.7.0
+[G4] unary gamma=0 C=nullptr                        create=OK pref=OK est=OK plan=OK               exec=CUTENSOR_STATUS_INVALID_VALUE cuda=no error
+[G4] binary gamma=0 C=nullptr                       create=OK pref=OK est=OK plan=OK               exec=CUTENSOR_STATUS_INVALID_VALUE cuda=no error
+[G4] in-place A=D neg                               create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0)
+[G4] fused c += a*b                                 create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0)
+[G4] out-of-place D = a*b + c (C!=D)                create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0)
+[G4] D = 2A + 3C (C=D)                              create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0)
+[G4] rank-0 B scalar add                            create=OK pref=OK est=OK plan=OK               exec=CUTENSOR_STATUS_INVALID_VALUE cuda=no error verify=FAIL(1961)
+[G4] rank-1 extent-1 B scalar add                   create=OK pref=OK est=OK plan=OK               exec=OK cuda=no error verify=OK(0)
+[G4] scalar type per storage dtype                  R16F:R32F R16BF:R32F R32F:R32F R64F:R64F C32F:C32F C64F:C64F R32I:R32F(op-fail) R8U:R32F(op-fail)  
+[G4] plan cost jit=NONE                             create=OK pref=OK est=OK plan=OK               plan_ms=0.013 ws=0 ok=1
+[G4] exec jit=NONE                                  exec=0.2956ms first_exec_ms=0.025              
+[G4] plan cost jit=DEFAULT                          create=OK pref=OK est=OK plan=OK               plan_ms=0.014 ws=0 ok=1
+[G4] exec jit=DEFAULT                               exec=0.2999ms first_exec_ms=0.004              
+[G4] plan cache (identical problem)                 create=OK pref=OK est=OK plan=OK               second plan_ms=0.024 ok=1

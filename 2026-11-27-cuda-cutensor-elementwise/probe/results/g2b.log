@@ -1,0 +1,15 @@
+# cuTENSOR 2.7.0
+[G2B] down A=R32F CD=R16F comp=32F (copy)            create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35)
+[G2B] down A=R64F CD=R32F comp=64F (copy)            create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35)
+[G2B] down A=C64F CD=C32F comp=64F (copy)            create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35)
+[G2B] down A=R32F CD=R16F comp=32F (C read)          create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35)
+[G2B] down A=R64F CD=R32F comp=64F (C read)          create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35)
+[G2B] up A=R16F CD=R32F comp=32F (copy)              create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35)
+[G2B] up A=R32F CD=R64F comp=64F (copy)              create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35)
+[G2B] up A=R16F CD=R64F comp=64F (copy)              create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED 
+[G2B] up A=C32F CD=C64F comp=64F (copy)              create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35)
+[G2B] up A=R32F CD=R64F comp=32F (copy)              create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED 
+[G2B] mix A=R32F CD=R64F comp=64F (C read)           create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35)
+[G2B] mix A=R16F CD=R32F comp=32F (C read)           create=OK pref=OK est=OK plan=OK               exec=OK verify=OK(0/35)
+[G2B] mix A=R64F CD=C64F comp=64F (copy)             create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED 
+[G2B] mix A=C64F CD=R64F comp=64F (copy)             create=OK pref=OK est=OK plan=CUTENSOR_STATUS_NOT_SUPPORTED 

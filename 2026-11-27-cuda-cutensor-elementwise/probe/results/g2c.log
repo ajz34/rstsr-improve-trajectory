@@ -1,0 +1,37 @@
+# cuTENSOR 2.7.0
+[G2C] R16F->R16F 32F                                 plan=OK                                        exec=OK cuda=no error verify=OK(0)
+[G2C] R16F->R16BF 32F                                plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R16F->R32F 32F                                 plan=OK                                        exec=OK cuda=no error verify=OK(0)
+[G2C] R16F->R64F 64F                                 plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R16F->C32F 32F                                 plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R16F->C64F 64F                                 plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R16BF->R16F 32F                                plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R16BF->R16BF 32F                               plan=OK                                        exec=OK cuda=no error verify=OK(0)
+[G2C] R16BF->R32F 32F                                plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R16BF->R64F 64F                                plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R16BF->C32F 32F                                plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R16BF->C64F 64F                                plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R32F->R16F 32F                                 plan=OK                                        exec=OK cuda=no error verify=OK(0)
+[G2C] R32F->R16BF 32F                                plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R32F->R32F 32F                                 plan=OK                                        exec=OK cuda=no error verify=OK(0)
+[G2C] R32F->R64F 64F                                 plan=OK                                        exec=OK cuda=no error verify=OK(0)
+[G2C] R32F->C32F 32F                                 plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R32F->C64F 64F                                 plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R64F->R16F 64F                                 plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R64F->R16BF 64F                                plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R64F->R32F 64F                                 plan=OK                                        exec=OK cuda=no error verify=OK(0)
+[G2C] R64F->R64F 64F                                 plan=OK                                        exec=OK cuda=no error verify=OK(0)
+[G2C] R64F->C32F 64F                                 plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] R64F->C64F 64F                                 plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] C32F->R16F 32F                                 plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] C32F->R16BF 32F                                plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] C32F->R32F 32F                                 plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] C32F->R64F 64F                                 plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] C32F->C32F 32F                                 plan=OK                                        exec=OK cuda=no error verify=OK(0)
+[G2C] C32F->C64F 64F                                 plan=OK                                        exec=OK cuda=no error verify=OK(0)
+[G2C] C64F->R16F 64F                                 plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] C64F->R16BF 64F                                plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] C64F->R32F 64F                                 plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] C64F->R64F 64F                                 plan=FAIL                                      CUTENSOR_STATUS_NOT_SUPPORTED
+[G2C] C64F->C32F 64F                                 plan=OK                                        exec=OK cuda=no error verify=OK(0)
+[G2C] C64F->C64F 64F                                 plan=OK                                        exec=OK cuda=no error verify=OK(0)
