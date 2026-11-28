@@ -21,7 +21,7 @@ out).
 | `618fd38` | B1 | Foundation: handle slot per ordinal, per-stream workspace slot, runtime flag, build cfg |
 | `8a84c9d` | B2 | Contraction: descriptors, operation, plan, one-shot; the libloading deref fix |
 | `08f4b41` | B3 | Reduction, permutation, elementwise binary/trinary, trinary contraction (symbol-gated), plan/kernel-cache management, header-audit coverage |
-| (pending) | B4 | Facade wiring (`rstsr/cutensor` feature → `rstsr::cuda::cutensor_wrap`, `rt::cuda::cutensor_wrap`), `bench_cutensor`, docs |
+| `dbe6a5c` | B4 | Facade wiring (`rstsr/cutensor` feature → `rstsr::cuda::cutensor_wrap`, `rt::cuda::cutensor_wrap`), `bench_cutensor`, docs |
 
 ## Conventions (decisions D1–D26, `DECISIONS.md`)
 
