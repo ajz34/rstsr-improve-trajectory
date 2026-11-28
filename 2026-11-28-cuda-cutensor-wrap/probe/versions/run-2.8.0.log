@@ -1,0 +1,15 @@
+# version 2.8.0
+# date 2026-11-28T14:39:44+08:00
+# LD_LIBRARY_PATH (for ./vs only) =/scratch/rstsr_pack/rstsr-improve-trajectory/2026-11-28-cuda-cutensor-wrap/probe/versions/lib2.8.0:/usr/local/cuda/lib64
+# resolved: libcutensor.so.2 => /scratch/rstsr_pack/rstsr-improve-trajectory/2026-11-28-cuda-cutensor-wrap/probe/versions/lib2.8.0/libcutensor.so.2 (0x0000139001400000);
+cutensorGetVersion() = 20800 (2.8.0)
+cutensorGetVersion() = 20800 (2.8.0) | cutensorGetCudartVersion() = 13040 (13.4) | cudart in binary 13020, driver 13020 | GPU "NVIDIA GeForce RTX 5070 Laptop GPU" sm_120
+S1 | ok | ij,jk->ik f64, A modes[i,j] ext(4,3) strides(0,1) (j-vector broadcast over i), alpha=1 beta=0 | maxabs 1.11e-16, ref scale 0.77, wsEst 0 wsReq 0
+S2 | reduce-api ij->j (A ext(4,3) strides(0,1), ADD): ok | contract-api ij,j->j (B=1): ok | expected D = 4*A[0,j]
+S3 | ij,jk->ik f64, stride-0 output | (a) 4x3x5 D strides(0,1), C packed: ERR(CreateContraction status=15 CUTENSOR_STATUS_NOT_SUPPORTED) | (b) 4x3x5 D strides(1,0), C packed: ERR(CreateContraction status=15 CUTENSOR_STATUS_NOT_SUPPORTED) | (c) 4x3x5 D strides(1,0), C same layout: accepted: garbage (closest reference row i=0, maxabs 1.08e+00) | (d) 37x53x41 D strides(1,0), C same layout (=old 2c): accepted: garbage (closest reference row i=27, maxabs 4.74e+00) | (e) 4x3x5 D strides(0,1), C same layout: accepted: buffer holds reference row i=0 (one writer won)
+S4 | ERR(CreateContraction status=15 CUTENSOR_STATUS_NOT_SUPPORTED) | ij,jk->ik c64, opC=CONJ, alpha=1 beta=0.3, C aliases pre-filled D | plain-C ref diff -
+S5 | ok-diagonal | A modes[i,i] ext(4,4) strides(4,1) row-major, ii,ik->ik, expected D[i,k]=A[i,i]*B[i,k]
+S6 | ok | ij,jk->ik f64, A ptr = cudaMalloc + 8 B (actual alignment 8 B), alignmentRequirement=256
+S7 | contracted-mode mismatch (j: A=3, B=4): ERR(EstimateWorkspaceSize status=14 CUTENSOR_STATUS_INTERNAL_ERROR) | batch-mode mismatch (k: B=3, D=4): ERR(EstimateWorkspaceSize status=14 CUTENSOR_STATUS_INTERNAL_ERROR)
+--- done ---
+# exit(all in one process) = 0

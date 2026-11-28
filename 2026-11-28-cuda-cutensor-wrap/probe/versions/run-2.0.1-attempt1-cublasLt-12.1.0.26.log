@@ -1,0 +1,21 @@
+# version 2.0.1
+# date 2026-11-28T14:37:50+08:00
+# LD_LIBRARY_PATH (for ./vs only) =/scratch/rstsr_pack/rstsr-improve-trajectory/2026-11-28-cuda-cutensor-wrap/probe/versions/lib2.0.1:/usr/local/cuda/lib64
+# resolved: libcutensor.so.2 => /scratch/rstsr_pack/rstsr-improve-trajectory/2026-11-28-cuda-cutensor-wrap/probe/versions/lib2.0.1/libcutensor.so.2 (0x0000056609a00000);libcublasLt.so.12 => /scratch/rstsr_pack/rstsr-improve-trajectory/2026-11-28-cuda-cutensor-wrap/probe/versions/lib2.0.1/libcublasLt.so.12 (0x00000565e8200000);
+cutensorCreate failed: status 14 CUTENSOR_STATUS_INTERNAL_ERROR
+# exit(all in one process) = 1
+# non-zero exit -> each case re-run in its own process
+cutensorCreate failed: status 14 CUTENSOR_STATUS_INTERNAL_ERROR
+# exit(S1) = 1
+cutensorCreate failed: status 14 CUTENSOR_STATUS_INTERNAL_ERROR
+# exit(S2) = 1
+cutensorCreate failed: status 14 CUTENSOR_STATUS_INTERNAL_ERROR
+# exit(S3) = 1
+cutensorCreate failed: status 14 CUTENSOR_STATUS_INTERNAL_ERROR
+# exit(S4) = 1
+cutensorCreate failed: status 14 CUTENSOR_STATUS_INTERNAL_ERROR
+# exit(S5) = 1
+cutensorCreate failed: status 14 CUTENSOR_STATUS_INTERNAL_ERROR
+# exit(S6) = 1
+cutensorCreate failed: status 14 CUTENSOR_STATUS_INTERNAL_ERROR
+# exit(S7) = 1
