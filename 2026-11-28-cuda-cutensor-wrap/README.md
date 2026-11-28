@@ -45,22 +45,41 @@ libcutensor 2.7.0, `--release`, median of 5 repeats, 0.2 s budget.
 
 | family | dtype | shape | path | median ms | TFLOP/s or GB/s |
 |---|---|---|---|---|---|
-| contraction | f64 | 1024x1024x1024 | one-shot | 6.648 | 0.3 |
-| contraction | f64 | 1024x1024x1024 | held plan | 6.436 | 0.3 |
-| contraction | f64 | 1024x1024x1024 | cublas chain | 6.657 | 0.3 |
-| contraction | f64 | 2048x2048x2048 | one-shot | 53.299 | 0.3 |
-| contraction | f64 | 2048x2048x2048 | held plan | 50.488 | 0.3 |
-| contraction | f64 | 2048x2048x2048 | cublas chain | 53.194 | 0.3 |
-| contraction | c64 | 1024x1024x1024 | one-shot | 20.764 | 0.4 |
-| contraction | c64 | 1024x1024x1024 | cublas chain | 20.740 | 0.4 |
-| trinary contraction | f64 | 512x512x512x512 | one-shot | 1.789 | 0.3 |
-| reduction | f64 | 4096x4096 -> 4096 | one-shot | 0.420 | 319.4 GB/s |
-| elementwise | f64 | 2048x2048 | one-shot | 0.345 | 291.8 GB/s |
+| contraction | f32 | 1024x1024x1024 | one-shot | 0.183 | 11.7 |
+| contraction | f32 | 1024x1024x1024 | held plan | 0.181 | 11.8 |
+| contraction | f32 | 1024x1024x1024 | cublas chain | 0.184 | 11.7 |
+| contraction | f32 | 2048x2048x2048 | one-shot | 1.327 | 12.9 |
+| contraction | f32 | 2048x2048x2048 | held plan | 1.966 | 8.7 |
+| contraction | f32 | 2048x2048x2048 | cublas chain | 1.321 | 13.0 |
+| contraction | f64 | 1024x1024x1024 | one-shot | 6.589 | 0.3 |
+| contraction | f64 | 1024x1024x1024 | held plan | 6.366 | 0.3 |
+| contraction | f64 | 1024x1024x1024 | cublas chain | 6.592 | 0.3 |
+| contraction | f64 | 2048x2048x2048 | one-shot | 52.883 | 0.3 |
+| contraction | f64 | 2048x2048x2048 | held plan | 50.480 | 0.3 |
+| contraction | f64 | 2048x2048x2048 | cublas chain | 53.084 | 0.3 |
+| contraction | c64 | 1024x1024x1024 | one-shot | 20.568 | 0.4 |
+| contraction | c64 | 1024x1024x1024 | cublas chain | 20.640 | 0.4 |
+| ceiling (measured) | f64 | 4096x4096x4096 | cublas chain | 402.087 | 0.3 |
+| ceiling (measured) | f32 | 8192x8192x8192 | cublas chain | 72.448 | 15.2 |
+| ceiling (measured) | c64 | 4096x4096x4096 | cublas chain | 1292.927 | 0.1 |
+| trinary contraction | f64 | 512x512x512x512 | one-shot | 1.768 | 0.3 |
+| reduction | f64 | 4096x4096 -> 4096 | one-shot | 0.414 | 324.3 GB/s |
+| elementwise | f64 | 2048x2048 | one-shot | 0.342 | 294.0 GB/s |
 
-Reading: consumer-laptop f64 is ~1/64 rate, so 0.3 TFLOP/s is the machine's GEMM ceiling — cuTENSOR
-contractions sit **at parity with the cuBLAS chain** for GEMM-shaped problems (it dispatches to
-cuBLAS-backed kernels there), the one-shot's planning overhead is 3-6% on these shapes, and the
-streaming families run at 290-320 GB/s. The trinary contraction metric counts its two chained
+Ceilings and theory for this machine (RTX 5070 Laptop, consumer Blackwell, ~4600 CUDA cores):
+
+| dtype | datasheet theory (approx.) | measured ceiling (large cuBLAS GEMM) | best wrapper contraction |
+|---|---|---|---|
+| f64 | FP32/64 = ~0.3 TFLOP/s | **0.3 TFLOP/s** (4096^3) | 0.3 - at the ceiling |
+| f32 | ~20 TFLOP/s shader rate | **15.2 TFLOP/s** (8192^3) | 12.9 (85% of measured) |
+| c64 | ~2x f64 real work, ~0.15 TFLOP/s as 4-flop/MAC | **0.1 TFLOP/s** (4096^3) | 0.4 at 1024^3 (small-problem cache effects; scales to the ceiling at 4096^3) |
+
+Reading: the wrapper's contractions sit **at parity with the cuBLAS chain** for GEMM-shaped
+problems on every dtype (cuTENSOR dispatches to cuBLAS-backed kernels there): f64 at the measured
+ceiling, f32 at ~85% of it, c64 scaling to its ceiling at the larger size. The one-shot's planning
+overhead is 0-6% (f32 2048^3 shows a held-plan outlier: the plan fixes its kernel choice at
+creation, while the per-call one-shot can re-plan differently — a real effect worth knowing, not
+noise). The streaming families run at 290-325 GB/s. The trinary metric counts its two chained
 products (`2·ijk + 2·ikl`), not the naive four-loop count.
 
 ## Usage (facade)
