@@ -199,3 +199,18 @@ file. Amended the same day (owner): **all tensor-side wrapper functions live in 
 `one_shot.rs` — contraction today, then reduction, permutation, elementwise and trinary
 contraction as B3 adds them — one place, separate from the RAII object layer. The re-export
 `pub use one_shot::contract;` keeps `cutensor_wrap::contract` (and the prelude path) stable.
+
+**D25 - The B3 families** (2026-11-28): reduction, permutation, elementwise binary and elementwise
+trinary join `one_shot.rs` with the same conventions as contraction — operands by value,
+`c: Option<impl TensorViewAPI>` with `None` = **C is D** (in-place accumulate/elementwise), scalars
+by value, and **no `mode_c` parameter anywhere** (`descC == descD` is a cuTENSOR requirement, so
+`C`'s modes are `D`'s; a differently-labelled operand in the `C` slot is expressed by the view's
+own layout). The elementwise join operators (`op_ac`; `op_ab`/`op_abc`) are *functional* parameters
+— the D8 elementwise clause refined: `opC` is pinned only on contraction. `OperationDescriptor`
+gains a `kind` tag and the execute calls assert it (a contraction plan refuses `Plan::reduce`).
+Reduction/permutation/elementwise serve the **same-dtype** path first; cuTENSOR's mixed-dtype rows
+are unexplored and stay reachable only at the object layer. "Ternary contraction" from the original
+B3 list needs no new code: `contract(.., Some(c_view), ..)` already serves it. Fact: `NORM1`/`NORM2`
+reduction operators are gone in cuTENSOR 2.x (1.x relics); the 2.x reduction set is
+ADD/MUL/MIN/MAX. The one-shot derives `descC` from `D`, so a `C`-slot view must carry `D`'s exact
+layout (strided-`C` needs the object layer).

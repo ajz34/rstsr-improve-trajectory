@@ -74,7 +74,7 @@ Files: `src/cutensor_wrap/{descriptor.rs, operation.rs, plan.rs, oneshot.rs (or 
 Done when: all of the above pass on 2.7.0 (and the file also runs against 2.8.0 via `LD_LIBRARY_PATH`);
 `--lib` green; clippy clean.
 
-## B3 - the other five operations
+## B3 (implemented, uncommitted) - the other five operations
 
 Files: `operation.rs`, `plan.rs`, one-shots, tests.
 
