@@ -214,3 +214,22 @@ B3 list needs no new code: `contract(.., Some(c_view), ..)` already serves it. F
 reduction operators are gone in cuTENSOR 2.x (1.x relics); the 2.x reduction set is
 ADD/MUL/MIN/MAX. The one-shot derives `descC` from `D`, so a `C`-slot view must carry `D`'s exact
 layout (strided-`C` needs the object layer).
+
+**D26 - Header-audit completion of the wrapper** (2026-11-28, owner's question: "can contract
+trinary be implemented?" - it can, and now is): the full 2.7.0 header (39 status functions + 2
+non-status) was audited against the wrapper. Implemented: the five operation families plus
+**`cutensorCreateContractionTrinary` / `cutensorContractTrinary`** (`E = alpha*opA(A)*opB(B)*opC(C)
++ beta*opD(D)`; `d: Option` with None = D-is-E, `opD` pinned IDENTITY, `descD == descE`,
+**symbol-gated** on libcutensor >= 2.1.1 with a clean `UnImplemented` - cudarc's own `load` panics
+on a missing symbol, so the wrapper probes via `culib().get` first; some dtype rows are Ampere+ and
+cuTENSOR declines those itself), the plan-cache management (`resize_plan_cache`,
+`write/read_plan_cache_to/from_file`) and kernel-cache persistence on `CutensorHandle`, and
+`cudart_version`. Deliberately out of scope, documented in the module docs: `cutensorLogger*` (x6,
+no tensor semantics), block-sparse (incl. `BLOCKSPARSE_REPRODUCIBLE`; the exported
+`cutensorBlockSparse*` pair likewise), `cutensorOperationDescriptorSetAttribute` (setting
+`SCALAR_TYPE` would defeat the wrapper's derived-type verification), `PlanPreference` Get/Set
+attributes (2.6+ autotune knobs - future). Fact: `MOVED_BYTES` is block-sparse-only on the probed
+versions (INVALID_VALUE for dense ops) and is not exposed. Fact: the one-shot derives `descC`
+from `D`, so a `C`-slot view must match D's declared alignment - a row-slice C (240 B offset ->
+16 B alignment vs the output's 256) honestly refuses in the one-shot and is served at the object
+layer with a shared `with_alignment(8)` descriptor (tested both ways).
