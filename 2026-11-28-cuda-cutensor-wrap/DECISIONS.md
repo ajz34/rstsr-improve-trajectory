@@ -192,3 +192,9 @@ prelude / `_f` / facade wiring the wrapper uses). No commit in `rstsr` without t
 
 **D23 - Batches B1-B4**, each leaving the crate compiling and `--lib` + hardware tests green here:
 see `PLAN.md`. The facade lines (D19) are part of B4.
+
+**D24 - `cutensor_wrap/mod.rs` is a pure module map** (owner preference, 2026-11-28): module
+declarations, re-exports and the crate-level docs only; every executable item lives in a leaf
+file (`contract.rs` holds the one-shots, one file per operation family as B3 adds them). The
+re-export `pub use contract::contract;` keeps `cutensor_wrap::contract` (and the prelude path)
+stable.
