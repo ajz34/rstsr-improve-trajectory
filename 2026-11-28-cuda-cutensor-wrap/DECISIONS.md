@@ -195,6 +195,7 @@ see `PLAN.md`. The facade lines (D19) are part of B4.
 
 **D24 - `cutensor_wrap/mod.rs` is a pure module map** (owner preference, 2026-11-28): module
 declarations, re-exports and the crate-level docs only; every executable item lives in a leaf
-file (`contract.rs` holds the one-shots, one file per operation family as B3 adds them). The
-re-export `pub use contract::contract;` keeps `cutensor_wrap::contract` (and the prelude path)
-stable.
+file. Amended the same day (owner): **all tensor-side wrapper functions live in one leaf file**,
+`one_shot.rs` — contraction today, then reduction, permutation, elementwise and trinary
+contraction as B3 adds them — one place, separate from the RAII object layer. The re-export
+`pub use one_shot::contract;` keeps `cutensor_wrap::contract` (and the prelude path) stable.
