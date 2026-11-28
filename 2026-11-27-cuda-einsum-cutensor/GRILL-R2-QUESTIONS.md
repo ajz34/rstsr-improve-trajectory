@@ -217,3 +217,85 @@ entries, tests, B4 bench, module doc page, review. All on the rstsr repo from th
 no PR until told.
 
 ➡️ Yes.
+
+---
+
+# Addendum (2026-11-28) — aligning the cuTENSOR usage model; supersedes Q1, Q3 and Q7
+
+Owner's position before answering round 2: (i) cuTENSOR handles one input type with output type =
+input type, and the `cutensorComputeDescriptor` controls the internal precision; (ii) the
+descriptor set is finer-grained than cuBLAS's compute types, so cuTENSOR gets **its own** entries
+and flags, organized like matmul but standalone (Q1's "read the same flags" and Q7's reuse are
+withdrawn).
+
+## Comprehension check (facts from the 2.7.0 header tables)
+
+- **Same input type, output = input type — right for contraction, with two exceptions**:
+  `R_64F x C_64F -> C_64F` and `C_64F x R_64F -> C_64F` (f64 real times c64 complex). There is no
+  `R_32F x C_32F` (descriptor accepted, plan NOT_SUPPORTED — probe 1). Every other row is
+  A = B = D. Reduction and permutation *can* change the type (`R_64F -> R_32F`, `C_64F -> C_32F`,
+  `R_32F -> R_16F`, ...), but einsum keeps the type, so that ability stays unused. For einsum
+  (same-dtype operand list) the rule holds outright; the exception matters only for
+  `ext_tensordot` (Q2).
+- **Descriptor = internal precision — right, with one nuance**: it is a *minimum accuracy
+  guarantee*, not an exact specification; cuTENSOR may pick a higher precision (user guide
+  "Accuracy Guarantees"; probe 1: f64 data under `COMPUTE_DESC_32F` came out f64-accurate). The
+  scalar type follows the output type + descriptor (c64 output -> complex `alpha`/`beta`).
+- **The descriptor set per storage type (contraction table)**:
+
+| storage | descriptors |
+|---|---|
+| `f16`, `bf16` | `32F` only (fp32 accumulate) — no choice |
+| `f32` | `32F` (strict, no tensor cores), `TF32`, `3XTF32`, `16BF`, `16F` (Ampere+/Volta+), `9X16BF` (Hopper+), `4X16F` (Blackwell+) |
+| `c32` | `32F` (no tensor cores), `TF32`, `3XTF32`, `9X16BF` (Hopper+) — no `16BF`/`16F`/`4X16F` for complex |
+| `f64` | `64F` (FP64 tensor cores, Ampere+), `32F` (no tensor cores), `8XINT8` (Hopper+; the INT8-based FP64 emulation) |
+| `c64` | `64F` (tensor cores, Ampere+), `32F`, `8XINT8` (Hopper+) |
+
+  cuBLAS's modes have no 1:1 counterpart (`3XTF32`, `4X16F`, `9X16BF`, `8XINT8` are cuTENSOR-only;
+  cuBLAS `Pedantic` has no cuTENSOR counterpart because the descriptor is already a floor), so
+  standalone types are the honest shape. `Hopper+`/`Blackwell+` rows are expected on this sm_120
+  card but were not probed (B1 measures them).
+
+---
+
+❓ **Q12** - **Standalone compute types**: two `#[non_exhaustive]` enums keyed by the **output**
+family (the matmul convention), named after the descriptors, default = strict:
+
+- `CutensorCompute32F { F32 (default), TF32, ThreeXTF32, F16BF, F16F, FourX16F, NineX16BF }` read
+  by `f32` and `c32` outputs; a variant the output type cannot serve (`c32` with `F16BF`/`F16F`/
+  `FourX16F`) resolves to `F32` silently, as matmul's 32F modes resolve for complex outputs.
+- `CutensorCompute64F { F64 (default), F32, EightXInt8 }` read by `f64` and `c64` outputs.
+- `CutensorCompute16F { F32 }` for `f16`/`bf16` outputs: a single-variant enum so the per-call
+  entries are callable for every dtype through `<T as CutensorComputeMode>::Mode`.
+- `CudaRuntimeFlags::cutensor_compute_32f` and `cutensor_compute_64f` (standalone; the matmul
+  `compute_type_*` fields are not read by einsum/tensordot; half has no flag field because it has
+  one descriptor).
+
+➡️ Yes.
+
+---
+
+❓ **Q13** - **Per-call mode entries**: like matmul, the mode can also be given per call. Entry
+family = {flags | per-call mode} x {no conj | conj} x {allocate | with_output | from}:
+`einsum[_f]`, `einsum_with_conj[_f]`, `einsum_with_output[_f]`, `einsum_with_output_conj[_f]`,
+`einsum_from[_f]`, `einsum_from_conj[_f]` (Q3, flags), plus `einsum_with_mode[_f]`,
+`einsum_with_conj_mode[_f]`, `einsum_with_output_mode[_f]`, `einsum_with_output_conj_mode[_f]`,
+`einsum_from_mode[_f]`, `einsum_from_conj_mode[_f]` (per-call; parameter order
+`(subscripts, operands, [conj,] mode, optimize, memory_limit[, output])`). Mechanical and
+discoverable, 12 names. Tensordot takes no mode entries (flags only).
+
+- (b) The `_with_mode` entries also carry `conj` (the "full" form), 9 names: `einsum_with_mode`,
+  `einsum_with_output_mode`, `einsum_from_mode` all take `(.., conj, mode, ..)`.
+
+➡️ (a); (b) hides conj behind a name that does not say so.
+
+---
+
+❓ **Q14** - **Other cuTENSOR knobs** — algorithm (`ALGO_DEFAULT` / `DEFAULT_PATIENT` / `GETT` /
+`TGETT` / `TTGT`), JIT mode, incremental autotuning — are the other fine-grained controls; they are
+planning knobs rather than precision knobs. Proposal: round 3 decides them from the probe numbers
+(probe 1: `ALGO_DEFAULT` plans in 20-50 us, non-GEMM at the full f64 rate), exposed as
+`CudaRuntimeFlags::cutensor_algo` only if a variant measurably matters; no per-call entries for
+them.
+
+➡️ Yes: precision gets entries (Q12/Q13), planning knobs get at most a flag (round 3).
