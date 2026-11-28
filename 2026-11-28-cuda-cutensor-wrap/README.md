@@ -22,6 +22,8 @@ out).
 | `8a84c9d` | B2 | Contraction: descriptors, operation, plan, one-shot; the libloading deref fix |
 | `08f4b41` | B3 | Reduction, permutation, elementwise binary/trinary, trinary contraction (symbol-gated), plan/kernel-cache management, header-audit coverage |
 | `dbe6a5c` | B4 | Facade wiring (`rstsr/cutensor` feature → `rstsr::cuda::cutensor_wrap`, `rt::cuda::cutensor_wrap`), `bench_cutensor`, docs |
+| `5f1cae6` | review | Review fixes: `dynamic-linking` build, `resize_plan_cache` lock, `finish` descriptor leak, workspace guard, `beta == 0` C ordering, temporary names, dedup, version print, 4 new hardware tests |
+| `e80cf67` | review | Multi-stream overlap microbenchmark (`overlap` family: contraction vs D2H/H2D on a second stream and thread) |
 
 ## Conventions (decisions D1–D26, `DECISIONS.md`)
 
@@ -82,6 +84,26 @@ creation, while the per-call one-shot can re-plan differently — a real effect 
 noise). The streaming families run at 290-325 GB/s. The trinary metric counts its two chained
 products (`2·ijk + 2·ikl`), not the naive four-loop count.
 
+### Multi-stream overlap (post-review microbenchmark, `e80cf67`)
+
+Execute is deliberately unlocked (D6) so that contractions on one stream overlap with work on
+another. The `overlap` family measures it: an f64 1024^3 contraction on the default stream from
+one thread against a 256 MiB transfer on a second stream and thread, through the **same handle**;
+each sample times the pair sequentially (transfer, sync, contraction) and concurrently. RTX 5070
+Laptop, cuTENSOR 2.7.0, `RSTSR_BENCH_REPEAT=7`:
+
+| transfer | contract alone | transfer alone | sequential | concurrent | 100·seq/par | ideal (= transfer alone) |
+|---|---|---|---|---|---|---|
+| D2H 256 MiB | 6.5 ms | 50.1 ms | 62.7 ms | **53.1 ms** | 118 | 50.1 ms |
+| H2D 256 MiB | 6.5 ms | 66.0 ms | 79.1 ms | **73.2 ms** | 108 | 66.0 ms |
+
+Reading: in both directions the contraction is hidden under the transfer (concurrent ≈ transfer
+alone + 3-7 ms, versus the serialized sum of 56.6 / 72.5 ms). The transfers run at 5.3 / 4.0 GB/s
+(pageable host memory through `to_cpu_vec` / `to_device`; pinned buffers would be faster). The
+hardware test `concurrent_execute_on_one_handle` covers the stronger claim — four threads
+executing through one handle, each on its own stream, all results verified (green on 2.4.1 /
+2.7.0 / 2.8.0).
+
 ## Usage (facade)
 
 ```rust
@@ -114,8 +136,41 @@ cutensor_wrap::contract(
 - Per-thread current-context matters for the raw FFI: every entry binds the handle's context
   (`CUTENSOR_STATUS_NOT_INITIALIZED` on worker threads otherwise).
 
-## Gates (as of B4)
+## Review (post-B4, two-axis: standards + spec)
 
-21 hardware tests green on cuTENSOR 2.4.1 / 2.7.0 / 2.8.0 · `--lib` 134 passed · full suite green ·
-clippy 0 · `cargo doc` 0 warnings · wrapper files fmt-clean · facade compiles with and without the
-`cutensor` feature.
+Fixed in `5f1cae6` / `e80cf67` (all gates re-run): the `dynamic-linking` build break (`has_symbol`
+used cudarc's `culib()` unguarded), the unlocked `resize_plan_cache` (the one header-`not
+thread-safe` entry), the descriptor leak on the scalar-type refusal, the workspace guard dropped
+before the enqueue, the unconditional `C` ordering at `beta == 0`, temporary decision/probe labels
+in code, the ×23 status-check and ×5 `descC == descD` duplication, the missing version print, the
+missing stride-0-*input* test, the crate-doc rows, the docs.rs feature and the facade path check.
+
+Facts established during the review:
+
+- **Header remarks (2.4.1 `cutensor.h`)**: `cutensorCreate`/`Destroy`, `cutensorPermute`, the
+  elementwise executes and the plan/kernel-cache file entries are "thread-safe";
+  `cutensorHandleResizePlanCache` is "not thread-safe"; `cutensorContract`, `cutensorReduce`,
+  the `cutensorCreate*` operation entries, `cutensorCreatePlanPreference`, `cutensorCreatePlan`,
+  `cutensorEstimateWorkspaceSize` and the attribute get/set entries carry **no remark**. The
+  unlocked execute therefore rests on cuTENSOR's general thread-safety, not on a per-entry
+  remark; the owner's decision (2026-11-28): keep it unlocked, the multi-stream feature needs it —
+  the overlap cell above and the concurrent-execute test are the evidence.
+- The scalar type cuTENSOR derives follows the **output dtype** for `f64`+`32F` and `f16`+`16F`
+  (both compute successfully on 2.7.0), so the one-shot can never reach the scalar guard; only the
+  object layer can (a free scalar-type parameter on fixed descriptors) — tested there.
+- Stride-0 inputs: declined (`NOT_SUPPORTED`) on 2.4.1, accepted and correct on 2.7.0 / 2.8.0 —
+  now a version-gated hardware test.
+
+Deferred by the owner's instruction ("do not fix others"): bench cells (batched 64×(256,256),
+`abc,cbd->ad`, planning cost, `permute`, held-plan rows beyond contraction); history rewrites
+(trailer casing on the four B-commits, `(B2)`-style subjects); DECISIONS amendments for the
+facade feature / `cutensor_bindings` cfg; design choices left as built (`registry.rs` `Err` →
+permanent `None`, `Plan`/`OperationDescriptor` `!Send`, raw `op_reduce`); judgement-call
+refactors (execute-skeleton dedup, `rstsr_assert!` conversion, `duplicate_item`, operand bundle).
+
+## Gates (as of `e80cf67`)
+
+25 hardware tests green on cuTENSOR 2.4.1 / 2.7.0 / 2.8.0 · `--lib` 134 passed · clippy
+`--all-targets` 0 · `cargo doc -D warnings` clean (rstsr-cuda and the facade) · touched files
+fmt-clean · facade `test_cuda_prelude` green with and without the `cutensor` feature ·
+`cargo check -p rstsr-cuda --features dynamic-linking` compiles.
