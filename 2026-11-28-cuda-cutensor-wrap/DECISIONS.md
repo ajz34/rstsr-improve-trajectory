@@ -123,9 +123,17 @@ estimates with `CUTENSOR_WORKSPACE_DEFAULT` and creates the plan with the buffer
 If the flag is > 0 and the allocation failed, the call fails with `MemoryError` (no silent no-workspace
 run).
 
-**D16 - The one-shot's `c: Option<_>`.** `None` is allowed only with `beta == 0` (D's pointer and
-descriptor stand in for C); `Some(c)` must have D's layout (`descC == descD`, `modeC == modeD`); there
-is no `mode_c` parameter.
+**D16 - The one-shot's `c: Option<_>`.** `None` means **C is D**: the output pointer stands in for C
+at any `beta` (in-place accumulation, `d += alpha * opA(A) * opB(B)` at `beta = 1`). Amended in B2:
+the original text ("None requires beta == 0") made in-place accumulation inexpressible — passing the
+same tensor as `c` and `d` is two aliasing borrows, which safe Rust forbids; cuTENSOR itself defines
+the C-pointer = D-pointer form (probe2 D1c/D2 verified it at `beta = 0` and `beta = 1`). `Some(c)`
+must have D's layout (`descC == descD`, `modeC == modeD`); there is no `mode_c` parameter.
+
+**D16a - `opC` has no parameter on contraction** (B2 amendment of D8's wording). The contraction
+constructor pins `opC = CUTENSOR_OP_IDENTITY` and takes no argument: no cuTENSOR version honours a
+non-identity `opC` (silently ignored through 2.7.0, rejected by 2.8.0), so the D8 refusal happens at
+the API boundary — there is no slot to misuse. `opA` / `opB` stay raw.
 
 ## Errors
 

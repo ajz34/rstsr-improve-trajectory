@@ -1,3 +1,5 @@
 # Built probe binary and machine-local cuTENSOR symlink farms (see REPORT.md for where the five versions live).
 probe/versions/vs
 probe/versions/lib*/
+dl_test
+dl_test_linked
