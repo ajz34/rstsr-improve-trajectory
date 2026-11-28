@@ -91,7 +91,7 @@ Files: `operation.rs`, `plan.rs`, one-shots, tests.
    (accepted) with a note that 2.4.1 declines.
 Done when: all pass; `--lib` green; clippy clean.
 
-## B4 - bench and docs
+## B4 (implemented, uncommitted) - bench and docs
 
 1. `benches/bench_cutensor_wrap.rs` (`harness = false`): one-shot vs held plan per operation at the
    probe shapes (f64/f32 2048^3, c64 1024^3, batched 64x(256,256), `abc,cbd->ad` non-GEMM), planning
