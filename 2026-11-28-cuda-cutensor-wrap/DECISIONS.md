@@ -128,7 +128,10 @@ at any `beta` (in-place accumulation, `d += alpha * opA(A) * opB(B)` at `beta = 
 the original text ("None requires beta == 0") made in-place accumulation inexpressible — passing the
 same tensor as `c` and `d` is two aliasing borrows, which safe Rust forbids; cuTENSOR itself defines
 the C-pointer = D-pointer form (probe2 D1c/D2 verified it at `beta = 0` and `beta = 1`). `Some(c)`
-must have D's layout (`descC == descD`, `modeC == modeD`); there is no `mode_c` parameter.
+must have D's layout (`descC == descD`, `modeC == modeD`); there is no `mode_c` parameter. Owner
+correction (2026-11-28): `c` is `Option<impl TensorViewAPI>` **by value** — the caller passes a view
+(`t.view()`), uniform with the other operands' by-value convention (R2 Q6); the B2 working tree
+briefly had `Option<&impl TensorViewAPI>`, an unnecessary deviation.
 
 **D16a - `opC` has no parameter on contraction** (B2 amendment of D8's wording). The contraction
 constructor pins `opC = CUTENSOR_OP_IDENTITY` and takes no argument: no cuTENSOR version honours a
