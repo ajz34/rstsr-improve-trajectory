@@ -41,7 +41,7 @@ new `src/cutensor_wrap/{mod.rs, handle.rs, error.rs, compute.rs, workspace.rs, d
 Done when: `cargo test -p rstsr-cuda --lib` green (incl. the new units), `cargo build -p rstsr-cuda`
 green, clippy clean.
 
-## B2 - contraction end to end
+## B2 - contraction end to end (committed as rstsr `8a84c9d`)
 
 Files: `src/cutensor_wrap/{descriptor.rs, operation.rs, plan.rs, oneshot.rs (or in mod.rs)}`,
 `tests/test_cutensor_wrap.rs`.
